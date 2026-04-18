@@ -15,6 +15,7 @@
 import { Router } from 'express';
 import { reversalService } from '../../services/reversal-service';
 import { asyncHandler } from '../../middleware/async-handler';
+import { requireRole } from '../../middleware/auth';
 
 const router = Router();
 
@@ -43,6 +44,7 @@ router.get(
 /** POST / -- Request a new reversal */
 router.post(
   '/',
+  requireRole('COMPLIANCE_OFFICER', 'OPERATIONS_HEAD'),
   asyncHandler(async (req, res) => {
     const { transactionId, reason, evidence, requestedBy } = req.body;
     if (!transactionId) {
@@ -101,6 +103,7 @@ router.get(
 /** POST /:id/approve -- Approve reversal */
 router.post(
   '/:id/approve',
+  requireRole('COMPLIANCE_OFFICER', 'OPERATIONS_HEAD'),
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
@@ -139,6 +142,7 @@ router.post(
 /** POST /:id/reject -- Reject reversal */
 router.post(
   '/:id/reject',
+  requireRole('COMPLIANCE_OFFICER', 'OPERATIONS_HEAD'),
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
@@ -173,6 +177,7 @@ router.post(
 /** POST /:id/execute -- Execute reversal */
 router.post(
   '/:id/execute',
+  requireRole('COMPLIANCE_OFFICER', 'OPERATIONS_HEAD'),
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {

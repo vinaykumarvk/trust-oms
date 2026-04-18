@@ -13,6 +13,7 @@
 
 import { Router } from 'express';
 import { asyncHandler } from '../../middleware/async-handler';
+import { requireRole } from '../../middleware/auth';
 import { surveillanceService } from '../../services/surveillance-service';
 
 const router = Router();
@@ -24,6 +25,7 @@ const router = Router();
 /** POST /evaluate -- Evaluate a surveillance pattern against an order */
 router.post(
   '/evaluate',
+  requireRole('COMPLIANCE_OFFICER', 'SURVEILLANCE_OFFICER'),
   asyncHandler(async (req, res) => {
     const { orderId, pattern } = req.body;
 
@@ -94,6 +96,7 @@ router.get(
 /** POST /alerts/:id/disposition -- Disposition a surveillance alert */
 router.post(
   '/alerts/:id/disposition',
+  requireRole('COMPLIANCE_OFFICER', 'SURVEILLANCE_OFFICER'),
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
@@ -140,6 +143,7 @@ router.post(
 /** POST /anomaly-score -- Compute anomaly score for an RM */
 router.post(
   '/anomaly-score',
+  requireRole('COMPLIANCE_OFFICER', 'SURVEILLANCE_OFFICER'),
   asyncHandler(async (req, res) => {
     const { rmId } = req.body;
 

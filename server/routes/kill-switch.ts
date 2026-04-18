@@ -14,6 +14,7 @@
 
 import { Router } from 'express';
 import { asyncHandler } from '../middleware/async-handler';
+import { requireAnyRole } from '../middleware/role-auth';
 import { killSwitchService } from '../services/kill-switch-service';
 
 const router = Router();
@@ -25,8 +26,9 @@ const router = Router();
 /** POST / -- Invoke the kill switch to halt trading */
 router.post(
   '/',
+  requireAnyRole('CRO', 'CCO', 'HEAD_TRADER', 'COMPLIANCE_OFFICER'),
   asyncHandler(async (req, res) => {
-    const { scope, reason, invokedBy } = req.body;
+    const { scope, reason } = req.body;
 
     if (!scope || !scope.type || !scope.value) {
       return res.status(400).json({
@@ -46,22 +48,15 @@ router.post(
       });
     }
 
-    if (!invokedBy || !invokedBy.userId || !invokedBy.role) {
-      return res.status(400).json({
-        error: {
-          code: 'INVALID_INPUT',
-          message: 'invokedBy with userId and role is required',
-        },
-      });
-    }
-
+    // Use authenticated identity from JWT — never trust client-supplied role
+    const userIdNum = parseInt(req.userId || '0', 10) || 0;
     const halt = await killSwitchService.invokeKillSwitch({
       scope,
       reason,
       invokedBy: {
-        userId: invokedBy.userId,
-        role: invokedBy.role,
-        mfaVerified: invokedBy.mfaVerified ?? false,
+        userId: userIdNum,
+        role: req.userRole!,
+        mfaVerified: false, // TODO: MFA verification in Phase 0C
       },
     });
 
@@ -131,6 +126,7 @@ router.get(
 /** POST /:id/resume -- Resume trading with dual approval */
 router.post(
   '/:id/resume',
+  requireAnyRole('CRO', 'CCO', 'HEAD_TRADER', 'COMPLIANCE_OFFICER'),
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {

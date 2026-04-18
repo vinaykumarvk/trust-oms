@@ -749,6 +749,7 @@ export default function ClientOnboarding() {
           return (
             <div key={s.id} className="flex items-center gap-1">
               <button
+                type="button"
                 onClick={() => {
                   if (isCompleted) setStep(s.id);
                 }}

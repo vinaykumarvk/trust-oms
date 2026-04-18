@@ -19,6 +19,7 @@
 
 import { Router } from 'express';
 import { asyncHandler } from '../../middleware/async-handler';
+import { requireRole } from '../../middleware/auth';
 import { complianceLimitService } from '../../services/compliance-limit-service';
 import { preTradeValidationService } from '../../services/pre-trade-validation-service';
 import { postTradeComplianceService } from '../../services/post-trade-compliance-service';
@@ -58,6 +59,7 @@ router.get(
 /** POST /limits -- Upsert a compliance limit */
 router.post(
   '/limits',
+  requireRole('COMPLIANCE_OFFICER', 'RISK_OFFICER'),
   asyncHandler(async (req, res) => {
     const {
       id,
@@ -101,6 +103,7 @@ router.post(
 /** DELETE /limits/:id -- Soft delete a compliance limit */
 router.delete(
   '/limits/:id',
+  requireRole('COMPLIANCE_OFFICER', 'RISK_OFFICER'),
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
@@ -121,6 +124,7 @@ router.delete(
 /** POST /validate-order/:orderId -- Run pre-trade validation on an order */
 router.post(
   '/validate-order/:orderId',
+  requireRole('COMPLIANCE_OFFICER', 'RISK_OFFICER'),
   asyncHandler(async (req, res) => {
     const { orderId } = req.params;
 
@@ -179,6 +183,7 @@ router.get(
 /** POST /overrides -- Create a validation override */
 router.post(
   '/overrides',
+  requireRole('COMPLIANCE_OFFICER', 'RISK_OFFICER'),
   asyncHandler(async (req, res) => {
     const {
       orderId,

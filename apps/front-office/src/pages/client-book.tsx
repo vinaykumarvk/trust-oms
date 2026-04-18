@@ -106,6 +106,7 @@ function SortableHeader({
   return (
     <TableHead>
       <button
+        type="button"
         className="flex items-center gap-1 hover:text-foreground transition-colors"
         onClick={() => onSort(field)}
       >

@@ -337,7 +337,7 @@ function DomainCard({ domain, meta, isExpanded, onToggle }: DomainCardProps) {
     <Collapsible open={isExpanded} onOpenChange={onToggle}>
       <Card className="overflow-hidden">
         <CollapsibleTrigger asChild>
-          <button className="w-full text-left">
+          <button type="button" className="w-full text-left">
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">

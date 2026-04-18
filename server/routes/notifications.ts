@@ -16,6 +16,7 @@
 import { Router } from 'express';
 import { notificationService } from '../services/notification-service';
 import { asyncHandler } from '../middleware/async-handler';
+import { requireAnyRole } from '../middleware/role-auth';
 
 const router = Router();
 
@@ -45,7 +46,7 @@ router.put('/preferences/:userId', asyncHandler(async (req, res) => {
 // POST /dispatch — Dispatch a notification
 // --------------------------------------------------------------------------
 
-router.post('/dispatch', asyncHandler(async (req, res) => {
+router.post('/dispatch', requireAnyRole('BO_MAKER', 'BO_CHECKER', 'BO_HEAD'), asyncHandler(async (req, res) => {
   const { eventType, channel, recipientId, recipientType, content } = req.body;
 
   if (!eventType || !channel || !recipientId || !content) {
@@ -72,7 +73,7 @@ router.post('/dispatch', asyncHandler(async (req, res) => {
 // POST /retry-failed — Retry all failed notifications
 // --------------------------------------------------------------------------
 
-router.post('/retry-failed', asyncHandler(async (_req, res) => {
+router.post('/retry-failed', requireAnyRole('BO_HEAD'), asyncHandler(async (_req, res) => {
   const result = await notificationService.retryFailed();
   res.json(result);
 }));

@@ -185,6 +185,7 @@ export default function MessagesPage() {
             <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto">
               {messages.map((msg) => (
                 <button
+                  type="button"
                   key={msg.id}
                   onClick={() => handleSelectMessage(msg)}
                   className={`w-full text-left p-4 transition-colors hover:bg-slate-50 ${

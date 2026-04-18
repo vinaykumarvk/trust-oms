@@ -15,6 +15,7 @@
 
 import { Router } from 'express';
 import { asyncHandler } from '../../middleware/async-handler';
+import { requireRole } from '../../middleware/auth';
 import { oreService } from '../../services/ore-service';
 
 const router = Router();
@@ -86,6 +87,7 @@ router.get(
 /** POST / — Record a new ORE event */
 router.post(
   '/',
+  requireRole('RISK_OFFICER', 'COMPLIANCE_OFFICER'),
   asyncHandler(async (req, res) => {
     const { baselCategory, description } = req.body;
 
@@ -106,6 +108,7 @@ router.post(
 /** POST /:id/quantify — Quantify loss figures for an ORE event */
 router.post(
   '/:id/quantify',
+  requireRole('RISK_OFFICER', 'COMPLIANCE_OFFICER'),
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
@@ -138,6 +141,7 @@ router.post(
 /** POST /:id/root-cause — Record root cause and corrective action */
 router.post(
   '/:id/root-cause',
+  requireRole('RISK_OFFICER', 'COMPLIANCE_OFFICER'),
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
@@ -165,6 +169,7 @@ router.post(
 /** POST /:id/report-bsp — Mark event as reported to BSP */
 router.post(
   '/:id/report-bsp',
+  requireRole('RISK_OFFICER', 'COMPLIANCE_OFFICER'),
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {

@@ -249,6 +249,7 @@ export default function RequestActionPage() {
                   {successResult.referenceNumber}
                 </span>
                 <button
+                  type="button"
                   onClick={() => copyRef(successResult.referenceNumber)}
                   className="p-1 rounded hover:bg-slate-200 transition-colors"
                   aria-label="Copy reference number"
@@ -310,6 +311,7 @@ export default function RequestActionPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {ACTION_TYPES.map((at) => (
           <button
+            type="button"
             key={at.value}
             onClick={() => {
               setActionType(at.value);

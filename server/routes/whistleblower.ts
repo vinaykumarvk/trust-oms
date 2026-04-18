@@ -15,6 +15,7 @@
 
 import { Router } from 'express';
 import { asyncHandler } from '../middleware/async-handler';
+import { requireRole } from '../middleware/auth';
 import { whistleblowerService } from '../services/whistleblower-service';
 
 const router = Router();
@@ -103,6 +104,7 @@ router.post(
 /** POST /:id/assign — Assign a CCO reviewer to the case */
 router.post(
   '/:id/assign',
+  requireRole('COMPLIANCE_OFFICER', 'ETHICS_OFFICER'),
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
@@ -129,6 +131,7 @@ router.post(
 /** PUT /:id — Update case status and/or resolution */
 router.put(
   '/:id',
+  requireRole('COMPLIANCE_OFFICER', 'ETHICS_OFFICER'),
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
@@ -158,6 +161,7 @@ router.put(
 /** POST /:id/notify-dpo — Notify DPO for this case */
 router.post(
   '/:id/notify-dpo',
+  requireRole('COMPLIANCE_OFFICER', 'ETHICS_OFFICER'),
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {

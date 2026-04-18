@@ -542,6 +542,9 @@ export default function CommitteeWorkspace() {
   // Render
   // =========================================================================
 
+  const queryError = presenceQuery.error || votesQuery.error || messagesQuery.error;
+  if (queryError) return <div className="p-6 text-center text-destructive">Failed to load data. Please try again.</div>;
+
   return (
     <div className="flex flex-col h-full min-h-screen bg-background">
       {/* ==================================================================

@@ -757,9 +757,12 @@ describe('Auth Middleware — Session & Authentication Pattern', () => {
   });
 
   it('should attach userId, userRole, userEmail to request object', () => {
+    // Build a minimal JWT-structured token (header.payload.signature)
+    const payload = Buffer.from(JSON.stringify({ sub: 'user-1', role: 'rm', email: 'test@trustoms.local' })).toString('base64url');
+    const fakeJwt = `eyJhbGciOiJIUzI1NiJ9.${payload}.fakesig`;
     const req = {
       path: '/api/v1/orders',
-      headers: { authorization: 'Bearer test-token' },
+      headers: { authorization: `Bearer ${fakeJwt}` },
     } as any;
 
     const res = {

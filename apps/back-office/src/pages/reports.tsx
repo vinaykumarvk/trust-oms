@@ -353,6 +353,7 @@ interface ReportItemProps {
 function ReportItem({ report, isSelected, onClick }: ReportItemProps) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={`w-full text-left px-3 py-2 rounded-md transition-colors text-sm ${
         isSelected

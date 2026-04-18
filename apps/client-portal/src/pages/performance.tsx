@@ -144,6 +144,7 @@ export default function PerformancePage() {
       <div className="flex flex-wrap gap-2">
         {PERIODS.map((p) => (
           <button
+            type="button"
             key={p.value}
             onClick={() => setSelectedPeriod(p.value)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${

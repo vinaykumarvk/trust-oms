@@ -442,6 +442,8 @@ export default function WhatIfScenarioPage() {
   // Render
   // ---------------------------------------------------------------------------
 
+  if (portfoliosQuery.error) return <div className="p-6 text-center text-destructive">Failed to load data. Please try again.</div>;
+
   return (
     <div className="flex h-full">
       {/* ================================================================= */}
@@ -534,6 +536,7 @@ export default function WhatIfScenarioPage() {
                   <div className="absolute z-50 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
                     {securities.map((sec: SecurityListItem) => (
                       <button
+                        type="button"
                         key={sec.id}
                         className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center justify-between"
                         onClick={() => handleSelectSecurity(sec)}
@@ -772,6 +775,7 @@ export default function WhatIfScenarioPage() {
             <div className="space-y-2">
               {history.map((scenario: ScenarioResult) => (
                 <button
+                  type="button"
                   key={scenario.id}
                   className={`w-full text-left p-3 rounded-lg border text-xs transition-colors ${
                     analysisResult?.id === scenario.id
