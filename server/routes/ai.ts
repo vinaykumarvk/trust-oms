@@ -30,7 +30,7 @@ const router = Router();
 router.post('/suitability/predict', asyncHandler(async (req, res) => {
   const { clientId, ...features } = req.body;
   const prediction = aiSuitabilityService.predictRiskProfile(features, clientId);
-  res.json(prediction);
+  res.json({ data: prediction });
 }));
 
 /** GET /suitability/explain/:predictionId — Explain a prediction */
@@ -39,19 +39,19 @@ router.get('/suitability/explain/:predictionId', asyncHandler(async (req, res) =
   if (!explanation) {
     return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Prediction not found' } });
   }
-  res.json(explanation);
+  res.json({ data: explanation });
 }));
 
 /** GET /suitability/shadow/:clientId — Run shadow-mode comparison */
 router.get('/suitability/shadow/:clientId', asyncHandler(async (req, res) => {
   const result = await aiSuitabilityService.shadowMode(req.params.clientId);
-  res.json(result);
+  res.json({ data: result });
 }));
 
 /** GET /suitability/metrics — Get model performance metrics */
 router.get('/suitability/metrics', asyncHandler(async (_req, res) => {
   const metrics = aiSuitabilityService.getModelMetrics();
-  res.json(metrics);
+  res.json({ data: metrics });
 }));
 
 /** GET /suitability/history — Get prediction history */
@@ -88,7 +88,7 @@ router.post('/routing/recommend', asyncHandler(async (req, res) => {
     Number(quantity),
     String(side).toUpperCase(),
   );
-  res.json(result);
+  res.json({ data: result });
 }));
 
 /** GET /routing/quality/:brokerId — Broker execution quality analytics */
@@ -98,7 +98,7 @@ router.get('/routing/quality/:brokerId', asyncHandler(async (req, res) => {
   if (!result) {
     return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Broker not found' } });
   }
-  res.json(result);
+  res.json({ data: result });
 }));
 
 /** GET /routing/leaderboard — Broker leaderboard */

@@ -246,6 +246,7 @@ export default function TaxManagement() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Philippine WHT Rate Schedule</DialogTitle></DialogHeader>
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -262,6 +263,7 @@ export default function TaxManagement() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
@@ -363,6 +365,7 @@ export default function TaxManagement() {
 
           <Card>
             <CardContent className="p-0">
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -407,6 +410,7 @@ export default function TaxManagement() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
 
@@ -474,6 +478,7 @@ export default function TaxManagement() {
                   </div>
                   {birResult.note && <p className="text-sm text-muted-foreground">{birResult.note}</p>}
                   {birResult.data.length > 0 ? (
+                    <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -496,6 +501,7 @@ export default function TaxManagement() {
                         ))}
                       </TableBody>
                     </Table>
+                    </div>
                   ) : (
                     <p className="text-sm text-muted-foreground text-center py-3">No matching tax events for the selected criteria.</p>
                   )}
@@ -593,6 +599,7 @@ export default function TaxManagement() {
               {filings.length > 0 && (
                 <>
                   <Separator />
+                  <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -615,6 +622,7 @@ export default function TaxManagement() {
                       ))}
                     </TableBody>
                   </Table>
+                  </div>
                 </>
               )}
 

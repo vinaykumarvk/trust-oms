@@ -184,8 +184,8 @@ export default function AdminConsole() {
     <div className="space-y-6 p-4 max-w-[1600px] mx-auto">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Admin Console</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Admin Console</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           System administration, user management, and platform configuration
         </p>
       </div>
@@ -317,7 +317,7 @@ function UsersTab() {
           </Button>
         </div>
         <div className="flex items-center gap-2 mt-2">
-          <Search className="h-4 w-4 text-gray-400" />
+          <Search className="h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search users by name, email, or role..."
             value={search}
@@ -327,10 +327,10 @@ function UsersTab() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="rounded-md border overflow-hidden">
+        <div className="overflow-x-auto rounded-md border overflow-hidden">
           <Table>
             <TableHeader>
-              <TableRow className="bg-gray-50">
+              <TableRow className="bg-muted">
                 <TableHead className="font-semibold w-12">ID</TableHead>
                 <TableHead className="font-semibold">Name</TableHead>
                 <TableHead className="font-semibold">Email</TableHead>
@@ -343,10 +343,10 @@ function UsersTab() {
             <TableBody>
               {filteredUsers.length > 0 ? (
                 filteredUsers.map((user) => (
-                  <TableRow key={user.id} className="hover:bg-gray-50">
-                    <TableCell className="text-xs text-gray-500">{user.id}</TableCell>
+                  <TableRow key={user.id} className="hover:bg-muted">
+                    <TableCell className="text-xs text-muted-foreground">{user.id}</TableCell>
                     <TableCell className="font-medium text-sm">{user.fullName}</TableCell>
-                    <TableCell className="text-sm text-gray-600">{user.email}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{user.email}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs">
                         {user.role}
@@ -358,7 +358,7 @@ function UsersTab() {
                         className={`text-xs ${
                           user.status === "Active"
                             ? "bg-green-50 text-green-700 border-green-200"
-                            : "bg-gray-100 text-gray-500 border-gray-200"
+                            : "bg-muted text-muted-foreground border-border"
                         }`}
                       >
                         {user.status === "Active" ? (
@@ -369,7 +369,7 @@ function UsersTab() {
                         {user.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-xs text-gray-500">{user.lastLogin}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{user.lastLogin}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Button
@@ -402,7 +402,7 @@ function UsersTab() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-gray-400 py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     No users match the search criteria
                   </TableCell>
                 </TableRow>
@@ -410,7 +410,7 @@ function UsersTab() {
             </TableBody>
           </Table>
         </div>
-        <div className="mt-2 text-xs text-gray-400">
+        <div className="mt-2 text-xs text-muted-foreground">
           Showing {filteredUsers.length} of {users.length} users
         </div>
       </CardContent>
@@ -567,7 +567,7 @@ function RolesTab() {
               Role Definitions ({STUB_ROLES.length} roles)
             </CardTitle>
             <div className="flex items-center gap-2">
-              <Search className="h-4 w-4 text-gray-400" />
+              <Search className="h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search roles..."
                 value={search}
@@ -578,10 +578,10 @@ function RolesTab() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border overflow-hidden">
+          <div className="overflow-x-auto rounded-md border overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="bg-gray-50">
+                <TableRow className="bg-muted">
                   <TableHead className="font-semibold w-12">ID</TableHead>
                   <TableHead className="font-semibold">Role Name</TableHead>
                   <TableHead className="font-semibold w-32">Office</TableHead>
@@ -594,15 +594,15 @@ function RolesTab() {
               </TableHeader>
               <TableBody>
                 {filteredRoles.map((role) => (
-                  <TableRow key={role.id} className="hover:bg-gray-50">
-                    <TableCell className="text-xs text-gray-500">{role.id}</TableCell>
+                  <TableRow key={role.id} className="hover:bg-muted">
+                    <TableCell className="text-xs text-muted-foreground">{role.id}</TableCell>
                     <TableCell className="font-medium text-sm">{role.name}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs">
                         {role.office}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-gray-600">
+                    <TableCell className="text-sm text-muted-foreground">
                       {role.description}
                     </TableCell>
                     <TableCell className="text-center">
@@ -635,10 +635,10 @@ function RolesTab() {
             {Object.entries(officeGroups).map(([office, roles]) => (
               <div
                 key={office}
-                className="text-center p-3 bg-gray-50 rounded-lg border"
+                className="text-center p-3 bg-muted rounded-lg border"
               >
-                <div className="text-lg font-bold text-gray-700">{roles.length}</div>
-                <div className="text-[10px] text-gray-400 uppercase tracking-wider">
+                <div className="text-lg font-bold text-foreground">{roles.length}</div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
                   {office}
                 </div>
               </div>
@@ -672,14 +672,14 @@ function RolesTab() {
               {selectedRole?.permissions.map((perm) => (
                 <div
                   key={perm}
-                  className="flex items-center gap-2 text-xs p-2 bg-gray-50 rounded border"
+                  className="flex items-center gap-2 text-xs p-2 bg-muted rounded border"
                 >
-                  <Lock className="h-3 w-3 text-gray-400 shrink-0" />
-                  <span className="font-mono text-gray-700">{perm}</span>
+                  <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
+                  <span className="font-mono text-foreground">{perm}</span>
                 </div>
               ))}
             </div>
-            <p className="text-xs text-gray-400 mt-3">
+            <p className="text-xs text-muted-foreground mt-3">
               Showing representative permissions. Full permission set managed via Azure AD group mappings.
             </p>
           </div>
@@ -757,10 +757,10 @@ function ConfigTab() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="rounded-md border overflow-hidden">
+        <div className="overflow-x-auto rounded-md border overflow-hidden">
           <Table>
             <TableHeader>
-              <TableRow className="bg-gray-50">
+              <TableRow className="bg-muted">
                 <TableHead className="font-semibold w-24">Category</TableHead>
                 <TableHead className="font-semibold">Key</TableHead>
                 <TableHead className="font-semibold">Description</TableHead>
@@ -770,16 +770,16 @@ function ConfigTab() {
             </TableHeader>
             <TableBody>
               {filteredConfigs.map((config) => (
-                <TableRow key={config.key} className="hover:bg-gray-50">
+                <TableRow key={config.key} className="hover:bg-muted">
                   <TableCell>
                     <Badge variant="outline" className="text-[10px]">
                       {config.category}
                     </Badge>
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-gray-700">
+                  <TableCell className="font-mono text-xs text-foreground">
                     {config.key}
                   </TableCell>
-                  <TableCell className="text-sm text-gray-600">
+                  <TableCell className="text-sm text-muted-foreground">
                     {config.description}
                   </TableCell>
                   <TableCell>
@@ -795,7 +795,7 @@ function ConfigTab() {
                         }}
                       />
                     ) : (
-                      <span className="font-mono text-sm font-medium text-gray-800 bg-gray-50 px-2 py-1 rounded">
+                      <span className="font-mono text-sm font-medium text-foreground bg-muted px-2 py-1 rounded">
                         {config.value}
                       </span>
                     )}
@@ -814,7 +814,7 @@ function ConfigTab() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 px-2 text-gray-500"
+                          className="h-7 px-2 text-muted-foreground"
                           onClick={cancelEdit}
                         >
                           <RefreshCw className="h-3 w-3" />
@@ -836,7 +836,7 @@ function ConfigTab() {
             </TableBody>
           </Table>
         </div>
-        <div className="mt-3 flex items-center gap-2 text-xs text-gray-400">
+        <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
           <Info className="h-3 w-3" />
           Configuration changes take effect after the next system restart or cache refresh
         </div>
@@ -880,7 +880,7 @@ function FeatureFlagsTab() {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-base">Feature Flags</CardTitle>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               {enabledCount} of {flags.length} features enabled
             </p>
           </div>
@@ -908,7 +908,7 @@ function FeatureFlagsTab() {
               className={`p-4 rounded-lg border-2 transition-all ${
                 flag.enabled
                   ? "bg-green-50/50 border-green-200"
-                  : "bg-gray-50 border-gray-200"
+                  : "bg-muted border-border"
               }`}
             >
               <div className="flex items-center justify-between mb-2">
@@ -916,9 +916,9 @@ function FeatureFlagsTab() {
                   {flag.enabled ? (
                     <Unlock className="h-4 w-4 text-green-600" />
                   ) : (
-                    <Lock className="h-4 w-4 text-gray-400" />
+                    <Lock className="h-4 w-4 text-muted-foreground" />
                   )}
-                  <span className="font-semibold text-sm text-gray-800">
+                  <span className="font-semibold text-sm text-foreground">
                     {flag.label}
                   </span>
                 </div>
@@ -927,12 +927,12 @@ function FeatureFlagsTab() {
                   onCheckedChange={() => toggleFlag(flag.key)}
                 />
               </div>
-              <p className="text-xs text-gray-500 mb-2">{flag.description}</p>
+              <p className="text-xs text-muted-foreground mb-2">{flag.description}</p>
               <div className="flex items-center justify-between">
                 <Badge variant="outline" className="text-[10px]">
                   {flag.category}
                 </Badge>
-                <span className="font-mono text-[10px] text-gray-400">
+                <span className="font-mono text-[10px] text-muted-foreground">
                   {flag.key}
                 </span>
               </div>
@@ -948,11 +948,11 @@ function FeatureFlagsTab() {
             <div className="text-lg font-bold text-green-700">{enabledCount}</div>
             <div className="text-[10px] text-green-600 uppercase tracking-wider">Enabled</div>
           </div>
-          <div className="text-center p-3 bg-gray-50 rounded-lg border border-gray-100">
-            <div className="text-lg font-bold text-gray-700">
+          <div className="text-center p-3 bg-muted rounded-lg border border-border">
+            <div className="text-lg font-bold text-foreground">
               {flags.length - enabledCount}
             </div>
-            <div className="text-[10px] text-gray-500 uppercase tracking-wider">Disabled</div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Disabled</div>
           </div>
           <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
             <div className="text-lg font-bold text-blue-700">{flags.length}</div>

@@ -81,6 +81,7 @@ function MandatesTab({ portfolioId }: { portfolioId: string }) {
   }
 
   return (
+    <div className="overflow-x-auto">
     <Table>
       <TableHeader>
         <TableRow>
@@ -103,6 +104,7 @@ function MandatesTab({ portfolioId }: { portfolioId: string }) {
         ))}
       </TableBody>
     </Table>
+    </div>
   );
 }
 
@@ -122,6 +124,7 @@ function PositionsTab({ portfolioId }: { portfolioId: string }) {
   }
 
   return (
+    <div className="overflow-x-auto">
     <Table>
       <TableHeader>
         <TableRow>
@@ -146,6 +149,7 @@ function PositionsTab({ portfolioId }: { portfolioId: string }) {
         ))}
       </TableBody>
     </Table>
+    </div>
   );
 }
 
@@ -165,6 +169,7 @@ function FeesTab({ portfolioId }: { portfolioId: string }) {
   }
 
   return (
+    <div className="overflow-x-auto">
     <Table>
       <TableHeader>
         <TableRow>
@@ -187,6 +192,7 @@ function FeesTab({ portfolioId }: { portfolioId: string }) {
         ))}
       </TableBody>
     </Table>
+    </div>
   );
 }
 

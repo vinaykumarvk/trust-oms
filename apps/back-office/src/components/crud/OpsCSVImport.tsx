@@ -538,6 +538,7 @@ export function OpsCSVImport({
         </div>
 
         <ScrollArea className="max-h-[350px]">
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -573,6 +574,7 @@ export function OpsCSVImport({
               })}
             </TableBody>
           </Table>
+          </div>
         </ScrollArea>
       </div>
     );
@@ -608,6 +610,7 @@ export function OpsCSVImport({
           <div className="space-y-2">
             <p className="text-sm font-medium">Error Details</p>
             <ScrollArea className="max-h-[250px]">
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -626,6 +629,7 @@ export function OpsCSVImport({
                   ))}
                 </TableBody>
               </Table>
+              </div>
             </ScrollArea>
           </div>
         )}

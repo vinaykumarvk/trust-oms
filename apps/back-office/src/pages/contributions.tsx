@@ -349,7 +349,7 @@ function ContributionTable({ rows, loading, onApprove, onPost, approving, postin
   const cols = showActions ? 9 : 8;
 
   return (
-    <div className="rounded-md border">
+    <div className="overflow-x-auto rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
@@ -389,7 +389,7 @@ function ContributionTable({ rows, loading, onApprove, onPost, approving, postin
                 <TableCell className="text-xs">{c.source_account}</TableCell>
                 <TableCell><Badge variant="outline">{c.type}</Badge></TableCell>
                 <TableCell>
-                  <Badge className={STATUS_COLORS[c.contribution_status ?? ""] ?? "bg-gray-100 text-gray-800"}>
+                  <Badge className={STATUS_COLORS[c.contribution_status ?? ""] ?? "bg-muted text-foreground"}>
                     {c.contribution_status}
                   </Badge>
                 </TableCell>

@@ -85,7 +85,7 @@ interface ProposedTrade {
 
 /* ---------- Helpers ---------- */
 const STATUS_COLORS: Record<string, string> = {
-  DRAFT: "bg-gray-100 text-gray-800",
+  DRAFT: "bg-muted text-foreground",
   PENDING: "bg-yellow-100 text-yellow-800",
   APPROVED: "bg-blue-100 text-blue-800",
   EXECUTED: "bg-green-100 text-green-800",
@@ -103,7 +103,7 @@ const fmtDate = (d: string) => {
   }
 };
 const fmtQty = (n: number) => n.toLocaleString("en-PH", { maximumFractionDigits: 4 });
-const bc = (map: Record<string, string>, key: string) => map[key] ?? "bg-gray-100 text-gray-800";
+const bc = (map: Record<string, string>, key: string) => map[key] ?? "bg-muted text-foreground";
 
 function SkeletonRows({ cols, rows = 5 }: { cols: number; rows?: number }) {
   return (
@@ -359,7 +359,7 @@ export default function PortfolioModeling() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border">
+              <div className="overflow-x-auto rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -382,7 +382,7 @@ export default function PortfolioModeling() {
                           </TableCell>
                           <TableCell className="font-mono">{m.allocations?.length ?? 0}</TableCell>
                           <TableCell>
-                            <Badge className={m.active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
+                            <Badge className={m.active ? "bg-green-100 text-green-800" : "bg-muted text-foreground"}>
                               {m.active ? "Active" : "Inactive"}
                             </Badge>
                           </TableCell>
@@ -455,7 +455,7 @@ export default function PortfolioModeling() {
             <Card>
               <CardHeader className="pb-3"><CardTitle className="text-base">Deviation Analysis</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <div className="rounded-md border">
+                <div className="overflow-x-auto rounded-md border">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -472,7 +472,7 @@ export default function PortfolioModeling() {
                           <TableCell className="text-right font-mono">{fmtPct(d.actual_pct)}</TableCell>
                           <TableCell className="text-right font-mono">{fmtPct(d.deviation_pct)}</TableCell>
                           <TableCell>
-                            <Badge className={d.deviation_pct > 0 ? "bg-red-100 text-red-800" : d.deviation_pct < 0 ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
+                            <Badge className={d.deviation_pct > 0 ? "bg-red-100 text-red-800" : d.deviation_pct < 0 ? "bg-green-100 text-green-800" : "bg-muted text-foreground"}>
                               {d.deviation_pct > 0 ? "Over" : d.deviation_pct < 0 ? "Under" : "On Target"}
                             </Badge>
                           </TableCell>
@@ -554,7 +554,7 @@ export default function PortfolioModeling() {
                     type="checkbox"
                     checked={rebalIsGroup}
                     onChange={(e) => setRebalIsGroup(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300"
+                    className="h-4 w-4 rounded border-border"
                   />
                 </div>
 
@@ -597,7 +597,7 @@ export default function PortfolioModeling() {
                       type="checkbox"
                       checked={rebalIncludeHeld}
                       onChange={(e) => setRebalIncludeHeld(e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300"
+                      className="h-4 w-4 rounded border-border"
                     />
                     <label className="text-sm font-medium">Include held-away assets</label>
                   </div>
@@ -629,7 +629,7 @@ export default function PortfolioModeling() {
                 ) : actions.length === 0 ? (
                   <p className="py-4 text-center text-sm text-muted-foreground">No rebalancing actions generated. Portfolio may already be aligned with the model.</p>
                 ) : (
-                  <div className="rounded-md border">
+                  <div className="overflow-x-auto rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -861,7 +861,7 @@ export default function PortfolioModeling() {
               {stressMut.data && stressMut.data.length > 0 && (
                 <>
                   <Separator />
-                  <div className="rounded-md border">
+                  <div className="overflow-x-auto rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -900,7 +900,7 @@ export default function PortfolioModeling() {
               <CardDescription>Track, approve, and execute rebalancing runs</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border">
+              <div className="overflow-x-auto rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -996,7 +996,7 @@ export default function PortfolioModeling() {
                   <Plus className="mr-1 h-3 w-3" /> Add Row
                 </Button>
               </div>
-              <div className="rounded-md border">
+              <div className="overflow-x-auto rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>

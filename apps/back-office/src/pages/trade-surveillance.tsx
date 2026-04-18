@@ -118,7 +118,7 @@ function scoreColor(score: number): string {
 }
 
 function dispositionBadge(disposition: string | null): { label: string; className: string } {
-  if (!disposition) return { label: "PENDING", className: "bg-gray-100 text-gray-700 border-gray-200" };
+  if (!disposition) return { label: "PENDING", className: "bg-muted text-foreground border-border" };
   switch (disposition) {
     case "FALSE_POSITIVE":
       return { label: "FALSE POSITIVE", className: "bg-green-100 text-green-700 border-green-200" };
@@ -127,7 +127,7 @@ function dispositionBadge(disposition: string | null): { label: string; classNam
     case "ESCALATE":
       return { label: "ESCALATED", className: "bg-red-100 text-red-700 border-red-200" };
     default:
-      return { label: disposition, className: "bg-gray-100 text-gray-700 border-gray-200" };
+      return { label: disposition, className: "bg-muted text-foreground border-border" };
   }
 }
 
@@ -413,7 +413,7 @@ export default function TradeSurveillance() {
       </div>
 
       {/* Alerts Table */}
-      <div className="rounded-md border">
+      <div className="overflow-x-auto rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -462,7 +462,7 @@ export default function TradeSurveillance() {
                     <TableCell>
                       <Badge
                         variant="outline"
-                        className={PATTERN_COLORS[alert.pattern] ?? "bg-gray-100 text-gray-800"}
+                        className={PATTERN_COLORS[alert.pattern] ?? "bg-muted text-foreground"}
                       >
                         {alert.pattern.replace(/_/g, " ")}
                       </Badge>
@@ -479,7 +479,7 @@ export default function TradeSurveillance() {
                         {(alert.order_ids ?? []).slice(0, 3).map((oid, idx) => (
                           <span
                             key={idx}
-                            className="inline-block rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-700"
+                            className="inline-block rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground"
                           >
                             {oid.length > 8 ? `${oid.substring(0, 8)}...` : oid}
                           </span>
@@ -618,20 +618,20 @@ export default function TradeSurveillance() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-muted-foreground">Peer Average</span>
-                    <span className="text-lg font-semibold text-gray-700">
+                    <span className="text-lg font-semibold text-foreground">
                       {anomalyResult.peer_avg.toFixed(1)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-muted-foreground">Std Deviation</span>
-                    <span className="text-lg font-semibold text-gray-700">
+                    <span className="text-lg font-semibold text-foreground">
                       {anomalyResult.std_dev.toFixed(2)}
                     </span>
                   </div>
                   {/* Visual bar comparing score vs peer avg */}
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Score vs Peer Average</p>
-                    <div className="relative h-4 w-full rounded-full bg-gray-200">
+                    <div className="relative h-4 w-full rounded-full bg-muted">
                       <div
                         className="absolute h-4 rounded-full bg-blue-400 opacity-50"
                         style={{ width: `${Math.min(anomalyResult.peer_avg, 100)}%` }}
@@ -710,7 +710,7 @@ export default function TradeSurveillance() {
                   <span className="text-xs text-muted-foreground">Pattern</span>
                   <Badge
                     variant="outline"
-                    className={PATTERN_COLORS[selectedAlert.pattern] ?? "bg-gray-100 text-gray-800"}
+                    className={PATTERN_COLORS[selectedAlert.pattern] ?? "bg-muted text-foreground"}
                   >
                     {selectedAlert.pattern.replace(/_/g, " ")}
                   </Badge>
@@ -729,7 +729,7 @@ export default function TradeSurveillance() {
                     {(selectedAlert.order_ids ?? []).map((oid, idx) => (
                       <span
                         key={idx}
-                        className="inline-block rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-700"
+                        className="inline-block rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground"
                       >
                         {oid}
                       </span>

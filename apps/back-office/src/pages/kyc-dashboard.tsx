@@ -74,7 +74,7 @@ function statusBadge(status: string | null) {
     case 'EXPIRED':
       return <Badge className="bg-red-100 text-red-800">Expired</Badge>;
     case 'REJECTED':
-      return <Badge className="bg-gray-100 text-gray-800">Rejected</Badge>;
+      return <Badge className="bg-muted text-foreground">Rejected</Badge>;
     default:
       return <Badge variant="outline">{status ?? 'Unknown'}</Badge>;
   }
@@ -270,7 +270,7 @@ export default function KycDashboard() {
             </Button>
           </div>
 
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>

@@ -48,7 +48,7 @@ router.get(
   '/conduct-risk',
   asyncHandler(async (_req, res) => {
     const dashboard = await whistleblowerService.getConductRiskDashboard();
-    res.json(dashboard);
+    res.json({ data: dashboard });
   }),
 );
 
@@ -73,7 +73,7 @@ router.get(
       });
     }
 
-    res.json(wbCase);
+    res.json({ data: wbCase });
   }),
 );
 
@@ -97,7 +97,7 @@ router.post(
       description,
       anonymous,
     });
-    res.status(201).json(wbCase);
+    res.status(201).json({ data: wbCase });
   }),
 );
 
@@ -124,7 +124,7 @@ router.post(
       id,
       parseInt(ccoId, 10),
     );
-    res.json(wbCase);
+    res.json({ data: wbCase });
   }),
 );
 
@@ -154,7 +154,7 @@ router.put(
       status,
       resolution,
     });
-    res.json(wbCase);
+    res.json({ data: wbCase });
   }),
 );
 
@@ -171,7 +171,7 @@ router.post(
     }
 
     const wbCase = await whistleblowerService.notifyDPO(id);
-    res.json(wbCase);
+    res.json({ data: wbCase });
   }),
 );
 

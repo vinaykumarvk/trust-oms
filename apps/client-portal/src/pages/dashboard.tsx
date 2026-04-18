@@ -168,10 +168,10 @@ export default function DashboardPage() {
       {/* Welcome */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">
+          <h1 className="text-2xl font-bold text-foreground">
             Welcome back, {clientName}
           </h1>
-          <p className="text-sm text-slate-500 mt-1">{today}</p>
+          <p className="text-sm text-muted-foreground mt-1">{today}</p>
         </div>
         <Button
           className="bg-teal-600 hover:bg-teal-700 text-white"
@@ -185,12 +185,12 @@ export default function DashboardPage() {
       {/* Snapshot Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Total AUM */}
-        <Card className="border-slate-200">
+        <Card className="border-border">
           <CardContent className="p-5">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-slate-500 font-medium">Total Value</p>
-                <p className="text-2xl font-bold text-slate-900 mt-1">
+                <p className="text-sm text-muted-foreground font-medium">Total Value</p>
+                <p className="text-2xl font-bold text-foreground mt-1">
                   {summaryLoading ? "..." : formatCompact(summary?.totalAum ?? 0)}
                 </p>
               </div>
@@ -202,12 +202,12 @@ export default function DashboardPage() {
         </Card>
 
         {/* Portfolio Count */}
-        <Card className="border-slate-200">
+        <Card className="border-border">
           <CardContent className="p-5">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-slate-500 font-medium">Portfolios</p>
-                <p className="text-2xl font-bold text-slate-900 mt-1">
+                <p className="text-sm text-muted-foreground font-medium">Portfolios</p>
+                <p className="text-2xl font-bold text-foreground mt-1">
                   {summaryLoading ? "..." : summary?.portfolioCount ?? 0}
                 </p>
               </div>
@@ -219,12 +219,12 @@ export default function DashboardPage() {
         </Card>
 
         {/* 1Y Performance */}
-        <Card className="border-slate-200">
+        <Card className="border-border">
           <CardContent className="p-5">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-slate-500 font-medium">1Y Return</p>
-                <p className="text-2xl font-bold text-slate-900 mt-1">
+                <p className="text-sm text-muted-foreground font-medium">1Y Return</p>
+                <p className="text-2xl font-bold text-foreground mt-1">
                   {perf1Y ? `${perf1Y.twr.toFixed(2)}%` : "..."}
                 </p>
               </div>
@@ -239,11 +239,11 @@ export default function DashboardPage() {
       {/* Two-column: Allocation + Performance */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Allocation Breakdown */}
-        <Card className="border-slate-200">
+        <Card className="border-border">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <PieChart className="h-4 w-4 text-slate-400" />
-              <CardTitle className="text-base text-slate-900">Asset Allocation</CardTitle>
+              <PieChart className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base text-foreground">Asset Allocation</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
@@ -272,10 +272,10 @@ export default function DashboardPage() {
                           className={`h-3 w-3 rounded-sm shrink-0 ${ALLOCATION_COLORS[i % ALLOCATION_COLORS.length]}`}
                         />
                         <div className="min-w-0">
-                          <p className="text-xs font-medium text-slate-700 truncate">
+                          <p className="text-xs font-medium text-foreground truncate">
                             {a.assetClass}
                           </p>
-                          <p className="text-[10px] text-slate-500">
+                          <p className="text-[10px] text-muted-foreground">
                             {a.weight.toFixed(1)}%
                           </p>
                         </div>
@@ -285,7 +285,7 @@ export default function DashboardPage() {
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-slate-400 py-4 text-center">
+              <p className="text-sm text-muted-foreground py-4 text-center">
                 No allocation data available
               </p>
             )}
@@ -293,11 +293,11 @@ export default function DashboardPage() {
         </Card>
 
         {/* Performance Summary */}
-        <Card className="border-slate-200">
+        <Card className="border-border">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-slate-400" />
-              <CardTitle className="text-base text-slate-900">Performance</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base text-foreground">Performance</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
@@ -308,9 +308,9 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={p.label}
-                    className="rounded-lg border border-slate-100 bg-slate-50/50 p-3"
+                    className="rounded-lg border border-border bg-muted/50 p-3"
                   >
-                    <p className="text-xs text-slate-500 font-medium">{p.label}</p>
+                    <p className="text-xs text-muted-foreground font-medium">{p.label}</p>
                     <div className="flex items-center gap-1 mt-1">
                       {twr !== null ? (
                         <>
@@ -328,7 +328,7 @@ export default function DashboardPage() {
                           </span>
                         </>
                       ) : (
-                        <span className="text-lg font-semibold text-slate-300">--</span>
+                        <span className="text-lg font-semibold text-muted-foreground">--</span>
                       )}
                     </div>
                   </div>
@@ -350,12 +350,12 @@ export default function DashboardPage() {
       </div>
 
       {/* Recent Transactions */}
-      <Card className="border-slate-200">
+      <Card className="border-border">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-slate-400" />
-              <CardTitle className="text-base text-slate-900">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base text-foreground">
                 Recent Transactions
               </CardTitle>
             </div>
@@ -371,7 +371,7 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           {txData?.transactions && txData.transactions.length > 0 ? (
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-border">
               {txData.transactions.map(
                 (tx: {
                   orderId: string;
@@ -403,10 +403,10 @@ export default function DashboardPage() {
                         )}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-900 truncate">
+                        <p className="text-sm font-medium text-foreground truncate">
                           {tx.side} {tx.securityName}
                         </p>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-muted-foreground">
                           {tx.quantity} units &middot;{" "}
                           {tx.createdAt
                             ? new Date(tx.createdAt).toLocaleDateString("en-PH")
@@ -415,7 +415,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="text-right shrink-0 ml-4">
-                      <p className="text-sm font-medium text-slate-900">
+                      <p className="text-sm font-medium text-foreground">
                         {formatCurrency(tx.quantity * tx.price, tx.currency)}
                       </p>
                       <Badge
@@ -425,7 +425,7 @@ export default function DashboardPage() {
                             ? "border-emerald-200 text-emerald-700"
                             : tx.status === "PENDING"
                               ? "border-amber-200 text-amber-700"
-                              : "border-slate-200 text-slate-600"
+                              : "border-border text-muted-foreground"
                         }`}
                       >
                         {tx.status}
@@ -436,7 +436,7 @@ export default function DashboardPage() {
               )}
             </div>
           ) : (
-            <p className="text-sm text-slate-400 py-4 text-center">
+            <p className="text-sm text-muted-foreground py-4 text-center">
               No recent transactions
             </p>
           )}
@@ -445,15 +445,15 @@ export default function DashboardPage() {
 
       {/* Portfolio List */}
       {summary?.portfolios && summary.portfolios.length > 0 && (
-        <Card className="border-slate-200">
+        <Card className="border-border">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <Briefcase className="h-4 w-4 text-slate-400" />
-              <CardTitle className="text-base text-slate-900">Your Portfolios</CardTitle>
+              <Briefcase className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base text-foreground">Your Portfolios</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-border">
               {summary.portfolios.map(
                 (p: {
                   id: string;
@@ -468,13 +468,13 @@ export default function DashboardPage() {
                     className="flex items-center justify-between py-3 first:pt-0 last:pb-0"
                   >
                     <div>
-                      <p className="text-sm font-medium text-slate-900">{p.name}</p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-sm font-medium text-foreground">{p.name}</p>
+                      <p className="text-xs text-muted-foreground">
                         {p.productType ?? "Portfolio"} &middot; {p.currency}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-semibold text-slate-900">
+                      <p className="text-sm font-semibold text-foreground">
                         {formatCurrency(p.marketValue, p.currency)}
                       </p>
                       <Badge
@@ -482,7 +482,7 @@ export default function DashboardPage() {
                         className={`text-[10px] ${
                           p.status === "active"
                             ? "border-emerald-200 text-emerald-700"
-                            : "border-slate-200 text-slate-600"
+                            : "border-border text-muted-foreground"
                         }`}
                       >
                         {p.status ?? "Active"}

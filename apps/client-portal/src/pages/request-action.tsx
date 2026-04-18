@@ -221,10 +221,10 @@ export default function RequestActionPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Request Submitted</h1>
+          <h1 className="text-2xl font-bold text-foreground">Request Submitted</h1>
         </div>
 
-        <Card className="border-slate-200 max-w-lg mx-auto">
+        <Card className="border-border max-w-lg mx-auto">
           <CardContent className="p-8 text-center">
             <div className="flex justify-center mb-4">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
@@ -232,16 +232,16 @@ export default function RequestActionPage() {
               </div>
             </div>
 
-            <h2 className="text-xl font-bold text-slate-900 mb-2">
+            <h2 className="text-xl font-bold text-foreground mb-2">
               Request Received
             </h2>
-            <p className="text-sm text-slate-500 mb-6">
+            <p className="text-sm text-muted-foreground mb-6">
               Your {successResult.actionType.toLowerCase()} request has been submitted
               for review. Our team will process it within 1-2 business days.
             </p>
 
-            <div className="rounded-lg bg-slate-50 border border-slate-200 p-4 mb-6">
-              <p className="text-xs text-slate-500 uppercase tracking-wider font-medium mb-1">
+            <div className="rounded-lg bg-muted border border-border p-4 mb-6">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-1">
                 Reference Number
               </p>
               <div className="flex items-center justify-center gap-2">
@@ -251,13 +251,13 @@ export default function RequestActionPage() {
                 <button
                   type="button"
                   onClick={() => copyRef(successResult.referenceNumber)}
-                  className="p-1 rounded hover:bg-slate-200 transition-colors"
+                  className="p-1 rounded hover:bg-muted transition-colors"
                   aria-label="Copy reference number"
                 >
-                  <Copy className="h-4 w-4 text-slate-400" />
+                  <Copy className="h-4 w-4 text-muted-foreground" />
                 </button>
               </div>
-              <p className="text-xs text-slate-400 mt-2">
+              <p className="text-xs text-muted-foreground mt-2">
                 Submitted{" "}
                 {new Date(successResult.submittedAt).toLocaleString("en-PH")}
               </p>
@@ -266,7 +266,7 @@ export default function RequestActionPage() {
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Button
                 variant="outline"
-                className="border-slate-300"
+                className="border-border"
                 onClick={handleReset}
               >
                 Submit Another Request
@@ -297,10 +297,10 @@ export default function RequestActionPage() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">
+          <h1 className="text-2xl font-bold text-foreground">
             Submit a Request
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Request an action on your portfolio. All requests require back-office
             approval.
           </p>
@@ -327,28 +327,28 @@ export default function RequestActionPage() {
             className={`p-4 rounded-xl border-2 text-left transition-all ${
               actionType === at.value
                 ? "border-teal-500 bg-teal-50/50 shadow-sm"
-                : "border-slate-200 bg-white hover:border-slate-300"
+                : "border-border bg-card hover:border-muted-foreground/30"
             }`}
           >
             <div className={`inline-flex p-2 rounded-lg ${at.color}`}>
               <at.icon className="h-5 w-5" />
             </div>
-            <p className="text-sm font-semibold text-slate-900 mt-3">
+            <p className="text-sm font-semibold text-foreground mt-3">
               {at.label}
             </p>
-            <p className="text-xs text-slate-500 mt-0.5">{at.description}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{at.description}</p>
           </button>
         ))}
       </div>
 
       {/* Dynamic Form */}
       {actionType && (
-        <Card className="border-slate-200">
+        <Card className="border-border">
           <CardHeader>
-            <CardTitle className="text-base text-slate-900">
+            <CardTitle className="text-base text-foreground">
               {ACTION_TYPES.find((t) => t.value === actionType)?.label} Details
             </CardTitle>
-            <CardDescription className="text-slate-500">
+            <CardDescription className="text-muted-foreground">
               Fill in the details for your request
             </CardDescription>
           </CardHeader>
@@ -359,7 +359,7 @@ export default function RequestActionPage() {
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="amount" className="text-sm text-slate-700">
+                      <Label htmlFor="amount" className="text-sm text-foreground">
                         Amount (PHP)
                       </Label>
                       <Input
@@ -370,12 +370,12 @@ export default function RequestActionPage() {
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
                         placeholder="Enter amount..."
-                        className="mt-1 border-slate-300"
+                        className="mt-1 border-border"
                         required
                       />
                     </div>
                     <div>
-                      <Label htmlFor="sourceAccount" className="text-sm text-slate-700">
+                      <Label htmlFor="sourceAccount" className="text-sm text-foreground">
                         Source Account
                       </Label>
                       <Input
@@ -383,20 +383,20 @@ export default function RequestActionPage() {
                         value={sourceAccount}
                         onChange={(e) => setSourceAccount(e.target.value)}
                         placeholder="Bank account / reference"
-                        className="mt-1 border-slate-300"
+                        className="mt-1 border-border"
                       />
                     </div>
                   </div>
                   {portfolios.length > 0 && (
                     <div>
-                      <Label className="text-sm text-slate-700">
+                      <Label className="text-sm text-foreground">
                         Target Portfolio
                       </Label>
                       <Select
                         value={portfolioId || portfolios[0]?.id}
                         onValueChange={setPortfolioId}
                       >
-                        <SelectTrigger className="mt-1 border-slate-300">
+                        <SelectTrigger className="mt-1 border-border">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -417,7 +417,7 @@ export default function RequestActionPage() {
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="amount" className="text-sm text-slate-700">
+                      <Label htmlFor="amount" className="text-sm text-foreground">
                         Amount (PHP)
                       </Label>
                       <Input
@@ -428,12 +428,12 @@ export default function RequestActionPage() {
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
                         placeholder="Enter amount..."
-                        className="mt-1 border-slate-300"
+                        className="mt-1 border-border"
                         required
                       />
                     </div>
                     <div>
-                      <Label htmlFor="destAccount" className="text-sm text-slate-700">
+                      <Label htmlFor="destAccount" className="text-sm text-foreground">
                         Destination Account
                       </Label>
                       <Input
@@ -441,20 +441,20 @@ export default function RequestActionPage() {
                         value={destinationAccount}
                         onChange={(e) => setDestinationAccount(e.target.value)}
                         placeholder="Receiving bank account"
-                        className="mt-1 border-slate-300"
+                        className="mt-1 border-border"
                       />
                     </div>
                   </div>
                   {portfolios.length > 0 && (
                     <div>
-                      <Label className="text-sm text-slate-700">
+                      <Label className="text-sm text-foreground">
                         From Portfolio
                       </Label>
                       <Select
                         value={portfolioId || portfolios[0]?.id}
                         onValueChange={setPortfolioId}
                       >
-                        <SelectTrigger className="mt-1 border-slate-300">
+                        <SelectTrigger className="mt-1 border-border">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -474,7 +474,7 @@ export default function RequestActionPage() {
               {actionType === "TRANSFER" && (
                 <>
                   <div>
-                    <Label htmlFor="transferAmount" className="text-sm text-slate-700">
+                    <Label htmlFor="transferAmount" className="text-sm text-foreground">
                       Amount (PHP)
                     </Label>
                     <Input
@@ -485,20 +485,20 @@ export default function RequestActionPage() {
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       placeholder="Enter amount..."
-                      className="mt-1 border-slate-300"
+                      className="mt-1 border-border"
                       required
                     />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-sm text-slate-700">
+                      <Label className="text-sm text-foreground">
                         From Portfolio
                       </Label>
                       <Select
                         value={fromPortfolio}
                         onValueChange={setFromPortfolio}
                       >
-                        <SelectTrigger className="mt-1 border-slate-300">
+                        <SelectTrigger className="mt-1 border-border">
                           <SelectValue placeholder="Select source..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -511,14 +511,14 @@ export default function RequestActionPage() {
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-sm text-slate-700">
+                      <Label className="text-sm text-foreground">
                         To Portfolio
                       </Label>
                       <Select
                         value={toPortfolio}
                         onValueChange={setToPortfolio}
                       >
-                        <SelectTrigger className="mt-1 border-slate-300">
+                        <SelectTrigger className="mt-1 border-border">
                           <SelectValue placeholder="Select destination..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -539,7 +539,7 @@ export default function RequestActionPage() {
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="units" className="text-sm text-slate-700">
+                      <Label htmlFor="units" className="text-sm text-foreground">
                         Units / Amount
                       </Label>
                       <Input
@@ -550,20 +550,20 @@ export default function RequestActionPage() {
                         value={units}
                         onChange={(e) => setUnits(e.target.value)}
                         placeholder="Enter units or amount..."
-                        className="mt-1 border-slate-300"
+                        className="mt-1 border-border"
                         required
                       />
                     </div>
                     {portfolios.length > 0 && (
                       <div>
-                        <Label className="text-sm text-slate-700">
+                        <Label className="text-sm text-foreground">
                           Portfolio
                         </Label>
                         <Select
                           value={portfolioId || portfolios[0]?.id}
                           onValueChange={setPortfolioId}
                         >
-                          <SelectTrigger className="mt-1 border-slate-300">
+                          <SelectTrigger className="mt-1 border-border">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -582,7 +582,7 @@ export default function RequestActionPage() {
 
               {/* Notes (common to all) */}
               <div>
-                <Label htmlFor="notes" className="text-sm text-slate-700">
+                <Label htmlFor="notes" className="text-sm text-foreground">
                   Additional Notes (Optional)
                 </Label>
                 <Textarea
@@ -591,7 +591,7 @@ export default function RequestActionPage() {
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Any additional instructions or remarks..."
                   rows={3}
-                  className="mt-1 border-slate-300"
+                  className="mt-1 border-border"
                 />
               </div>
 
@@ -615,7 +615,7 @@ export default function RequestActionPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="border-slate-300"
+                  className="border-border"
                   onClick={handleReset}
                 >
                   Cancel
@@ -645,10 +645,10 @@ export default function RequestActionPage() {
 
       {/* Empty state when no type selected */}
       {!actionType && (
-        <Card className="border-slate-200">
+        <Card className="border-border">
           <CardContent className="py-12 text-center">
-            <ArrowLeftRight className="h-12 w-12 text-slate-200 mx-auto mb-3" />
-            <p className="text-sm text-slate-500">
+            <ArrowLeftRight className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">
               Select an action type above to get started
             </p>
           </CardContent>

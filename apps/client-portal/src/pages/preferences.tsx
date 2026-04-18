@@ -120,22 +120,22 @@ export default function PreferencesPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Preferences</h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Preferences</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Manage your notification and communication preferences
         </p>
       </div>
 
       {/* Notification Preferences */}
-      <Card className="border-slate-200">
+      <Card className="border-border">
         <CardHeader>
           <div className="flex items-center gap-2">
             <Bell className="h-5 w-5 text-teal-600" />
             <div>
-              <CardTitle className="text-base text-slate-900">
+              <CardTitle className="text-base text-foreground">
                 Notification Preferences
               </CardTitle>
-              <CardDescription className="text-slate-500">
+              <CardDescription className="text-muted-foreground">
                 Choose how you want to receive notifications
               </CardDescription>
             </div>
@@ -147,17 +147,17 @@ export default function PreferencesPage() {
               <div key={item.key}>
                 <div className="flex items-center justify-between py-4">
                   <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 shrink-0 mt-0.5">
-                      <item.icon className="h-4 w-4 text-slate-500" />
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted shrink-0 mt-0.5">
+                      <item.icon className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div>
                       <Label
                         htmlFor={`toggle-${item.key}`}
-                        className="text-sm font-medium text-slate-900 cursor-pointer"
+                        className="text-sm font-medium text-foreground cursor-pointer"
                       >
                         {item.label}
                       </Label>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         {item.description}
                       </p>
                     </div>
@@ -170,7 +170,7 @@ export default function PreferencesPage() {
                   />
                 </div>
                 {idx < notificationItems.length - 1 && (
-                  <Separator className="bg-slate-100" />
+                  <Separator className="bg-muted" />
                 )}
               </div>
             ))}
@@ -179,15 +179,15 @@ export default function PreferencesPage() {
       </Card>
 
       {/* Communication Language */}
-      <Card className="border-slate-200">
+      <Card className="border-border">
         <CardHeader>
           <div className="flex items-center gap-2">
             <Globe className="h-5 w-5 text-teal-600" />
             <div>
-              <CardTitle className="text-base text-slate-900">
+              <CardTitle className="text-base text-foreground">
                 Communication Language
               </CardTitle>
-              <CardDescription className="text-slate-500">
+              <CardDescription className="text-muted-foreground">
                 Select your preferred language for communications and reports
               </CardDescription>
             </div>
@@ -195,7 +195,7 @@ export default function PreferencesPage() {
         </CardHeader>
         <CardContent>
           <div className="max-w-xs">
-            <Label htmlFor="language" className="text-sm text-slate-700 mb-2 block">
+            <Label htmlFor="language" className="text-sm text-foreground mb-2 block">
               Preferred Language
             </Label>
             <Select
@@ -204,7 +204,7 @@ export default function PreferencesPage() {
                 setPrefs((prev) => ({ ...prev, language: val }))
               }
             >
-              <SelectTrigger className="border-slate-300" id="language">
+              <SelectTrigger className="border-border" id="language">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -217,15 +217,15 @@ export default function PreferencesPage() {
       </Card>
 
       {/* Security Info (read-only) */}
-      <Card className="border-slate-200">
+      <Card className="border-border">
         <CardHeader>
           <div className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-teal-600" />
             <div>
-              <CardTitle className="text-base text-slate-900">
+              <CardTitle className="text-base text-foreground">
                 Security
               </CardTitle>
-              <CardDescription className="text-slate-500">
+              <CardDescription className="text-muted-foreground">
                 Account security information
               </CardDescription>
             </div>
@@ -235,10 +235,10 @@ export default function PreferencesPage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between py-2">
               <div>
-                <p className="text-sm font-medium text-slate-900">
+                <p className="text-sm font-medium text-foreground">
                   Two-Factor Authentication
                 </p>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted-foreground">
                   Extra security layer for your account
                 </p>
               </div>
@@ -247,29 +247,29 @@ export default function PreferencesPage() {
                 <span className="text-sm font-medium">Enabled</span>
               </div>
             </div>
-            <Separator className="bg-slate-100" />
+            <Separator className="bg-muted" />
             <div className="flex items-center justify-between py-2">
               <div>
-                <p className="text-sm font-medium text-slate-900">
+                <p className="text-sm font-medium text-foreground">
                   Last Password Change
                 </p>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted-foreground">
                   We recommend changing your password every 90 days
                 </p>
               </div>
-              <span className="text-sm text-slate-600">30 days ago</span>
+              <span className="text-sm text-muted-foreground">30 days ago</span>
             </div>
-            <Separator className="bg-slate-100" />
+            <Separator className="bg-muted" />
             <div className="flex items-center justify-between py-2">
               <div>
-                <p className="text-sm font-medium text-slate-900">
+                <p className="text-sm font-medium text-foreground">
                   Active Sessions
                 </p>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted-foreground">
                   Currently signed-in devices
                 </p>
               </div>
-              <span className="text-sm text-slate-600">1 device</span>
+              <span className="text-sm text-muted-foreground">1 device</span>
             </div>
           </div>
         </CardContent>

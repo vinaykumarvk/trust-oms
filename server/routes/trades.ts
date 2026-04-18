@@ -59,7 +59,7 @@ router.post('/blocks', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'traderId is required' } });
   }
   const block = await aggregationService.createBlock(orderIds, traderId);
-  res.status(201).json(block);
+  res.status(201).json({ data: block });
 }));
 
 /** GET /blocks -- List working blocks */
@@ -80,7 +80,7 @@ router.get('/blocks/:id', asyncHandler(async (req, res) => {
   if (!block) {
     return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Block not found' } });
   }
-  res.json(block);
+  res.json({ data: block });
 }));
 
 /** POST /blocks/:id/allocate -- Set allocation policy for a block */
@@ -90,7 +90,7 @@ router.post('/blocks/:id/allocate', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'policy must be PRO_RATA or PRIORITY' } });
   }
   const result = await aggregationService.allocateBlock(req.params.id, policy);
-  res.json(result);
+  res.json({ data: result });
 }));
 
 /** POST /blocks/:id/place -- Place block with broker */
@@ -100,13 +100,13 @@ router.post('/blocks/:id/place', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'brokerId is required' } });
   }
   const result = await placementService.placeBlock(req.params.id, brokerId);
-  res.json(result);
+  res.json({ data: result });
 }));
 
 /** DELETE /blocks/:id/placement -- Cancel placement */
 router.delete('/blocks/:id/placement', asyncHandler(async (req, res) => {
   const result = await placementService.cancelPlacement(req.params.id);
-  res.json(result);
+  res.json({ data: result });
 }));
 
 /** GET /blocks/:id/fills -- Get fills for a block */
@@ -134,7 +134,7 @@ router.post('/fills', asyncHandler(async (req, res) => {
     executionQty: parseFloat(executionQty),
     executionTime: executionTime ? new Date(executionTime) : undefined,
   });
-  res.status(201).json(result);
+  res.status(201).json({ data: result });
 }));
 
 /** GET /fills/order/:orderId -- Get fills for an order */

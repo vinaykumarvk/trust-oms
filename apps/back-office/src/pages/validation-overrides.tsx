@@ -187,7 +187,7 @@ export default function ValidationOverrides() {
       </div>
 
       {/* Table */}
-      <div className="rounded-md border">
+      <div className="overflow-x-auto rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -226,7 +226,7 @@ export default function ValidationOverrides() {
                       o.status === "APPROVED" ? "bg-green-100 text-green-800" :
                       o.status === "PENDING" ? "bg-yellow-100 text-yellow-800" :
                       o.status === "REJECTED" ? "bg-red-100 text-red-800" :
-                      "bg-gray-100 text-gray-800"
+                      "bg-muted text-foreground"
                     }>
                       {o.status}
                     </Badge>

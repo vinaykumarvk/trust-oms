@@ -78,7 +78,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
                   ? "bg-teal-600 text-white shadow-sm"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )
             }
           >
@@ -87,7 +87,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                 <Icon
                   className={cn(
                     "h-5 w-5 shrink-0",
-                    isActive ? "text-white" : "text-slate-400",
+                    isActive ? "text-white" : "text-muted-foreground",
                   )}
                 />
                 <span>{item.label}</span>
@@ -104,15 +104,15 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
 function DesktopSidebar() {
   return (
-    <aside className="hidden lg:flex lg:w-60 lg:flex-shrink-0 flex-col h-dvh border-r border-slate-200 bg-white">
+    <aside className="hidden lg:flex lg:w-60 lg:flex-shrink-0 flex-col h-dvh border-r border-border bg-background">
       {/* Logo */}
-      <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-5">
+      <div className="flex h-16 items-center gap-3 border-b border-border px-5">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-600">
           <span className="text-sm font-bold text-white">T</span>
         </div>
         <div className="flex flex-col">
-          <span className="text-sm font-semibold text-slate-900">TrustOMS</span>
-          <span className="text-[10px] text-slate-500">Client Portal</span>
+          <span className="text-sm font-semibold text-foreground">TrustOMS</span>
+          <span className="text-[10px] text-muted-foreground">Client Portal</span>
         </div>
       </div>
 
@@ -121,8 +121,8 @@ function DesktopSidebar() {
       </ScrollArea>
 
       {/* Footer / branding */}
-      <div className="border-t border-slate-200 px-5 py-3">
-        <p className="text-[10px] text-slate-400">TrustOMS Philippines v1.0</p>
+      <div className="border-t border-border px-5 py-3">
+        <p className="text-[10px] text-muted-foreground">TrustOMS Philippines v1.0</p>
       </div>
     </aside>
   );
@@ -144,7 +144,7 @@ function TopHeader({
   };
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 backdrop-blur px-4 lg:px-6">
+    <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-background/95 backdrop-blur px-4 lg:px-6">
       <div className="flex items-center gap-3">
         {/* Mobile hamburger */}
         <Button
@@ -154,7 +154,7 @@ function TopHeader({
           onClick={onMenuOpen}
           aria-label="Open menu"
         >
-          <Menu className="h-5 w-5 text-slate-600" />
+          <Menu className="h-5 w-5 text-muted-foreground" />
         </Button>
 
         {/* Mobile logo */}
@@ -162,13 +162,13 @@ function TopHeader({
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-teal-600">
             <span className="text-xs font-bold text-white">T</span>
           </div>
-          <span className="text-sm font-semibold text-slate-900">TrustOMS</span>
+          <span className="text-sm font-semibold text-foreground">TrustOMS</span>
         </div>
 
         {/* Desktop welcome */}
         <div className="hidden lg:block">
-          <p className="text-sm text-slate-600">
-            Welcome, <span className="font-semibold text-slate-900">{clientName}</span>
+          <p className="text-sm text-muted-foreground">
+            Welcome, <span className="font-semibold text-foreground">{clientName}</span>
           </p>
         </div>
       </div>
@@ -182,12 +182,12 @@ function TopHeader({
           aria-label="Notifications"
           onClick={() => navigate("/")}
         >
-          <Bell className="h-5 w-5 text-slate-500" />
+          <Bell className="h-5 w-5 text-muted-foreground" />
           <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-teal-500" />
         </Button>
 
         {/* Client name (desktop) */}
-        <span className="hidden lg:inline-flex text-sm text-slate-600 mr-1">{clientName}</span>
+        <span className="hidden lg:inline-flex text-sm text-muted-foreground mr-1">{clientName}</span>
 
         {/* Logout */}
         <Button
@@ -197,7 +197,7 @@ function TopHeader({
           aria-label="Log out"
           onClick={handleLogout}
         >
-          <LogOut className="h-5 w-5 text-slate-500" />
+          <LogOut className="h-5 w-5 text-muted-foreground" />
         </Button>
       </div>
     </header>
@@ -215,18 +215,18 @@ function MobileSidebar({
 }) {
   return (
     <Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <SheetContent side="left" className="w-72 p-0 bg-white">
+      <SheetContent side="left" className="w-72 p-0 bg-background">
         <SheetTitle className="sr-only">Navigation menu</SheetTitle>
 
-        <div className="flex h-16 items-center justify-between border-b border-slate-200 px-5">
+        <div className="flex h-16 items-center justify-between border-b border-border px-5">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-600">
               <span className="text-sm font-bold text-white">T</span>
             </div>
-            <span className="text-sm font-semibold text-slate-900">TrustOMS</span>
+            <span className="text-sm font-semibold text-foreground">TrustOMS</span>
           </div>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose} aria-label="Close menu">
-            <X className="h-4 w-4 text-slate-500" />
+            <X className="h-4 w-4 text-muted-foreground" />
           </Button>
         </div>
 
@@ -247,7 +247,7 @@ export function ClientPortalLayout() {
   const openMobile = useCallback(() => setMobileOpen(true), []);
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-slate-50">
+    <div className="flex h-dvh overflow-hidden bg-muted">
       {/* Desktop sidebar */}
       <DesktopSidebar />
 

@@ -198,7 +198,7 @@ export default function ClientBook() {
       {/* Client Table */}
       <Card>
         <CardContent className="p-0">
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -282,7 +282,7 @@ export default function ClientBook() {
                           <Badge
                             className={
                               riskProfileColors[client.risk_profile] ??
-                              "bg-gray-100 text-gray-800"
+                              "bg-muted text-foreground"
                             }
                           >
                             {client.risk_profile.replace(/_/g, " ")}
@@ -296,7 +296,7 @@ export default function ClientBook() {
                           <Badge
                             className={
                               kycStatusColors[client.client_status] ??
-                              "bg-gray-100 text-gray-800"
+                              "bg-muted text-foreground"
                             }
                           >
                             {client.client_status}

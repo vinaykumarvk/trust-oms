@@ -245,7 +245,7 @@ function FeatureWeightBar({ feature, weight }: { feature: string; weight: number
   return (
     <div className="flex items-center gap-3 text-sm">
       <span className="w-40 shrink-0 font-medium">{feature}</span>
-      <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+      <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
         <div
           className="h-full bg-indigo-500 rounded-full transition-all"
           style={{ width: `${pct}%` }}
@@ -495,12 +495,12 @@ export default function AiShadowModePage() {
                       <TableRow key={idx} className="hover:bg-muted/50 cursor-pointer">
                         <TableCell className="font-mono text-xs">{sr.clientId}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={RISK_COLORS[sr.result.questionnaireResult] ?? "bg-gray-100"}>
+                          <Badge variant="outline" className={RISK_COLORS[sr.result.questionnaireResult] ?? "bg-muted"}>
                             {sr.result.questionnaireResult}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={RISK_COLORS[sr.result.aiPrediction] ?? "bg-gray-100"}>
+                          <Badge variant="outline" className={RISK_COLORS[sr.result.aiPrediction] ?? "bg-muted"}>
                             {sr.result.aiPrediction}
                           </Badge>
                         </TableCell>
@@ -690,7 +690,7 @@ export default function AiShadowModePage() {
                         <p className="text-sm text-muted-foreground">Predicted Risk Level</p>
                         <Badge
                           variant="outline"
-                          className={`text-lg px-3 py-1 mt-1 ${RISK_COLORS[predictionResult.predictedRiskLevel] ?? "bg-gray-100"}`}
+                          className={`text-lg px-3 py-1 mt-1 ${RISK_COLORS[predictionResult.predictedRiskLevel] ?? "bg-muted"}`}
                         >
                           {predictionResult.predictedRiskLevel}
                         </Badge>
@@ -754,7 +754,7 @@ export default function AiShadowModePage() {
                       <p className="text-sm font-semibold mb-2">Top Factors</p>
                       <div className="flex flex-wrap gap-2">
                         {explanationResult.topFactors.map((tf: any, i: number) => (
-                          <Badge key={i} variant="outline" className={IMPACT_COLORS[tf.impact] ?? "bg-gray-100"}>
+                          <Badge key={i} variant="outline" className={IMPACT_COLORS[tf.impact] ?? "bg-muted"}>
                             {tf.factor} ({tf.impact})
                           </Badge>
                         ))}
@@ -768,7 +768,7 @@ export default function AiShadowModePage() {
                           <div key={i} className="flex items-center justify-between text-sm">
                             <span>{c.group}</span>
                             <div className="flex items-center gap-2">
-                              <Badge variant="outline" className={RISK_COLORS[c.riskLevel] ?? "bg-gray-100"}>
+                              <Badge variant="outline" className={RISK_COLORS[c.riskLevel] ?? "bg-muted"}>
                                 {c.riskLevel}
                               </Badge>
                               <span className="text-muted-foreground w-14 text-right">
@@ -853,7 +853,7 @@ export default function AiShadowModePage() {
                           {pred.clientId ?? "-"}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={RISK_COLORS[pred.predictedRiskLevel] ?? "bg-gray-100"}>
+                          <Badge variant="outline" className={RISK_COLORS[pred.predictedRiskLevel] ?? "bg-muted"}>
                             {pred.predictedRiskLevel}
                           </Badge>
                         </TableCell>
@@ -970,7 +970,7 @@ function PredictionDetailDialog({
               <p className="text-xs text-muted-foreground">Risk Level</p>
               <Badge
                 variant="outline"
-                className={`mt-1 ${RISK_COLORS[prediction.predictedRiskLevel] ?? "bg-gray-100"}`}
+                className={`mt-1 ${RISK_COLORS[prediction.predictedRiskLevel] ?? "bg-muted"}`}
               >
                 {prediction.predictedRiskLevel}
               </Badge>
@@ -1070,7 +1070,7 @@ function PredictionDetailDialog({
                     <div key={i} className="flex items-center justify-between text-sm border rounded px-3 py-2">
                       <span className="font-medium">{tf.factor}</span>
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className={IMPACT_COLORS[tf.impact] ?? "bg-gray-100"}>
+                        <Badge variant="outline" className={IMPACT_COLORS[tf.impact] ?? "bg-muted"}>
                           {tf.impact}
                         </Badge>
                         <span className="text-xs text-muted-foreground">
@@ -1089,10 +1089,10 @@ function PredictionDetailDialog({
                     <div key={i} className="flex items-center justify-between text-sm">
                       <span>{c.group}</span>
                       <div className="flex items-center gap-3">
-                        <Badge variant="outline" className={RISK_COLORS[c.riskLevel] ?? "bg-gray-100"}>
+                        <Badge variant="outline" className={RISK_COLORS[c.riskLevel] ?? "bg-muted"}>
                           {c.riskLevel}
                         </Badge>
-                        <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
                           <div
                             className="h-full bg-indigo-500 rounded-full"
                             style={{ width: `${c.similarity * 100}%` }}

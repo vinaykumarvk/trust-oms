@@ -33,7 +33,7 @@ interface Order {
 }
 
 const statusColors: Record<string, string> = {
-  DRAFT: 'bg-gray-100 text-gray-800',
+  DRAFT: 'bg-muted text-foreground',
   PENDING_AUTH: 'bg-yellow-100 text-yellow-800',
   AUTHORIZED: 'bg-blue-100 text-blue-800',
   REJECTED: 'bg-red-100 text-red-800',
@@ -43,7 +43,7 @@ const statusColors: Record<string, string> = {
   FILLED: 'bg-teal-100 text-teal-800',
   CONFIRMED: 'bg-cyan-100 text-cyan-800',
   SETTLED: 'bg-green-100 text-green-800',
-  CANCELLED: 'bg-gray-100 text-gray-500',
+  CANCELLED: 'bg-muted text-muted-foreground',
   REVERSED: 'bg-red-100 text-red-500',
 };
 
@@ -108,7 +108,7 @@ export default function Orders() {
       </div>
 
       {/* Table */}
-      <div className="rounded-md border">
+      <div className="overflow-x-auto rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -148,7 +148,7 @@ export default function Orders() {
                   <TableCell>{order.quantity ? parseFloat(order.quantity).toLocaleString() : '-'}</TableCell>
                   <TableCell>{order.limit_price ? `${parseFloat(order.limit_price).toLocaleString()} ${order.currency}` : '-'}</TableCell>
                   <TableCell>{order.time_in_force ?? 'DAY'}</TableCell>
-                  <TableCell><Badge className={statusColors[order.order_status ?? ''] ?? 'bg-gray-100'}>{order.order_status?.replace(/_/g, ' ')}</Badge></TableCell>
+                  <TableCell><Badge className={statusColors[order.order_status ?? ''] ?? 'bg-muted'}>{order.order_status?.replace(/_/g, ' ')}</Badge></TableCell>
                   <TableCell className="text-xs">{order.authorization_tier?.replace(/_/g, ' ')}</TableCell>
                   <TableCell className="text-xs">{new Date(order.created_at).toLocaleDateString()}</TableCell>
                   <TableCell><Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button></TableCell>

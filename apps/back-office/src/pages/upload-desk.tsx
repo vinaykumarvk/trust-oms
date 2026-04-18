@@ -51,7 +51,7 @@ interface ErrorReportResponse { data: { batchId: number; filename: string | null
 
 // -- Constants & Helpers --
 const STATUS_CFG: Record<string, { label: string; color: string }> = {
-  CREATED: { label: "Created", color: "bg-gray-100 text-gray-800" },
+  CREATED: { label: "Created", color: "bg-muted text-foreground" },
   VALIDATING: { label: "Validating", color: "bg-blue-100 text-blue-800" },
   VALIDATED: { label: "Validated", color: "bg-cyan-100 text-cyan-800" },
   SUBMITTED: { label: "Submitted", color: "bg-yellow-100 text-yellow-800" },
@@ -79,7 +79,7 @@ function fmtDateTime(d: string | null): string {
 }
 
 function StatusBadge({ s }: { s: string }) {
-  const c = STATUS_CFG[s] ?? { label: s, color: "bg-gray-100 text-gray-700" };
+  const c = STATUS_CFG[s] ?? { label: s, color: "bg-muted text-foreground" };
   return <Badge className={c.color}>{c.label}</Badge>;
 }
 
@@ -126,7 +126,7 @@ function ErrorReportDialog({ open, batchId, onClose }: {
         ) : !r || r.errors.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4 text-center">No errors found.</p>
         ) : (
-          <div className="max-h-80 overflow-y-auto rounded-md border">
+          <div className="max-h-80 overflow-y-auto overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -284,7 +284,7 @@ export default function UploadDesk() {
 
   function renderBatchTable(batches: UploadBatch[], loading: boolean) {
     return (
-      <div className="rounded-md border"><Table>
+      <div className="overflow-x-auto rounded-md border"><Table>
         <TableHeader><TableRow>
           <TableHead className="w-16">ID</TableHead><TableHead>Filename</TableHead>
           <TableHead className="w-20">Rows</TableHead><TableHead>Status</TableHead>
@@ -469,7 +469,7 @@ export default function UploadDesk() {
                       <CardDescription>Sample rows sent for validation</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="rounded-md border">
+                      <div className="overflow-x-auto rounded-md border">
                         <Table>
                           <TableHeader>
                             <TableRow>

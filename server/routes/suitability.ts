@@ -18,7 +18,7 @@ const router = Router();
 router.post('/:clientId/capture', asyncHandler(async (req, res) => {
   const profile = await suitabilityService.captureSuitabilityProfile(req.params.clientId, req.body);
   const riskProfile = suitabilityService.scoreSuitability(req.body);
-  res.json({ profile, riskProfile });
+  res.json({ data: { profile, riskProfile } });
 }));
 
 /** GET /api/v1/suitability/:clientId/current */

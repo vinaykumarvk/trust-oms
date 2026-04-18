@@ -371,7 +371,7 @@ export default function PositionReconciliation() {
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="rounded-md border-t">
+          <div className="overflow-x-auto rounded-md border-t">
             <Table>
               <TableHeader>
                 <TableRow>

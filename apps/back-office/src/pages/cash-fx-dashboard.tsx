@@ -131,7 +131,7 @@ const HEDGE_LINKAGES: HedgeLinkage[] = [
 
 function AccountTable({ rows }: { rows: AccountRow[] }) {
   return (
-    <div className="rounded-md border">
+    <div className="overflow-x-auto rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
@@ -237,7 +237,7 @@ export default function CashFxDashboard() {
               No liquidity data available
             </p>
           ) : (
-            <div className="rounded-md border">
+            <div className="overflow-x-auto rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -260,7 +260,7 @@ export default function CashFxDashboard() {
                               <span className={`font-mono text-sm ${positive ? "text-green-700" : "text-red-700"}`}>
                                 {val.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                               </span>
-                              <div className="h-2 w-full rounded-full bg-gray-100">
+                              <div className="h-2 w-full rounded-full bg-muted">
                                 <div
                                   className={`h-full rounded-full transition-all ${positive ? "bg-green-500" : "bg-red-500"}`}
                                   style={{ width: `${pct}%` }}
@@ -352,7 +352,7 @@ export default function CashFxDashboard() {
             {/* Current FX Rates */}
             <div>
               <h4 className="text-sm font-medium mb-3">Current FX Rates (indicative)</h4>
-              <div className="rounded-md border">
+              <div className="overflow-x-auto rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -393,7 +393,7 @@ export default function CashFxDashboard() {
           <CardDescription>Portfolio-level FX exposure and hedge coverage</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>

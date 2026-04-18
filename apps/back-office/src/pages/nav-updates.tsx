@@ -102,7 +102,7 @@ const STALENESS_CONFIG: Record<
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  NOT_STARTED: "bg-gray-100 text-gray-700",
+  NOT_STARTED: "bg-muted text-foreground",
   DRAFT: "bg-yellow-100 text-yellow-800",
   VALIDATED: "bg-blue-100 text-blue-800",
   PUBLISHED: "bg-green-100 text-green-800",
@@ -252,7 +252,7 @@ export default function NavUpdates() {
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="rounded-md border-t">
+          <div className="overflow-x-auto rounded-md border-t">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -288,7 +288,7 @@ export default function NavUpdates() {
                     const stalenessCfg = STALENESS_CONFIG[record.staleness];
                     const statusColor =
                       STATUS_COLORS[record.nav_status] ??
-                      "bg-gray-100 text-gray-700";
+                      "bg-muted text-foreground";
                     return (
                       <TableRow
                         key={record.portfolio_id}

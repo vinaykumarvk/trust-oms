@@ -86,7 +86,7 @@ export default function SRMApprovalQueue() {
   const sixEye = orders.filter(o => o.authorization_tier === 'SIX_EYES');
 
   const renderOrderTable = (orderList: PendingOrder[]) => (
-    <div className="rounded-md border">
+    <div className="overflow-x-auto rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>

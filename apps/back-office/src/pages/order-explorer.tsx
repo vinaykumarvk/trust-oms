@@ -59,12 +59,12 @@ interface OrderListResponse {
 // ---------------------------------------------------------------------------
 
 const statusColors: Record<string, string> = {
-  DRAFT: 'bg-gray-100 text-gray-800',
+  DRAFT: 'bg-muted text-foreground',
   PENDING_AUTH: 'bg-yellow-100 text-yellow-800',
   AUTHORIZED: 'bg-blue-100 text-blue-800',
   REJECTED: 'bg-red-100 text-red-800',
   SETTLED: 'bg-green-100 text-green-800',
-  CANCELLED: 'bg-gray-100 text-gray-500',
+  CANCELLED: 'bg-muted text-muted-foreground',
 };
 
 function formatDateTime(dateStr: string | null | undefined): string {
@@ -191,7 +191,7 @@ export default function OrderExplorer() {
       </Card>
 
       {/* Orders Table */}
-      <div className="rounded-md border">
+      <div className="overflow-x-auto rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -264,7 +264,7 @@ export default function OrderExplorer() {
                   <TableCell>
                     <Badge
                       className={
-                        statusColors[order.order_status ?? ''] ?? 'bg-gray-100'
+                        statusColors[order.order_status ?? ''] ?? 'bg-muted'
                       }
                     >
                       {order.order_status?.replace(/_/g, ' ') ?? '-'}

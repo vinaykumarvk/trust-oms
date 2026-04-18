@@ -537,7 +537,7 @@ export default function RiskAnalytics() {
             <>
               <Separator />
               <h3 className="text-sm font-semibold">Computation History</h3>
-              <div className="rounded-md border">
+              <div className="overflow-x-auto rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -631,7 +631,7 @@ export default function RiskAnalytics() {
                 <>
                   <Separator />
                   <h3 className="text-sm font-semibold">Weighted Positions Breakdown</h3>
-                  <div className="rounded-md border">
+                  <div className="overflow-x-auto rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -748,7 +748,7 @@ export default function RiskAnalytics() {
                   </div>
 
                   {irepDashboard.recent_dispositions.length > 0 && (
-                    <div className="mt-4 rounded-md border">
+                    <div className="mt-4 overflow-x-auto rounded-md border">
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -771,7 +771,7 @@ export default function RiskAnalytics() {
                                 <Badge className={
                                   d.disposition === "SELL" ? "bg-red-100 text-red-800" :
                                   d.disposition === "BUY_MORE" ? "bg-green-100 text-green-800" :
-                                  "bg-gray-100 text-gray-800"
+                                  "bg-muted text-foreground"
                                 }>
                                   {d.disposition}
                                 </Badge>
@@ -1007,7 +1007,7 @@ export default function RiskAnalytics() {
               </div>
 
               {/* Back-test results table */}
-              <div className="rounded-md border">
+              <div className="overflow-x-auto rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>

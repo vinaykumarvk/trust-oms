@@ -27,7 +27,7 @@ const router = Router();
 /** GET /preferences/:userId — Get notification preferences for a user */
 router.get('/preferences/:userId', asyncHandler(async (req, res) => {
   const prefs = notificationService.getPreferences(req.params.userId);
-  res.json(prefs);
+  res.json({ data: prefs });
 }));
 
 /** PUT /preferences/:userId — Update notification preferences for a user */
@@ -39,7 +39,7 @@ router.put('/preferences/:userId', asyncHandler(async (req, res) => {
     push,
     inApp,
   });
-  res.json(updated);
+  res.json({ data: updated });
 }));
 
 // --------------------------------------------------------------------------
@@ -66,7 +66,7 @@ router.post('/dispatch', requireAnyRole('BO_MAKER', 'BO_CHECKER', 'BO_HEAD'), as
     content,
   });
 
-  res.status(201).json(result);
+  res.status(201).json({ data: result });
 }));
 
 // --------------------------------------------------------------------------
@@ -75,7 +75,7 @@ router.post('/dispatch', requireAnyRole('BO_MAKER', 'BO_CHECKER', 'BO_HEAD'), as
 
 router.post('/retry-failed', requireAnyRole('BO_HEAD'), asyncHandler(async (_req, res) => {
   const result = await notificationService.retryFailed();
-  res.json(result);
+  res.json({ data: result });
 }));
 
 // --------------------------------------------------------------------------
@@ -116,7 +116,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Notification not found' } });
   }
 
-  res.json(notification);
+  res.json({ data: notification });
 }));
 
 // --------------------------------------------------------------------------
@@ -134,7 +134,7 @@ router.put('/:id/read', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Notification not found' } });
   }
 
-  res.json(updated);
+  res.json({ data: updated });
 }));
 
 export default router;

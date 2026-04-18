@@ -110,7 +110,7 @@ interface BrokerOption {
 // ---------------------------------------------------------------------------
 
 const OUTCOME_STYLES: Record<string, { label: string; className: string }> = {
-  PENDING: { label: "Pending", className: "bg-gray-100 text-gray-700 border-gray-200" },
+  PENDING: { label: "Pending", className: "bg-muted text-foreground border-border" },
   FILLED: { label: "Filled", className: "bg-green-100 text-green-700 border-green-200" },
   PARTIAL: { label: "Partial", className: "bg-yellow-100 text-yellow-700 border-yellow-200" },
   REJECTED: { label: "Rejected", className: "bg-red-100 text-red-700 border-red-200" },
@@ -121,7 +121,7 @@ const SIDE_STYLES: Record<string, string> = {
   SELL: "bg-red-100 text-red-800 border-red-200",
 };
 
-const RANK_COLORS = ["text-yellow-600", "text-gray-500", "text-orange-700"];
+const RANK_COLORS = ["text-yellow-600", "text-muted-foreground", "text-orange-700"];
 
 const PERIOD_OPTIONS = [
   { value: "1M", label: "1 Month" },
@@ -259,7 +259,7 @@ function TrendBarChart({
           return (
             <div key={i} className="flex items-center gap-2 text-xs">
               <span className="w-20 text-muted-foreground shrink-0">{d.month}</span>
-              <div className="flex-1 h-5 bg-gray-100 rounded overflow-hidden relative">
+              <div className="flex-1 h-5 bg-muted rounded overflow-hidden relative">
                 <div
                   className={`h-full ${color} rounded transition-all`}
                   style={{ width: `${Math.min(100, pct)}%` }}
@@ -542,7 +542,7 @@ export default function AiCostsPage() {
                               </Badge>
                             ))}
                             {b.specializations.length > 3 && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-gray-50">
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-muted">
                                 +{b.specializations.length - 3}
                               </Badge>
                             )}
@@ -687,6 +687,7 @@ export default function AiCostsPage() {
                   {/* Trend data table */}
                   <div>
                     <p className="text-sm font-semibold mb-2">Monthly Data</p>
+                    <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -738,6 +739,7 @@ export default function AiCostsPage() {
                         })}
                       </TableBody>
                     </Table>
+                    </div>
                   </div>
                 </div>
               )}
@@ -816,7 +818,7 @@ export default function AiCostsPage() {
                             {formatNumber(d.quantity)}
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className={SIDE_STYLES[d.side] ?? "bg-gray-100"}>
+                            <Badge variant="outline" className={SIDE_STYLES[d.side] ?? "bg-muted"}>
                               {d.side}
                             </Badge>
                           </TableCell>
@@ -960,6 +962,7 @@ export default function AiCostsPage() {
                       <CardTitle className="text-base">Ranked Broker Recommendations</CardTitle>
                     </CardHeader>
                     <CardContent>
+                      <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -1025,6 +1028,7 @@ export default function AiCostsPage() {
                           })}
                         </TableBody>
                       </Table>
+                      </div>
                     </CardContent>
                   </Card>
                 </>

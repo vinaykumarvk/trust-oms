@@ -119,24 +119,24 @@ export default function StatementsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Statements</h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Statements</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           View and download your account statements and reports
         </p>
       </div>
 
       {/* Filters */}
-      <Card className="border-slate-200">
+      <Card className="border-border">
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <div className="flex items-center gap-2 text-sm text-slate-500">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Filter className="h-4 w-4" />
               <span className="font-medium">Filters:</span>
             </div>
 
             <Select value={yearFilter} onValueChange={setYearFilter}>
-              <SelectTrigger className="w-[160px] border-slate-300">
-                <Calendar className="h-4 w-4 mr-2 text-slate-400" />
+              <SelectTrigger className="w-[160px] border-border">
+                <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -149,8 +149,8 @@ export default function StatementsPage() {
             </Select>
 
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[200px] border-slate-300">
-                <FileText className="h-4 w-4 mr-2 text-slate-400" />
+              <SelectTrigger className="w-[200px] border-border">
+                <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -162,7 +162,7 @@ export default function StatementsPage() {
               </SelectContent>
             </Select>
 
-            <p className="text-xs text-slate-400 ml-auto">
+            <p className="text-xs text-muted-foreground ml-auto">
               {filteredStatements.length} statement
               {filteredStatements.length !== 1 ? "s" : ""}
             </p>
@@ -171,11 +171,11 @@ export default function StatementsPage() {
       </Card>
 
       {/* Statements List */}
-      <Card className="border-slate-200">
+      <Card className="border-border">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-slate-400" />
-            <CardTitle className="text-base text-slate-900">
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-base text-foreground">
               Available Statements
             </CardTitle>
           </div>
@@ -191,17 +191,17 @@ export default function StatementsPage() {
               <div className="hidden sm:block overflow-x-auto -mx-6">
                 <table className="w-full text-sm min-w-[600px]">
                   <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50/80">
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    <tr className="border-b border-border bg-muted/80">
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Period
                       </th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Type
                       </th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Generated
                       </th>
-                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Action
                       </th>
                     </tr>
@@ -210,10 +210,10 @@ export default function StatementsPage() {
                     {filteredStatements.map((stmt) => (
                       <tr
                         key={stmt.id}
-                        className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors"
+                        className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors"
                       >
                         <td className="py-3 px-4">
-                          <span className="font-medium text-slate-900">
+                          <span className="font-medium text-foreground">
                             {stmt.period}
                           </span>
                         </td>
@@ -225,7 +225,7 @@ export default function StatementsPage() {
                             {stmt.type}
                           </Badge>
                         </td>
-                        <td className="py-3 px-4 text-slate-600">
+                        <td className="py-3 px-4 text-muted-foreground">
                           {new Date(stmt.generatedAt).toLocaleDateString(
                             "en-PH",
                             {
@@ -253,14 +253,14 @@ export default function StatementsPage() {
               </div>
 
               {/* Mobile cards */}
-              <div className="sm:hidden divide-y divide-slate-100">
+              <div className="sm:hidden divide-y divide-border">
                 {filteredStatements.map((stmt) => (
                   <div key={stmt.id} className="py-3 first:pt-0 last:pb-0">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <FileText className="h-4 w-4 text-slate-400 shrink-0" />
-                          <span className="font-medium text-slate-900">
+                          <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="font-medium text-foreground">
                             {stmt.period}
                           </span>
                         </div>
@@ -270,7 +270,7 @@ export default function StatementsPage() {
                         >
                           {stmt.type}
                         </Badge>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-muted-foreground">
                           Generated{" "}
                           {new Date(stmt.generatedAt).toLocaleDateString(
                             "en-PH",
@@ -297,8 +297,8 @@ export default function StatementsPage() {
             </>
           ) : (
             <div className="text-center py-8">
-              <FileText className="h-12 w-12 text-slate-200 mx-auto mb-3" />
-              <p className="text-sm text-slate-500">
+              <FileText className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">
                 No statements found matching your filters
               </p>
             </div>

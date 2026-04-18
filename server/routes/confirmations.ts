@@ -42,7 +42,7 @@ router.get(
   '/summary',
   asyncHandler(async (_req, res) => {
     const result = await confirmationService.getSummary();
-    res.json(result);
+    res.json({ data: result });
   }),
 );
 
@@ -77,7 +77,7 @@ router.post(
       });
     }
     const result = await confirmationService.bulkConfirm(confirmationIds, confirmedBy);
-    res.json(result);
+    res.json({ data: result });
   }),
 );
 
@@ -107,7 +107,7 @@ router.post(
       execution_qty: parseFloat(execution_qty),
       settlement_date,
     });
-    res.status(201).json(result);
+    res.status(201).json({ data: result });
   }),
 );
 
@@ -125,7 +125,7 @@ router.post(
     }
 
     const result = await confirmationService.flagException(tradeId, reason);
-    res.json(result);
+    res.json({ data: result });
   }),
 );
 
@@ -160,7 +160,7 @@ router.post(
       resolvedBy,
       notes,
     });
-    res.json(result);
+    res.json({ data: result });
   }),
 );
 

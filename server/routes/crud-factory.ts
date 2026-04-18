@@ -24,7 +24,7 @@
  */
 
 import { Router, type Request, type Response } from 'express';
-import { eq, and, asc, desc, sql, or, ilike, type SQL } from 'drizzle-orm';
+import { eq, and, asc, desc, sql, or, ilike, getTableColumns as drizzleGetTableColumns, getTableName as drizzleGetTableName, type SQL } from 'drizzle-orm';
 import type { PgTable, PgColumn } from 'drizzle-orm/pg-core';
 import { createInsertSchema } from 'drizzle-zod';
 import type { z } from 'zod';
@@ -87,7 +87,7 @@ function escapeLikePattern(str: string): string {
 
 /** Get the primary key column (tries common names). */
 function getPkColumn(table: AnyPgTable): PgColumn | null {
-  const columns = (table as any)[Symbol.for('drizzle:Columns')] ?? {};
+  const columns = getColumns(table);
   return (
     columns.id ??
     columns.client_id ??
@@ -102,7 +102,7 @@ function getPkColumn(table: AnyPgTable): PgColumn | null {
 
 /** Get all columns as a map keyed by JS property name. */
 function getColumns(table: AnyPgTable): Record<string, PgColumn> {
-  return (table as any)[Symbol.for('drizzle:Columns')] ?? {};
+  return drizzleGetTableColumns(table) as Record<string, PgColumn>;
 }
 
 /** Look up a column by its JS property name. */
@@ -112,11 +112,7 @@ function getColumn(table: AnyPgTable, name: string): PgColumn | undefined {
 
 /** Get the Drizzle table name. */
 function getTableName(table: AnyPgTable): string {
-  return (
-    (table as any)[Symbol.for('drizzle:Name')] ??
-    (table as any)._.name ??
-    'entity'
-  );
+  return drizzleGetTableName(table);
 }
 
 // ---------------------------------------------------------------------------
@@ -147,10 +143,10 @@ function createCrossValidationCache(entityKey: string) {
           ),
         );
 
-      cache = rules.map((r: any) => ({
-        rule_name: r.rule_name,
+      cache = rules.map((r: Record<string, unknown>) => ({
+        rule_name: r.rule_name as string | null,
         condition: r.condition,
-        error_message: r.error_message,
+        error_message: r.error_message as string | null,
       }));
       expiry = Date.now() + 5 * 60 * 1000; // 5-min TTL
     } catch {
@@ -178,7 +174,8 @@ async function runCrossValidations(
       if (!condition) continue;
 
       // Simple condition format: { field, operator, value } or { fieldA, operator, fieldB }
-      const { field, fieldA, fieldB, operator, value } = condition as any;
+      const { field, fieldA, fieldB, operator, value } = condition as
+        Record<string, string | undefined>;
 
       if (field && operator && value !== undefined) {
         const fieldValue = data[field];
@@ -324,7 +321,9 @@ export function createCrudRouter(
   const insertZodSchema = (() => {
     if (options.insertSchema) return options.insertSchema;
     try {
-      let schema = createInsertSchema(table as any);
+      // createInsertSchema returns a ZodObject; we cast to a workable generic type
+      // since the exact column types are erased when working with AnyPgTable.
+      let schema = createInsertSchema(table) as unknown as z.ZodObject<Record<string, z.ZodTypeAny>>;
       const autoOmit = [
         'id', 'created_at', 'updated_at', 'created_by', 'updated_by',
         'version', 'is_deleted', 'tenant_id', 'correlation_id', 'audit_hash',
@@ -334,7 +333,8 @@ export function createCrudRouter(
       const columns = getColumns(table);
       for (const col of autoOmit) {
         if (col in columns) {
-          schema = (schema as any).omit({ [col]: true });
+          // Dynamic key omit requires an unsafe cast on the argument
+          schema = (schema.omit as (mask: Record<string, true>) => typeof schema)({ [col]: true });
         }
       }
       return schema;
@@ -410,16 +410,16 @@ export function createCrudRouter(
       }
 
       // Execute count + data in parallel
-      const countQuery = db.select({ count: sql<number>`count(*)::int` }).from(table);
-      if (whereClause) (countQuery as any).where(whereClause);
+      const countQuery = db.select({ count: sql<number>`count(*)::int` }).from(table).$dynamic();
+      if (whereClause) countQuery.where(whereClause);
 
-      const dataQuery = db.select().from(table);
-      if (whereClause) (dataQuery as any).where(whereClause);
-      if (orderByClause) (dataQuery as any).orderBy(orderByClause);
-      (dataQuery as any).limit(pageSize).offset(offset);
+      const dataQuery = db.select().from(table).$dynamic();
+      if (whereClause) dataQuery.where(whereClause);
+      if (orderByClause) dataQuery.orderBy(orderByClause);
+      dataQuery.limit(pageSize).offset(offset);
 
       const [countResult, rows] = await Promise.all([countQuery, dataQuery]);
-      const total = (countResult[0] as any)?.count ?? 0;
+      const total = (countResult[0] as Record<string, unknown>)?.count ?? 0;
 
       res.json({ data: rows, total, page, pageSize });
     }),
@@ -470,10 +470,10 @@ export function createCrudRouter(
         }
       }
 
-      const dataQuery = db.select().from(table);
-      if (whereClause) (dataQuery as any).where(whereClause);
-      if (orderByClause) (dataQuery as any).orderBy(orderByClause);
-      (dataQuery as any).limit(10000); // 10k row safety limit
+      const dataQuery = db.select().from(table).$dynamic();
+      if (whereClause) dataQuery.where(whereClause);
+      if (orderByClause) dataQuery.orderBy(orderByClause);
+      dataQuery.limit(10000); // 10k row safety limit
 
       const rows = await dataQuery;
       if (rows.length === 0) {
@@ -486,7 +486,7 @@ export function createCrudRouter(
       const CSV_INJECTION_RE = /^[=+\-@\t\r]/;
       const columnKeys = Object.keys(cols);
       const header = columnKeys.join(',');
-      const csvRows = (rows as any[]).map((row) =>
+      const csvRows = (rows as Record<string, unknown>[]).map((row) =>
         columnKeys
           .map((col) => {
             const val = row[col];
@@ -572,11 +572,11 @@ export function createCrudRouter(
         existingRecord: {
           id: existing.id ?? existing.client_id ?? existing.portfolio_id ?? null,
           displayLabel:
-            (existing as any).name ??
-            (existing as any).display_name ??
-            (existing as any).full_name ??
-            (existing as any).legal_name ??
-            (existing as any).code ??
+            existing.name ??
+            existing.display_name ??
+            existing.full_name ??
+            existing.legal_name ??
+            existing.code ??
             String(existing.id ?? ''),
         },
       });
@@ -649,7 +649,7 @@ export function createCrudRouter(
             code: 'VALIDATION_ERROR',
             message: 'Validation error',
             details: result.error.format(),
-            correlation_id: (req as any).id,
+            correlation_id: req.id,
           },
         });
       }
@@ -664,7 +664,7 @@ export function createCrudRouter(
             code: 'CROSS_VALIDATION_ERROR',
             message: 'Cross-field validation failed',
             details: crossErrors,
-            correlation_id: (req as any).id,
+            correlation_id: req.id,
           },
         });
       }
@@ -679,12 +679,14 @@ export function createCrudRouter(
       const insertData: Record<string, unknown> = { ...data };
       if ('created_by' in cols) insertData.created_by = req.userId;
       if ('updated_by' in cols) insertData.updated_by = req.userId;
-      if ('correlation_id' in cols) insertData.correlation_id = (req as any).id;
+      if ('correlation_id' in cols) insertData.correlation_id = req.id;
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle .values() requires the exact inferred insert model
       const [created] = await db.insert(table).values(insertData as any).returning();
 
       // Audit log
-      const entityId = (created as any)?.id ?? (created as any)?.client_id ?? (created as any)?.portfolio_id ?? 'unknown';
+      const createdRecord = created as Record<string, unknown>;
+      const entityId = createdRecord?.id ?? createdRecord?.client_id ?? createdRecord?.portfolio_id ?? 'unknown';
       logAuditEvent({
         entityType: tableName,
         entityId: String(entityId),
@@ -693,7 +695,7 @@ export function createCrudRouter(
         actorRole: req.userRole,
         changes: { created: created as Record<string, unknown> },
         ipAddress: req.ip,
-        correlationId: (req as any).id,
+        correlationId: req.id,
       }).catch(() => {});
 
       if (afterCreate) {
@@ -743,7 +745,7 @@ export function createCrudRouter(
               code: 'VALIDATION_ERROR',
               message: 'Validation error',
               details: result.error.format(),
-              correlation_id: (req as any).id,
+              correlation_id: req.id,
             },
           });
         }
@@ -761,7 +763,7 @@ export function createCrudRouter(
       const previousRecord = prevRows[0] as Record<string, unknown>;
 
       // Store on request for maker-checker middleware
-      (req as any)._previousRecord = previousRecord;
+      (req as unknown as Record<string, unknown>)._previousRecord = previousRecord;
 
       // Cross-field validation (merge with previous for full context)
       const mergedForValidation = { ...previousRecord, ...req.body };
@@ -772,7 +774,7 @@ export function createCrudRouter(
             code: 'CROSS_VALIDATION_ERROR',
             message: 'Cross-field validation failed',
             details: crossErrors,
-            correlation_id: (req as any).id,
+            correlation_id: req.id,
           },
         });
       }
@@ -828,8 +830,9 @@ export function createCrudRouter(
       if ('version' in cols) {
         updateData.version = (Number(previousRecord.version) || 0) + 1;
       }
-      if ('correlation_id' in cols) updateData.correlation_id = (req as any).id;
+      if ('correlation_id' in cols) updateData.correlation_id = req.id;
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle .set() requires the exact inferred update model
       const result = await db
         .update(table)
         .set(updateData as any)
@@ -854,7 +857,7 @@ export function createCrudRouter(
         actorRole: req.userRole,
         changes: diff,
         ipAddress: req.ip,
-        correlationId: (req as any).id,
+        correlationId: req.id,
       }).catch(() => {});
 
       if (afterUpdate) {
@@ -890,7 +893,7 @@ export function createCrudRouter(
       }
 
       const cols = getColumns(table);
-      let result: any[];
+      let result: Record<string, unknown>[];
 
       if ('is_deleted' in cols) {
         // Soft delete
@@ -898,14 +901,15 @@ export function createCrudRouter(
         if ('updated_by' in cols) softDeleteData.updated_by = req.userId;
         if ('updated_at' in cols) softDeleteData.updated_at = new Date();
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle .set() requires exact model
         result = await db
           .update(table)
           .set(softDeleteData as any)
           .where(eq(pkCol, lookupValue))
-          .returning();
+          .returning() as Record<string, unknown>[];
       } else {
         // Hard delete
-        result = await db.delete(table).where(eq(pkCol, lookupValue)).returning();
+        result = await db.delete(table).where(eq(pkCol, lookupValue)).returning() as Record<string, unknown>[];
       }
 
       if (result.length === 0) {
@@ -921,9 +925,9 @@ export function createCrudRouter(
         action: 'DELETE',
         actorId: req.userId,
         actorRole: req.userRole,
-        changes: { deleted: result[0] as Record<string, unknown> },
+        changes: { deleted: result[0] },
         ipAddress: req.ip,
-        correlationId: (req as any).id,
+        correlationId: req.id,
       }).catch(() => {});
 
       if (afterDelete) {
@@ -1001,6 +1005,7 @@ export function createCrudRouter(
               if ('updated_by' in cols) data.updated_by = req.userId;
               return data;
             });
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle .values() requires exact model
             await db.insert(table).values(values as any);
             accepted += batch.length;
           } catch {
@@ -1011,6 +1016,7 @@ export function createCrudRouter(
                 const allCols = getColumns(table);
                 if ('created_by' in allCols) data.created_by = req.userId;
                 if ('updated_by' in allCols) data.updated_by = req.userId;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle .values() requires exact model
                 await db.insert(table).values(data as any);
                 accepted += 1;
               } catch (rowError) {
@@ -1041,7 +1047,7 @@ export function createCrudRouter(
         actorRole: req.userRole,
         changes: { bulkImport: true, accepted, rejected: rejected.length },
         ipAddress: req.ip,
-        correlationId: (req as any).id,
+        correlationId: req.id,
       }).catch(() => {});
 
       const statusCode = rejected.length > 0 && accepted === 0 ? 400 : 200;

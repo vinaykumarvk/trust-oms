@@ -145,7 +145,7 @@ const PATTERN_COLORS: Record<string, string> = {
 const DISPOSITION_COLORS: Record<string, string> = {
   PENDING: "bg-yellow-100 text-yellow-800",
   ESCALATED: "bg-red-100 text-red-800",
-  DISMISSED: "bg-gray-100 text-gray-800",
+  DISMISSED: "bg-muted text-foreground",
   CONFIRMED: "bg-blue-100 text-blue-800",
 };
 
@@ -195,7 +195,7 @@ function scoreBg(score: number): string {
 }
 
 function badgeClass(key: string, map: Record<string, string>): string {
-  return map[key] ?? "bg-gray-100 text-gray-800";
+  return map[key] ?? "bg-muted text-foreground";
 }
 
 // Reusable sub-components
@@ -502,7 +502,7 @@ export default function ComplianceWorkbench() {
                 <p className={`mt-1 text-3xl font-bold ${scoreColor(complianceScore)}`}>
                   {complianceScore}
                 </p>
-                <div className="mt-2 h-2 w-full rounded-full bg-gray-200">
+                <div className="mt-2 h-2 w-full rounded-full bg-muted">
                   <div
                     className={`h-2 rounded-full ${scoreBg(complianceScore)} transition-all`}
                     style={{ width: `${Math.min(complianceScore, 100)}%` }}
@@ -625,7 +625,7 @@ export default function ComplianceWorkbench() {
           </div>
 
           {/* Breaches Table */}
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -736,7 +736,7 @@ export default function ComplianceWorkbench() {
             </Button>
           </div>
 
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -844,7 +844,7 @@ export default function ComplianceWorkbench() {
             </span>
           </div>
 
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -878,7 +878,7 @@ export default function ComplianceWorkbench() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <div className="h-2 w-16 rounded-full bg-gray-200">
+                          <div className="h-2 w-16 rounded-full bg-muted">
                             <div
                               className={`h-2 rounded-full ${
                                 alert.score >= 80
@@ -971,7 +971,7 @@ export default function ComplianceWorkbench() {
             </span>
           </div>
 
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>

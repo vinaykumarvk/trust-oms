@@ -164,7 +164,7 @@ const RUN_STATUS_COLORS: Record<string, string> = {
   COMPLETED: "bg-green-100 text-green-800",
   RUNNING: "bg-yellow-100 text-yellow-800",
   FAILED: "bg-red-100 text-red-800",
-  PENDING: "bg-gray-100 text-gray-700",
+  PENDING: "bg-muted text-foreground",
 };
 
 const AGING_COLORS = ["#22c55e", "#eab308", "#f97316", "#ef4444"];
@@ -359,7 +359,7 @@ function RunsTab() {
         </Button>
       </div>
 
-      <div className="rounded-md border">
+      <div className="overflow-x-auto rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -395,7 +395,7 @@ function RunsTab() {
             ) : (
               runs.map((run) => {
                 const statusColor =
-                  RUN_STATUS_COLORS[run.status] ?? "bg-gray-100 text-gray-700";
+                  RUN_STATUS_COLORS[run.status] ?? "bg-muted text-foreground";
                 return (
                   <TableRow key={run.id}>
                     <TableCell className="font-medium">
@@ -537,7 +537,7 @@ function BreaksTab() {
         </Select>
       </div>
 
-      <div className="rounded-md border">
+      <div className="overflow-x-auto rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -686,7 +686,7 @@ export default function Reconciliation() {
   const lastStatusBadge = summary?.last_run_status ? (
     <Badge
       className={
-        RUN_STATUS_COLORS[summary.last_run_status] ?? "bg-gray-100 text-gray-700"
+        RUN_STATUS_COLORS[summary.last_run_status] ?? "bg-muted text-foreground"
       }
     >
       {summary.last_run_status.replace(/_/g, " ")}

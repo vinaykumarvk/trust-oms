@@ -211,7 +211,7 @@ const PROTOCOL_COLORS: Record<string, string> = {
   FIX: "bg-cyan-100 text-cyan-800",
   REST: "bg-emerald-100 text-emerald-800",
   SWIFT: "bg-orange-100 text-orange-800",
-  SFTP: "bg-slate-100 text-slate-800",
+  SFTP: "bg-muted text-foreground",
   WEBSOCKET: "bg-violet-100 text-violet-800",
   AMQP: "bg-rose-100 text-rose-800",
 };
@@ -221,7 +221,7 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
   ORDER_ACK: "bg-green-100 text-green-800",
   EXECUTION: "bg-emerald-100 text-emerald-800",
   REJECTION: "bg-red-100 text-red-800",
-  HEARTBEAT: "bg-gray-100 text-gray-800",
+  HEARTBEAT: "bg-muted text-foreground",
   ERROR: "bg-red-100 text-red-800",
   RECONNECT: "bg-yellow-100 text-yellow-800",
 };
@@ -230,7 +230,7 @@ const LOG_STATUS_COLORS: Record<string, string> = {
   SUCCESS: "bg-green-100 text-green-800",
   FAILURE: "bg-red-100 text-red-800",
   TIMEOUT: "bg-yellow-100 text-yellow-800",
-  PENDING: "bg-gray-100 text-gray-800",
+  PENDING: "bg-muted text-foreground",
 };
 
 const SECURITY_TYPES = [
@@ -322,8 +322,8 @@ function ConnectorCard({
   isTesting,
 }: ConnectorCardProps) {
   const statusConfig = CONNECTOR_STATUS_CONFIG[connector.status] ?? CONNECTOR_STATUS_CONFIG.DISCONNECTED;
-  const typeColor = CONNECTOR_TYPE_COLORS[connector.type] ?? "bg-gray-100 text-gray-800";
-  const protocolColor = PROTOCOL_COLORS[connector.protocol] ?? "bg-gray-100 text-gray-800";
+  const typeColor = CONNECTOR_TYPE_COLORS[connector.type] ?? "bg-muted text-foreground";
+  const protocolColor = PROTOCOL_COLORS[connector.protocol] ?? "bg-muted text-foreground";
 
   return (
     <Card className="overflow-hidden transition-all hover:shadow-md">
@@ -881,7 +881,7 @@ function RoutingRulesTab() {
         <div className="flex justify-end">
           <Skeleton className="h-9 w-32" />
         </div>
-        <div className="rounded-md border">
+        <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -923,7 +923,7 @@ function RoutingRulesTab() {
       </div>
 
       {/* Rules table */}
-      <div className="rounded-md border">
+      <div className="overflow-x-auto rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -1219,7 +1219,7 @@ function ActivityLogTab() {
             <Skeleton key={i} className="h-9 w-36" />
           ))}
         </div>
-        <div className="rounded-md border">
+        <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -1344,7 +1344,7 @@ function ActivityLogTab() {
       </div>
 
       {/* Activity log table */}
-      <div className="rounded-md border">
+      <div className="overflow-x-auto rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -1376,14 +1376,14 @@ function ActivityLogTab() {
                   </TableCell>
                   <TableCell>
                     <Badge
-                      className={`text-[10px] ${EVENT_TYPE_COLORS[entry.event_type] ?? "bg-gray-100 text-gray-800"}`}
+                      className={`text-[10px] ${EVENT_TYPE_COLORS[entry.event_type] ?? "bg-muted text-foreground"}`}
                     >
                       {entry.event_type.replace(/_/g, " ")}
                     </Badge>
                   </TableCell>
                   <TableCell>
                     <Badge
-                      className={`text-[10px] ${LOG_STATUS_COLORS[entry.status] ?? "bg-gray-100 text-gray-800"}`}
+                      className={`text-[10px] ${LOG_STATUS_COLORS[entry.status] ?? "bg-muted text-foreground"}`}
                     >
                       {entry.status}
                     </Badge>

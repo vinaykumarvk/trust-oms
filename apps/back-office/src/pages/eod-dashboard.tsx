@@ -124,8 +124,8 @@ const JOB_STATUS_CONFIG: Record<
 > = {
   PENDING: {
     label: "Pending",
-    color: "bg-gray-100 text-gray-700",
-    borderColor: "border-gray-300",
+    color: "bg-muted text-foreground",
+    borderColor: "border-border",
   },
   RUNNING: {
     label: "Running",
@@ -144,13 +144,13 @@ const JOB_STATUS_CONFIG: Record<
   },
   SKIPPED: {
     label: "Skipped",
-    color: "bg-gray-100 text-gray-500",
-    borderColor: "border-gray-300",
+    color: "bg-muted text-muted-foreground",
+    borderColor: "border-border",
   },
 };
 
 const RUN_STATUS_CONFIG: Record<RunStatus, { label: string; color: string }> = {
-  PENDING: { label: "Pending", color: "bg-gray-100 text-gray-700" },
+  PENDING: { label: "Pending", color: "bg-muted text-foreground" },
   RUNNING: { label: "Running", color: "bg-yellow-100 text-yellow-800" },
   COMPLETED: { label: "Completed", color: "bg-green-100 text-green-800" },
   FAILED: { label: "Failed", color: "bg-red-100 text-red-800" },
@@ -346,7 +346,7 @@ function HistorySection() {
         <CardDescription>Past EOD processing runs</CardDescription>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="rounded-md border-t">
+        <div className="overflow-x-auto rounded-md border-t">
           <Table>
             <TableHeader>
               <TableRow>

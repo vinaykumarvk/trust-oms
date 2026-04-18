@@ -27,7 +27,7 @@
  */
 
 import { Router, type Request, type Response } from 'express';
-import { eq, and, asc, desc, sql, or, ilike, type SQL } from 'drizzle-orm';
+import { eq, and, asc, desc, sql, or, ilike, getTableColumns as drizzleGetTableColumns, getTableName as drizzleGetTableName, type SQL } from 'drizzle-orm';
 import type { PgTable, PgColumn } from 'drizzle-orm/pg-core';
 import { createInsertSchema } from 'drizzle-zod';
 import type { z } from 'zod';
@@ -80,7 +80,7 @@ function escapeLikePattern(str: string): string {
 }
 
 function getPkColumn(table: AnyPgTable): PgColumn | null {
-  const columns = (table as any)[Symbol.for('drizzle:Columns')] ?? {};
+  const columns = getColumns(table);
   return (
     columns.id ??
     columns.client_id ??
@@ -94,7 +94,7 @@ function getPkColumn(table: AnyPgTable): PgColumn | null {
 }
 
 function getColumns(table: AnyPgTable): Record<string, PgColumn> {
-  return (table as any)[Symbol.for('drizzle:Columns')] ?? {};
+  return drizzleGetTableColumns(table) as Record<string, PgColumn>;
 }
 
 function getColumn(table: AnyPgTable, name: string): PgColumn | undefined {
@@ -102,11 +102,7 @@ function getColumn(table: AnyPgTable, name: string): PgColumn | undefined {
 }
 
 function getTableName(table: AnyPgTable): string {
-  return (
-    (table as any)[Symbol.for('drizzle:Name')] ??
-    (table as any)._.name ??
-    'entity'
-  );
+  return drizzleGetTableName(table);
 }
 
 // ---------------------------------------------------------------------------
@@ -137,10 +133,10 @@ function createCrossValidationCache(entityKey: string) {
           ),
         );
 
-      cache = rules.map((r: any) => ({
-        rule_name: r.rule_name,
+      cache = rules.map((r: Record<string, unknown>) => ({
+        rule_name: r.rule_name as string | null,
         condition: r.condition,
-        error_message: r.error_message,
+        error_message: r.error_message as string | null,
       }));
       expiry = Date.now() + 5 * 60 * 1000;
     } catch {
@@ -166,7 +162,8 @@ async function runCrossValidations(
       const condition = rule.condition as Record<string, unknown> | null;
       if (!condition) continue;
 
-      const { field, fieldA, fieldB, operator, value } = condition as any;
+      const { field, fieldA, fieldB, operator, value } = condition as
+        Record<string, string | undefined>;
 
       if (field && operator && value !== undefined) {
         const fieldValue = data[field];
@@ -283,7 +280,9 @@ export function createNestedCrudRouter(
   const insertZodSchema = (() => {
     if (options.insertSchema) return options.insertSchema;
     try {
-      let schema = createInsertSchema(table as any);
+      // createInsertSchema returns a ZodObject; we cast to a workable generic type
+      // since the exact column types are erased when working with AnyPgTable.
+      let schema = createInsertSchema(table) as unknown as z.ZodObject<Record<string, z.ZodTypeAny>>;
       const autoOmit = [
         'id', 'created_at', 'updated_at', 'created_by', 'updated_by',
         'version', 'is_deleted', 'tenant_id', 'correlation_id', 'audit_hash',
@@ -293,7 +292,8 @@ export function createNestedCrudRouter(
       const columns = getColumns(table);
       for (const col of autoOmit) {
         if (col in columns) {
-          schema = (schema as any).omit({ [col]: true });
+          // Dynamic key omit requires an unsafe cast on the argument
+          schema = (schema.omit as (mask: Record<string, true>) => typeof schema)({ [col]: true });
         }
       }
       return schema;
@@ -382,16 +382,16 @@ export function createNestedCrudRouter(
         orderByClause = asc(pkCol);
       }
 
-      const countQuery = db.select({ count: sql<number>`count(*)::int` }).from(table);
-      (countQuery as any).where(whereClause);
+      const countQuery = db.select({ count: sql<number>`count(*)::int` }).from(table).$dynamic();
+      countQuery.where(whereClause);
 
-      const dataQuery = db.select().from(table);
-      (dataQuery as any).where(whereClause);
-      if (orderByClause) (dataQuery as any).orderBy(orderByClause);
-      (dataQuery as any).limit(pageSize).offset(offset);
+      const dataQuery = db.select().from(table).$dynamic();
+      dataQuery.where(whereClause);
+      if (orderByClause) dataQuery.orderBy(orderByClause);
+      dataQuery.limit(pageSize).offset(offset);
 
       const [countResult, rows] = await Promise.all([countQuery, dataQuery]);
-      const total = (countResult[0] as any)?.count ?? 0;
+      const total = (countResult[0] as Record<string, unknown>)?.count ?? 0;
 
       res.json({ data: rows, total, page, pageSize });
     }),
@@ -416,9 +416,9 @@ export function createNestedCrudRouter(
 
       const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
 
-      const dataQuery = db.select().from(table);
-      (dataQuery as any).where(whereClause);
-      (dataQuery as any).limit(10000);
+      const dataQuery = db.select().from(table).$dynamic();
+      dataQuery.where(whereClause);
+      dataQuery.limit(10000);
 
       const rows = await dataQuery;
       if (rows.length === 0) {
@@ -430,7 +430,7 @@ export function createNestedCrudRouter(
       const CSV_INJECTION_RE = /^[=+\-@\t\r]/;
       const columnKeys = Object.keys(cols);
       const header = columnKeys.join(',');
-      const csvRows = (rows as any[]).map((row) =>
+      const csvRows = (rows as Record<string, unknown>[]).map((row) =>
         columnKeys
           .map((col) => {
             const val = row[col];
@@ -513,7 +513,7 @@ export function createNestedCrudRouter(
         isDuplicate: true,
         existingRecord: {
           id: existing.id ?? null,
-          displayLabel: (existing as any).name ?? (existing as any).code ?? String(existing.id ?? ''),
+          displayLabel: existing.name ?? existing.code ?? String(existing.id ?? ''),
         },
       });
     }),
@@ -593,7 +593,7 @@ export function createNestedCrudRouter(
             code: 'VALIDATION_ERROR',
             message: 'Validation error',
             details: result.error.format(),
-            correlation_id: (req as any).id,
+            correlation_id: req.id,
           },
         });
       }
@@ -622,11 +622,13 @@ export function createNestedCrudRouter(
       insertData[parentFkColumn] = parentId;
       if ('created_by' in cols) insertData.created_by = req.userId;
       if ('updated_by' in cols) insertData.updated_by = req.userId;
-      if ('correlation_id' in cols) insertData.correlation_id = (req as any).id;
+      if ('correlation_id' in cols) insertData.correlation_id = req.id;
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle .values() requires the exact inferred insert model
       const [created] = await db.insert(table).values(insertData as any).returning();
 
-      const entityId = (created as any)?.id ?? 'unknown';
+      const createdRecord = created as Record<string, unknown>;
+      const entityId = createdRecord?.id ?? 'unknown';
       logAuditEvent({
         entityType: tableName,
         entityId: String(entityId),
@@ -635,7 +637,7 @@ export function createNestedCrudRouter(
         actorRole: req.userRole,
         changes: { created: created as Record<string, unknown> },
         ipAddress: req.ip,
-        correlationId: (req as any).id,
+        correlationId: req.id,
       }).catch(() => {});
 
       if (afterCreate) {
@@ -749,6 +751,7 @@ export function createNestedCrudRouter(
       // Prevent changing parent FK
       delete updateData[parentFkColumn];
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle .set() requires the exact inferred update model
       const result = await db
         .update(table)
         .set(updateData as any)
@@ -761,8 +764,8 @@ export function createNestedCrudRouter(
         });
       }
 
-      const updated = result[0];
-      const diff = computeDiff(previousRecord, updated as Record<string, unknown>);
+      const updated = result[0] as Record<string, unknown>;
+      const diff = computeDiff(previousRecord, updated);
       logAuditEvent({
         entityType: tableName,
         entityId: String(lookupValue),
@@ -771,7 +774,7 @@ export function createNestedCrudRouter(
         actorRole: req.userRole,
         changes: diff,
         ipAddress: req.ip,
-        correlationId: (req as any).id,
+        correlationId: req.id,
       }).catch(() => {});
 
       if (afterUpdate) {
@@ -808,23 +811,24 @@ export function createNestedCrudRouter(
       }
 
       const cols = getColumns(table);
-      let result: any[];
+      let result: Record<string, unknown>[];
 
       if ('is_deleted' in cols) {
         const softDeleteData: Record<string, unknown> = { is_deleted: true };
         if ('updated_by' in cols) softDeleteData.updated_by = req.userId;
         if ('updated_at' in cols) softDeleteData.updated_at = new Date();
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle .set() requires exact model
         result = await db
           .update(table)
           .set(softDeleteData as any)
           .where(and(...scopeConditions))
-          .returning();
+          .returning() as Record<string, unknown>[];
       } else {
         result = await db
           .delete(table)
           .where(and(...scopeConditions))
-          .returning();
+          .returning() as Record<string, unknown>[];
       }
 
       if (result.length === 0) {
@@ -839,9 +843,9 @@ export function createNestedCrudRouter(
         action: 'DELETE',
         actorId: req.userId,
         actorRole: req.userRole,
-        changes: { deleted: result[0] as Record<string, unknown> },
+        changes: { deleted: result[0] },
         ipAddress: req.ip,
-        correlationId: (req as any).id,
+        correlationId: req.id,
       }).catch(() => {});
 
       if (afterDelete) {
@@ -930,6 +934,7 @@ export function createNestedCrudRouter(
             if ('updated_by' in cols) data.updated_by = req.userId;
             return data;
           });
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle .values() requires exact model
           await db.insert(table).values(values as any);
           accepted += batch.length;
         } catch {
@@ -940,6 +945,7 @@ export function createNestedCrudRouter(
               data[parentFkColumn] = parentId;
               if ('created_by' in allCols) data.created_by = req.userId;
               if ('updated_by' in allCols) data.updated_by = req.userId;
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle .values() requires exact model
               await db.insert(table).values(data as any);
               accepted += 1;
             } catch (rowError) {
@@ -960,7 +966,7 @@ export function createNestedCrudRouter(
         actorRole: req.userRole,
         changes: { bulkImport: true, parentId, accepted, rejected: rejected.length },
         ipAddress: req.ip,
-        correlationId: (req as any).id,
+        correlationId: req.id,
       }).catch(() => {});
 
       const statusCode = rejected.length > 0 && accepted === 0 ? 400 : 200;

@@ -3,7 +3,7 @@ import type { Request, Response, NextFunction } from 'express';
 
 export function requestId(req: Request, res: Response, next: NextFunction) {
   const id = (req.headers['x-request-id'] as string) || randomUUID();
-  (req as any).id = id;
+  req.id = id;
   res.setHeader('X-Request-Id', id);
   next();
 }

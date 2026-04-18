@@ -107,7 +107,7 @@ const BASEL_COLORS: Record<string, string> = {
   "Employment Practices": "bg-yellow-100 text-yellow-800",
   "Clients/Products": "bg-blue-100 text-blue-800",
   "Damage to Assets": "bg-purple-100 text-purple-800",
-  "Business Disruption": "bg-gray-200 text-gray-800",
+  "Business Disruption": "bg-muted text-foreground",
   "Execution/Delivery": "bg-teal-100 text-teal-800",
 };
 
@@ -147,7 +147,7 @@ function truncate(s: string, len: number = 60): string {
 }
 
 function badgeColor(category: string): string {
-  return BASEL_COLORS[category] ?? "bg-gray-100 text-gray-800";
+  return BASEL_COLORS[category] ?? "bg-muted text-foreground";
 }
 
 // Reusable sub-components
@@ -512,7 +512,7 @@ export default function OreCaseManager() {
             </span>
           </div>
 
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -565,7 +565,7 @@ export default function OreCaseManager() {
                         {ev.bsp_reported ? (
                           <Badge className="bg-green-100 text-green-800">Reported</Badge>
                         ) : (
-                          <Badge className="bg-gray-100 text-gray-600">Pending</Badge>
+                          <Badge className="bg-muted text-muted-foreground">Pending</Badge>
                         )}
                       </TableCell>
                       <TableCell className="text-xs">{formatDate(ev.created_at)}</TableCell>
@@ -786,7 +786,7 @@ export default function OreCaseManager() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="rounded-md border">
+                  <div className="overflow-x-auto rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -855,7 +855,7 @@ export default function OreCaseManager() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="rounded-md border">
+                    <div className="overflow-x-auto rounded-md border">
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -892,7 +892,7 @@ export default function OreCaseManager() {
                                 {ev.bsp_reported ? (
                                   <Badge className="bg-green-100 text-green-800">Yes</Badge>
                                 ) : (
-                                  <Badge className="bg-gray-100 text-gray-600">No</Badge>
+                                  <Badge className="bg-muted text-muted-foreground">No</Badge>
                                 )}
                               </TableCell>
                               <TableCell className="text-xs">

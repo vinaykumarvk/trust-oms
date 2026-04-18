@@ -533,12 +533,12 @@ export default function WhatIfScenarioPage() {
                   />
                 </div>
                 {showSecurityDropdown && securities.length > 0 && (
-                  <div className="absolute z-50 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                  <div className="absolute z-50 mt-1 w-full bg-background border rounded-md shadow-lg max-h-48 overflow-y-auto">
                     {securities.map((sec: SecurityListItem) => (
                       <button
                         type="button"
                         key={sec.id}
-                        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center justify-between"
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center justify-between"
                         onClick={() => handleSelectSecurity(sec)}
                       >
                         <span className="font-medium">
@@ -609,7 +609,7 @@ export default function WhatIfScenarioPage() {
                 <Label className="text-xs font-medium text-muted-foreground mb-1 block">
                   Notional Value
                 </Label>
-                <div className="h-9 flex items-center px-3 bg-gray-50 border rounded-md text-sm font-medium">
+                <div className="h-9 flex items-center px-3 bg-muted border rounded-md text-sm font-medium">
                   {tradeNotional > 0 ? fmtCcy(tradeNotional) : "--"}
                 </div>
               </div>
@@ -750,7 +750,7 @@ export default function WhatIfScenarioPage() {
       {/* ================================================================= */}
       {/* HISTORY SIDEBAR */}
       {/* ================================================================= */}
-      <div className="w-80 border-l bg-gray-50/50 overflow-y-auto hidden xl:block">
+      <div className="w-80 border-l bg-muted/50 overflow-y-auto hidden xl:block">
         <div className="p-4">
           <h2 className="text-sm font-semibold flex items-center gap-2 mb-4">
             <Clock className="h-4 w-4" />
@@ -780,7 +780,7 @@ export default function WhatIfScenarioPage() {
                   className={`w-full text-left p-3 rounded-lg border text-xs transition-colors ${
                     analysisResult?.id === scenario.id
                       ? "bg-indigo-50 border-indigo-300"
-                      : "bg-white hover:bg-gray-100 border-gray-200"
+                      : "bg-background hover:bg-muted border-border"
                   }`}
                   onClick={() => handleLoadScenario(scenario)}
                 >
@@ -867,7 +867,7 @@ function AllocationComparisonPanel({ result }: { result: ScenarioResult }) {
                 <div key={a.assetClass} className="flex items-center gap-3">
                   <div className="w-28 text-xs font-medium truncate">{a.assetClass}</div>
                   <div className="flex-1">
-                    <div className="h-5 bg-gray-100 rounded overflow-hidden relative">
+                    <div className="h-5 bg-muted rounded overflow-hidden relative">
                       <div
                         className={`h-full ${getAllocColor(a.assetClass)} rounded opacity-70 transition-all`}
                         style={{ width: `${Math.min(a.weight, 100)}%` }}
@@ -901,7 +901,7 @@ function AllocationComparisonPanel({ result }: { result: ScenarioResult }) {
                   <div key={a.assetClass} className="flex items-center gap-3">
                     <div className="w-28 text-xs font-medium truncate">{a.assetClass}</div>
                     <div className="flex-1">
-                      <div className="h-5 bg-gray-100 rounded overflow-hidden relative">
+                      <div className="h-5 bg-muted rounded overflow-hidden relative">
                         <div
                           className={`h-full ${getAllocColor(a.assetClass)} rounded transition-all`}
                           style={{ width: `${Math.min(a.weight, 100)}%` }}
@@ -1032,7 +1032,7 @@ function ConcentrationImpactPanel({ result }: { result: ScenarioResult }) {
       <CardContent>
         {/* Gauge visualization */}
         <div className="relative mb-6">
-          <div className="h-4 bg-gray-100 rounded-full overflow-hidden relative">
+          <div className="h-4 bg-muted rounded-full overflow-hidden relative">
             {/* Limit line */}
             <div
               className="absolute top-0 h-full w-0.5 bg-red-500 z-10"
@@ -1088,7 +1088,7 @@ function ConcentrationImpactPanel({ result }: { result: ScenarioResult }) {
           </div>
           <div>
             <div className="text-xs text-muted-foreground">Limit</div>
-            <div className="text-lg font-bold text-gray-700">
+            <div className="text-lg font-bold text-foreground">
               {fmtPct(concentrationImpact.limit)}
             </div>
           </div>
@@ -1124,6 +1124,7 @@ function SectorExposurePanel({ result }: { result: ScenarioResult }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -1149,7 +1150,7 @@ function SectorExposurePanel({ result }: { result: ScenarioResult }) {
                     ) : change < -0.01 ? (
                       <ArrowDown className="h-4 w-4 text-red-600 mx-auto" />
                     ) : (
-                      <ArrowRight className="h-4 w-4 text-gray-400 mx-auto" />
+                      <ArrowRight className="h-4 w-4 text-muted-foreground mx-auto" />
                     )}
                   </TableCell>
                   <TableCell className="text-right text-sm">
@@ -1174,6 +1175,7 @@ function SectorExposurePanel({ result }: { result: ScenarioResult }) {
             })}
           </TableBody>
         </Table>
+        </div>
       </CardContent>
     </Card>
   );
@@ -1218,10 +1220,10 @@ function PerformanceEstimatePanel({ result }: { result: ScenarioResult }) {
           </div>
         </div>
 
-        <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+        <div className="mt-4 p-3 bg-muted rounded-lg">
           <div className="text-xs text-muted-foreground mb-1">Risk-Return Assessment</div>
           <div className="flex items-center gap-2">
-            <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full ${
                   performanceEstimate.estimatedReturn > performanceEstimate.riskImpact
@@ -1296,7 +1298,7 @@ function TaxImpactPanel({ result }: { result: ScenarioResult }) {
 
             {/* Breakdown */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-3 bg-gray-50 rounded-lg">
+              <div className="p-3 bg-muted rounded-lg">
                 <div className="text-[10px] text-muted-foreground mb-1">
                   Short-Term Gains (&lt;1yr)
                 </div>
@@ -1308,7 +1310,7 @@ function TaxImpactPanel({ result }: { result: ScenarioResult }) {
                 </div>
               </div>
 
-              <div className="p-3 bg-gray-50 rounded-lg">
+              <div className="p-3 bg-muted rounded-lg">
                 <div className="text-[10px] text-muted-foreground mb-1">
                   Long-Term Gains (&gt;1yr)
                 </div>
@@ -1527,7 +1529,7 @@ function ESGBreakdownPanel({
                         {comp.score}
                       </span>
                     </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full ${esgScoreBg(comp.score)}`}
                         style={{ width: `${comp.score}%` }}
@@ -1559,7 +1561,7 @@ function ESGBreakdownPanel({
                         {comp.score}
                       </span>
                     </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full ${esgScoreBg(comp.score)}`}
                         style={{ width: `${comp.score}%` }}
@@ -1591,7 +1593,7 @@ function ESGBreakdownPanel({
                         {comp.score}
                       </span>
                     </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full ${esgScoreBg(comp.score)}`}
                         style={{ width: `${comp.score}%` }}
@@ -1753,7 +1755,7 @@ function ESGScreeningPanel({
         <Card>
           <CardContent className="pt-4 pb-4 text-center">
             <div className="text-xs text-muted-foreground">Flagged MV</div>
-            <div className="text-2xl font-bold text-gray-700">
+            <div className="text-2xl font-bold text-foreground">
               {fmtCcy(screening.flaggedMarketValue)}
             </div>
           </CardContent>
@@ -1782,6 +1784,7 @@ function ESGScreeningPanel({
             </CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -1824,6 +1827,7 @@ function ESGScreeningPanel({
                 ))}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -1849,7 +1853,7 @@ function ESGScreeningPanel({
                   ([category, data]: [string, { count: number; weight: number }]) => (
                     <div
                       key={category}
-                      className="p-3 bg-gray-50 rounded-lg text-center"
+                      className="p-3 bg-muted rounded-lg text-center"
                     >
                       <div className="text-xs font-medium">{category}</div>
                       <div className="text-lg font-bold text-red-600">

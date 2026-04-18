@@ -51,7 +51,7 @@ router.post(
       });
     }
     const result = await navService.computeNav(portfolioId, navDate);
-    res.status(201).json(result);
+    res.status(201).json({ data: result });
   }),
 );
 
@@ -74,7 +74,7 @@ router.post(
       investorId,
       transactionDate,
     });
-    res.status(201).json(result);
+    res.status(201).json({ data: result });
   }),
 );
 
@@ -97,7 +97,7 @@ router.post(
       investorId,
       transactionDate,
     });
-    res.status(201).json(result);
+    res.status(201).json({ data: result });
   }),
 );
 
@@ -115,7 +115,7 @@ router.post(
       });
     }
     const result = await unitService.reconcileUnits(portfolioId);
-    res.json(result);
+    res.json({ data: result });
   }),
 );
 
@@ -150,7 +150,7 @@ router.post(
       });
     }
     const result = await navService.validateNav(navId);
-    res.json(result);
+    res.json({ data: result });
   }),
 );
 
@@ -177,7 +177,7 @@ router.post(
       navId,
       parseInt(publishedBy, 10),
     );
-    res.json(result);
+    res.json({ data: result });
   }),
 );
 

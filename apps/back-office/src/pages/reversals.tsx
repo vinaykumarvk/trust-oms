@@ -74,7 +74,7 @@ const STATUS_CONFIG: Record<ReversalStatus, { label: string; color: string }> = 
 };
 
 function getStatusBadge(status: string | null) {
-  const cfg = STATUS_CONFIG[status as ReversalStatus] ?? { label: status ?? "Unknown", color: "bg-gray-100 text-gray-700" };
+  const cfg = STATUS_CONFIG[status as ReversalStatus] ?? { label: status ?? "Unknown", color: "bg-muted text-foreground" };
   return <Badge className={cfg.color}>{cfg.label}</Badge>;
 }
 
@@ -266,7 +266,7 @@ function ReversalTable({ data, loading, onReview, onExecute, executePending, sho
 
   if (loading) {
     return (
-      <div className="rounded-md border">
+      <div className="overflow-x-auto rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -299,7 +299,7 @@ function ReversalTable({ data, loading, onReview, onExecute, executePending, sho
   }
 
   return (
-    <div className="rounded-md border">
+    <div className="overflow-x-auto rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>

@@ -92,7 +92,7 @@ const SERVICE_ICONS: Record<string, typeof Activity> = {
 const EOD_STATUS_STYLES: Record<string, { bg: string; text: string; icon: typeof CheckCircle2 }> = {
   COMPLETED: { bg: "bg-green-50 border-green-200", text: "text-green-700", icon: CheckCircle2 },
   IN_PROGRESS: { bg: "bg-yellow-50 border-yellow-200", text: "text-yellow-700", icon: RefreshCw },
-  NOT_STARTED: { bg: "bg-gray-50 border-gray-200", text: "text-gray-500", icon: Clock },
+  NOT_STARTED: { bg: "bg-muted border-border", text: "text-muted-foreground", icon: Clock },
 };
 
 // Stub incident data from ORE events context
@@ -242,14 +242,14 @@ function StpGauge({ rate, target }: { rate: number; target: number }) {
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className={`text-3xl font-bold ${color}`}>{pct}%</span>
-          <span className="text-xs text-gray-400">STP Rate</span>
+          <span className="text-xs text-muted-foreground">STP Rate</span>
         </div>
       </div>
 
       <div className="mt-3 flex items-center gap-3 text-sm">
         <div className="flex items-center gap-1">
-          <Target className="h-4 w-4 text-gray-400" />
-          <span className="text-gray-500">Target: {targetPct}%</span>
+          <Target className="h-4 w-4 text-muted-foreground" />
+          <span className="text-muted-foreground">Target: {targetPct}%</span>
         </div>
         <Badge
           variant="outline"
@@ -283,7 +283,7 @@ function SlaCard({ sla }: { sla: ServiceSla }) {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Icon className={`h-5 w-5 ${styles.text}`} />
-          <span className="font-semibold text-sm text-gray-800">{sla.service}</span>
+          <span className="font-semibold text-sm text-foreground">{sla.service}</span>
         </div>
         <Badge variant="outline" className={`text-[10px] ${styles.badge}`}>
           {sla.status.replace("_", " ")}
@@ -292,16 +292,16 @@ function SlaCard({ sla }: { sla: ServiceSla }) {
 
       <div className="space-y-2">
         <div className="flex justify-between text-xs">
-          <span className="text-gray-500">SLA Target</span>
-          <span className="font-medium text-gray-700">{formatPct(sla.slaTarget)}</span>
+          <span className="text-muted-foreground">SLA Target</span>
+          <span className="font-medium text-foreground">{formatPct(sla.slaTarget)}</span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-gray-500">Actual</span>
+          <span className="text-muted-foreground">Actual</span>
           <span className={`font-bold ${styles.text}`}>{formatPct(sla.actual)}</span>
         </div>
 
         {/* Progress bar */}
-        <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+        <div className="w-full bg-muted rounded-full h-2 mt-1">
           <div
             className={`h-2 rounded-full transition-all duration-700 ${
               sla.status === "MEETING"
@@ -321,7 +321,7 @@ function SlaCard({ sla }: { sla: ServiceSla }) {
           </div>
         </div>
 
-        <div className="flex justify-between text-[10px] text-gray-400">
+        <div className="flex justify-between text-[10px] text-muted-foreground">
           <span>0%</span>
           <span>Target: {formatPct(sla.slaTarget)}</span>
           <span>100%</span>
@@ -342,7 +342,7 @@ function SeverityBadge({ severity }: { severity: string }) {
     LOW: "bg-blue-100 text-blue-800 border-blue-200",
   };
   return (
-    <Badge variant="outline" className={`text-[10px] ${styles[severity] ?? "bg-gray-100 text-gray-600"}`}>
+    <Badge variant="outline" className={`text-[10px] ${styles[severity] ?? "bg-muted text-muted-foreground"}`}>
       {severity}
     </Badge>
   );
@@ -355,7 +355,7 @@ function IncidentStatusBadge({ status }: { status: string }) {
     ESCALATED: "bg-red-100 text-red-800 border-red-200",
   };
   return (
-    <Badge variant="outline" className={`text-[10px] ${styles[status] ?? "bg-gray-100 text-gray-600"}`}>
+    <Badge variant="outline" className={`text-[10px] ${styles[status] ?? "bg-muted text-muted-foreground"}`}>
       {status}
     </Badge>
   );
@@ -397,12 +397,12 @@ export default function OperationsControlTower() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Operations Control Tower</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Operations Control Tower</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Real-time operational monitoring and SLA tracking
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-gray-400">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <RefreshCw className="h-3 w-3 animate-spin" />
           Auto-refresh every 30s
         </div>
@@ -417,7 +417,7 @@ export default function OperationsControlTower() {
         {opsLoading ? (
           <LoadingSkeleton />
         ) : (
-          <Card className="lg:col-span-1 border-2 border-gray-200">
+          <Card className="lg:col-span-1 border-2 border-border">
             <CardHeader className="pb-0">
               <CardTitle className="text-base flex items-center gap-2">
                 <Gauge className="h-5 w-5 text-blue-500" />
@@ -430,7 +430,7 @@ export default function OperationsControlTower() {
                 target={ops?.stpTarget ?? 0.92}
               />
               <Separator className="my-3" />
-              <p className="text-xs text-gray-500 text-center">
+              <p className="text-xs text-muted-foreground text-center">
                 Orders processed without manual intervention
               </p>
             </CardContent>
@@ -447,7 +447,7 @@ export default function OperationsControlTower() {
             {/* Pending Settlements */}
             <Card className="border-l-4 border-l-orange-400">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                   <ArrowRightLeft className="h-4 w-4 text-orange-500" />
                   Pending Settlements
                 </CardTitle>
@@ -456,11 +456,11 @@ export default function OperationsControlTower() {
                 <div className="text-3xl font-bold text-orange-700">
                   {ops?.pendingSettlements ?? 0}
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Awaiting settlement completion
                 </p>
                 <div className="mt-2">
-                  <div className="text-xs text-gray-400">
+                  <div className="text-xs text-muted-foreground">
                     SLA: {formatPct(ops?.settlementSlaCompliance ?? 0)} compliance
                   </div>
                 </div>
@@ -470,7 +470,7 @@ export default function OperationsControlTower() {
             {/* Recon Breaks */}
             <Card className="border-l-4 border-l-red-400">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                   <FileSearch className="h-4 w-4 text-red-500" />
                   Recon Breaks
                 </CardTitle>
@@ -481,7 +481,7 @@ export default function OperationsControlTower() {
                 }`}>
                   {ops?.reconBreaks ?? 0}
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Open reconciliation breaks
                 </p>
                 {(ops?.reconBreaks ?? 0) === 0 ? (
@@ -501,7 +501,7 @@ export default function OperationsControlTower() {
             {/* EOD Status */}
             <Card className="border-l-4 border-l-blue-400">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                   <Server className="h-4 w-4 text-blue-500" />
                   EOD Status
                 </CardTitle>
@@ -521,7 +521,7 @@ export default function OperationsControlTower() {
                           {status.replace(/_/g, " ")}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-500 mt-2">
+                      <p className="text-xs text-muted-foreground mt-2">
                         {status === "COMPLETED" && "All end-of-day processes finished successfully"}
                         {status === "IN_PROGRESS" && "End-of-day batch processing is running"}
                         {status === "NOT_STARTED" && "End-of-day processing has not begun"}
@@ -554,7 +554,7 @@ export default function OperationsControlTower() {
               {slas && slas.length > 0 ? (
                 slas.map((sla) => <SlaCard key={sla.service} sla={sla} />)
               ) : (
-                <div className="col-span-full text-center text-gray-400 py-8">
+                <div className="col-span-full text-center text-muted-foreground py-8">
                   No SLA data available
                 </div>
               )}
@@ -563,7 +563,7 @@ export default function OperationsControlTower() {
             <Separator className="my-4" />
 
             {/* Legend */}
-            <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500">
+            <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
               <span className="font-medium">Legend:</span>
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded-full bg-green-500" />
@@ -595,10 +595,10 @@ export default function OperationsControlTower() {
             </CardTitle>
             {!riskLoading && risk && (
               <div className="flex items-center gap-3 text-xs">
-                <span className="text-gray-500">
+                <span className="text-muted-foreground">
                   {risk.oreEvents} open ORE events
                 </span>
-                <span className="text-gray-500">
+                <span className="text-muted-foreground">
                   {risk.openBreaches} compliance breaches
                 </span>
               </div>
@@ -606,10 +606,10 @@ export default function OperationsControlTower() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border overflow-hidden">
+          <div className="overflow-x-auto rounded-md border overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="bg-gray-50">
+                <TableRow className="bg-muted">
                   <TableHead className="font-semibold w-36">Timestamp</TableHead>
                   <TableHead className="font-semibold w-40">Category</TableHead>
                   <TableHead className="font-semibold">Description</TableHead>
@@ -619,8 +619,8 @@ export default function OperationsControlTower() {
               </TableHeader>
               <TableBody>
                 {STUB_INCIDENTS.map((inc) => (
-                  <TableRow key={inc.id} className="hover:bg-gray-50">
-                    <TableCell className="text-xs text-gray-500 whitespace-nowrap">
+                  <TableRow key={inc.id} className="hover:bg-muted">
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                       {formatTime(inc.timestamp)}
                     </TableCell>
                     <TableCell className="text-xs font-medium">
@@ -638,7 +638,7 @@ export default function OperationsControlTower() {
               </TableBody>
             </Table>
           </div>
-          <div className="mt-3 flex items-center gap-2 text-xs text-gray-400">
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
             <AlertTriangle className="h-3 w-3" />
             Incidents sourced from Operational Risk Event (ORE) ledger and compliance breach records
           </div>
@@ -650,29 +650,29 @@ export default function OperationsControlTower() {
       {/* ================================================================== */}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="text-center p-3 bg-gray-50 rounded-lg border">
-          <div className="text-lg font-bold text-gray-700">
+        <div className="text-center p-3 bg-muted rounded-lg border">
+          <div className="text-lg font-bold text-foreground">
             {ops ? formatPct(ops.stpRate) : "--"}
           </div>
-          <div className="text-[10px] text-gray-400 uppercase tracking-wider">STP Rate</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider">STP Rate</div>
         </div>
-        <div className="text-center p-3 bg-gray-50 rounded-lg border">
-          <div className="text-lg font-bold text-gray-700">
+        <div className="text-center p-3 bg-muted rounded-lg border">
+          <div className="text-lg font-bold text-foreground">
             {ops ? formatPct(ops.settlementSlaCompliance) : "--"}
           </div>
-          <div className="text-[10px] text-gray-400 uppercase tracking-wider">Settlement SLA</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Settlement SLA</div>
         </div>
-        <div className="text-center p-3 bg-gray-50 rounded-lg border">
-          <div className="text-lg font-bold text-gray-700">
+        <div className="text-center p-3 bg-muted rounded-lg border">
+          <div className="text-lg font-bold text-foreground">
             {risk?.complianceScore ?? "--"}
           </div>
-          <div className="text-[10px] text-gray-400 uppercase tracking-wider">Compliance Score</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Compliance Score</div>
         </div>
-        <div className="text-center p-3 bg-gray-50 rounded-lg border">
-          <div className="text-lg font-bold text-gray-700">
+        <div className="text-center p-3 bg-muted rounded-lg border">
+          <div className="text-lg font-bold text-foreground">
             {slas ? slas.filter((s) => s.status === "MEETING").length : "--"}/{slas?.length ?? "--"}
           </div>
-          <div className="text-[10px] text-gray-400 uppercase tracking-wider">SLAs Meeting Target</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider">SLAs Meeting Target</div>
         </div>
       </div>
     </div>

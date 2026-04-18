@@ -83,7 +83,7 @@ const STATUS_CONFIG: Record<
   string,
   { label: string; color: string; variant: "default" | "secondary" | "outline" | "destructive" }
 > = {
-  NOT_STARTED: { label: "Not Started", color: "bg-gray-100 text-gray-700", variant: "secondary" },
+  NOT_STARTED: { label: "Not Started", color: "bg-muted text-foreground", variant: "secondary" },
   DRAFT: { label: "Draft", color: "bg-yellow-100 text-yellow-800", variant: "outline" },
   VALIDATED: { label: "Validated", color: "bg-blue-100 text-blue-800", variant: "outline" },
   PUBLISHED: { label: "Published", color: "bg-green-100 text-green-800", variant: "default" },
@@ -349,7 +349,7 @@ export default function FundAccounting() {
           <CardDescription>UITF funds - click a fund to view NAV history</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="rounded-md border-t">
+          <div className="overflow-x-auto rounded-md border-t">
             <Table>
               <TableHeader>
                 <TableRow>

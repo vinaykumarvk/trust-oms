@@ -129,7 +129,7 @@ function formatDate(d: string | null): string {
 }
 
 function badgeClass(key: string, map: Record<string, string>): string {
-  return map[key] ?? "bg-gray-100 text-gray-800";
+  return map[key] ?? "bg-muted text-foreground";
 }
 
 function truncateJson(obj: Record<string, unknown>, maxLen = 80): string {
@@ -526,7 +526,7 @@ export default function ComplianceRules() {
             </div>
 
             {/* Rules Table */}
-            <div className="rounded-md border">
+            <div className="overflow-x-auto rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -589,7 +589,7 @@ export default function ComplianceRules() {
                             className={
                               rule.is_active
                                 ? "text-green-600 hover:text-green-700"
-                                : "text-gray-400 hover:text-gray-500"
+                                : "text-muted-foreground hover:text-muted-foreground"
                             }
                           >
                             {rule.is_active ? (
@@ -711,7 +711,7 @@ export default function ComplianceRules() {
                       {orderEvalResult.results.length} rule(s) checked
                     </span>
                   </div>
-                  <div className="rounded-md border max-h-[300px] overflow-y-auto">
+                  <div className="overflow-x-auto rounded-md border max-h-[300px] overflow-y-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -849,7 +849,7 @@ export default function ComplianceRules() {
                       {positionEvalResult.results.length} rule(s) checked
                     </span>
                   </div>
-                  <div className="rounded-md border max-h-[300px] overflow-y-auto">
+                  <div className="overflow-x-auto rounded-md border max-h-[300px] overflow-y-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>

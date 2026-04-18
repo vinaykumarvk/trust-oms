@@ -149,7 +149,7 @@ function TransferBaseCells({ t }: { t: Transfer }) {
       <TableCell className="text-right font-mono">{fmtQty(t.quantity)}</TableCell>
       <TableCell><Badge variant="outline">{TYPE_LABELS[t.type] ?? t.type}</Badge></TableCell>
       <TableCell>
-        <Badge className={STATUS_COLORS[t.status] ?? "bg-gray-100 text-gray-800"}>
+        <Badge className={STATUS_COLORS[t.status] ?? "bg-muted text-foreground"}>
           {t.status}
         </Badge>
       </TableCell>
@@ -292,7 +292,7 @@ export default function TransfersPage() {
               <CardTitle className="text-base">Pending and Approved Transfers</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border">
+              <div className="overflow-x-auto rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -339,7 +339,7 @@ export default function TransfersPage() {
               <CardTitle className="text-base">Transfer History</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border">
+              <div className="overflow-x-auto rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>

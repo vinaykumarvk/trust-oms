@@ -97,7 +97,7 @@ const STATUS_COLORS: Record<string, string> = {
   UNDER_REVIEW: "bg-blue-100 text-blue-800",
   INVESTIGATING: "bg-orange-100 text-orange-800",
   RESOLVED: "bg-green-100 text-green-800",
-  CLOSED: "bg-gray-200 text-gray-700",
+  CLOSED: "bg-muted text-foreground",
 };
 
 // ---------------------------------------------------------------------------
@@ -122,7 +122,7 @@ function truncate(s: string, len: number = 60): string {
 }
 
 function badgeColor(key: string, map: Record<string, string>): string {
-  return map[key] ?? "bg-gray-100 text-gray-800";
+  return map[key] ?? "bg-muted text-foreground";
 }
 
 function formatChannelLabel(ch: string): string {
@@ -525,7 +525,7 @@ export default function Whistleblower() {
                           type="checkbox"
                           checked={newAnonymous}
                           onChange={(e) => setNewAnonymous(e.target.checked)}
-                          className="h-4 w-4 rounded border-gray-300"
+                          className="h-4 w-4 rounded border-border"
                         />
                         <span className="text-sm">
                           {newAnonymous ? "Anonymous" : "Named reporter"}
@@ -578,7 +578,7 @@ export default function Whistleblower() {
           )}
 
           {/* Cases Table */}
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -616,7 +616,7 @@ export default function Whistleblower() {
                           {c.anonymous ? (
                             <Badge className="bg-purple-100 text-purple-800">Anonymous</Badge>
                           ) : (
-                            <Badge className="bg-gray-100 text-gray-600">Named</Badge>
+                            <Badge className="bg-muted text-muted-foreground">Named</Badge>
                           )}
                         </TableCell>
                         <TableCell className="text-sm max-w-xs truncate">
@@ -631,7 +631,7 @@ export default function Whistleblower() {
                           {c.dpo_notified ? (
                             <Badge className="bg-green-100 text-green-800">Yes</Badge>
                           ) : (
-                            <Badge className="bg-gray-100 text-gray-600">No</Badge>
+                            <Badge className="bg-muted text-muted-foreground">No</Badge>
                           )}
                         </TableCell>
                         <TableCell>
@@ -777,7 +777,7 @@ export default function Whistleblower() {
                           </div>
                           <span className="font-mono font-medium">{count}</span>
                         </div>
-                        <div className="h-2 w-full rounded-full bg-gray-200">
+                        <div className="h-2 w-full rounded-full bg-muted">
                           <div
                             className={`h-2 rounded-full transition-all ${
                               status === "SUBMITTED"
@@ -788,7 +788,7 @@ export default function Whistleblower() {
                                     ? "bg-orange-500"
                                     : status === "RESOLVED"
                                       ? "bg-green-500"
-                                      : "bg-gray-500"
+                                      : "bg-muted0"
                             }`}
                             style={{ width: `${Math.max(pct, 1)}%` }}
                           />
@@ -817,7 +817,7 @@ export default function Whistleblower() {
                     </div>
                     <Separator orientation="vertical" className="h-16" />
                     <div className="flex-1 text-center">
-                      <p className="text-3xl font-bold text-gray-700">
+                      <p className="text-3xl font-bold text-foreground">
                         {conduct.named_count}
                       </p>
                       <p className="text-sm text-muted-foreground mt-1">Named</p>
@@ -833,7 +833,7 @@ export default function Whistleblower() {
                         {(conduct.anonymous_ratio * 100).toFixed(1)}%
                       </span>
                     </div>
-                    <div className="h-3 w-full rounded-full bg-gray-200">
+                    <div className="h-3 w-full rounded-full bg-muted">
                       <div
                         className="h-3 rounded-full bg-purple-500 transition-all"
                         style={{ width: `${conduct.anonymous_ratio * 100}%` }}
@@ -870,7 +870,7 @@ export default function Whistleblower() {
                             </div>
                             <span className="font-mono font-medium">{count}</span>
                           </div>
-                          <div className="h-2 w-full rounded-full bg-gray-200">
+                          <div className="h-2 w-full rounded-full bg-muted">
                             <div
                               className={`h-2 rounded-full transition-all ${
                                 channel === "HOTLINE"
@@ -918,7 +918,7 @@ export default function Whistleblower() {
                             <span className="text-xs font-mono w-20 text-muted-foreground">
                               {entry.month}
                             </span>
-                            <div className="flex-1 h-5 rounded bg-gray-100">
+                            <div className="flex-1 h-5 rounded bg-muted">
                               <div
                                 className="h-5 rounded bg-blue-500 flex items-center justify-end pr-2 transition-all"
                                 style={{ width: `${Math.max(pct, 3)}%` }}

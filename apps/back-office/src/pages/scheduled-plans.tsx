@@ -93,7 +93,7 @@ const STATUS_COLORS: Record<string, string> = {
   ACTIVE: "bg-green-100 text-green-800",
   PAUSED: "bg-yellow-100 text-yellow-800",
   CANCELLED: "bg-red-100 text-red-800",
-  COMPLETED: "bg-gray-100 text-gray-800",
+  COMPLETED: "bg-muted text-foreground",
 };
 
 const SI_TYPE_COLORS: Record<string, string> = {
@@ -498,7 +498,7 @@ export default function ScheduledPlans() {
             </Button>
           </div>
 
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -536,7 +536,7 @@ export default function ScheduledPlans() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Badge className={STATUS_COLORS[plan.status] ?? "bg-gray-100 text-gray-800"}>{plan.status}</Badge>
+                        <Badge className={STATUS_COLORS[plan.status] ?? "bg-muted text-foreground"}>{plan.status}</Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
@@ -587,7 +587,7 @@ export default function ScheduledPlans() {
             </Button>
           </div>
 
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -623,7 +623,7 @@ export default function ScheduledPlans() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Badge className={STATUS_COLORS[plan.status] ?? "bg-gray-100 text-gray-800"}>{plan.status}</Badge>
+                        <Badge className={STATUS_COLORS[plan.status] ?? "bg-muted text-foreground"}>{plan.status}</Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
@@ -671,7 +671,7 @@ export default function ScheduledPlans() {
             </Button>
           </div>
 
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -697,13 +697,13 @@ export default function ScheduledPlans() {
                       <TableCell className="text-xs">{si.accountId}</TableCell>
                       <TableCell className="text-xs">{si.portfolioId}</TableCell>
                       <TableCell>
-                        <Badge className={SI_TYPE_COLORS[si.type] ?? "bg-gray-100 text-gray-800"}>{si.type}</Badge>
+                        <Badge className={SI_TYPE_COLORS[si.type] ?? "bg-muted text-foreground"}>{si.type}</Badge>
                       </TableCell>
                       <TableCell className="text-xs max-w-[200px] truncate font-mono" title={JSON.stringify(si.params)}>
                         {JSON.stringify(si.params)}
                       </TableCell>
                       <TableCell>
-                        <Badge className={si.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
+                        <Badge className={si.isActive ? "bg-green-100 text-green-800" : "bg-muted text-foreground"}>
                           {si.isActive ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>
@@ -762,7 +762,7 @@ export default function ScheduledPlans() {
                   <h3 className="text-base font-medium flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4 text-yellow-600" />EIP Plans Due ({dueEip.length})
                   </h3>
-                  <div className="rounded-md border">
+                  <div className="overflow-x-auto rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -804,7 +804,7 @@ export default function ScheduledPlans() {
                   <h3 className="text-base font-medium flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4 text-yellow-600" />ERP Plans Due ({dueErp.length})
                   </h3>
-                  <div className="rounded-md border">
+                  <div className="overflow-x-auto rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -846,7 +846,7 @@ export default function ScheduledPlans() {
                   <h3 className="text-base font-medium flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4 text-yellow-600" />Standing Instructions Due ({dueSi.length})
                   </h3>
-                  <div className="rounded-md border">
+                  <div className="overflow-x-auto rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -864,7 +864,7 @@ export default function ScheduledPlans() {
                             <TableCell className="text-xs">{si.accountId}</TableCell>
                             <TableCell className="text-xs">{si.portfolioId}</TableCell>
                             <TableCell>
-                              <Badge className={SI_TYPE_COLORS[si.type] ?? "bg-gray-100 text-gray-800"}>{si.type}</Badge>
+                              <Badge className={SI_TYPE_COLORS[si.type] ?? "bg-muted text-foreground"}>{si.type}</Badge>
                             </TableCell>
                             <TableCell className="text-xs">
                               {fmtDate(si.nextExecution)}

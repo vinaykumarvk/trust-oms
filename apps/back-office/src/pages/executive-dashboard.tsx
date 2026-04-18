@@ -190,10 +190,10 @@ function HorizontalBar({
         return (
           <div key={item.label}>
             <div className="flex justify-between text-sm mb-1">
-              <span className="font-medium text-gray-700">{friendlyType(item.label)}</span>
-              <span className="text-gray-500">{formatValue(item.value)}</span>
+              <span className="font-medium text-foreground">{friendlyType(item.label)}</span>
+              <span className="text-muted-foreground">{formatValue(item.value)}</span>
             </div>
-            <div className="w-full bg-gray-100 rounded-full h-3">
+            <div className="w-full bg-muted rounded-full h-3">
               <div
                 className={`h-3 rounded-full ${colorClass} transition-all duration-700`}
                 style={{ width: `${pct}%` }}
@@ -237,7 +237,7 @@ function Sparkline({
               style={{ height: `${h}px` }}
               title={`${d.label}: ${formatValue(d.value)}`}
             />
-            <span className="text-[9px] text-gray-400 mt-1 truncate w-full text-center">
+            <span className="text-[9px] text-muted-foreground mt-1 truncate w-full text-center">
               {d.label.slice(5)}
             </span>
           </div>
@@ -326,7 +326,7 @@ export default function ExecutiveDashboard() {
       : ops.stpRate >= 0.85
         ? "text-yellow-600"
         : "text-red-600"
-    : "text-gray-400";
+    : "text-muted-foreground";
 
   // -- Render ---------------------------------------------------------------
 
@@ -335,12 +335,12 @@ export default function ExecutiveDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Executive Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Executive Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Trust Business Head / CRO Overview
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-gray-400">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <RefreshCw className="h-3 w-3 animate-spin" />
           Auto-refresh every 60s
         </div>
@@ -357,13 +357,13 @@ export default function ExecutiveDashboard() {
         ) : (
           <Card className="border-l-4 border-l-blue-500">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
                 Total AUM
               </CardTitle>
               <DollarSign className="h-5 w-5 text-blue-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900">
+              <div className="text-2xl font-bold text-foreground">
                 {formatPHP(aum?.totalAum ?? 0)}
               </div>
               <div className="flex items-center gap-1 mt-1">
@@ -391,16 +391,16 @@ export default function ExecutiveDashboard() {
         ) : (
           <Card className="border-l-4 border-l-emerald-500">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
                 Revenue YTD
               </CardTitle>
               <BarChart3 className="h-5 w-5 text-emerald-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900">
+              <div className="text-2xl font-bold text-foreground">
                 {formatPHP(revenue?.totalRevenue ?? 0)}
               </div>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {revenue?.byFeeType.length ?? 0} fee types contributing
               </p>
             </CardContent>
@@ -413,7 +413,7 @@ export default function ExecutiveDashboard() {
         ) : (
           <Card className="border-l-4 border-l-violet-500">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
                 Compliance Score
               </CardTitle>
               <ShieldCheck className="h-5 w-5 text-violet-500" />
@@ -421,7 +421,7 @@ export default function ExecutiveDashboard() {
             <CardContent>
               <div className="flex items-center gap-4">
                 <ScoreCircle score={risk?.complianceScore ?? 0} />
-                <div className="text-xs text-gray-500 space-y-0.5">
+                <div className="text-xs text-muted-foreground space-y-0.5">
                   <div>{risk?.openBreaches ?? 0} open breaches</div>
                   <div>{risk?.oreEvents ?? 0} ORE events</div>
                   <div>{risk?.pendingSurveillance ?? 0} pending alerts</div>
@@ -437,7 +437,7 @@ export default function ExecutiveDashboard() {
         ) : (
           <Card className="border-l-4 border-l-amber-500">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
                 STP Rate
               </CardTitle>
               <Activity className="h-5 w-5 text-amber-500" />
@@ -447,8 +447,8 @@ export default function ExecutiveDashboard() {
                 {formatPct(ops?.stpRate ?? 0)}
               </div>
               <div className="flex items-center gap-2 mt-1">
-                <Target className="h-3 w-3 text-gray-400" />
-                <span className="text-xs text-gray-500">
+                <Target className="h-3 w-3 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">
                   Target: {formatPct(ops?.stpTarget ?? 0.92)}
                 </span>
                 {ops && ops.stpRate >= ops.stpTarget ? (
@@ -515,24 +515,24 @@ export default function ExecutiveDashboard() {
                 formatValue={formatPHP}
               />
               <Separator className="my-3" />
-              <div className="grid grid-cols-3 gap-2 text-xs text-gray-500">
+              <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
                 {aum && aum.trend.length > 0 && (
                   <>
                     <div>
-                      <span className="block text-gray-400">12m ago</span>
-                      <span className="font-medium text-gray-700">
+                      <span className="block text-muted-foreground">12m ago</span>
+                      <span className="font-medium text-foreground">
                         {formatPHP(aum.trend[0].aum)}
                       </span>
                     </div>
                     <div>
-                      <span className="block text-gray-400">6m ago</span>
-                      <span className="font-medium text-gray-700">
+                      <span className="block text-muted-foreground">6m ago</span>
+                      <span className="font-medium text-foreground">
                         {formatPHP(aum.trend[Math.floor(aum.trend.length / 2)]?.aum ?? 0)}
                       </span>
                     </div>
                     <div>
-                      <span className="block text-gray-400">Current</span>
-                      <span className="font-medium text-gray-900">
+                      <span className="block text-muted-foreground">Current</span>
+                      <span className="font-medium text-foreground">
                         {formatPHP(aum.trend[aum.trend.length - 1].aum)}
                       </span>
                     </div>
@@ -570,7 +570,7 @@ export default function ExecutiveDashboard() {
                 formatValue={formatPHP}
               />
               {revenue && revenue.byFeeType.length === 0 && (
-                <p className="text-sm text-gray-400 italic">
+                <p className="text-sm text-muted-foreground italic">
                   No fee invoices recorded yet
                 </p>
               )}
@@ -598,8 +598,8 @@ export default function ExecutiveDashboard() {
                 formatValue={formatPHP}
               />
               <Separator className="my-3" />
-              <div className="text-xs text-gray-500">
-                <span className="font-medium text-gray-700">
+              <div className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">
                   {formatPHP(revenue?.totalRevenue ?? 0)}
                 </span>{" "}
                 total revenue year-to-date across{" "}
@@ -672,15 +672,15 @@ export default function ExecutiveDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <FileText className="h-4 w-4 text-gray-600" />
+              <FileText className="h-4 w-4 text-muted-foreground" />
               Regulatory Filing Status
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border overflow-hidden">
+            <div className="overflow-x-auto rounded-md border overflow-hidden">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-gray-50">
+                  <TableRow className="bg-muted">
                     <TableHead className="font-semibold">Report Name</TableHead>
                     <TableHead className="font-semibold">Regulator</TableHead>
                     <TableHead className="font-semibold">Frequency</TableHead>
@@ -692,7 +692,7 @@ export default function ExecutiveDashboard() {
                 <TableBody>
                   {filings && filings.length > 0 ? (
                     filings.map((f) => (
-                      <TableRow key={f.id} className="hover:bg-gray-50">
+                      <TableRow key={f.id} className="hover:bg-muted">
                         <TableCell className="font-medium text-sm">
                           {f.reportName}
                         </TableCell>
@@ -701,11 +701,11 @@ export default function ExecutiveDashboard() {
                             {f.regulator}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-xs text-gray-500">
+                        <TableCell className="text-xs text-muted-foreground">
                           {friendlyType(f.frequency)}
                         </TableCell>
                         <TableCell className="text-sm">{f.dueDate}</TableCell>
-                        <TableCell className="text-sm text-gray-500">
+                        <TableCell className="text-sm text-muted-foreground">
                           {f.lastFiled}
                         </TableCell>
                         <TableCell>
@@ -729,7 +729,7 @@ export default function ExecutiveDashboard() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-gray-400 py-8">
+                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                         No regulatory filings data available
                       </TableCell>
                     </TableRow>
@@ -737,7 +737,7 @@ export default function ExecutiveDashboard() {
                 </TableBody>
               </Table>
             </div>
-            <div className="mt-3 flex items-center gap-2 text-xs text-gray-400">
+            <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" />
               Filing statuses are updated based on current date and last submission records
             </div>

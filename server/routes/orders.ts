@@ -53,9 +53,11 @@ router.post('/', asyncHandler(async (req, res) => {
   });
 
   res.status(201).json({
-    ...order,
-    authorization_tier: tier,
-    suitability_check: suitabilityCheck,
+    data: {
+      ...order,
+      authorization_tier: tier,
+      suitability_check: suitabilityCheck,
+    },
   });
 }));
 
@@ -76,7 +78,7 @@ router.get('/', asyncHandler(async (req, res) => {
 /** POST /api/v1/orders/auto-compute -- Auto-compute missing field (Gap #1) */
 router.post('/auto-compute', asyncHandler(async (req, res) => {
   const result = orderService.autoCompute(req.body);
-  res.json(result);
+  res.json({ data: result });
 }));
 
 /** GET /api/v1/orders/pending-auth -- Pending authorization queue */
@@ -90,13 +92,13 @@ router.get('/pending-auth', asyncHandler(async (req, res) => {
 router.get('/:id', asyncHandler(async (req, res) => {
   const order = await orderService.getOrder(req.params.id);
   if (!order) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Order not found' } });
-  res.json(order);
+  res.json({ data: order });
 }));
 
 /** PUT /api/v1/orders/:id -- Update draft order */
 router.put('/:id', asyncHandler(async (req, res) => {
   const order = await orderService.updateOrder(req.params.id, req.body);
-  res.json(order);
+  res.json({ data: order });
 }));
 
 /** POST /api/v1/orders/:id/submit -- Submit for authorization */
@@ -104,7 +106,7 @@ router.post('/:id/submit', asyncHandler(async (req, res) => {
   const order = await orderService.submitForAuthorization(req.params.id);
   const userId = (req.headers['x-user-id'] as string) ?? 'system';
   await notificationService.emitOrderEvent(req.params.id, 'submitted', userId);
-  res.json(order);
+  res.json({ data: order });
 }));
 
 /** POST /api/v1/orders/:id/authorize -- Authorize order */
@@ -121,7 +123,7 @@ router.post('/:id/authorize', asyncHandler(async (req, res) => {
   // Emit notification
   await notificationService.emitOrderEvent(req.params.id, decision.toLowerCase(), String(approver_id));
 
-  res.json(result);
+  res.json({ data: result });
 }));
 
 /** POST /api/v1/orders/:id/reject -- Reject order (shortcut) */
@@ -130,19 +132,19 @@ router.post('/:id/reject', asyncHandler(async (req, res) => {
   const result = await authorizationService.authorizeOrder(
     req.params.id, approver_id ?? 0, approver_role ?? 'SRM', 'REJECTED', comment
   );
-  res.json(result);
+  res.json({ data: result });
 }));
 
 /** DELETE /api/v1/orders/:id -- Cancel order */
 router.delete('/:id', asyncHandler(async (req, res) => {
   const order = await orderService.cancelOrder(req.params.id);
-  res.json(order);
+  res.json({ data: order });
 }));
 
 /** POST /api/v1/orders/:id/revert -- Revert/un-cancel (Gap #2) */
 router.post('/:id/revert', asyncHandler(async (req, res) => {
   const order = await orderService.revertOrder(req.params.id);
-  res.json(order);
+  res.json({ data: order });
 }));
 
 /** GET /api/v1/orders/:id/timeline -- Order state transition history */

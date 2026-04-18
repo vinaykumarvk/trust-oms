@@ -384,7 +384,7 @@ export default function KillSwitchConsole() {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <h3 className="text-lg font-bold text-red-800">TRADING HALTED</h3>
-                      <Badge variant="outline" className={SCOPE_BADGE_COLORS[halt.scope_type] ?? "bg-gray-100 text-gray-800"}>
+                      <Badge variant="outline" className={SCOPE_BADGE_COLORS[halt.scope_type] ?? "bg-muted text-foreground"}>
                         {halt.scope_type}
                       </Badge>
                     </div>
@@ -610,7 +610,7 @@ export default function KillSwitchConsole() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Scope</span>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className={SCOPE_BADGE_COLORS[resumeTarget.scope_type] ?? "bg-gray-100 text-gray-800"}>
+                    <Badge variant="outline" className={SCOPE_BADGE_COLORS[resumeTarget.scope_type] ?? "bg-muted text-foreground"}>
                       {resumeTarget.scope_type}
                     </Badge>
                     <span className="font-mono text-xs">{resumeTarget.scope_value}</span>
@@ -712,7 +712,7 @@ export default function KillSwitchConsole() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -755,7 +755,7 @@ export default function KillSwitchConsole() {
                         <div className="flex items-center gap-1.5">
                           <Badge
                             variant="outline"
-                            className={SCOPE_BADGE_COLORS[evt.scope_type] ?? "bg-gray-100 text-gray-800"}
+                            className={SCOPE_BADGE_COLORS[evt.scope_type] ?? "bg-muted text-foreground"}
                           >
                             {evt.scope_type}
                           </Badge>

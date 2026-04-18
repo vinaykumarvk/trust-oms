@@ -169,7 +169,7 @@ function WorkingOrdersTab() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-md border">
+      <div className="overflow-x-auto rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -261,7 +261,7 @@ function BlockFillsRow({ blockId }: { blockId: string }) {
   const fills = q.data?.data ?? [];
   if (fills.length === 0) return <div className="p-4 text-sm text-muted-foreground text-center">No fills yet</div>;
   return (
-    <div className="bg-muted/20 p-3">
+    <div className="bg-muted/20 p-3 overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
@@ -323,7 +323,7 @@ function BlocksTab() {
 
   return (
     <>
-      <div className="rounded-md border">
+      <div className="overflow-x-auto rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -348,7 +348,7 @@ function BlocksTab() {
                   <TableCell className="font-medium">{b.security_name}</TableCell>
                   <TableCell><SideBadge side={b.side} /></TableCell>
                   <TableCell className="text-right">{fmtQty(b.total_qty)}</TableCell>
-                  <TableCell><Badge className={STATUS_COLOR[b.status] ?? "bg-gray-100 text-gray-800"}>{b.status.replace(/_/g, " ")}</Badge></TableCell>
+                  <TableCell><Badge className={STATUS_COLOR[b.status] ?? "bg-muted text-foreground"}>{b.status.replace(/_/g, " ")}</Badge></TableCell>
                   <TableCell>{b.broker_name ?? "-"}</TableCell>
                   <TableCell className="text-right">{fmtPct(b.fill_pct)}</TableCell>
                   <TableCell className="text-xs">{fmtDate(b.created_at)}</TableCell>
@@ -403,7 +403,7 @@ function BlocksTab() {
             </DialogDescription>
           </DialogHeader>
           {brokersQ.isLoading ? <LoadingSkeleton rows={3} /> : (
-            <div className="rounded-md border">
+            <div className="overflow-x-auto rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -462,7 +462,7 @@ function FillsPnlTab() {
         <MetricCard title="Avg Slippage" value={`${avgSlippage.toFixed(1)} bps`} icon={Activity} />
       </div>
       {fillsQ.isLoading ? <LoadingSkeleton rows={5} /> : (
-        <div className="rounded-md border">
+        <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>

@@ -131,7 +131,7 @@ function utilizationColor(pct: number, warning: number, hard: number): string {
 }
 
 function badgeColor(key: string, map: Record<string, string>): string {
-  return map[key] ?? "bg-gray-100 text-gray-800";
+  return map[key] ?? "bg-muted text-foreground";
 }
 
 // Reusable sub-components
@@ -389,7 +389,7 @@ export default function ComplianceLimits() {
             </Button>
           </div>
 
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -425,7 +425,7 @@ export default function ComplianceLimits() {
                         <TableCell className="text-right font-mono text-sm">{formatNumber(limit.current_exposure)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <div className="h-2 w-24 rounded-full bg-gray-200">
+                            <div className="h-2 w-24 rounded-full bg-muted">
                               <div className={`h-2 rounded-full ${barColor}`} style={{ width: `${Math.min(pct, 100)}%` }} />
                             </div>
                             <span className="text-xs font-medium">{pct.toFixed(1)}%</span>
@@ -505,7 +505,7 @@ export default function ComplianceLimits() {
                   Order {validationData.order_id} — {validationData.results.length} rule(s) checked
                 </span>
               </div>
-              <div className="rounded-md border">
+              <div className="overflow-x-auto rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -613,7 +613,7 @@ export default function ComplianceLimits() {
           <Separator />
 
           <h3 className="text-sm font-semibold">Active Breaches</h3>
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -647,7 +647,7 @@ export default function ComplianceLimits() {
                         <TableCell className="text-right font-mono text-sm">{formatNumber(l.current_exposure)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <div className="h-2 w-20 rounded-full bg-gray-200">
+                            <div className="h-2 w-20 rounded-full bg-muted">
                               <div className={`h-2 rounded-full ${isHard ? "bg-red-500" : "bg-yellow-500"}`} style={{ width: `${Math.min(pct, 100)}%` }} />
                             </div>
                             <span className="text-xs font-medium">{pct.toFixed(1)}%</span>
@@ -681,7 +681,7 @@ export default function ComplianceLimits() {
             return (
               <div key={bucket.label}>
                 <h3 className="text-sm font-semibold mb-2">{bucket.label} ({filtered.length})</h3>
-                <div className="rounded-md border">
+                <div className="overflow-x-auto rounded-md border">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -707,7 +707,7 @@ export default function ComplianceLimits() {
                             <TableCell className="text-right font-mono text-sm">{formatNumber(line.limit_amount)}</TableCell>
                             <TableCell className="text-xs">{formatDate(line.effective_to)}</TableCell>
                             <TableCell className="text-right">
-                              <Badge className={line.days_until_expiry <= 7 ? "bg-red-100 text-red-800" : line.days_until_expiry <= 30 ? "bg-yellow-100 text-yellow-800" : "bg-gray-100 text-gray-800"}>
+                              <Badge className={line.days_until_expiry <= 7 ? "bg-red-100 text-red-800" : line.days_until_expiry <= 30 ? "bg-yellow-100 text-yellow-800" : "bg-muted text-foreground"}>
                                 {line.days_until_expiry}d
                               </Badge>
                             </TableCell>

@@ -50,7 +50,7 @@ router.post('/analyze', asyncHandler(async (req, res) => {
     price: Number(proposedOrder.price),
   });
 
-  res.json(result);
+  res.json({ data: result });
 }));
 
 /** GET /api/v1/scenario/history/:portfolioId -- Recent simulation history */
@@ -74,28 +74,28 @@ router.get('/esg/security/:securityId', asyncHandler(async (req, res) => {
   }
 
   const score = await esgService.getESGScore(securityId);
-  res.json(score);
+  res.json({ data: score });
 }));
 
 /** GET /api/v1/scenario/esg/portfolio/:portfolioId -- Portfolio ESG scores */
 router.get('/esg/portfolio/:portfolioId', asyncHandler(async (req, res) => {
   const { portfolioId } = req.params;
   const result = await esgService.getPortfolioESG(portfolioId);
-  res.json(result);
+  res.json({ data: result });
 }));
 
 /** GET /api/v1/scenario/esg/breakdown/:portfolioId -- Detailed ESG breakdown */
 router.get('/esg/breakdown/:portfolioId', asyncHandler(async (req, res) => {
   const { portfolioId } = req.params;
   const result = await esgService.getESGBreakdown(portfolioId);
-  res.json(result);
+  res.json({ data: result });
 }));
 
 /** GET /api/v1/scenario/esg/screening/:portfolioId -- ESG exclusion screening */
 router.get('/esg/screening/:portfolioId', asyncHandler(async (req, res) => {
   const { portfolioId } = req.params;
   const result = await esgService.getESGScreening(portfolioId);
-  res.json(result);
+  res.json({ data: result });
 }));
 
 export default router;

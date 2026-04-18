@@ -31,13 +31,13 @@ interface PortfolioOption { id: string; name: string; }
 const FEE_COLORS: Record<string, string> = {
   MANAGEMENT: "bg-blue-100 text-blue-800", TRUSTEE: "bg-purple-100 text-purple-800",
   CUSTODIAN: "bg-indigo-100 text-indigo-800", ADMIN: "bg-cyan-100 text-cyan-800",
-  PERFORMANCE: "bg-green-100 text-green-800", AUDIT: "bg-orange-100 text-orange-800", OTHER: "bg-gray-100 text-gray-800",
+  PERFORMANCE: "bg-green-100 text-green-800", AUDIT: "bg-orange-100 text-orange-800", OTHER: "bg-muted text-foreground",
 };
-const INV_COLORS: Record<string, string> = { DRAFT: "bg-yellow-100 text-yellow-800", ISSUED: "bg-blue-100 text-blue-800", PAID: "bg-green-100 text-green-800", WAIVED: "bg-gray-100 text-gray-800" };
+const INV_COLORS: Record<string, string> = { DRAFT: "bg-yellow-100 text-yellow-800", ISSUED: "bg-blue-100 text-blue-800", PAID: "bg-green-100 text-green-800", WAIVED: "bg-muted text-foreground" };
 const fmtPHP = (n: number) => n.toLocaleString("en-PH", { style: "currency", currency: "PHP", minimumFractionDigits: 2 });
 const fmtDate = (d: string) => { try { return new Date(d).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }); } catch { return d; } };
 const fmtPct = (v: number) => `${v.toFixed(4)}%`;
-const bc = (map: Record<string, string>, key: string) => map[key] ?? "bg-gray-100 text-gray-800";
+const bc = (map: Record<string, string>, key: string) => map[key] ?? "bg-muted text-foreground";
 
 function SummaryCard({ title, value, icon: Icon, accent }: { title: string; value: string | number; icon: React.ElementType; accent: string }) {
   return (
@@ -155,7 +155,7 @@ export default function FeeBillingDesk() {
             <CardTitle className="text-base">Fee Schedules</CardTitle>
             <Button size="sm" onClick={() => setSchedOpen(true)}><Plus className="mr-1 h-3 w-3" /> Add Schedule</Button>
           </div></CardHeader>
-            <CardContent><div className="rounded-md border"><Table>
+            <CardContent><div className="overflow-x-auto rounded-md border"><Table>
               <TableHeader><TableRow>
                 {["Portfolio", "Fee Type", "Method", "Rate %", "Effective From", "Effective To"].map((h) => <TableHead key={h} className={h === "Rate %" ? "text-right" : ""}>{h}</TableHead>)}
               </TableRow></TableHeader>
@@ -217,7 +217,7 @@ export default function FeeBillingDesk() {
               </Button>
             </div>
           </div></CardHeader>
-            <CardContent><div className="rounded-md border"><Table>
+            <CardContent><div className="overflow-x-auto rounded-md border"><Table>
               <TableHeader><TableRow>
                 {["Portfolio", "Fee Type", "Period", "Gross", "Tax", "Net", "Status", "Actions"].map((h) => (
                   <TableHead key={h} className={["Gross", "Tax", "Net"].includes(h) ? "text-right" : ""}>{h}</TableHead>

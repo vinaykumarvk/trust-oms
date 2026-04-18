@@ -302,13 +302,13 @@ const RESOLUTION_BADGE: Record<string, string> = {
 const DECISION_ICON: Record<string, React.ReactNode> = {
   APPROVE: <ThumbsUp className="h-4 w-4 text-green-600" />,
   REJECT: <ThumbsDown className="h-4 w-4 text-red-600" />,
-  ABSTAIN: <MinusCircle className="h-4 w-4 text-gray-500" />,
+  ABSTAIN: <MinusCircle className="h-4 w-4 text-muted-foreground" />,
 };
 
 const DECISION_COLOR: Record<string, string> = {
   APPROVE: "text-green-700 bg-green-50 border-green-200",
   REJECT: "text-red-700 bg-red-50 border-red-200",
-  ABSTAIN: "text-gray-600 bg-gray-50 border-gray-200",
+  ABSTAIN: "text-muted-foreground bg-muted border-border",
 };
 
 // ---------------------------------------------------------------------------
@@ -839,7 +839,7 @@ export default function CommitteeWorkspace() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="rounded-md border">
+                  <div className="overflow-x-auto rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -919,7 +919,7 @@ export default function CommitteeWorkspace() {
 
                   {/* Stress scenarios */}
                   <SectionHeader icon={Activity} title="Stress Scenarios" />
-                  <div className="rounded-md border">
+                  <div className="overflow-x-auto rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -1001,7 +1001,7 @@ export default function CommitteeWorkspace() {
 
                   {/* Top holdings */}
                   <SectionHeader icon={Briefcase} title="Top Holdings (Post-Trade)" />
-                  <div className="rounded-md border">
+                  <div className="overflow-x-auto rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -1039,7 +1039,7 @@ export default function CommitteeWorkspace() {
 
                   {/* Sector exposure */}
                   <SectionHeader icon={BarChart3} title="Sector Exposure (Post-Trade)" />
-                  <div className="rounded-md border">
+                  <div className="overflow-x-auto rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -1260,7 +1260,7 @@ export default function CommitteeWorkspace() {
                   {voteData.summary.reject} reject
                 </span>
                 <span className="flex items-center gap-1">
-                  <MinusCircle className="h-3 w-3 text-gray-500" />
+                  <MinusCircle className="h-3 w-3 text-muted-foreground" />
                   {voteData.summary.abstain} abstain
                 </span>
                 <span>|</span>
@@ -1328,7 +1328,7 @@ export default function CommitteeWorkspace() {
             <DialogTitle className="flex items-center gap-2">
               {voteDialog === "APPROVE" && <ThumbsUp className="h-5 w-5 text-green-600" />}
               {voteDialog === "REJECT" && <ThumbsDown className="h-5 w-5 text-red-600" />}
-              {voteDialog === "ABSTAIN" && <MinusCircle className="h-5 w-5 text-gray-500" />}
+              {voteDialog === "ABSTAIN" && <MinusCircle className="h-5 w-5 text-muted-foreground" />}
               Confirm Vote: {voteDialog}
             </DialogTitle>
             <DialogDescription>

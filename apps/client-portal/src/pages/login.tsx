@@ -56,30 +56,30 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-slate-50 px-4">
+    <div className="flex min-h-dvh items-center justify-center bg-muted px-4">
       <div className="w-full max-w-sm">
         {/* Branding */}
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-teal-600 shadow-lg shadow-teal-600/20">
             <span className="text-2xl font-bold text-white">T</span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">TrustOMS</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-2xl font-bold text-foreground">TrustOMS</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Client Portal &mdash; Self-Service
           </p>
         </div>
 
-        <Card className="border-slate-200 shadow-sm">
+        <Card className="border-border shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg text-slate-900">Sign In</CardTitle>
-            <CardDescription className="text-slate-500">
+            <CardTitle className="text-lg text-foreground">Sign In</CardTitle>
+            <CardDescription className="text-muted-foreground">
               Enter your credentials to access your portfolio.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-slate-700">
+                <Label htmlFor="email" className="text-foreground">
                   Email
                 </Label>
                 <Input
@@ -90,11 +90,11 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="email"
                   autoFocus
-                  className="border-slate-300 focus:border-teal-500 focus:ring-teal-500"
+                  className="border-border focus:border-teal-500 focus:ring-teal-500"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-slate-700">
+                <Label htmlFor="password" className="text-foreground">
                   Password
                 </Label>
                 <Input
@@ -104,7 +104,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
-                  className="border-slate-300 focus:border-teal-500 focus:ring-teal-500"
+                  className="border-border focus:border-teal-500 focus:ring-teal-500"
                 />
               </div>
               {error && (
@@ -123,7 +123,7 @@ export default function LoginPage() {
           </CardContent>
         </Card>
 
-        <p className="mt-4 text-center text-xs text-slate-400">
+        <p className="mt-4 text-center text-xs text-muted-foreground">
           TrustOMS Philippines v1.0 &mdash; Phase 5C Client Portal
         </p>
       </div>

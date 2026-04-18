@@ -148,8 +148,8 @@ export default function MessagesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Messages</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Messages</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Communicate with your relationship manager
           </p>
         </div>
@@ -167,12 +167,12 @@ export default function MessagesPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Message List */}
-        <Card className="border-slate-200 lg:col-span-1">
+        <Card className="border-border lg:col-span-1">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Inbox className="h-4 w-4 text-slate-400" />
-                <CardTitle className="text-base text-slate-900">Inbox</CardTitle>
+                <Inbox className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-base text-foreground">Inbox</CardTitle>
               </div>
               {unreadCount > 0 && (
                 <Badge className="bg-teal-600 text-white text-xs">
@@ -182,13 +182,13 @@ export default function MessagesPage() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto">
+            <div className="divide-y divide-border max-h-[500px] overflow-y-auto">
               {messages.map((msg) => (
                 <button
                   type="button"
                   key={msg.id}
                   onClick={() => handleSelectMessage(msg)}
-                  className={`w-full text-left p-4 transition-colors hover:bg-slate-50 ${
+                  className={`w-full text-left p-4 transition-colors hover:bg-muted ${
                     selectedMessage?.id === msg.id ? "bg-teal-50 border-l-2 border-l-teal-500" : ""
                   } ${!msg.read ? "bg-teal-50/50" : ""}`}
                 >
@@ -215,8 +215,8 @@ export default function MessagesPage() {
                         <span
                           className={`text-sm truncate ${
                             !msg.read
-                              ? "font-semibold text-slate-900"
-                              : "font-medium text-slate-700"
+                              ? "font-semibold text-foreground"
+                              : "font-medium text-foreground"
                           }`}
                         >
                           {msg.subject}
@@ -225,10 +225,10 @@ export default function MessagesPage() {
                           <span className="h-2 w-2 rounded-full bg-teal-500 shrink-0" />
                         )}
                       </div>
-                      <p className="text-xs text-slate-500 truncate mt-0.5">
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">
                         {msg.from}
                       </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
                         {new Date(msg.date).toLocaleDateString("en-PH", {
                           month: "short",
                           day: "numeric",
@@ -245,30 +245,30 @@ export default function MessagesPage() {
         </Card>
 
         {/* Message Detail / Compose */}
-        <Card className="border-slate-200 lg:col-span-2">
+        <Card className="border-border lg:col-span-2">
           {composeMode ? (
             <>
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
-                  <PenLine className="h-4 w-4 text-slate-400" />
-                  <CardTitle className="text-base text-slate-900">
+                  <PenLine className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-base text-foreground">
                     New Message
                   </CardTitle>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-slate-700 mb-1 block">
+                  <label className="text-sm font-medium text-foreground mb-1 block">
                     To
                   </label>
-                  <div className="px-3 py-2 rounded-md border border-slate-200 bg-slate-50 text-sm text-slate-600">
+                  <div className="px-3 py-2 rounded-md border border-border bg-muted text-sm text-muted-foreground">
                     Relationship Manager
                   </div>
                 </div>
                 <div>
                   <label
                     htmlFor="subject"
-                    className="text-sm font-medium text-slate-700 mb-1 block"
+                    className="text-sm font-medium text-foreground mb-1 block"
                   >
                     Subject
                   </label>
@@ -278,13 +278,13 @@ export default function MessagesPage() {
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
                     placeholder="Enter subject..."
-                    className="w-full px-3 py-2 rounded-md border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                    className="w-full px-3 py-2 rounded-md border border-border text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   />
                 </div>
                 <div>
                   <label
                     htmlFor="body"
-                    className="text-sm font-medium text-slate-700 mb-1 block"
+                    className="text-sm font-medium text-foreground mb-1 block"
                   >
                     Message
                   </label>
@@ -294,14 +294,14 @@ export default function MessagesPage() {
                     onChange={(e) => setBody(e.target.value)}
                     placeholder="Type your message here..."
                     rows={8}
-                    className="border-slate-300 focus:ring-teal-500 focus:border-teal-500"
+                    className="border-border focus:ring-teal-500 focus:border-teal-500"
                   />
                 </div>
                 <div className="flex justify-end gap-3">
                   <Button
                     variant="outline"
                     onClick={() => setComposeMode(false)}
-                    className="border-slate-300"
+                    className="border-border"
                   >
                     Cancel
                   </Button>
@@ -320,7 +320,7 @@ export default function MessagesPage() {
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <CardTitle className="text-base text-slate-900">
+                    <CardTitle className="text-base text-foreground">
                       {selectedMessage.subject}
                     </CardTitle>
                     <div className="flex items-center gap-2 mt-2">
@@ -339,12 +339,12 @@ export default function MessagesPage() {
                           <User className="h-3 w-3 text-blue-600" />
                         )}
                       </div>
-                      <span className="text-sm text-slate-600">
+                      <span className="text-sm text-muted-foreground">
                         {selectedMessage.from}
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs text-slate-400 shrink-0">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
                     <Clock className="h-3 w-3" />
                     {new Date(selectedMessage.date).toLocaleDateString(
                       "en-PH",
@@ -361,15 +361,15 @@ export default function MessagesPage() {
               </CardHeader>
               <CardContent>
                 <div className="prose prose-sm max-w-none">
-                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                  <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
                     {selectedMessage.body}
                   </p>
                 </div>
 
                 {/* Quick Reply */}
                 {selectedMessage.fromType !== "client" && (
-                  <div className="mt-6 pt-4 border-t border-slate-100">
-                    <p className="text-sm font-medium text-slate-700 mb-2">
+                  <div className="mt-6 pt-4 border-t border-border">
+                    <p className="text-sm font-medium text-foreground mb-2">
                       Quick Reply
                     </p>
                     <div className="flex gap-2">
@@ -378,7 +378,7 @@ export default function MessagesPage() {
                         onChange={(e) => setBody(e.target.value)}
                         placeholder="Type your reply..."
                         rows={3}
-                        className="flex-1 border-slate-300 focus:ring-teal-500 focus:border-teal-500"
+                        className="flex-1 border-border focus:ring-teal-500 focus:border-teal-500"
                       />
                     </div>
                     <div className="flex justify-end mt-2">
@@ -403,8 +403,8 @@ export default function MessagesPage() {
           ) : (
             <CardContent className="flex items-center justify-center py-16">
               <div className="text-center">
-                <MessageSquare className="h-12 w-12 text-slate-200 mx-auto mb-3" />
-                <p className="text-sm text-slate-500">
+                <MessageSquare className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">
                   Select a message or compose a new one
                 </p>
               </div>

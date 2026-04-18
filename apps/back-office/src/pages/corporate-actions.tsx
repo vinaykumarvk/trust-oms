@@ -40,12 +40,12 @@ const CA_TYPE_COLORS: Record<string, string> = {
 };
 const STATUS_COLORS: Record<string, string> = {
   PENDING: "bg-yellow-100 text-yellow-800", CALCULATED: "bg-blue-100 text-blue-800",
-  ELECTED: "bg-indigo-100 text-indigo-800", POSTED: "bg-green-100 text-green-800", CANCELLED: "bg-gray-100 text-gray-800",
+  ELECTED: "bg-indigo-100 text-indigo-800", POSTED: "bg-green-100 text-green-800", CANCELLED: "bg-muted text-foreground",
 };
 const fmtDate = (d: string) => { try { return new Date(d).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }); } catch { return d; } };
 const fmtPHP = (n: number) => n.toLocaleString("en-PH", { style: "currency", currency: "PHP", minimumFractionDigits: 2 });
 const fmtQty = (n: number) => n.toLocaleString("en-PH", { maximumFractionDigits: 4 });
-const badgeCls = (map: Record<string, string>, key: string) => map[key] ?? "bg-gray-100 text-gray-800";
+const badgeCls = (map: Record<string, string>, key: string) => map[key] ?? "bg-muted text-foreground";
 
 function SummaryCard({ title, value, icon: Icon, accent }: { title: string; value: string | number; icon: React.ElementType; accent: string }) {
   return (
@@ -180,7 +180,7 @@ export default function CorporateActions() {
         {/* Calendar */}
         <TabsContent value="calendar" className="mt-4">
           <Card><CardHeader className="pb-3"><CardTitle className="text-base">Upcoming Corporate Actions (30 days)</CardTitle></CardHeader>
-            <CardContent><div className="rounded-md border"><Table>
+            <CardContent><div className="overflow-x-auto rounded-md border"><Table>
               <TableHeader><TableRow>{[...caHeaders, "Actions"].map((h) => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader>
               <TableBody>
                 {upcomingQ.isLoading ? <SkeletonRows cols={8} /> : upcomingCAs.length === 0 ? <EmptyRow cols={8} msg="No upcoming corporate actions" /> :
@@ -202,7 +202,7 @@ export default function CorporateActions() {
               </SelectContent>
             </Select>
           </div></CardHeader>
-            <CardContent><div className="rounded-md border"><Table>
+            <CardContent><div className="overflow-x-auto rounded-md border"><Table>
               <TableHeader><TableRow>
                 {["CA Type", "Security", "Portfolio", "Entitled Qty", "Elected", "Tax", "Net Amount", "Status", "Impact", "Actions"].map((h) => (
                   <TableHead key={h} className={["Entitled Qty", "Tax", "Net Amount"].includes(h) ? "text-right" : ""}>{h}</TableHead>
@@ -248,7 +248,7 @@ export default function CorporateActions() {
               <Input type="date" value={historyTo} onChange={(e) => setHistoryTo(e.target.value)} className="w-[150px]" />
             </div>
           </div></CardHeader>
-            <CardContent><div className="rounded-md border"><Table>
+            <CardContent><div className="overflow-x-auto rounded-md border"><Table>
               <TableHeader><TableRow>{caHeaders.map((h) => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader>
               <TableBody>
                 {historyQ.isLoading ? <SkeletonRows cols={7} /> : historyCAs.length === 0 ? <EmptyRow cols={7} msg="No processed corporate actions found" /> :

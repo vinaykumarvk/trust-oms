@@ -318,7 +318,7 @@ export default function WithdrawalsPage() {
 
         {/* Active Tab */}
         <TabsContent value="active" className="mt-4">
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -370,7 +370,7 @@ export default function WithdrawalsPage() {
                         {w.net_amount ? formatAmount(w.net_amount, w.currency) : "--"}
                       </TableCell>
                       <TableCell>
-                        <Badge className={STATUS_COLORS[w.withdrawal_status ?? ""] ?? "bg-gray-100 text-gray-800"}>
+                        <Badge className={STATUS_COLORS[w.withdrawal_status ?? ""] ?? "bg-muted text-foreground"}>
                           {w.withdrawal_status}
                         </Badge>
                       </TableCell>
@@ -416,7 +416,7 @@ export default function WithdrawalsPage() {
 
         {/* History Tab */}
         <TabsContent value="history" className="mt-4">
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -467,7 +467,7 @@ export default function WithdrawalsPage() {
                         {w.net_amount ? formatAmount(w.net_amount, w.currency) : "--"}
                       </TableCell>
                       <TableCell>
-                        <Badge className={STATUS_COLORS[w.withdrawal_status ?? ""] ?? "bg-gray-100 text-gray-800"}>
+                        <Badge className={STATUS_COLORS[w.withdrawal_status ?? ""] ?? "bg-muted text-foreground"}>
                           {w.withdrawal_status}
                         </Badge>
                       </TableCell>

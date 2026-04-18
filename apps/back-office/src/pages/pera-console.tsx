@@ -75,7 +75,7 @@ const STATUS_COLORS: Record<string, string> = {
   ACTIVE: "bg-green-100 text-green-800",
   PENDING: "bg-yellow-100 text-yellow-800",
   SUSPENDED: "bg-red-100 text-red-800",
-  CLOSED: "bg-gray-100 text-gray-800",
+  CLOSED: "bg-muted text-foreground",
 };
 
 const TX_TYPE_COLORS: Record<string, string> = {
@@ -472,7 +472,7 @@ export default function PeraConsole() {
           )}
 
           {/* Accounts Table */}
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -506,7 +506,7 @@ export default function PeraConsole() {
                       <TableCell className="font-mono text-xs">{a.tin}</TableCell>
                       <TableCell className="font-mono text-xs">{a.bspPeraId}</TableCell>
                       <TableCell>
-                        <Badge className={STATUS_COLORS[a.status] ?? "bg-gray-100 text-gray-800"}>
+                        <Badge className={STATUS_COLORS[a.status] ?? "bg-muted text-foreground"}>
                           {a.status}
                         </Badge>
                       </TableCell>
@@ -595,7 +595,7 @@ export default function PeraConsole() {
           {!selectedAccountId ? (
             <p className="text-sm text-muted-foreground">Select an account to view contribution history.</p>
           ) : (
-            <div className="rounded-md border">
+            <div className="overflow-x-auto rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -619,11 +619,11 @@ export default function PeraConsole() {
                         <TableRow key={t.id}>
                           <TableCell className="font-mono text-xs">{t.id}</TableCell>
                           <TableCell>
-                            <Badge className={TX_TYPE_COLORS[t.type] ?? "bg-gray-100 text-gray-800"}>{t.type}</Badge>
+                            <Badge className={TX_TYPE_COLORS[t.type] ?? "bg-muted text-foreground"}>{t.type}</Badge>
                           </TableCell>
                           <TableCell className="text-right font-mono text-xs">{formatPHP(t.amount)}</TableCell>
                           <TableCell>
-                            <Badge className={STATUS_COLORS[t.status] ?? "bg-gray-100 text-gray-800"}>{t.status}</Badge>
+                            <Badge className={STATUS_COLORS[t.status] ?? "bg-muted text-foreground"}>{t.status}</Badge>
                           </TableCell>
                           <TableCell className="text-xs">{fmtDate(t.createdAt)}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">{t.description ?? "\u2014"}</TableCell>
@@ -698,7 +698,7 @@ export default function PeraConsole() {
           {!selectedAccountId ? (
             <p className="text-sm text-muted-foreground">Select an account to view withdrawal history.</p>
           ) : (
-            <div className="rounded-md border">
+            <div className="overflow-x-auto rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -722,14 +722,14 @@ export default function PeraConsole() {
                         <TableRow key={t.id}>
                           <TableCell className="font-mono text-xs">{t.id}</TableCell>
                           <TableCell>
-                            <Badge className={TX_TYPE_COLORS[t.type] ?? "bg-gray-100 text-gray-800"}>{t.type}</Badge>
+                            <Badge className={TX_TYPE_COLORS[t.type] ?? "bg-muted text-foreground"}>{t.type}</Badge>
                           </TableCell>
                           <TableCell className="text-right font-mono text-xs">{formatPHP(t.amount)}</TableCell>
                           <TableCell className="text-right font-mono text-xs">
                             {t.penaltyAmount != null ? formatPHP(t.penaltyAmount) : "\u2014"}
                           </TableCell>
                           <TableCell>
-                            <Badge className={STATUS_COLORS[t.status] ?? "bg-gray-100 text-gray-800"}>{t.status}</Badge>
+                            <Badge className={STATUS_COLORS[t.status] ?? "bg-muted text-foreground"}>{t.status}</Badge>
                           </TableCell>
                           <TableCell className="text-xs">{fmtDate(t.createdAt)}</TableCell>
                         </TableRow>
@@ -797,7 +797,7 @@ export default function PeraConsole() {
           {!selectedAccountId ? (
             <p className="text-sm text-muted-foreground">Select an account to view transfer history.</p>
           ) : (
-            <div className="rounded-md border">
+            <div className="overflow-x-auto rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -821,11 +821,11 @@ export default function PeraConsole() {
                         <TableRow key={t.id}>
                           <TableCell className="font-mono text-xs">{t.id}</TableCell>
                           <TableCell>
-                            <Badge className={TX_TYPE_COLORS[t.type] ?? "bg-gray-100 text-gray-800"}>{t.type}</Badge>
+                            <Badge className={TX_TYPE_COLORS[t.type] ?? "bg-muted text-foreground"}>{t.type}</Badge>
                           </TableCell>
                           <TableCell className="text-right font-mono text-xs">{formatPHP(t.amount)}</TableCell>
                           <TableCell>
-                            <Badge className={STATUS_COLORS[t.status] ?? "bg-gray-100 text-gray-800"}>{t.status}</Badge>
+                            <Badge className={STATUS_COLORS[t.status] ?? "bg-muted text-foreground"}>{t.status}</Badge>
                           </TableCell>
                           <TableCell className="text-xs">{fmtDate(t.createdAt)}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">{t.description ?? "\u2014"}</TableCell>

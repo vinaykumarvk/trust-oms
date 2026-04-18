@@ -44,7 +44,7 @@ router.get(
   '/cut-offs',
   asyncHandler(async (_req, res) => {
     const cutOffs = settlementService.getCutOffs();
-    res.json(cutOffs);
+    res.json({ data: cutOffs });
   }),
 );
 
@@ -58,7 +58,7 @@ router.post(
       currency,
       valueDate,
     });
-    res.json(result);
+    res.json({ data: result });
   }),
 );
 
@@ -94,11 +94,15 @@ router.get(
     });
 
     res.json({
-      balances,
-      transactions: transactions.data,
-      total_transactions: transactions.total,
-      page: transactions.page,
-      pageSize: transactions.pageSize,
+      data: {
+        balances,
+        transactions: transactions.data,
+      },
+      pagination: {
+        page: transactions.page,
+        pageSize: transactions.pageSize,
+        total: transactions.total,
+      },
     });
   }),
 );
@@ -119,7 +123,7 @@ router.post(
     }
 
     const settlement = await settlementService.initializeSettlement(confirmationId);
-    res.status(201).json(settlement);
+    res.status(201).json({ data: settlement });
   }),
 );
 
@@ -135,7 +139,7 @@ router.post(
     }
 
     const result = await settlementService.markSettled(id);
-    res.json(result);
+    res.json({ data: result });
   }),
 );
 
@@ -158,7 +162,7 @@ router.post(
     }
 
     const result = await settlementService.markFailed(id, reason);
-    res.json(result);
+    res.json({ data: result });
   }),
 );
 
@@ -174,7 +178,7 @@ router.post(
     }
 
     const result = await settlementService.retrySettlement(id);
-    res.json(result);
+    res.json({ data: result });
   }),
 );
 

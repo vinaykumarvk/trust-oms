@@ -63,6 +63,7 @@ function SubEntityTable({
   }
 
   return (
+    <div className="overflow-x-auto">
     <Table>
       <TableHeader>
         <TableRow>
@@ -83,6 +84,7 @@ function SubEntityTable({
         ))}
       </TableBody>
     </Table>
+    </div>
   );
 }
 

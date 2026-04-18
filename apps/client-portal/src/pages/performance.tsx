@@ -112,8 +112,8 @@ export default function PerformancePage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Performance</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Performance</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Track your portfolio returns and benchmark comparison
           </p>
         </div>
@@ -125,7 +125,7 @@ export default function PerformancePage() {
               value={activePortfolioId}
               onValueChange={setSelectedPortfolioId}
             >
-              <SelectTrigger className="w-[200px] border-slate-300">
+              <SelectTrigger className="w-[200px] border-border">
                 <SelectValue placeholder="Select portfolio" />
               </SelectTrigger>
               <SelectContent>
@@ -150,7 +150,7 @@ export default function PerformancePage() {
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               selectedPeriod === p.value
                 ? "bg-teal-600 text-white shadow-sm"
-                : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                : "bg-card text-muted-foreground border border-border hover:bg-muted"
             }`}
           >
             {p.label}
@@ -167,14 +167,14 @@ export default function PerformancePage() {
           {/* Performance Metric Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* TWR */}
-            <Card className="border-slate-200">
+            <Card className="border-border">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
                       TWR
                     </p>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       Time-Weighted Return
                     </p>
                     <div className="flex items-center gap-1.5 mt-2">
@@ -202,14 +202,14 @@ export default function PerformancePage() {
             </Card>
 
             {/* IRR */}
-            <Card className="border-slate-200">
+            <Card className="border-border">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
                       IRR
                     </p>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       Internal Rate of Return
                     </p>
                     <div className="flex items-center gap-1.5 mt-2">
@@ -237,14 +237,14 @@ export default function PerformancePage() {
             </Card>
 
             {/* Benchmark */}
-            <Card className="border-slate-200">
+            <Card className="border-border">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
                       Benchmark
                     </p>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       Index Return
                     </p>
                     <div className="flex items-center gap-1.5 mt-2">
@@ -274,14 +274,14 @@ export default function PerformancePage() {
             </Card>
 
             {/* Excess Return */}
-            <Card className="border-slate-200">
+            <Card className="border-border">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
                       Excess Return
                     </p>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       vs Benchmark
                     </p>
                     <div className="flex items-center gap-1.5 mt-2">
@@ -313,9 +313,9 @@ export default function PerformancePage() {
 
           {/* Comparison Bar */}
           {twr !== null && benchmarkReturn !== null && (
-            <Card className="border-slate-200">
+            <Card className="border-border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base text-slate-900">
+                <CardTitle className="text-base text-foreground">
                   Return Comparison - {periodLabel}
                 </CardTitle>
               </CardHeader>
@@ -324,14 +324,14 @@ export default function PerformancePage() {
                   {/* Portfolio bar */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-sm text-slate-700 font-medium">
+                      <span className="text-sm text-foreground font-medium">
                         Your Portfolio
                       </span>
                       <span className="text-sm font-semibold text-teal-700">
                         {twr.toFixed(2)}%
                       </span>
                     </div>
-                    <div className="h-4 rounded-full bg-slate-100 overflow-hidden">
+                    <div className="h-4 rounded-full bg-muted overflow-hidden">
                       <div
                         className="h-full rounded-full bg-teal-500 transition-all duration-500"
                         style={{
@@ -344,14 +344,14 @@ export default function PerformancePage() {
                   {/* Benchmark bar */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-sm text-slate-700 font-medium">
+                      <span className="text-sm text-foreground font-medium">
                         Benchmark
                       </span>
                       <span className="text-sm font-semibold text-purple-700">
                         {benchmarkReturn.toFixed(2)}%
                       </span>
                     </div>
-                    <div className="h-4 rounded-full bg-slate-100 overflow-hidden">
+                    <div className="h-4 rounded-full bg-muted overflow-hidden">
                       <div
                         className="h-full rounded-full bg-purple-500 transition-all duration-500"
                         style={{
@@ -367,11 +367,11 @@ export default function PerformancePage() {
 
           {/* Data Points Table */}
           {dataPoints.length > 0 && (
-            <Card className="border-slate-200">
+            <Card className="border-border">
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-slate-400" />
-                  <CardTitle className="text-base text-slate-900">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-base text-foreground">
                     Portfolio Value Over Time
                   </CardTitle>
                 </div>
@@ -385,13 +385,13 @@ export default function PerformancePage() {
                     const isLast = idx === dataPoints.length - 1;
                     return (
                       <div key={dp.date} className="flex items-center gap-3">
-                        <span className="text-xs text-slate-500 font-mono w-24 shrink-0">
+                        <span className="text-xs text-muted-foreground font-mono w-24 shrink-0">
                           {new Date(dp.date).toLocaleDateString("en-PH", {
                             month: "short",
                             year: "numeric",
                           })}
                         </span>
-                        <div className="flex-1 h-5 rounded bg-slate-100 overflow-hidden">
+                        <div className="flex-1 h-5 rounded bg-muted overflow-hidden">
                           <div
                             className={`h-full rounded transition-all duration-300 ${
                               isLast ? "bg-teal-500" : "bg-teal-300"
@@ -399,7 +399,7 @@ export default function PerformancePage() {
                             style={{ width: `${Math.max(pct, 3)}%` }}
                           />
                         </div>
-                        <span className="text-xs font-medium text-slate-700 w-28 text-right shrink-0">
+                        <span className="text-xs font-medium text-foreground w-28 text-right shrink-0">
                           {formatCurrency(dp.value)}
                         </span>
                       </div>
@@ -415,14 +415,14 @@ export default function PerformancePage() {
                   <div className="mt-3 overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-slate-200">
-                          <th className="text-left py-2 text-xs font-semibold text-slate-500">
+                        <tr className="border-b border-border">
+                          <th className="text-left py-2 text-xs font-semibold text-muted-foreground">
                             Date
                           </th>
-                          <th className="text-right py-2 text-xs font-semibold text-slate-500">
+                          <th className="text-right py-2 text-xs font-semibold text-muted-foreground">
                             Portfolio Value
                           </th>
-                          <th className="text-right py-2 text-xs font-semibold text-slate-500">
+                          <th className="text-right py-2 text-xs font-semibold text-muted-foreground">
                             Change
                           </th>
                         </tr>
@@ -439,16 +439,16 @@ export default function PerformancePage() {
                           return (
                             <tr
                               key={dp.date}
-                              className="border-b border-slate-50 last:border-0"
+                              className="border-b border-border/50 last:border-0"
                             >
-                              <td className="py-2 text-slate-700">
+                              <td className="py-2 text-foreground">
                                 {new Date(dp.date).toLocaleDateString("en-PH", {
                                   month: "short",
                                   day: "numeric",
                                   year: "numeric",
                                 })}
                               </td>
-                              <td className="text-right py-2 text-slate-900 font-medium tabular-nums">
+                              <td className="text-right py-2 text-foreground font-medium tabular-nums">
                                 {formatCurrency(dp.value)}
                               </td>
                               <td className="text-right py-2">
@@ -465,7 +465,7 @@ export default function PerformancePage() {
                                     {changePct.toFixed(2)}%
                                   </Badge>
                                 ) : (
-                                  <span className="text-xs text-slate-400">
+                                  <span className="text-xs text-muted-foreground">
                                     --
                                   </span>
                                 )}

@@ -414,7 +414,7 @@ export default function SettlementDesk() {
         </TabsList>
 
         <TabsContent value={tab} className="mt-4">
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -459,7 +459,7 @@ export default function SettlementDesk() {
                       </TableCell>
                       <TableCell className="text-xs">{formatDate(s.value_date)}</TableCell>
                       <TableCell>
-                        <Badge className={STATUS_COLORS[s.status] ?? "bg-gray-100 text-gray-800"}>
+                        <Badge className={STATUS_COLORS[s.status] ?? "bg-muted text-foreground"}>
                           {s.status}
                         </Badge>
                       </TableCell>
@@ -541,7 +541,7 @@ export default function SettlementDesk() {
               No liquidity data available
             </p>
           ) : (
-            <div className="rounded-md border">
+            <div className="overflow-x-auto rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -561,7 +561,7 @@ export default function SettlementDesk() {
                             <span className={`font-mono text-sm ${val >= 0 ? "text-green-700" : "text-red-700"}`}>
                               {val.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                             </span>
-                            <div className="h-2 w-24 rounded-full bg-gray-100">
+                            <div className="h-2 w-24 rounded-full bg-muted">
                               <div
                                 className={`h-full rounded-full ${val >= 0 ? "bg-green-500" : "bg-red-500"}`}
                                 style={{
