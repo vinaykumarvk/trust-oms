@@ -39,12 +39,16 @@ import integrationsRouter from './routes/back-office/integrations';
 import realtimeRouter from './routes/realtime';
 import scenarioRouter from './routes/scenario';
 import aiRouter from './routes/ai';
+import authRouter from './routes/auth';
 
 export function registerRoutes(app: Express) {
   // API v1 routes
   app.get('/api/v1/health', (_req, res) => {
     res.json({ status: 'ok', version: '1.0.0', service: 'trustoms-api' });
   });
+
+  // Auth routes (login/refresh are public, others require auth)
+  app.use('/api/v1/auth', authRouter);
 
   // Entity registry — list entities, get entity config, get field configs
   app.use('/api/v1/entity-registry', entityRegistryRouter);

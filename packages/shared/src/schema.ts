@@ -239,6 +239,17 @@ export const userRoles = pgTable(
   ],
 );
 
+export const sessions = pgTable('sessions', {
+  id: serial('id').primaryKey(),
+  user_id: integer('user_id').notNull().references(() => users.id),
+  refresh_token_hash: text('refresh_token_hash').notNull(),
+  ip_address: text('ip_address'),
+  user_agent: text('user_agent'),
+  expires_at: timestamp('expires_at', { withTimezone: true }).notNull(),
+  revoked_at: timestamp('revoked_at', { withTimezone: true }),
+  created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
 // ============================================================================
 // 2. Client & KYC
 // ============================================================================

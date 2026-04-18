@@ -756,13 +756,20 @@ describe('Auth Middleware — Session & Authentication Pattern', () => {
     expect(next).toHaveBeenCalled();
   });
 
-  it('should attach userId, userRole, userEmail to request object', () => {
-    // Build a minimal JWT-structured token (header.payload.signature)
-    const payload = Buffer.from(JSON.stringify({ sub: 'user-1', role: 'rm', email: 'test@trustoms.local' })).toString('base64url');
-    const fakeJwt = `eyJhbGciOiJIUzI1NiJ9.${payload}.fakesig`;
+  it('should attach userId, userRole, userEmail to request object via jose JWT', async () => {
+    // Sign a real JWT using jose with the same dev secret
+    const { SignJWT } = await import('jose');
+    const secret = new TextEncoder().encode('trustoms-dev-secret-change-in-production');
+    const token = await new SignJWT({ sub: '42', role: 'rm', email: 'test@trustoms.local' })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime('15m')
+      .setIssuer('trustoms')
+      .sign(secret);
+
     const req = {
       path: '/api/v1/orders',
-      headers: { authorization: `Bearer ${fakeJwt}` },
+      headers: { authorization: `Bearer ${token}` },
     } as any;
 
     const res = {
@@ -772,12 +779,16 @@ describe('Auth Middleware — Session & Authentication Pattern', () => {
 
     const next = vi.fn();
 
+    // authMiddleware is now async (uses jose.jwtVerify internally)
     authMiddleware(req, res, next);
 
-    // In development mode it attaches dev values; the point is the pattern exists
-    expect(req.userId).toBeDefined();
-    expect(req.userRole).toBeDefined();
-    expect(req.userEmail).toBeDefined();
+    // Wait for the async jose verification to complete
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(next).toHaveBeenCalled();
+    expect(req.userId).toBe('42');
+    expect(req.userRole).toBe('rm');
+    expect(req.userEmail).toBe('test@trustoms.local');
   });
 
   it('should use Bearer token scheme from Authorization header', () => {

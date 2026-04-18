@@ -1,9 +1,12 @@
 import type { Request, Response, NextFunction } from 'express';
+import * as jose from 'jose';
 
 // Extend Express Request with auth info
 declare global {
   namespace Express {
     interface Request {
+      /** Correlation / request ID set by request-id middleware. */
+      id?: string;
       userId?: string;
       userRole?: string;
       userEmail?: string;
@@ -12,19 +15,18 @@ declare global {
 }
 
 /** Paths that never require authentication */
-const PUBLIC_PATHS = ['/api/v1/health', '/health', '/readiness'];
+const PUBLIC_PATHS = ['/api/v1/health', '/health', '/readiness', '/api/v1/auth/login', '/api/v1/auth/refresh'];
+
+const JWT_SECRET_RAW = process.env.JWT_SECRET || 'trustoms-dev-secret-change-in-production';
+const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_RAW);
 
 /**
- * Auth middleware — verifies Supabase JWT.
+ * Auth middleware — verifies JWT signed by auth-service.
  *
  * In development mode (NODE_ENV=development) unauthenticated requests
- * are permitted with a default dev identity. A Bearer token, if
- * provided, must still have valid JWT structure.
- *
- * In production, a valid Bearer token is always required.
- *
- * TODO(Phase 0C): Replace the base64-decode stub with full Supabase
- *   JWT verification using `@supabase/supabase-js` or `jose`.
+ * are permitted with a default dev identity so the app is usable
+ * without a real login. A Bearer token, if provided, is still fully
+ * verified (signature, expiry, issuer).
  */
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
   // Skip auth for public / health paths
@@ -37,9 +39,8 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
   // No token provided
   if (!authHeader?.startsWith('Bearer ')) {
     if (process.env.NODE_ENV === 'development') {
-      // Dev fallback — limited role so RBAC guards still fire
       req.userId = 'dev-user';
-      req.userRole = 'rm'; // NOT system_admin — forces RBAC evaluation
+      req.userRole = 'rm';
       req.userEmail = 'dev@trustoms.local';
       return next();
     }
@@ -47,44 +48,31 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
       error: {
         code: 'UNAUTHORIZED',
         message: 'Missing or invalid authorization header',
-        correlation_id: (req as any).id,
+        correlation_id: req.id,
       },
     });
   }
 
-  // Extract and validate JWT structure (header.payload.signature)
+  // Verify JWT (signature + expiry + issuer)
   const token = authHeader.slice(7);
-  const parts = token.split('.');
-  if (parts.length !== 3) {
-    return res.status(401).json({
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'Malformed JWT token',
-        correlation_id: (req as any).id,
-      },
+
+  jose
+    .jwtVerify(token, JWT_SECRET, { issuer: 'trustoms' })
+    .then(({ payload }) => {
+      req.userId = (payload.sub as string) || 'unknown';
+      req.userRole = (payload.role as string) || 'rm';
+      req.userEmail = (payload.email as string) || '';
+      next();
+    })
+    .catch(() => {
+      return res.status(401).json({
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Invalid or expired token',
+          correlation_id: req.id,
+        },
+      });
     });
-  }
-
-  try {
-    // Decode payload (base64url) — NOT a cryptographic verification.
-    // Full verification (signature, expiry, issuer) is implemented in Phase 0C.
-    const payloadJson = Buffer.from(parts[1], 'base64url').toString('utf-8');
-    const payload = JSON.parse(payloadJson);
-
-    req.userId = payload.sub || payload.user_id || 'unknown';
-    req.userRole = payload.role || payload.user_role || 'rm';
-    req.userEmail = payload.email || '';
-  } catch {
-    return res.status(401).json({
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'Invalid JWT payload',
-        correlation_id: (req as any).id,
-      },
-    });
-  }
-
-  next();
 }
 
 /**
@@ -106,7 +94,7 @@ export function requireRole(...roles: string[]) {
         error: {
           code: 'FORBIDDEN',
           message: `Role '${req.userRole}' is not authorized for this action`,
-          correlation_id: (req as any).id,
+          correlation_id: req.id,
         },
       });
     }
