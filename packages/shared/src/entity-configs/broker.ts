@@ -1,0 +1,46 @@
+import type { EntityFieldDefaults } from './types';
+
+export const brokerFieldConfig: EntityFieldDefaults = {
+  fields: {
+    counterparty_id: {
+      label: 'Counterparty',
+      group: 'Basic Info',
+      groupOrder: 1,
+      displayOrder: 1,
+      inputType: 'lookup',
+      required: true,
+      visibleInTable: true,
+      visibleInForm: true,
+      sortable: false,
+      selectOptionsSource: 'counterparties',
+      helpText: 'The counterparty entity this broker is linked to',
+    },
+    commission_schedule: {
+      label: 'Commission Schedule',
+      group: 'Configuration',
+      groupOrder: 2,
+      displayOrder: 2,
+      inputType: 'textarea',
+      required: false,
+      visibleInTable: false,
+      visibleInForm: true,
+      sortable: false,
+      placeholder: 'JSON commission schedule configuration',
+      helpText: 'Commission rates and tiers in JSON format',
+    },
+    fix_session_config: {
+      label: 'FIX Session Config',
+      group: 'Configuration',
+      groupOrder: 2,
+      displayOrder: 3,
+      inputType: 'textarea',
+      required: false,
+      visibleInTable: false,
+      visibleInForm: true,
+      sortable: false,
+      placeholder: 'JSON FIX protocol session configuration',
+      helpText: 'FIX protocol session parameters in JSON format',
+    },
+  },
+  fieldGroups: ['Basic Info', 'Configuration'],
+};

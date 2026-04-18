@@ -1,0 +1,48 @@
+import type { EntityFieldDefaults } from './types';
+
+export const countryFieldConfig: EntityFieldDefaults = {
+  fields: {
+    code: {
+      label: 'Country Code',
+      group: 'Basic Info',
+      groupOrder: 1,
+      displayOrder: 1,
+      inputType: 'text',
+      required: true,
+      visibleInTable: true,
+      visibleInForm: true,
+      sortable: true,
+      uniqueCheck: true,
+      maxLength: 3,
+      placeholder: 'e.g. PH',
+      helpText: 'ISO 3166-1 alpha-2 country code',
+    },
+    name: {
+      label: 'Country Name',
+      group: 'Basic Info',
+      groupOrder: 1,
+      displayOrder: 2,
+      inputType: 'text',
+      required: true,
+      visibleInTable: true,
+      visibleInForm: true,
+      sortable: true,
+      placeholder: 'e.g. Philippines',
+    },
+    iso_alpha3: {
+      label: 'ISO Alpha-3',
+      group: 'Basic Info',
+      groupOrder: 1,
+      displayOrder: 3,
+      inputType: 'text',
+      required: false,
+      visibleInTable: true,
+      visibleInForm: true,
+      sortable: false,
+      maxLength: 3,
+      placeholder: 'e.g. PHL',
+      helpText: 'ISO 3166-1 alpha-3 country code',
+    },
+  },
+  fieldGroups: ['Basic Info'],
+};

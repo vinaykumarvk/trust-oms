@@ -1,0 +1,160 @@
+/**
+ * Trade Surveillance API Routes (Phase 4B)
+ *
+ * Provides endpoints for trade surveillance pattern evaluation,
+ * alert management, alert disposition, and RM anomaly scoring.
+ *
+ *   POST   /evaluate              -- Evaluate a pattern on an order
+ *   GET    /alerts                -- List alerts with filters
+ *   GET    /alerts/:id            -- Get single alert
+ *   POST   /alerts/:id/disposition -- Disposition an alert
+ *   POST   /anomaly-score         -- Score an RM's anomaly
+ */
+
+import { Router } from 'express';
+import { asyncHandler } from '../../middleware/async-handler';
+import { surveillanceService } from '../../services/surveillance-service';
+
+const router = Router();
+
+// =============================================================================
+// Pattern Evaluation
+// =============================================================================
+
+/** POST /evaluate -- Evaluate a surveillance pattern against an order */
+router.post(
+  '/evaluate',
+  asyncHandler(async (req, res) => {
+    const { orderId, pattern } = req.body;
+
+    if (!orderId || !pattern) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'orderId and pattern are required',
+        },
+      });
+    }
+
+    const validPatterns = ['LAYERING', 'SPOOFING', 'WASH_TRADING', 'FRONT_RUNNING'];
+    if (!validPatterns.includes(pattern)) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_INPUT',
+          message: `pattern must be one of: ${validPatterns.join(', ')}`,
+        },
+      });
+    }
+
+    const result = await surveillanceService.evaluatePattern(orderId, pattern);
+    res.json({ data: result });
+  }),
+);
+
+// =============================================================================
+// Alert Management
+// =============================================================================
+
+/** GET /alerts -- List surveillance alerts with optional filters */
+router.get(
+  '/alerts',
+  asyncHandler(async (req, res) => {
+    const filters = {
+      pattern: req.query.pattern as string | undefined,
+      disposition: req.query.disposition as string | undefined,
+      page: req.query.page
+        ? parseInt(req.query.page as string, 10)
+        : undefined,
+      pageSize: req.query.pageSize
+        ? parseInt(req.query.pageSize as string, 10)
+        : undefined,
+    };
+
+    const result = await surveillanceService.getAlerts(filters);
+    res.json(result);
+  }),
+);
+
+/** GET /alerts/:id -- Get a single surveillance alert */
+router.get(
+  '/alerts/:id',
+  asyncHandler(async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Invalid alert ID' },
+      });
+    }
+
+    const alert = await surveillanceService.getAlert(id);
+    res.json({ data: alert });
+  }),
+);
+
+/** POST /alerts/:id/disposition -- Disposition a surveillance alert */
+router.post(
+  '/alerts/:id/disposition',
+  asyncHandler(async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Invalid alert ID' },
+      });
+    }
+
+    const { decision, analystId } = req.body;
+
+    if (!decision || !analystId) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'decision and analystId are required',
+        },
+      });
+    }
+
+    const validDecisions = ['FALSE_POSITIVE', 'INVESTIGATE', 'ESCALATE'];
+    if (!validDecisions.includes(decision)) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_INPUT',
+          message: `decision must be one of: ${validDecisions.join(', ')}`,
+        },
+      });
+    }
+
+    const result = await surveillanceService.dispositionAlert(
+      id,
+      decision,
+      parseInt(analystId, 10),
+    );
+
+    res.json({ data: result });
+  }),
+);
+
+// =============================================================================
+// Anomaly Scoring
+// =============================================================================
+
+/** POST /anomaly-score -- Compute anomaly score for an RM */
+router.post(
+  '/anomaly-score',
+  asyncHandler(async (req, res) => {
+    const { rmId } = req.body;
+
+    if (!rmId) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'rmId is required',
+        },
+      });
+    }
+
+    const result = await surveillanceService.scoreAnomaly(parseInt(rmId, 10));
+    res.json({ data: result });
+  }),
+);
+
+export default router;

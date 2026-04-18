@@ -1,0 +1,45 @@
+import type { EntityFieldDefaults } from './types';
+
+export const assetClassFieldConfig: EntityFieldDefaults = {
+  fields: {
+    code: {
+      label: 'Asset Class Code',
+      group: 'Basic Info',
+      groupOrder: 1,
+      displayOrder: 1,
+      inputType: 'text',
+      required: true,
+      visibleInTable: true,
+      visibleInForm: true,
+      sortable: true,
+      uniqueCheck: true,
+      maxLength: 20,
+      placeholder: 'e.g. EQ',
+    },
+    name: {
+      label: 'Asset Class Name',
+      group: 'Basic Info',
+      groupOrder: 1,
+      displayOrder: 2,
+      inputType: 'text',
+      required: true,
+      visibleInTable: true,
+      visibleInForm: true,
+      sortable: true,
+      placeholder: 'e.g. Equity',
+    },
+    description: {
+      label: 'Description',
+      group: 'Basic Info',
+      groupOrder: 1,
+      displayOrder: 3,
+      inputType: 'textarea',
+      required: false,
+      visibleInTable: false,
+      visibleInForm: true,
+      sortable: false,
+      placeholder: 'Description of the asset class',
+    },
+  },
+  fieldGroups: ['Basic Info'],
+};

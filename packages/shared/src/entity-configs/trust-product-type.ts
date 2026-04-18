@@ -1,0 +1,45 @@
+import type { EntityFieldDefaults } from './types';
+
+export const trustProductTypeFieldConfig: EntityFieldDefaults = {
+  fields: {
+    code: {
+      label: 'Product Type Code',
+      group: 'Basic Info',
+      groupOrder: 1,
+      displayOrder: 1,
+      inputType: 'text',
+      required: true,
+      visibleInTable: true,
+      visibleInForm: true,
+      sortable: true,
+      uniqueCheck: true,
+      maxLength: 30,
+      placeholder: 'e.g. IMA_DIRECTED',
+    },
+    name: {
+      label: 'Product Type Name',
+      group: 'Basic Info',
+      groupOrder: 1,
+      displayOrder: 2,
+      inputType: 'text',
+      required: true,
+      visibleInTable: true,
+      visibleInForm: true,
+      sortable: true,
+      placeholder: 'e.g. IMA Directed',
+    },
+    description: {
+      label: 'Description',
+      group: 'Basic Info',
+      groupOrder: 1,
+      displayOrder: 3,
+      inputType: 'textarea',
+      required: false,
+      visibleInTable: false,
+      visibleInForm: true,
+      sortable: false,
+      placeholder: 'Description of the trust product type',
+    },
+  },
+  fieldGroups: ['Basic Info'],
+};
