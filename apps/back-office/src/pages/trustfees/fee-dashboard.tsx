@@ -46,12 +46,12 @@ import {
 const REFETCH_INTERVAL = 60_000;
 
 const INVOICE_STATUS_COLORS: Record<string, string> = {
-  DRAFT: "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200",
-  ISSUED: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
-  PARTIALLY_PAID: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
-  PAID: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
-  OVERDUE: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
-  CANCELLED: "bg-gray-300 text-gray-600 dark:bg-gray-600 dark:text-gray-300",
+  DRAFT: "bg-gray-200 text-gray-800",
+  ISSUED: "bg-blue-100 text-blue-800",
+  PARTIALLY_PAID: "bg-amber-100 text-amber-800",
+  PAID: "bg-green-100 text-green-800",
+  OVERDUE: "bg-red-100 text-red-800",
+  CANCELLED: "bg-gray-300 text-gray-600",
 };
 
 /* ---------- Helpers ---------- */
@@ -335,19 +335,19 @@ export default function FeeDashboard() {
     slaAdherence === null
       ? "text-muted-foreground"
       : slaAdherence >= 90
-        ? "text-green-600 dark:text-green-400"
+        ? "text-green-600"
         : slaAdherence >= 70
-          ? "text-amber-600 dark:text-amber-400"
-          : "text-red-600 dark:text-red-400";
+          ? "text-amber-600"
+          : "text-red-600";
 
   const slaBg =
     slaAdherence === null
       ? "bg-muted"
       : slaAdherence >= 90
-        ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+        ? "bg-green-50 border-green-200"
         : slaAdherence >= 70
-          ? "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800"
-          : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800";
+          ? "bg-amber-50 border-amber-200"
+          : "bg-red-50 border-red-200";
 
   return (
     <div className="space-y-6">
@@ -488,7 +488,7 @@ export default function FeeDashboard() {
                 {invoiceSummary.by_status.map((s) => (
                   <div
                     key={s.invoice_status}
-                    className="rounded-lg border p-3 dark:border-gray-700"
+                    className="rounded-lg border p-3"
                   >
                     <div className="flex items-center justify-between mb-1">
                       <Badge
@@ -516,7 +516,7 @@ export default function FeeDashboard() {
       <Card className={`border ${slaBg}`}>
         <CardContent className="pt-6">
           <div className="flex items-center gap-6">
-            <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-background border dark:border-gray-700">
+            <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-background border">
               <ShieldCheck className={`h-8 w-8 ${slaColor}`} />
             </div>
             <div>

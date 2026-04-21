@@ -170,27 +170,21 @@ type JobCategory = "ca" | "ttra" | "default";
 
 const JOB_CATEGORY_COLORS: Record<
   JobCategory,
-  { bg: string; text: string; darkBg: string; darkText: string; border: string }
+  { bg: string; text: string; border: string }
 > = {
   ca: {
     bg: "bg-orange-100",
     text: "text-orange-800",
-    darkBg: "dark:bg-orange-900",
-    darkText: "dark:text-orange-200",
-    border: "border-orange-300 dark:border-orange-700",
+    border: "border-orange-300",
   },
   ttra: {
     bg: "bg-purple-100",
     text: "text-purple-800",
-    darkBg: "dark:bg-purple-900",
-    darkText: "dark:text-purple-200",
-    border: "border-purple-300 dark:border-purple-700",
+    border: "border-purple-300",
   },
   default: {
     bg: "",
     text: "",
-    darkBg: "",
-    darkText: "",
     border: "",
   },
 };
@@ -226,7 +220,7 @@ function JobCategoryBadge({ jobKey }: { jobKey: string }) {
 
   return (
     <span
-      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium ${colors.bg} ${colors.text} ${colors.darkBg} ${colors.darkText}`}
+      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium ${colors.bg} ${colors.text}`}
     >
       {label}
     </span>

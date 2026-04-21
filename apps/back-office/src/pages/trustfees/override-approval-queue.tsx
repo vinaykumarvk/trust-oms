@@ -58,10 +58,10 @@ import {
 /* ---------- Constants ---------- */
 
 const STATUS_COLORS: Record<string, string> = {
-  AUTO_APPROVED: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
-  PENDING: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
-  APPROVED: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
-  REJECTED: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
+  AUTO_APPROVED: "bg-green-100 text-green-800",
+  PENDING: "bg-amber-100 text-amber-800",
+  APPROVED: "bg-blue-100 text-blue-800",
+  REJECTED: "bg-red-100 text-red-800",
 };
 
 const STAGE_OPTIONS = ["ALL", "ORDER_CAPTURE", "ACCRUAL", "INVOICE", "PAYMENT"];
@@ -343,10 +343,10 @@ export default function OverrideApprovalQueue() {
           ))}
         </div>
       ) : (
-        <div className="rounded-md border dark:border-gray-700 overflow-x-auto">
+        <div className="rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="dark:border-gray-700">
+              <TableRow className="">
                 <TableHead>ID</TableHead>
                 <TableHead>Stage</TableHead>
                 <TableHead>Customer / Accrual</TableHead>
@@ -372,7 +372,7 @@ export default function OverrideApprovalQueue() {
                   const deltaPct = parseFloat(o.delta_pct ?? "0");
                   const isWithinThreshold = deltaPct <= 0.4; // rough default; real threshold per plan
                   return (
-                    <TableRow key={o.id} className="dark:border-gray-700">
+                    <TableRow key={o.id} className="">
                       <TableCell className="font-mono text-xs">
                         OVR-{String(o.id).padStart(4, "0")}
                       </TableCell>
@@ -398,8 +398,8 @@ export default function OverrideApprovalQueue() {
                         <span
                           className={`font-mono text-sm font-medium ${
                             isWithinThreshold
-                              ? "text-green-600 dark:text-green-400"
-                              : "text-red-600 dark:text-red-400"
+                              ? "text-green-600"
+                              : "text-red-600"
                           }`}
                         >
                           {fmtPct(deltaPct)}
@@ -479,7 +479,7 @@ export default function OverrideApprovalQueue() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="rounded-md bg-muted/50 p-4 space-y-2 text-sm dark:bg-muted/20">
+            <div className="rounded-md bg-muted/50 p-4 space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Original Amount:</span>
                 <span className="font-mono">
@@ -508,9 +508,9 @@ export default function OverrideApprovalQueue() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-900/20">
-              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-              <span className="text-amber-700 dark:text-amber-300">
+            <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <span className="text-amber-700">
                 SoD Check: Approver must differ from requester (
                 {approveDialog?.requested_by})
               </span>
@@ -577,7 +577,7 @@ export default function OverrideApprovalQueue() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="rounded-md bg-muted/50 p-4 space-y-2 text-sm dark:bg-muted/20">
+            <div className="rounded-md bg-muted/50 p-4 space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Original Amount:</span>
                 <span className="font-mono">

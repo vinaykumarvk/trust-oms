@@ -98,11 +98,11 @@ function computeDiff(
 function rowBgClass(type: DiffEntry['type']): string {
   switch (type) {
     case 'added':
-      return 'bg-green-50 dark:bg-green-950/30';
+      return 'bg-green-50';
     case 'removed':
-      return 'bg-red-50 dark:bg-red-950/30';
+      return 'bg-red-50';
     case 'modified':
-      return 'bg-yellow-50 dark:bg-yellow-950/30';
+      return 'bg-yellow-50';
     default:
       return '';
   }
@@ -111,11 +111,11 @@ function rowBgClass(type: DiffEntry['type']): string {
 function typeLabel(type: DiffEntry['type']): { text: string; className: string } {
   switch (type) {
     case 'added':
-      return { text: 'Added', className: 'text-green-700 dark:text-green-400' };
+      return { text: 'Added', className: 'text-green-700' };
     case 'removed':
-      return { text: 'Removed', className: 'text-red-700 dark:text-red-400' };
+      return { text: 'Removed', className: 'text-red-700' };
     case 'modified':
-      return { text: 'Changed', className: 'text-yellow-700 dark:text-yellow-400' };
+      return { text: 'Changed', className: 'text-yellow-700' };
     default:
       return { text: '', className: '' };
   }

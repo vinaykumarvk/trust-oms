@@ -158,7 +158,7 @@ export function EntityAuditHistory({
           <div className="flex items-center gap-1.5">
             <Shield className="h-4 w-4 text-muted-foreground" />
             {chainIntegrity ? (
-              <span className="flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
+              <span className="flex items-center gap-1 text-xs text-green-700">
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 Chain valid
               </span>

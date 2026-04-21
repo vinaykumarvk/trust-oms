@@ -591,14 +591,14 @@ export function OpsCSVImport({
             <p className="text-2xl font-bold">{importResult.total}</p>
             <p className="text-xs text-muted-foreground">Total Rows</p>
           </div>
-          <div className="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-900 dark:bg-green-950">
-            <p className="text-2xl font-bold text-green-700 dark:text-green-400">
+          <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+            <p className="text-2xl font-bold text-green-700">
               {importResult.success}
             </p>
             <p className="text-xs text-muted-foreground">Imported</p>
           </div>
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950">
-            <p className="text-2xl font-bold text-red-700 dark:text-red-400">
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+            <p className="text-2xl font-bold text-red-700">
               {importResult.failed}
             </p>
             <p className="text-xs text-muted-foreground">Failed</p>

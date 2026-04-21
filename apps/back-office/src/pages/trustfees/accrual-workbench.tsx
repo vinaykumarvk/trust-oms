@@ -59,10 +59,10 @@ import {
 /* ---------- Constants ---------- */
 
 const STATUS_COLORS: Record<string, string> = {
-  OPEN: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
-  ACCOUNTED: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
-  INVOICED: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
-  REVERSED: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
+  OPEN: "bg-blue-100 text-blue-800",
+  ACCOUNTED: "bg-green-100 text-green-800",
+  INVOICED: "bg-purple-100 text-purple-800",
+  REVERSED: "bg-red-100 text-red-800",
 };
 
 const STATUS_OPTIONS = ["ALL", "OPEN", "ACCOUNTED", "INVOICED", "REVERSED"];
@@ -353,7 +353,7 @@ export default function AccrualWorkbench() {
               {summary.breakdown.map((b) => (
                 <div
                   key={b.fee_type}
-                  className="flex items-center gap-2 rounded-lg border px-3 py-2 dark:border-gray-700"
+                  className="flex items-center gap-2 rounded-lg border px-3 py-2"
                 >
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                   <div>
@@ -497,7 +497,7 @@ export default function AccrualWorkbench() {
                       {expandedId === acc.id && (
                         <TableRow key={`${acc.id}-detail`}>
                           <TableCell colSpan={10}>
-                            <div className="rounded-md border bg-muted/30 p-4 dark:bg-gray-800/50">
+                            <div className="rounded-md border bg-muted/30 p-4">
                               <h4 className="mb-2 text-sm font-semibold">Computation Details</h4>
                               <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                                 <div>
@@ -525,19 +525,19 @@ export default function AccrualWorkbench() {
                               </div>
 
                               <div className="mt-3 grid grid-cols-3 gap-4">
-                                <div className="rounded border p-2 dark:border-gray-700">
+                                <div className="rounded border p-2">
                                   <p className="text-xs text-muted-foreground">Base Amount</p>
                                   <p className="font-mono text-lg font-bold">
                                     {fmtCurrency(acc.base_amount, acc.currency)}
                                   </p>
                                 </div>
-                                <div className="rounded border p-2 dark:border-gray-700">
+                                <div className="rounded border p-2">
                                   <p className="text-xs text-muted-foreground">Computed Fee</p>
                                   <p className="font-mono text-lg font-bold">
                                     {fmtCurrency(acc.computed_fee, acc.currency)}
                                   </p>
                                 </div>
-                                <div className="rounded border p-2 dark:border-gray-700">
+                                <div className="rounded border p-2">
                                   <p className="text-xs text-muted-foreground">Applied Fee</p>
                                   <p className="font-mono text-lg font-bold text-primary">
                                     {fmtCurrency(acc.applied_fee, acc.currency)}
@@ -618,8 +618,8 @@ export default function AccrualWorkbench() {
 
             {/* Result summary */}
             {runResult && (
-              <div className="rounded-md border bg-muted/30 p-4 dark:bg-gray-800/50">
-                <h4 className="mb-2 text-sm font-semibold text-green-700 dark:text-green-400">
+              <div className="rounded-md border bg-muted/30 p-4">
+                <h4 className="mb-2 text-sm font-semibold text-green-700">
                   Accrual Run Complete
                 </h4>
                 <div className="grid grid-cols-2 gap-3">
@@ -629,7 +629,7 @@ export default function AccrualWorkbench() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Accruals Created</p>
-                    <p className="text-lg font-bold text-green-600 dark:text-green-400">
+                    <p className="text-lg font-bold text-green-600">
                       {runResult.created}
                     </p>
                   </div>
@@ -639,7 +639,7 @@ export default function AccrualWorkbench() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Exceptions Raised</p>
-                    <p className={`text-lg font-bold ${runResult.exceptions > 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
+                    <p className={`text-lg font-bold ${runResult.exceptions > 0 ? "text-amber-600" : "text-muted-foreground"}`}>
                       {runResult.exceptions}
                     </p>
                   </div>

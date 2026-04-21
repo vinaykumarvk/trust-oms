@@ -24,12 +24,12 @@ import {
 const API = '/api/v1/ttra';
 
 const statusColors: Record<string, string> = {
-  APPLIED: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  UNDER_REVIEW: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-  APPROVED: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  REJECTED: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  EXPIRED: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
-  RENEWAL_PENDING: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+  APPLIED: 'bg-blue-100 text-blue-800',
+  UNDER_REVIEW: 'bg-yellow-100 text-yellow-800',
+  APPROVED: 'bg-green-100 text-green-800',
+  REJECTED: 'bg-red-100 text-red-800',
+  EXPIRED: 'bg-gray-100 text-gray-800',
+  RENEWAL_PENDING: 'bg-orange-100 text-orange-800',
 };
 
 function fetcher(url: string) {
@@ -42,8 +42,8 @@ export default function TTRADashboard() {
   const [createOpen, setCreateOpen] = useState(false);
   const [newApp, setNewApp] = useState({ clientId: '', treatyCountry: '', corDocumentRef: '', effectiveFrom: '', effectiveTo: '' });
 
-  const { data: summary } = useQuery({ queryKey: ['ttra-summary'], queryFn: () => fetcher(`${API}/summary`), refetchInterval: 30000 });
-  const { data: applications } = useQuery({ queryKey: ['ttra-list', statusFilter], queryFn: () => fetcher(`${API}?status=${statusFilter === 'ALL' ? '' : statusFilter}`) });
+  const { data: summary, isPending: summaryPending } = useQuery({ queryKey: ['ttra-summary'], queryFn: () => fetcher(`${API}/summary`), refetchInterval: 30000 });
+  const { data: applications, isPending: listPending } = useQuery({ queryKey: ['ttra-list', statusFilter], queryFn: () => fetcher(`${API}?status=${statusFilter === 'ALL' ? '' : statusFilter}`) });
   const { data: expiring } = useQuery({ queryKey: ['ttra-expiring'], queryFn: () => fetcher(`${API}/expiring?days=60`) });
 
   const createMutation = useMutation({
@@ -113,18 +113,30 @@ export default function TTRADashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-5 gap-4">
-        {summaryCards.map((card) => (
-          <Card key={card.label}>
-            <CardContent className="flex items-center gap-3 pt-6">
-              <card.icon className={`h-8 w-8 ${card.color}`} />
-              <div>
-                <p className="text-2xl font-bold">{card.value}</p>
-                <p className="text-sm text-muted-foreground">{card.label}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+        {summaryPending
+          ? Array.from({ length: 5 }).map((_, i) => (
+              <Card key={i}>
+                <CardContent className="flex items-center gap-3 pt-6">
+                  <div className="h-8 w-8 animate-pulse rounded bg-muted" />
+                  <div className="space-y-2">
+                    <div className="h-6 w-10 animate-pulse rounded bg-muted" />
+                    <div className="h-4 w-16 animate-pulse rounded bg-muted" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          : summaryCards.map((card) => (
+              <Card key={card.label}>
+                <CardContent className="flex items-center gap-3 pt-6">
+                  <card.icon className={`h-8 w-8 ${card.color}`} />
+                  <div>
+                    <p className="text-2xl font-bold">{card.value}</p>
+                    <p className="text-sm text-muted-foreground">{card.label}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
       </div>
 
       <Tabs defaultValue="all">
@@ -140,30 +152,31 @@ export default function TTRADashboard() {
         <TabsContent value="all" className="mt-4">
           <ApplicationsTable
             data={applications?.data || []}
+            isPending={listPending}
             onUpdateStatus={(id: string, status: string, rulingNo?: string) => statusMutation.mutate({ id, status, rulingNo })}
           />
         </TabsContent>
         <TabsContent value="applied" className="mt-4">
-          <ApplicationsTable data={applications?.data || []} onUpdateStatus={(id: string, status: string, rulingNo?: string) => statusMutation.mutate({ id, status, rulingNo })} />
+          <ApplicationsTable data={applications?.data || []} isPending={listPending} onUpdateStatus={(id: string, status: string, rulingNo?: string) => statusMutation.mutate({ id, status, rulingNo })} />
         </TabsContent>
         <TabsContent value="review" className="mt-4">
-          <ApplicationsTable data={applications?.data || []} onUpdateStatus={(id: string, status: string, rulingNo?: string) => statusMutation.mutate({ id, status, rulingNo })} />
+          <ApplicationsTable data={applications?.data || []} isPending={listPending} onUpdateStatus={(id: string, status: string, rulingNo?: string) => statusMutation.mutate({ id, status, rulingNo })} />
         </TabsContent>
         <TabsContent value="approved" className="mt-4">
-          <ApplicationsTable data={applications?.data || []} onUpdateStatus={(id: string, status: string, rulingNo?: string) => statusMutation.mutate({ id, status, rulingNo })} />
+          <ApplicationsTable data={applications?.data || []} isPending={listPending} onUpdateStatus={(id: string, status: string, rulingNo?: string) => statusMutation.mutate({ id, status, rulingNo })} />
         </TabsContent>
         <TabsContent value="expiring" className="mt-4">
           <ExpiringTable data={expiring?.data || []} />
         </TabsContent>
         <TabsContent value="expired" className="mt-4">
-          <ApplicationsTable data={applications?.data || []} onUpdateStatus={(id: string, status: string, rulingNo?: string) => statusMutation.mutate({ id, status, rulingNo })} />
+          <ApplicationsTable data={applications?.data || []} isPending={listPending} onUpdateStatus={(id: string, status: string, rulingNo?: string) => statusMutation.mutate({ id, status, rulingNo })} />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function ApplicationsTable({ data, onUpdateStatus }: { data: any[]; onUpdateStatus: (id: string, status: string, rulingNo?: string) => void }) {
+function ApplicationsTable({ data, isPending, onUpdateStatus }: { data: any[]; isPending?: boolean; onUpdateStatus: (id: string, status: string, rulingNo?: string) => void }) {
   const [statusDialog, setStatusDialog] = useState<{ open: boolean; ttraId: string; currentStatus: string }>({ open: false, ttraId: '', currentStatus: '' });
   const [newStatus, setNewStatus] = useState('');
   const [rulingNo, setRulingNo] = useState('');
@@ -194,10 +207,17 @@ function ApplicationsTable({ data, onUpdateStatus }: { data: any[]; onUpdateStat
           </TableRow>
         </TableHeader>
         <TableBody>
-          {data.length === 0 && (
+          {isPending && Array.from({ length: 5 }).map((_, i) => (
+            <TableRow key={`skel-${i}`}>
+              {Array.from({ length: 9 }).map((_, j) => (
+                <TableCell key={j}><div className="h-4 w-full animate-pulse rounded bg-muted" /></TableCell>
+              ))}
+            </TableRow>
+          ))}
+          {!isPending && data.length === 0 && (
             <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No TTRA applications found</TableCell></TableRow>
           )}
-          {data.map((app: any) => (
+          {!isPending && data.map((app: any) => (
             <TableRow key={app.ttra_id}>
               <TableCell className="font-mono text-sm">{app.ttra_id}</TableCell>
               <TableCell>{app.client_id}</TableCell>

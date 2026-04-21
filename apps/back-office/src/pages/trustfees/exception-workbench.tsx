@@ -70,17 +70,17 @@ import {
 /* ---------- Constants ---------- */
 
 const SEVERITY_COLORS: Record<string, string> = {
-  P1: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
-  P2: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
-  P3: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
+  P1: "bg-red-100 text-red-800",
+  P2: "bg-amber-100 text-amber-800",
+  P3: "bg-blue-100 text-blue-800",
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  OPEN: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
-  IN_PROGRESS: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
-  ESCALATED: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
-  RESOLVED: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
-  WONT_FIX: "bg-gray-100 text-gray-800 dark:bg-gray-900/40 dark:text-gray-300",
+  OPEN: "bg-blue-100 text-blue-800",
+  IN_PROGRESS: "bg-amber-100 text-amber-800",
+  ESCALATED: "bg-red-100 text-red-800",
+  RESOLVED: "bg-green-100 text-green-800",
+  WONT_FIX: "bg-gray-100 text-gray-800",
 };
 
 const TYPE_OPTIONS = [
@@ -132,7 +132,7 @@ function getSlaCountdown(slaDueAt: string | null, status: string): { text: strin
     const hoursOverdue = Math.abs(diff) / (1000 * 60 * 60);
     return {
       text: `BREACHED (${hoursOverdue.toFixed(1)}h overdue)`,
-      color: "text-red-600 dark:text-red-400 font-bold",
+      color: "text-red-600 font-bold",
     };
   }
 
@@ -148,11 +148,11 @@ function getSlaCountdown(slaDueAt: string | null, status: string): { text: strin
 
   let color: string;
   if (pctRemaining > 0.5) {
-    color = "text-green-600 dark:text-green-400";
+    color = "text-green-600";
   } else if (pctRemaining > 0.25) {
-    color = "text-amber-600 dark:text-amber-400";
+    color = "text-amber-600";
   } else {
-    color = "text-red-600 dark:text-red-400 font-semibold";
+    color = "text-red-600 font-semibold";
   }
 
   return {
@@ -534,8 +534,8 @@ export default function ExceptionWorkbench() {
 
       {/* Bulk Actions Toolbar */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 rounded-md border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-900/20">
-          <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+        <div className="flex items-center gap-3 rounded-md border border-blue-200 bg-blue-50 p-3">
+          <span className="text-sm font-medium text-blue-700">
             {selectedIds.size} selected
           </span>
           <Separator orientation="vertical" className="h-5" />
@@ -575,10 +575,10 @@ export default function ExceptionWorkbench() {
           ))}
         </div>
       ) : (
-        <div className="rounded-md border dark:border-gray-700 overflow-x-auto">
+        <div className="rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="dark:border-gray-700">
+              <TableRow className="">
                 <TableHead className="w-10">
                   <Checkbox
                     checked={
@@ -614,7 +614,7 @@ export default function ExceptionWorkbench() {
                   return (
                     <TableRow
                       key={exc.id}
-                      className="dark:border-gray-700 cursor-pointer hover:bg-muted/50"
+                      className="cursor-pointer hover:bg-muted/50"
                       onClick={(e) => {
                         // Don't open drawer when clicking checkbox
                         if ((e.target as HTMLElement).closest('[role="checkbox"]')) return;
@@ -711,7 +711,7 @@ export default function ExceptionWorkbench() {
               </SheetHeader>
 
               <div className="mt-6 space-y-4">
-                <div className="rounded-md bg-muted/50 p-4 space-y-2 text-sm dark:bg-muted/20">
+                <div className="rounded-md bg-muted/50 p-4 space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Type:</span>
                     <span>{selectedExc.exception_type?.replace(/_/g, " ")}</span>
@@ -791,7 +791,7 @@ export default function ExceptionWorkbench() {
                     <Label className="text-xs text-muted-foreground">
                       Details
                     </Label>
-                    <div className="rounded-md border p-3 text-sm dark:border-gray-700">
+                    <div className="rounded-md border p-3 text-sm">
                       {typeof selectedExc.details === "object"
                         ? JSON.stringify(selectedExc.details, null, 2)
                         : selectedExc.details}
@@ -804,7 +804,7 @@ export default function ExceptionWorkbench() {
                     <Label className="text-xs text-muted-foreground">
                       Resolution Notes
                     </Label>
-                    <div className="rounded-md border p-3 text-sm whitespace-pre-wrap dark:border-gray-700">
+                    <div className="rounded-md border p-3 text-sm whitespace-pre-wrap">
                       {selectedExc.resolution_notes}
                     </div>
                   </div>
@@ -838,7 +838,7 @@ export default function ExceptionWorkbench() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="text-amber-600 border-amber-300 dark:text-amber-400 dark:border-amber-700"
+                          className="text-amber-600 border-amber-300"
                           onClick={() => setEscalateDialog(selectedExc)}
                         >
                           <ArrowUpCircle className="mr-1 h-3 w-3" />
@@ -848,7 +848,7 @@ export default function ExceptionWorkbench() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-gray-600 border-gray-300 dark:text-gray-400 dark:border-gray-600"
+                        className="text-gray-600 border-gray-300"
                         onClick={() => setWontFixDialog(selectedExc)}
                       >
                         <XOctagon className="mr-1 h-3 w-3" />

@@ -62,13 +62,13 @@ import {
 /* ---------- Constants ---------- */
 
 const STATUS_COLORS: Record<string, string> = {
-  DRAFT: "bg-gray-100 text-gray-800 dark:bg-gray-800/40 dark:text-gray-300",
-  ISSUED: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
-  PAID: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
-  PARTIALLY_PAID: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
-  OVERDUE: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
-  DISPUTED: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300",
-  CANCELLED: "bg-slate-100 text-slate-800 dark:bg-slate-800/40 dark:text-slate-300",
+  DRAFT: "bg-gray-100 text-gray-800",
+  ISSUED: "bg-blue-100 text-blue-800",
+  PAID: "bg-green-100 text-green-800",
+  PARTIALLY_PAID: "bg-amber-100 text-amber-800",
+  OVERDUE: "bg-red-100 text-red-800",
+  DISPUTED: "bg-orange-100 text-orange-800",
+  CANCELLED: "bg-slate-100 text-slate-800",
 };
 
 const TABS = ["ALL", "DRAFT", "ISSUED", "OVERDUE", "PAID"];
@@ -424,13 +424,13 @@ export default function InvoiceWorkbench() {
           <CardContent>
             <div className="grid grid-cols-5 gap-4">
               {[
-                { label: "Current", data: ageing.buckets.current, color: "text-green-600 dark:text-green-400" },
-                { label: "1-30 Days", data: ageing.buckets["1_30"], color: "text-yellow-600 dark:text-yellow-400" },
-                { label: "31-60 Days", data: ageing.buckets["31_60"], color: "text-orange-600 dark:text-orange-400" },
-                { label: "61-90 Days", data: ageing.buckets["61_90"], color: "text-red-500 dark:text-red-400" },
-                { label: "90+ Days", data: ageing.buckets["90_plus"], color: "text-red-700 dark:text-red-300" },
+                { label: "Current", data: ageing.buckets.current, color: "text-green-600" },
+                { label: "1-30 Days", data: ageing.buckets["1_30"], color: "text-yellow-600" },
+                { label: "31-60 Days", data: ageing.buckets["31_60"], color: "text-orange-600" },
+                { label: "61-90 Days", data: ageing.buckets["61_90"], color: "text-red-500" },
+                { label: "90+ Days", data: ageing.buckets["90_plus"], color: "text-red-700" },
               ].map((bucket) => (
-                <div key={bucket.label} className="rounded-lg border p-3 dark:border-gray-700">
+                <div key={bucket.label} className="rounded-lg border p-3">
                   <p className="text-xs font-medium text-muted-foreground">{bucket.label}</p>
                   <p className={`text-lg font-bold ${bucket.color}`}>
                     {fmtCurrency(bucket.data.amount)}
@@ -741,8 +741,8 @@ export default function InvoiceWorkbench() {
                             <Badge
                               className={
                                 pmt.payment_status === "POSTED"
-                                  ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
-                                  : "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-red-100 text-red-800"
                               }
                             >
                               {pmt.payment_status}
@@ -798,14 +798,14 @@ export default function InvoiceWorkbench() {
 
             {/* Result summary */}
             {genResult && (
-              <div className="rounded-md border bg-muted/30 p-4 dark:bg-gray-800/50">
-                <h4 className="mb-2 text-sm font-semibold text-green-700 dark:text-green-400">
+              <div className="rounded-md border bg-muted/30 p-4">
+                <h4 className="mb-2 text-sm font-semibold text-green-700">
                   Generation Complete
                 </h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <p className="text-xs text-muted-foreground">Invoices Created</p>
-                    <p className="text-lg font-bold text-green-600 dark:text-green-400">
+                    <p className="text-lg font-bold text-green-600">
                       {genResult.invoices_created}
                     </p>
                   </div>
@@ -818,7 +818,7 @@ export default function InvoiceWorkbench() {
                 </div>
                 {genResult.exceptions.length > 0 && (
                   <div className="mt-3">
-                    <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                    <p className="text-xs font-medium text-amber-600">
                       Exceptions ({genResult.exceptions.length}):
                     </p>
                     <ul className="mt-1 text-xs text-muted-foreground">

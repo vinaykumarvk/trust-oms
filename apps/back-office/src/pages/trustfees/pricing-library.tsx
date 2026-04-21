@@ -92,10 +92,10 @@ const PRICING_TYPES = [
 ] as const;
 
 const STATUS_COLORS: Record<string, string> = {
-  DRAFT: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200",
-  PENDING_APPROVAL: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
-  ACTIVE: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
-  RETIRED: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
+  DRAFT: "bg-gray-100 text-gray-800",
+  PENDING_APPROVAL: "bg-amber-100 text-amber-800",
+  ACTIVE: "bg-green-100 text-green-800",
+  RETIRED: "bg-red-100 text-red-800",
 };
 
 const STATUS_OPTIONS = ["ALL", "DRAFT", "PENDING_APPROVAL", "ACTIVE", "RETIRED"];

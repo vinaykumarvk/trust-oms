@@ -669,8 +669,8 @@ export default function AuditDashboardPage() {
               <div
                 className={`flex items-start gap-3 rounded-md border p-4 ${
                   verifyResult.valid
-                    ? 'border-green-300 bg-green-50 dark:bg-green-950/30'
-                    : 'border-red-300 bg-red-50 dark:bg-red-950/30'
+                    ? 'border-green-300 bg-green-50'
+                    : 'border-red-300 bg-red-50'
                 }`}
               >
                 {verifyResult.valid ? (
@@ -681,7 +681,7 @@ export default function AuditDashboardPage() {
                 <div className="space-y-1">
                   <p
                     className={`text-sm font-medium ${
-                      verifyResult.valid ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300'
+                      verifyResult.valid ? 'text-green-800' : 'text-red-800'
                     }`}
                   >
                     {verifyResult.valid ? 'Chain Valid' : 'Chain Broken'}

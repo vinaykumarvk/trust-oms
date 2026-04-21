@@ -51,10 +51,10 @@ const FREQUENCIES = ["DAILY", "MONTHLY", "QUARTERLY", "SEMI_ANNUAL", "ANNUAL"] a
 const METHODS = ["ABSOLUTE", "AVERAGE", "ABSOLUTE_INCR", "AVERAGE_INCR"] as const;
 const FREQ_ORDER: Record<string, number> = { DAILY: 0, MONTHLY: 1, QUARTERLY: 2, SEMI_ANNUAL: 3, ANNUAL: 4 };
 const STATUS_COLORS: Record<string, string> = {
-  DRAFT: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-  PENDING_APPROVAL: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  ACTIVE: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  RETIRED: "bg-gray-100 text-gray-600 dark:bg-gray-800/30 dark:text-gray-400",
+  DRAFT: "bg-yellow-100 text-yellow-800",
+  PENDING_APPROVAL: "bg-blue-100 text-blue-800",
+  ACTIVE: "bg-green-100 text-green-800",
+  RETIRED: "bg-gray-100 text-gray-600",
 };
 
 const FREQ_LABELS: Record<string, string> = {
@@ -358,8 +358,8 @@ export default function AccrualScheduleLibrary() {
 
           {/* Validation Errors */}
           {formErrors.length > 0 && (
-            <div className="rounded-md border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950/30">
-              <ul className="list-disc pl-4 text-sm text-red-700 dark:text-red-400">
+            <div className="rounded-md border border-red-200 bg-red-50 p-3">
+              <ul className="list-disc pl-4 text-sm text-red-700">
                 {formErrors.map((err, i) => <li key={i}>{err}</li>)}
               </ul>
             </div>

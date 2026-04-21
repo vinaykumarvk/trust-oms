@@ -35,16 +35,16 @@ export default function DegradedModeMonitor() {
   });
 
   const statusIcon = (status: string) => status === 'UP' ? <CheckCircle className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-red-500" />;
-  const statusColor = (status: string) => status === 'UP' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+  const statusColor = (status: string) => status === 'UP' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
 
   return (
     <div className="space-y-6">
       {activeIncidents?.hasActiveIncident && (
-        <div className="rounded-lg border-2 border-red-500 bg-red-50 dark:bg-red-950 p-4 flex items-center gap-3">
+        <div className="rounded-lg border-2 border-red-500 bg-red-50 p-4 flex items-center gap-3">
           <AlertTriangle className="h-6 w-6 text-red-600 animate-pulse" />
           <div>
-            <p className="font-semibold text-red-800 dark:text-red-200">DEGRADED MODE ACTIVE</p>
-            <p className="text-sm text-red-600 dark:text-red-300">{activeIncidents.data.length} active incident(s) — some feeds may be unavailable</p>
+            <p className="font-semibold text-red-800">DEGRADED MODE ACTIVE</p>
+            <p className="text-sm text-red-600">{activeIncidents.data.length} active incident(s) — some feeds may be unavailable</p>
           </div>
         </div>
       )}
@@ -92,7 +92,7 @@ export default function DegradedModeMonitor() {
         <TabsContent value="feeds" className="mt-4">
           <div className="grid grid-cols-5 gap-4">
             {feedHealth?.feeds?.map((feed: any) => (
-              <Card key={feed.name} className={`border-2 ${feed.status === 'UP' ? 'border-green-200 dark:border-green-800' : 'border-red-300 dark:border-red-700'}`}>
+              <Card key={feed.name} className={`border-2 ${feed.status === 'UP' ? 'border-green-200' : 'border-red-300'}`}>
                 <CardContent className="pt-6 text-center space-y-2">
                   {statusIcon(feed.status)}
                   <p className="font-bold">{feed.name}</p>

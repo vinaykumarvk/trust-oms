@@ -56,21 +56,21 @@ function fetcher(url: string) {
 }
 
 const statusColors: Record<string, string> = {
-  DRAFT: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
-  INVESTIGATING: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  PENDING_APPROVAL: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-  APPROVED: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  PAID: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
-  REJECTED: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  WITHDRAWN: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-  DISCLOSED: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+  DRAFT: 'bg-gray-100 text-gray-800',
+  INVESTIGATING: 'bg-blue-100 text-blue-800',
+  PENDING_APPROVAL: 'bg-yellow-100 text-yellow-800',
+  APPROVED: 'bg-green-100 text-green-800',
+  PAID: 'bg-emerald-100 text-emerald-800',
+  REJECTED: 'bg-red-100 text-red-800',
+  WITHDRAWN: 'bg-orange-100 text-orange-800',
+  DISCLOSED: 'bg-purple-100 text-purple-800',
 };
 
 const tierColors: Record<string, string> = {
-  AUTO: 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300',
-  MANAGER: 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
-  HEAD: 'bg-yellow-50 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300',
-  EXEC_COMMITTEE: 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300',
+  AUTO: 'bg-green-50 text-green-700',
+  MANAGER: 'bg-blue-50 text-blue-700',
+  HEAD: 'bg-yellow-50 text-yellow-700',
+  EXEC_COMMITTEE: 'bg-red-50 text-red-700',
 };
 
 const ROOT_CAUSES = [
@@ -163,13 +163,13 @@ export default function ClaimsWorkbench() {
   };
   const statusParam = statusFilterMap[activeTab] || '';
 
-  const { data: summary } = useQuery<DashboardSummary>({
+  const { data: summary, isPending: summaryPending } = useQuery<DashboardSummary>({
     queryKey: ['claims-summary'],
     queryFn: () => fetcher(`${API}/summary`),
     refetchInterval: 30000,
   });
 
-  const { data: claimsList } = useQuery<ListResult>({
+  const { data: claimsList, isPending: listPending } = useQuery<ListResult>({
     queryKey: ['claims-list', statusParam],
     queryFn: () => fetcher(`${API}?status=${statusParam}&pageSize=100`),
     refetchInterval: 15000,
@@ -336,11 +336,53 @@ export default function ClaimsWorkbench() {
     );
   }
 
+  function SkeletonRows({ cols, rows = 5 }: { cols: number; rows?: number }) {
+    return (
+      <>
+        {Array.from({ length: rows }).map((_, i) => (
+          <TableRow key={i}>
+            {Array.from({ length: cols }).map((_, j) => (
+              <TableCell key={j}>
+                <div className="h-4 w-full animate-pulse rounded bg-muted" />
+              </TableCell>
+            ))}
+          </TableRow>
+        ))}
+      </>
+    );
+  }
+
   function renderClaimsTable(data: ClaimRecord[]) {
+    if (listPending) {
+      return (
+        <div className="rounded-md border overflow-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Claim Ref</TableHead>
+                <TableHead>Origination</TableHead>
+                <TableHead>Root Cause</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
+                <TableHead>Currency</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Approval Tier</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <SkeletonRows cols={9} />
+            </TableBody>
+          </Table>
+        </div>
+      );
+    }
+
     if (data.length === 0) {
       return (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
-          No claims found
+        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
+          <FileWarning className="h-10 w-10 text-muted-foreground/50" />
+          <p>No claims found</p>
         </div>
       );
     }
@@ -495,17 +537,29 @@ export default function ClaimsWorkbench() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-        {cards.map((card: typeof cards[number]) => (
-          <Card key={card.label}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">{card.label}</CardTitle>
-              <card.icon className={`h-4 w-4 ${card.color}`} />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{card.value}</div>
-            </CardContent>
-          </Card>
-        ))}
+        {summaryPending
+          ? Array.from({ length: 5 }).map((_, i) => (
+              <Card key={i}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+                  <div className="h-4 w-4 animate-pulse rounded bg-muted" />
+                </CardHeader>
+                <CardContent>
+                  <div className="h-8 w-16 animate-pulse rounded bg-muted" />
+                </CardContent>
+              </Card>
+            ))
+          : cards.map((card: typeof cards[number]) => (
+              <Card key={card.label}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">{card.label}</CardTitle>
+                  <card.icon className={`h-4 w-4 ${card.color}`} />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{card.value}</div>
+                </CardContent>
+              </Card>
+            ))}
       </div>
 
       {/* Root Cause Summary Chart */}

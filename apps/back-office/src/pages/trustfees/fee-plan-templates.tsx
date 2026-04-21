@@ -48,12 +48,12 @@ const CATEGORY_LABELS: Record<string, string> = {
   ADHOC: "Ad Hoc",
 };
 const CATEGORY_COLORS: Record<string, string> = {
-  TRUST_DISC: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  TRUST_DIR: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400",
-  RETIREMENT: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
-  ESCROW: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400",
-  TXN: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
-  ADHOC: "bg-gray-100 text-gray-600 dark:bg-gray-800/30 dark:text-gray-400",
+  TRUST_DISC: "bg-blue-100 text-blue-800",
+  TRUST_DIR: "bg-indigo-100 text-indigo-800",
+  RETIREMENT: "bg-purple-100 text-purple-800",
+  ESCROW: "bg-cyan-100 text-cyan-800",
+  TXN: "bg-orange-100 text-orange-800",
+  ADHOC: "bg-gray-100 text-gray-600",
 };
 
 /* ---------- Helpers ---------- */
@@ -291,7 +291,7 @@ export default function FeePlanTemplates() {
                       <TableCell className="text-sm">{t.jurisdiction_id ?? "\u2014"}</TableCell>
                       <TableCell>
                         {t.is_active ? (
-                          <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">Active</Badge>
+                          <Badge className="bg-green-100 text-green-800">Active</Badge>
                         ) : (
                           <Badge variant="outline" className="text-muted-foreground">Inactive</Badge>
                         )}
@@ -368,7 +368,7 @@ export default function FeePlanTemplates() {
                 <div className="space-y-1">
                   <label className="text-sm font-medium">Default Payload (FeePlan skeleton)</label>
                   <textarea
-                    className="w-full min-h-[250px] rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-muted/30"
+                    className="w-full min-h-[250px] rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     value={form.default_payload_json}
                     onChange={(e) => {
                       setForm((f) => ({ ...f, default_payload_json: e.target.value }));
@@ -376,7 +376,7 @@ export default function FeePlanTemplates() {
                     }}
                     spellCheck={false}
                   />
-                  {jsonError && <p className="text-sm text-red-600 dark:text-red-400">{jsonError}</p>}
+                  {jsonError && <p className="text-sm text-red-600">{jsonError}</p>}
                 </div>
 
                 {/* Active Toggle */}
@@ -403,7 +403,7 @@ export default function FeePlanTemplates() {
                   This shows the pre-filled FeePlan fields that would be created when this template is instantiated.
                 </p>
                 {previewData ? (
-                  <div className="rounded-md border bg-muted/20 p-4 dark:bg-muted/10">
+                  <div className="rounded-md border bg-muted/20 p-4">
                     <pre className="text-sm font-mono overflow-x-auto whitespace-pre-wrap">
                       {JSON.stringify(previewData, null, 2)}
                     </pre>

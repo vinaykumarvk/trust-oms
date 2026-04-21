@@ -165,10 +165,10 @@ export default function AuditExplorer() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground dark:text-white">
+          <h1 className="text-2xl font-bold text-foreground">
             Audit Explorer
           </h1>
-          <p className="text-sm text-muted-foreground dark:text-gray-400">
+          <p className="text-sm text-muted-foreground">
             HMAC-chained audit trail with tamper detection
           </p>
         </div>
@@ -212,25 +212,25 @@ export default function AuditExplorer() {
       {/* Verification Result */}
       {verifyMutation.isSuccess && (
         <Card className={verifyMutation.data?.verified
-          ? "border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/20"
-          : "border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-900/20"
+          ? "border-green-300 bg-green-50"
+          : "border-red-300 bg-red-50"
         }>
           <CardContent className="flex items-center gap-3 py-3">
             {verifyMutation.data?.verified ? (
               <>
-                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
-                <span className="text-green-800 dark:text-green-300 font-medium">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <span className="text-green-800 font-medium">
                   Chain verified: {verifyMutation.data.windows_checked} windows checked -- no tampering detected
                 </span>
               </>
             ) : (
               <>
-                <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                <XCircle className="h-5 w-5 text-red-600" />
                 <div>
-                  <span className="text-red-800 dark:text-red-300 font-medium">
+                  <span className="text-red-800 font-medium">
                     Chain integrity broken at window {verifyMutation.data.first_broken_window?.window_id}
                   </span>
-                  <p className="text-sm text-red-600 dark:text-red-400">
+                  <p className="text-sm text-red-600">
                     Expected: {verifyMutation.data.first_broken_window?.expected_hash?.slice(0, 16)}...
                     Got: {verifyMutation.data.first_broken_window?.actual_hash?.slice(0, 16)}...
                   </p>
@@ -243,10 +243,10 @@ export default function AuditExplorer() {
 
       {/* Flush Result */}
       {flushMutation.isSuccess && flushMutation.data?.flushed && (
-        <Card className="border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-900/20">
+        <Card className="border-blue-300 bg-blue-50">
           <CardContent className="flex items-center gap-3 py-3">
-            <CheckCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            <span className="text-blue-800 dark:text-blue-300 font-medium">
+            <CheckCircle className="h-5 w-5 text-blue-600" />
+            <span className="text-blue-800 font-medium">
               Window flushed: {flushMutation.data.event_count} events sealed (Window #{flushMutation.data.window_id})
             </span>
           </CardContent>
@@ -357,22 +357,22 @@ export default function AuditExplorer() {
               {/* Timeline View */}
               <div className="relative">
                 {/* Timeline line */}
-                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border dark:bg-gray-700" />
+                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
 
                 <div className="space-y-3">
                   {events.map((event: any) => (
                     <div key={event.id} className="relative pl-10">
                       {/* Timeline dot */}
-                      <div className="absolute left-2.5 top-3 h-3 w-3 rounded-full border-2 border-primary bg-background dark:bg-gray-900" />
+                      <div className="absolute left-2.5 top-3 h-3 w-3 rounded-full border-2 border-primary bg-background" />
 
-                      <div className="rounded-lg border p-3 transition-colors hover:bg-muted/50 dark:border-gray-700 dark:hover:bg-gray-800/50">
+                      <div className="rounded-lg border p-3 transition-colors hover:bg-muted/50">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <Badge variant="outline" className="text-xs">
                                 {event.event_type}
                               </Badge>
-                              <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 text-xs">
+                              <Badge className="bg-blue-100 text-blue-800 text-xs">
                                 {event.aggregate_type}
                               </Badge>
                               <span className="text-xs text-muted-foreground">

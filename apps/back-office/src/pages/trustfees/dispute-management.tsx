@@ -75,10 +75,10 @@ import {
 /* ---------- Constants ---------- */
 
 const STATUS_COLORS: Record<string, string> = {
-  OPEN: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
-  INVESTIGATING: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
-  RESOLVED: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
-  REJECTED: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
+  OPEN: "bg-blue-100 text-blue-800",
+  INVESTIGATING: "bg-amber-100 text-amber-800",
+  RESOLVED: "bg-green-100 text-green-800",
+  REJECTED: "bg-red-100 text-red-800",
 };
 
 const STATUS_OPTIONS = ["ALL", "OPEN", "INVESTIGATING", "RESOLVED", "REJECTED"];
@@ -216,10 +216,10 @@ export default function DisputeManagement() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground dark:text-white">
+          <h1 className="text-2xl font-bold text-foreground">
             Dispute Management
           </h1>
-          <p className="text-sm text-muted-foreground dark:text-gray-400">
+          <p className="text-sm text-muted-foreground">
             Manage invoice disputes, investigations, and credit note resolutions
           </p>
         </div>
@@ -238,8 +238,8 @@ export default function DisputeManagement() {
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <Card>
           <CardContent className="flex items-center gap-3 py-4">
-            <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/40">
-              <AlertTriangle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <div className="rounded-lg bg-blue-100 p-2">
+              <AlertTriangle className="h-5 w-5 text-blue-600" />
             </div>
             <div>
               <p className="text-2xl font-bold">{summary.open ?? 0}</p>
@@ -249,8 +249,8 @@ export default function DisputeManagement() {
         </Card>
         <Card>
           <CardContent className="flex items-center gap-3 py-4">
-            <div className="rounded-lg bg-amber-100 p-2 dark:bg-amber-900/40">
-              <SearchIcon className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            <div className="rounded-lg bg-amber-100 p-2">
+              <SearchIcon className="h-5 w-5 text-amber-600" />
             </div>
             <div>
               <p className="text-2xl font-bold">{summary.investigating ?? 0}</p>
@@ -260,8 +260,8 @@ export default function DisputeManagement() {
         </Card>
         <Card>
           <CardContent className="flex items-center gap-3 py-4">
-            <div className="rounded-lg bg-green-100 p-2 dark:bg-green-900/40">
-              <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+            <div className="rounded-lg bg-green-100 p-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
             </div>
             <div>
               <p className="text-2xl font-bold">{summary.resolved ?? 0}</p>
@@ -271,8 +271,8 @@ export default function DisputeManagement() {
         </Card>
         <Card>
           <CardContent className="flex items-center gap-3 py-4">
-            <div className="rounded-lg bg-purple-100 p-2 dark:bg-purple-900/40">
-              <CreditCard className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+            <div className="rounded-lg bg-purple-100 p-2">
+              <CreditCard className="h-5 w-5 text-purple-600" />
             </div>
             <div>
               <p className="text-2xl font-bold">{summary.credit_notes_this_month ?? 0}</p>
@@ -344,7 +344,7 @@ export default function DisputeManagement() {
                   {disputes.map((d: any) => (
                     <TableRow
                       key={d.id}
-                      className="cursor-pointer hover:bg-muted/50 dark:hover:bg-gray-800/50"
+                      className="cursor-pointer hover:bg-muted/50"
                       onClick={() => setDetailDrawer(d.id)}
                     >
                       <TableCell className="text-xs font-mono">#{d.id}</TableCell>
@@ -390,7 +390,7 @@ export default function DisputeManagement() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-7 text-xs text-red-600 dark:text-red-400"
+                                className="h-7 text-xs text-red-600"
                                 onClick={() => {
                                   setRejectDialog(d);
                                   setRejectReason("");
@@ -502,7 +502,7 @@ export default function DisputeManagement() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="rounded-lg border p-3 bg-muted/50 dark:bg-gray-800/50">
+            <div className="rounded-lg border p-3 bg-muted/50">
               <div className="flex justify-between text-sm">
                 <span>Invoice: {resolveDialog?.invoice_number}</span>
                 <span className="font-mono">{formatAmount(resolveDialog?.grand_total, resolveDialog?.currency)}</span>
@@ -518,7 +518,7 @@ export default function DisputeManagement() {
                 onChange={(e) => setRefundAmount(e.target.value)}
               />
               {refundAmount && parseFloat(refundAmount) > 0 && (
-                <div className="mt-1 rounded border border-green-200 bg-green-50 p-2 text-xs text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-300">
+                <div className="mt-1 rounded border border-green-200 bg-green-50 p-2 text-xs text-green-800">
                   Credit note will be issued: {resolveDialog?.currency} {parseFloat(refundAmount).toFixed(2)}
                 </div>
               )}
@@ -675,7 +675,7 @@ export default function DisputeManagement() {
                       <p className="text-xs font-medium text-muted-foreground mb-1">Lines</p>
                       <div className="space-y-1">
                         {detail.invoice.lines.map((line: any) => (
-                          <div key={line.id} className="flex justify-between text-xs border-b py-1 dark:border-gray-700">
+                          <div key={line.id} className="flex justify-between text-xs border-b py-1">
                             <span className="truncate max-w-[60%]">{line.description}</span>
                             <span className="font-mono">{formatAmount(line.line_amount)}</span>
                           </div>
@@ -696,7 +696,7 @@ export default function DisputeManagement() {
                 ) : (
                   <div className="space-y-2">
                     {detail.credit_notes?.map((cn: any) => (
-                      <div key={cn.id} className="rounded border p-2 text-xs dark:border-gray-700">
+                      <div key={cn.id} className="rounded border p-2 text-xs">
                         <div className="flex justify-between">
                           <span className="font-mono">{cn.credit_note_number}</span>
                           <Badge className={cn.cn_status === "ISSUED" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
