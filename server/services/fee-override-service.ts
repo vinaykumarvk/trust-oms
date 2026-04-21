@@ -69,7 +69,7 @@ export const feeOverrideService = {
     const [override] = await db
       .insert(schema.feeOverrides)
       .values({
-        stage: data.override_stage as any,
+        stage: data.override_stage,
         accrual_id: data.accrual_id ?? null,
         invoice_id: data.invoice_id ?? null,
         original_amount: data.original_amount,
@@ -78,7 +78,7 @@ export const feeOverrideService = {
         reason_code: data.reason_code,
         reason_notes: data.reason_notes,
         requested_by: data.requested_by,
-        override_status: overrideStatus as any,
+        override_status: overrideStatus,
         created_by: data.requested_by,
       })
       .returning();

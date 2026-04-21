@@ -32,7 +32,7 @@ export const feePlanTemplateService = {
       .values({
         template_code: data.template_code,
         template_name: data.template_name,
-        category: data.category as any,
+        category: data.category,
         default_payload: data.default_payload,
         jurisdiction_id: data.jurisdiction_id ?? null,
         is_active: data.is_active ?? true,
@@ -58,7 +58,7 @@ export const feePlanTemplateService = {
       .update(schema.feePlanTemplates)
       .set({
         ...(data.template_name !== undefined && { template_name: data.template_name as string }),
-        ...(data.category !== undefined && { category: data.category as any }),
+        ...(data.category !== undefined && { category: data.category }),
         ...(data.default_payload !== undefined && { default_payload: data.default_payload as Record<string, unknown> }),
         ...(data.jurisdiction_id !== undefined && { jurisdiction_id: data.jurisdiction_id as number }),
         ...(data.is_active !== undefined && { is_active: data.is_active as boolean }),

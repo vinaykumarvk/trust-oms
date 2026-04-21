@@ -230,16 +230,16 @@ export const disputeService = {
     }
 
     if (filters?.date_from) {
-      conditions.push(sql`${schema.disputes.created_at} >= ${filters.date_from}` as any);
+      conditions.push(sql`${schema.disputes.created_at} >= ${filters.date_from}`);
     }
 
     if (filters?.date_to) {
-      conditions.push(sql`${schema.disputes.created_at} <= ${filters.date_to}T23:59:59Z` as any);
+      conditions.push(sql`${schema.disputes.created_at} <= ${filters.date_to}T23:59:59Z`);
     }
 
     if (filters?.search) {
       conditions.push(
-        sql`(${schema.disputes.reason} ILIKE ${'%' + filters.search + '%'} OR ${schema.tfpInvoices.invoice_number} ILIKE ${'%' + filters.search + '%'})` as any,
+        sql`(${schema.disputes.reason} ILIKE ${'%' + filters.search + '%'} OR ${schema.tfpInvoices.invoice_number} ILIKE ${'%' + filters.search + '%'})`,
       );
     }
 
@@ -295,7 +295,7 @@ export const disputeService = {
     const cnResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(schema.creditNotes)
-      .where(sql`${schema.creditNotes.issued_at} >= ${monthStart}` as any);
+      .where(sql`${schema.creditNotes.issued_at} >= ${monthStart}`);
 
     const creditNotesThisMonth = Number(cnResult[0]?.count ?? 0);
 

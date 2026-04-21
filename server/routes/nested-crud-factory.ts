@@ -625,7 +625,7 @@ export function createNestedCrudRouter(
       if ('correlation_id' in cols) insertData.correlation_id = req.id;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle .values() requires the exact inferred insert model
-      const [created] = await db.insert(table).values(insertData as any).returning();
+      const [created] = await db.insert(table).values(insertData as Record<string, unknown>).returning();
 
       const createdRecord = created as Record<string, unknown>;
       const entityId = createdRecord?.id ?? 'unknown';
@@ -754,7 +754,7 @@ export function createNestedCrudRouter(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle .set() requires the exact inferred update model
       const result = await db
         .update(table)
-        .set(updateData as any)
+        .set(updateData as Record<string, unknown>)
         .where(and(...scopeConditions))
         .returning();
 
@@ -821,7 +821,7 @@ export function createNestedCrudRouter(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle .set() requires exact model
         result = await db
           .update(table)
-          .set(softDeleteData as any)
+          .set(softDeleteData as Record<string, unknown>)
           .where(and(...scopeConditions))
           .returning() as Record<string, unknown>[];
       } else {
@@ -935,7 +935,7 @@ export function createNestedCrudRouter(
             return data;
           });
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle .values() requires exact model
-          await db.insert(table).values(values as any);
+          await db.insert(table).values(values as Record<string, unknown>[]);
           accepted += batch.length;
         } catch {
           for (const item of batch) {
@@ -946,7 +946,7 @@ export function createNestedCrudRouter(
               if ('created_by' in allCols) data.created_by = req.userId;
               if ('updated_by' in allCols) data.updated_by = req.userId;
               // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle .values() requires exact model
-              await db.insert(table).values(data as any);
+              await db.insert(table).values(data as Record<string, unknown>);
               accepted += 1;
             } catch (rowError) {
               rejected.push({

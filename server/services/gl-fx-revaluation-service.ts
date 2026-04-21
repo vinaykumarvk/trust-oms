@@ -404,7 +404,7 @@ export const glFxRevaluationService = {
         journal_batch_id: batchId,
         details,
       };
-    } catch (error: any) {
+    } catch (error) {
       // Mark run as FAILED on error
       await db
         .update(schema.glFxRevaluationRuns)
@@ -414,7 +414,7 @@ export const glFxRevaluationService = {
         })
         .where(eq(schema.glFxRevaluationRuns.id, run.id));
 
-      throw new Error(`FX revaluation failed: ${error.message}`);
+      throw new Error(`FX revaluation failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   },
 
@@ -801,14 +801,14 @@ export const glFxRevaluationService = {
         total_debit: totalDebit,
         total_credit: totalCredit,
       };
-    } catch (error: any) {
+    } catch (error) {
       // Revert year-end status
       await db
         .update(schema.glFinancialYears)
         .set({ year_end_status: 'PENDING' })
         .where(eq(schema.glFinancialYears.id, fy.id));
 
-      throw new Error(`Year-end processing failed for ${yearCode}: ${error.message}`);
+      throw new Error(`Year-end processing failed for ${yearCode}: ${error instanceof Error ? error.message : String(error)}`);
     }
   },
 
@@ -1354,11 +1354,11 @@ export const glFxRevaluationService = {
     let postResult;
     try {
       postResult = await this.postNavFees(navComputationId, userId);
-    } catch (error: any) {
+    } catch (error) {
       // If posting fails, keep status as FINAL but log the error
       postResult = {
         status: 'POST_ERROR',
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
       };
     }
 

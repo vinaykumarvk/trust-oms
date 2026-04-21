@@ -323,11 +323,11 @@ export const tfpInvoiceService = {
     }
 
     if (filters?.date_from) {
-      conditions.push(sql`${schema.tfpInvoices.invoice_date} >= ${filters.date_from}` as any);
+      conditions.push(sql`${schema.tfpInvoices.invoice_date} >= ${filters.date_from}`);
     }
 
     if (filters?.date_to) {
-      conditions.push(sql`${schema.tfpInvoices.invoice_date} <= ${filters.date_to}` as any);
+      conditions.push(sql`${schema.tfpInvoices.invoice_date} <= ${filters.date_to}`);
     }
 
     if (filters?.currency) {
@@ -336,7 +336,7 @@ export const tfpInvoiceService = {
 
     if (filters?.search) {
       conditions.push(
-        sql`(${schema.tfpInvoices.invoice_number} ILIKE ${'%' + filters.search + '%'} OR ${schema.tfpInvoices.customer_id} ILIKE ${'%' + filters.search + '%'})` as any,
+        sql`(${schema.tfpInvoices.invoice_number} ILIKE ${'%' + filters.search + '%'} OR ${schema.tfpInvoices.customer_id} ILIKE ${'%' + filters.search + '%'})`,
       );
     }
 

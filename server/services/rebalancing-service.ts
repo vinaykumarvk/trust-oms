@@ -432,7 +432,7 @@ export const rebalancingService = {
 
     if (filters?.portfolioId) {
       conditions.push(
-        sql`${schema.rebalancingRuns.portfolio_ids}::jsonb @> ${JSON.stringify([filters.portfolioId])}::jsonb` as any,
+        sql`${schema.rebalancingRuns.portfolio_ids}::jsonb @> ${JSON.stringify([filters.portfolioId])}::jsonb`,
       );
     }
 

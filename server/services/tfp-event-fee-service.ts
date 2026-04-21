@@ -234,7 +234,7 @@ export const tfpEventFeeService = {
     }
 
     const pricingDef = await pricingDefinitionService.getById(plan.pricing_definition_id);
-    const tiers = (pricingDef.pricing_tiers as any[]) ?? [];
+    const tiers = (pricingDef.pricing_tiers as Record<string, unknown>[]) ?? [];
     const baseAmount = transactionContext.transaction_amount;
 
     // Apply pricing tiers

@@ -150,10 +150,10 @@ export const tfpAuditService = {
     const conditions: ReturnType<typeof eq>[] = [];
 
     if (fromDate) {
-      conditions.push(gte(schema.auditWindowSignatures.window_start, new Date(fromDate)) as any);
+      conditions.push(gte(schema.auditWindowSignatures.window_start, new Date(fromDate)));
     }
     if (toDate) {
-      conditions.push(lte(schema.auditWindowSignatures.window_end, new Date(toDate + 'T23:59:59Z')) as any);
+      conditions.push(lte(schema.auditWindowSignatures.window_end, new Date(toDate + 'T23:59:59Z')));
     }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
@@ -246,10 +246,10 @@ export const tfpAuditService = {
       conditions.push(eq(schema.auditEvents.actor_id, filters.actor_id));
     }
     if (filters?.date_from) {
-      conditions.push(gte(schema.auditEvents.created_at, new Date(filters.date_from)) as any);
+      conditions.push(gte(schema.auditEvents.created_at, new Date(filters.date_from)));
     }
     if (filters?.date_to) {
-      conditions.push(lte(schema.auditEvents.created_at, new Date(filters.date_to + 'T23:59:59Z')) as any);
+      conditions.push(lte(schema.auditEvents.created_at, new Date(filters.date_to + 'T23:59:59Z')));
     }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
@@ -301,10 +301,10 @@ export const tfpAuditService = {
       conditions.push(eq(schema.auditEvents.actor_id, filters.actor_id));
     }
     if (filters?.date_from) {
-      conditions.push(gte(schema.auditEvents.created_at, new Date(filters.date_from)) as any);
+      conditions.push(gte(schema.auditEvents.created_at, new Date(filters.date_from)));
     }
     if (filters?.date_to) {
-      conditions.push(lte(schema.auditEvents.created_at, new Date(filters.date_to + 'T23:59:59Z')) as any);
+      conditions.push(lte(schema.auditEvents.created_at, new Date(filters.date_to + 'T23:59:59Z')));
     }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;

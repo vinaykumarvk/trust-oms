@@ -452,8 +452,8 @@ export const tfpAccrualEngine = {
             );
 
             // Apply pricing tiers
-            const tiers = (pricingDef.pricing_tiers as any[]) ?? [];
-            const stepWindows = (pricingDef.step_windows as any[]) ?? null;
+            const tiers = (pricingDef.pricing_tiers as Record<string, unknown>[]) ?? [];
+            const stepWindows = (pricingDef.step_windows as Record<string, unknown>[]) ?? null;
 
             // For escrow step-function, compute months since engagement
             let monthsSinceEngagement: number | undefined;
@@ -852,7 +852,7 @@ async function createException(
   slaDue.setHours(slaDue.getHours() + 4); // 4-hour SLA
 
   await db.insert(schema.exceptionItems).values({
-    exception_type: exceptionType as any,
+    exception_type: exceptionType,
     severity: 'P2',
     customer_id: customerId ?? null,
     source_aggregate_type: 'FEE_ACCRUAL',

@@ -19,7 +19,7 @@
  */
 
 import type { PgTable, PgColumn } from 'drizzle-orm/pg-core';
-import { eq, and, inArray, sql } from 'drizzle-orm';
+import { eq, and, inArray, sql, getTableColumns } from 'drizzle-orm';
 import { db } from '../db';
 import { approvalWorkflowDefinitions, approvalRequests } from '@shared/schema';
 import { logAuditEvent } from './audit-logger';
@@ -76,7 +76,8 @@ export function getEntityTable(entityType: string): AnyPgTable | undefined {
 // ---------------------------------------------------------------------------
 
 function getPkColumn(table: AnyPgTable): PgColumn | null {
-  const columns = (table as any)[Symbol.for('drizzle:Columns')] ?? {};
+  const columns = getTableColumns(table) as Record<string, PgColumn> | undefined;
+  if (!columns) return null;
   // Try common PK names
   return columns.id ?? columns.client_id ?? columns.portfolio_id ?? columns.order_id ?? columns.trade_id ?? columns.block_id ?? columns.entity_key ?? null;
 }
@@ -149,8 +150,8 @@ export async function submitForApproval(
         entity_id: applied.entityId ?? entityId,
         action,
         approval_status: 'APPROVED',
-        payload: payload as any,
-        previous_values: (previousValues as any) ?? null,
+        payload: payload as Record<string, unknown>,
+        previous_values: (previousValues as Record<string, unknown>) ?? null,
         submitted_by: isNaN(Number(submittedBy)) ? null : Number(submittedBy),
         submitted_at: new Date(),
         reviewed_by: isNaN(Number(submittedBy)) ? null : Number(submittedBy),
@@ -188,8 +189,8 @@ export async function submitForApproval(
         entity_id: applied.entityId ?? entityId,
         action,
         approval_status: 'APPROVED',
-        payload: payload as any,
-        previous_values: (previousValues as any) ?? null,
+        payload: payload as Record<string, unknown>,
+        previous_values: (previousValues as Record<string, unknown>) ?? null,
         submitted_by: isNaN(Number(submittedBy)) ? null : Number(submittedBy),
         submitted_at: new Date(),
         reviewed_by: isNaN(Number(submittedBy)) ? null : Number(submittedBy),
@@ -226,8 +227,8 @@ export async function submitForApproval(
       entity_id: entityId,
       action,
       approval_status: 'PENDING',
-      payload: { ...payload, _approvalTier: tier } as any,
-      previous_values: (previousValues as any) ?? null,
+      payload: { ...payload, _approvalTier: tier } as Record<string, unknown>,
+      previous_values: (previousValues as Record<string, unknown>) ?? null,
       submitted_by: isNaN(Number(submittedBy)) ? null : Number(submittedBy),
       submitted_at: new Date(),
       sla_deadline: slaDeadline,
@@ -358,22 +359,23 @@ async function applyChange(
   const pkCol = getPkColumn(table);
 
   if (action === 'create') {
-    const [created] = await db.insert(table).values(payload as any).returning();
-    const newId = (created as any)?.id ?? (created as any)?.entity_key ?? null;
+    const [created] = await db.insert(table).values(payload as Record<string, unknown>).returning();
+    const createdRecord = created as Record<string, unknown>;
+    const newId = createdRecord?.id ?? createdRecord?.entity_key ?? null;
     return { entityId: newId ? String(newId) : null };
   }
 
   if (action === 'update' && entityId && pkCol) {
     const lookupValue = isNaN(Number(entityId)) ? entityId : Number(entityId);
-    await db.update(table).set(payload as any).where(eq(pkCol, lookupValue));
+    await db.update(table).set(payload as Record<string, unknown>).where(eq(pkCol, lookupValue));
     return { entityId };
   }
 
   if (action === 'delete' && entityId && pkCol) {
     const lookupValue = isNaN(Number(entityId)) ? entityId : Number(entityId);
-    const columns = (table as any)[Symbol.for('drizzle:Columns')] ?? {};
-    if ('is_deleted' in columns) {
-      await db.update(table).set({ is_deleted: true } as any).where(eq(pkCol, lookupValue));
+    const columns = getTableColumns(table) as Record<string, PgColumn> | undefined;
+    if (columns && 'is_deleted' in columns) {
+      await db.update(table).set({ is_deleted: true } as Record<string, unknown>).where(eq(pkCol, lookupValue));
     } else {
       await db.delete(table).where(eq(pkCol, lookupValue));
     }

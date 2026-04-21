@@ -58,9 +58,8 @@ export const complianceService = {
     if (filters.status === 'open') {
       conditions.push(isNull(schema.complianceBreaches.resolved_at));
     } else if (filters.status === 'resolved') {
-      sql`${schema.complianceBreaches.resolved_at} IS NOT NULL`;
       conditions.push(
-        sql`${schema.complianceBreaches.resolved_at} IS NOT NULL` as any,
+        sql`${schema.complianceBreaches.resolved_at} IS NOT NULL`,
       );
     }
 
@@ -194,7 +193,7 @@ export const complianceService = {
 
     // Filter for cases that represent AML flags: REJECTED status or HIGH risk
     conditions.push(
-      sql`(${schema.kycCases.kyc_status} = 'REJECTED' OR ${schema.kycCases.risk_rating} = 'HIGH')` as any,
+      sql`(${schema.kycCases.kyc_status} = 'REJECTED' OR ${schema.kycCases.risk_rating} = 'HIGH')`,
     );
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
@@ -239,7 +238,7 @@ export const complianceService = {
 
     if (filters.pattern) {
       conditions.push(
-        eq(schema.tradeSurveillanceAlerts.pattern, filters.pattern as any),
+        eq(schema.tradeSurveillanceAlerts.pattern, filters.pattern as typeof schema.tradeSurveillanceAlerts.pattern.enumValues[number]),
       );
     }
 

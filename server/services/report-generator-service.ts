@@ -1134,18 +1134,18 @@ export const reportGeneratorService = {
         }
       });
 
-      query = query.where(and(...conditions)) as any;
+      query = query.where(and(...conditions)) as typeof query;
     }
 
     // Apply sort
     if (sortBy && tableObj[sortBy]) {
-      const direction = sortDir?.toLowerCase() === 'desc' ? desc : (col: any) => col;
-      query = query.orderBy(direction(tableObj[sortBy])) as any;
+      const direction = sortDir?.toLowerCase() === 'desc' ? desc : (col: typeof tableObj[string]) => col;
+      query = query.orderBy(direction(tableObj[sortBy])) as typeof query;
     }
 
     // Apply limit (max 1000)
     const safeLimit = Math.min(limit ?? 100, 1000);
-    query = query.limit(safeLimit) as any;
+    query = query.limit(safeLimit) as typeof query;
 
     const results = await query;
 

@@ -36,7 +36,7 @@ export function requireAnyRole(...roles: string[]) {
           message: 'Insufficient permissions',
           requiredRoles: roles,
           currentRole: req.userRole ?? null,
-          correlation_id: (req as any).id,
+          correlation_id: req.id,
         },
       });
     }
@@ -81,7 +81,7 @@ export function logDataAccess(resourceType: string) {
       actorId: req.userId,
       actorRole: req.userRole,
       ipAddress: req.ip,
-      correlationId: (req as any).id,
+      correlationId: req.id,
       metadata: {
         method: req.method,
         path: req.path,

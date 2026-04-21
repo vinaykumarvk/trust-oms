@@ -118,8 +118,8 @@ export const taxRuleEngine = {
   async getTaxSummary(periodFrom: string, periodTo: string, jurisdictionId?: number) {
     const conditions: ReturnType<typeof eq>[] = [];
 
-    conditions.push(sql`${schema.tfpInvoices.invoice_date} >= ${periodFrom}` as any);
-    conditions.push(sql`${schema.tfpInvoices.invoice_date} <= ${periodTo}` as any);
+    conditions.push(sql`${schema.tfpInvoices.invoice_date} >= ${periodFrom}`);
+    conditions.push(sql`${schema.tfpInvoices.invoice_date} <= ${periodTo}`);
 
     if (jurisdictionId) {
       conditions.push(eq(schema.tfpInvoices.jurisdiction_id, jurisdictionId));

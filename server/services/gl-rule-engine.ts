@@ -80,8 +80,8 @@ function evaluateExpression(expression: string, context: Record<string, any>): n
       throw new Error(`Expression "${expression}" evaluated to non-finite number`);
     }
     return result;
-  } catch (err: any) {
-    throw new Error(`Failed to evaluate expression "${expression}": ${err.message}`);
+  } catch (err) {
+    throw new Error(`Failed to evaluate expression "${expression}": ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 
@@ -268,7 +268,7 @@ export const glRuleEngine = {
           ${schema.glEventDefinitions.event_code} ILIKE ${'%' + search + '%'}
           OR ${schema.glEventDefinitions.event_name} ILIKE ${'%' + search + '%'}
           OR ${schema.glEventDefinitions.product} ILIKE ${'%' + search + '%'}
-        )` as any,
+        )`,
       );
     }
 
@@ -565,7 +565,7 @@ export const glRuleEngine = {
     }
 
     if (status) {
-      conditions.push(eq(schema.glAccountingRuleSets.rule_status, status as any));
+      conditions.push(eq(schema.glAccountingRuleSets.rule_status, status as typeof schema.glAccountingRuleSets.rule_status.enumValues[number]));
     }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
@@ -885,8 +885,8 @@ export const glRuleEngine = {
         ruleSetWithEntries.entryDefinitions,
         samplePayload,
       );
-    } catch (err: any) {
-      validationErrors.push(err.message);
+    } catch (err) {
+      validationErrors.push(err instanceof Error ? err.message : String(err));
     }
 
     // Additional validation checks
@@ -1015,20 +1015,21 @@ export const glRuleEngine = {
             error = 'Generated journal lines do not match expected output';
           }
         }
-      } catch (err: any) {
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
         if (testCase.is_rejection_case) {
           // Rejection case: check if error matches expected
           if (testCase.expected_error) {
-            passed = err.message.includes(testCase.expected_error);
+            passed = errMsg.includes(testCase.expected_error);
             if (!passed) {
-              error = `Expected error containing "${testCase.expected_error}", got: "${err.message}"`;
+              error = `Expected error containing "${testCase.expected_error}", got: "${errMsg}"`;
             }
           } else {
             // Any error satisfies a generic rejection case
             passed = true;
           }
         } else {
-          error = err.message;
+          error = errMsg;
           passed = false;
         }
       }

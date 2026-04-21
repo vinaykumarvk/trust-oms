@@ -73,7 +73,7 @@ export function requireApproval(entityType: string) {
           submittedBy: userId,
           metadata: {
             ip: req.ip,
-            correlationId: (req as any).id,
+            correlationId: req.id,
             userAgent: req.headers['user-agent'],
           },
         },
@@ -105,7 +105,7 @@ export function requireApproval(entityType: string) {
           error: {
             code: 'DUPLICATE_SUBMISSION',
             message: 'A similar approval request is already pending',
-            correlation_id: (req as any).id,
+            correlation_id: req.id,
           },
         });
       }
@@ -114,7 +114,7 @@ export function requireApproval(entityType: string) {
         error: {
           code: 'APPROVAL_ERROR',
           message,
-          correlation_id: (req as any).id,
+          correlation_id: req.id,
         },
       });
     }

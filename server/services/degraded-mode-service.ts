@@ -10,7 +10,7 @@ export const degradedModeService = {
       .values({
         incident_id: incidentId,
         started_at: new Date(),
-        failed_component: data.failedComponent as any,
+        failed_component: data.failedComponent,
         fallback_path: data.fallbackPath,
         impacted_event_ids: data.impactedEventIds || [],
         rca_completed: false,

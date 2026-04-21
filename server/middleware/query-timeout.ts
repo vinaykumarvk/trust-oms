@@ -14,7 +14,7 @@ export function queryTimeout(timeoutMs = DEFAULT_TIMEOUT_MS) {
           error: {
             code: 'TIMEOUT',
             message: `Request timed out after ${timeoutMs}ms`,
-            correlation_id: (req as any).id,
+            correlation_id: req.id,
           },
         });
       }

@@ -60,7 +60,7 @@ export const glMasterService = {
       .values({
         code: data.code,
         name: data.name,
-        category_type: data.category_type as any,
+        category_type: data.category_type,
         concise_name: data.concise_name ?? null,
         is_bank_gl: data.is_bank_gl ?? false,
         is_nostro: data.is_nostro ?? false,
@@ -400,7 +400,7 @@ export const glMasterService = {
       .values({
         code: data.code,
         name: data.name,
-        gl_type: data.gl_type as any,
+        gl_type: data.gl_type,
         category_id: data.category_id,
         hierarchy_id: data.hierarchy_id ?? null,
         parent_gl_id: data.parent_gl_id ?? null,
@@ -551,7 +551,7 @@ export const glMasterService = {
     }
 
     if (filters?.gl_type) {
-      conditions.push(eq(schema.glHeads.gl_type, filters.gl_type as any));
+      conditions.push(eq(schema.glHeads.gl_type, filters.gl_type as typeof schema.glHeads.gl_type.enumValues[number]));
     }
 
     if (filters?.category_id) {
@@ -559,7 +559,7 @@ export const glMasterService = {
     }
 
     if (filters?.account_status) {
-      conditions.push(eq(schema.glHeads.account_status, filters.account_status as any));
+      conditions.push(eq(schema.glHeads.account_status, filters.account_status as typeof schema.glHeads.account_status.enumValues[number]));
     }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
@@ -1017,8 +1017,8 @@ export const glMasterService = {
       .insert(schema.fxRates)
       .values({
         rate_type_code: data.rate_type_code,
-        rate_type: (data.rate_type ?? 'ACTUAL') as any,
-        rate_flag: (data.rate_flag ?? 'DAILY') as any,
+        rate_type: (data.rate_type ?? 'ACTUAL'),
+        rate_flag: (data.rate_flag ?? 'DAILY'),
         currency_from: data.currency_from.toUpperCase(),
         currency_to: data.currency_to.toUpperCase(),
         business_date: data.business_date,
@@ -1337,7 +1337,7 @@ export const glMasterService = {
         gl_head_id: data.gl_head_id,
         frpti_report_line: data.frpti_report_line,
         frpti_schedule: data.frpti_schedule,
-        frpti_book: (data.frpti_book ?? 'RBU') as any,
+        frpti_book: (data.frpti_book ?? 'RBU'),
         effective_from: data.effective_from,
         effective_to: data.effective_to ?? null,
         mapping_version: data.mapping_version ?? 1,
@@ -1542,7 +1542,7 @@ export const glMasterService = {
         counterparty_id: data.counterparty_id ?? null,
         frpti_sector: data.frpti_sector ?? null,
         frpti_sub_sector: data.frpti_sub_sector ?? null,
-        resident_status: data.resident_status ? (data.resident_status as any) : null,
+        resident_status: data.resident_status ? data.resident_status : null,
         is_government: data.is_government ?? false,
         country_code: data.country_code ?? null,
         is_active: data.is_active ?? true,
@@ -1653,7 +1653,7 @@ export const glMasterService = {
         portfolio_id: data.portfolio_id ?? null,
         accounting_unit_id: data.accounting_unit_id ?? null,
         product_class: data.product_class ?? null,
-        contractual_relationship: data.contractual_relationship ? (data.contractual_relationship as any) : null,
+        contractual_relationship: data.contractual_relationship ? data.contractual_relationship : null,
         discretionary_flag: data.discretionary_flag ?? false,
         tax_exempt: data.tax_exempt ?? false,
         is_government_entity: data.is_government_entity ?? false,

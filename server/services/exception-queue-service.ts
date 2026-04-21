@@ -60,8 +60,8 @@ export const exceptionQueueService = {
     const [exception] = await db
       .insert(schema.exceptionItems)
       .values({
-        exception_type: data.exception_type as any,
-        severity: severity as any,
+        exception_type: data.exception_type,
+        severity: severity,
         title: data.title,
         details: { description: data.description },
         customer_id: data.customer_id ?? null,

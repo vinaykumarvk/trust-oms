@@ -10,7 +10,7 @@ export function validateBody<T extends z.ZodTypeAny>(schema: T) {
           code: 'VALIDATION_ERROR',
           message: 'Invalid request body',
           details: result.error.flatten().fieldErrors,
-          correlation_id: (req as any).id,
+          correlation_id: req.id,
         },
       });
     }
@@ -28,11 +28,11 @@ export function validateQuery<T extends z.ZodTypeAny>(schema: T) {
           code: 'VALIDATION_ERROR',
           message: 'Invalid query parameters',
           details: result.error.flatten().fieldErrors,
-          correlation_id: (req as any).id,
+          correlation_id: req.id,
         },
       });
     }
-    (req as any).validatedQuery = result.data;
+    (req as unknown as Record<string, unknown>).validatedQuery = result.data;
     next();
   };
 }
@@ -46,11 +46,11 @@ export function validateParams<T extends z.ZodTypeAny>(schema: T) {
           code: 'VALIDATION_ERROR',
           message: 'Invalid path parameters',
           details: result.error.flatten().fieldErrors,
-          correlation_id: (req as any).id,
+          correlation_id: req.id,
         },
       });
     }
-    (req as any).validatedParams = result.data;
+    (req as unknown as Record<string, unknown>).validatedParams = result.data;
     next();
   };
 }

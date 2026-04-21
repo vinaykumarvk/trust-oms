@@ -115,15 +115,15 @@ export async function logAuditEvent(event: AuditEvent): Promise<void> {
     await db.insert(auditRecords).values({
       entity_type: event.entityType,
       entity_id: event.entityId,
-      action: event.action as any,
+      action: event.action,
       actor_id: event.actorId ?? null,
       actor_role: event.actorRole ?? null,
-      changes: safeChanges as any,
+      changes: safeChanges as Record<string, unknown>,
       previous_hash: previousHash,
       record_hash: recordHash,
       ip_address: event.ipAddress ?? null,
       correlation_id: event.correlationId ?? null,
-      metadata: (event.metadata as any) ?? null,
+      metadata: (event.metadata as Record<string, unknown>) ?? null,
     });
   } catch (err) {
     // Fire-and-forget: never throw. Log to stderr for observability.
@@ -145,15 +145,15 @@ export async function logAuditBatch(events: AuditEvent[]): Promise<void> {
     const records: Array<{
       entity_type: string;
       entity_id: string;
-      action: any;
+      action: string;
       actor_id: string | null;
       actor_role: string | null;
-      changes: any;
+      changes: Record<string, unknown> | null;
       previous_hash: string;
       record_hash: string;
       ip_address: string | null;
       correlation_id: string | null;
-      metadata: any;
+      metadata: Record<string, unknown> | null;
     }> = [];
 
     for (const event of events) {
@@ -182,15 +182,15 @@ export async function logAuditBatch(events: AuditEvent[]): Promise<void> {
       records.push({
         entity_type: event.entityType,
         entity_id: event.entityId,
-        action: event.action as any,
+        action: event.action,
         actor_id: event.actorId ?? null,
         actor_role: event.actorRole ?? null,
-        changes: safeChanges as any,
+        changes: safeChanges as Record<string, unknown> | null,
         previous_hash: previousHash,
         record_hash: recordHash,
         ip_address: event.ipAddress ?? null,
         correlation_id: event.correlationId ?? null,
-        metadata: (event.metadata as any) ?? null,
+        metadata: (event.metadata as Record<string, unknown>) ?? null,
       });
     }
 

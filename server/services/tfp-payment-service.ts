@@ -74,7 +74,7 @@ export const tfpPaymentService = {
         amount: String(Math.round(paymentAmount * 10000) / 10000),
         currency: data.currency,
         payment_date: data.payment_date,
-        method: data.payment_method as any,
+        method: data.payment_method,
         reference_no: data.reference_no,
         payment_status: 'POSTED',
       })
@@ -126,7 +126,7 @@ export const tfpPaymentService = {
     // 6. Update invoice status
     await db
       .update(schema.tfpInvoices)
-      .set({ invoice_status: newStatus as any, updated_at: new Date() })
+      .set({ invoice_status: newStatus, updated_at: new Date() })
       .where(eq(schema.tfpInvoices.id, data.invoice_id));
 
     return {
@@ -165,13 +165,13 @@ export const tfpPaymentService = {
 
     if (filters?.payment_date_from) {
       conditions.push(
-        sql`${schema.tfpPayments.payment_date} >= ${filters.payment_date_from}` as any,
+        sql`${schema.tfpPayments.payment_date} >= ${filters.payment_date_from}`,
       );
     }
 
     if (filters?.payment_date_to) {
       conditions.push(
-        sql`${schema.tfpPayments.payment_date} <= ${filters.payment_date_to}` as any,
+        sql`${schema.tfpPayments.payment_date} <= ${filters.payment_date_to}`,
       );
     }
 
@@ -273,7 +273,7 @@ export const tfpPaymentService = {
 
         await db
           .update(schema.tfpInvoices)
-          .set({ invoice_status: newStatus as any, updated_at: new Date() })
+          .set({ invoice_status: newStatus, updated_at: new Date() })
           .where(eq(schema.tfpInvoices.id, payment.invoice_id));
       }
     }

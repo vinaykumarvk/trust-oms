@@ -16,11 +16,11 @@ export const consentService = {
       .values({
         consent_id: consentId,
         client_id: data.clientId,
-        purpose: data.purpose as any,
+        purpose: data.purpose,
         channel_scope: data.channelScope,
         granted: true,
         granted_at: new Date(),
-        legal_basis: data.legalBasis as any,
+        legal_basis: data.legalBasis,
         dpa_ref: data.dpaRef,
         created_by: 'system',
         updated_by: 'system',

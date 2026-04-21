@@ -200,16 +200,16 @@ export const creditNoteService = {
     }
 
     if (filters?.date_from) {
-      conditions.push(sql`${schema.creditNotes.issued_at} >= ${filters.date_from}` as any);
+      conditions.push(sql`${schema.creditNotes.issued_at} >= ${filters.date_from}`);
     }
 
     if (filters?.date_to) {
-      conditions.push(sql`${schema.creditNotes.issued_at} <= ${filters.date_to}T23:59:59Z` as any);
+      conditions.push(sql`${schema.creditNotes.issued_at} <= ${filters.date_to}T23:59:59Z`);
     }
 
     if (filters?.search) {
       conditions.push(
-        sql`(${schema.creditNotes.credit_note_number} ILIKE ${'%' + filters.search + '%'} OR ${schema.creditNotes.reason_code} ILIKE ${'%' + filters.search + '%'})` as any,
+        sql`(${schema.creditNotes.credit_note_number} ILIKE ${'%' + filters.search + '%'} OR ${schema.creditNotes.reason_code} ILIKE ${'%' + filters.search + '%'})`,
       );
     }
 

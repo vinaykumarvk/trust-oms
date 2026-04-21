@@ -94,9 +94,9 @@ export const orderService = {
 
     // Build conditions
     const conditions = [eq(schema.orders.is_deleted, false)];
-    if (params.status) conditions.push(eq(schema.orders.order_status, params.status as any));
+    if (params.status) conditions.push(eq(schema.orders.order_status, params.status as typeof schema.orders.order_status.enumValues[number]));
     if (params.portfolio_id) conditions.push(eq(schema.orders.portfolio_id, params.portfolio_id));
-    if (params.side) conditions.push(eq(schema.orders.side, params.side as any));
+    if (params.side) conditions.push(eq(schema.orders.side, params.side as typeof schema.orders.side.enumValues[number]));
     if (params.trader_id) conditions.push(eq(schema.orders.trader_id, params.trader_id));
     if (params.search) {
       conditions.push(

@@ -112,7 +112,7 @@ export const tfpAdhocFeeService = {
     const conditions: ReturnType<typeof eq>[] = [];
 
     // Filter for ad-hoc fees only
-    conditions.push(sql`${schema.tfpAccruals.idempotency_key} LIKE 'ADHOC:%'` as any);
+    conditions.push(sql`${schema.tfpAccruals.idempotency_key} LIKE 'ADHOC:%'`);
 
     if (filters?.accrual_status) {
       conditions.push(eq(schema.tfpAccruals.accrual_status, filters.accrual_status as any));
@@ -124,13 +124,13 @@ export const tfpAdhocFeeService = {
 
     if (filters?.date_from) {
       conditions.push(
-        sql`${schema.tfpAccruals.accrual_date} >= ${filters.date_from}` as any,
+        sql`${schema.tfpAccruals.accrual_date} >= ${filters.date_from}`,
       );
     }
 
     if (filters?.date_to) {
       conditions.push(
-        sql`${schema.tfpAccruals.accrual_date} <= ${filters.date_to}` as any,
+        sql`${schema.tfpAccruals.accrual_date} <= ${filters.date_to}`,
       );
     }
 

@@ -146,7 +146,7 @@ export const killSwitchService = {
         const result = await db
           .update(schema.orders)
           .set({
-            order_status: 'CANCELLED' as any,
+            order_status: 'CANCELLED',
             updated_at: new Date(),
             updated_by: 'KILL_SWITCH',
           })
@@ -161,7 +161,7 @@ export const killSwitchService = {
         const result = await db
           .update(schema.orders)
           .set({
-            order_status: 'CANCELLED' as any,
+            order_status: 'CANCELLED',
             updated_at: new Date(),
             updated_by: 'KILL_SWITCH',
           })
@@ -183,7 +183,7 @@ export const killSwitchService = {
         const result = await db
           .update(schema.orders)
           .set({
-            order_status: 'CANCELLED' as any,
+            order_status: 'CANCELLED',
             updated_at: new Date(),
             updated_by: 'KILL_SWITCH',
           })

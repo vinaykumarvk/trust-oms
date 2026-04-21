@@ -104,24 +104,24 @@ export const feePlanService = {
         fee_plan_code: mergedData.fee_plan_code,
         fee_plan_name: mergedData.fee_plan_name,
         description: mergedData.description ?? null,
-        charge_basis: mergedData.charge_basis as any,
-        fee_type: mergedData.fee_type as any,
+        charge_basis: mergedData.charge_basis,
+        fee_type: mergedData.fee_type,
         pricing_definition_id: mergedData.pricing_definition_id ?? null,
-        pricing_binding_mode: (mergedData.pricing_binding_mode ?? 'STRICT') as any,
+        pricing_binding_mode: (mergedData.pricing_binding_mode ?? 'STRICT'),
         pricing_binding_version: pricingBindingVersion,
         eligibility_expression_id: mergedData.eligibility_expression_id ?? null,
         accrual_schedule_id: mergedData.accrual_schedule_id ?? null,
         jurisdiction_id: mergedData.jurisdiction_id ?? null,
-        source_party: mergedData.source_party as any,
-        target_party: mergedData.target_party as any,
-        comparison_basis: mergedData.comparison_basis as any,
-        value_basis: mergedData.value_basis as any,
-        event_type: mergedData.event_type ? (mergedData.event_type as any) : null,
+        source_party: mergedData.source_party,
+        target_party: mergedData.target_party,
+        comparison_basis: mergedData.comparison_basis,
+        value_basis: mergedData.value_basis,
+        event_type: mergedData.event_type ? mergedData.event_type : null,
         min_charge_amount: mergedData.min_charge_amount ?? '0',
         max_charge_amount: mergedData.max_charge_amount ?? null,
         lower_threshold_pct: mergedData.lower_threshold_pct ?? '0.050000',
         upper_threshold_pct: mergedData.upper_threshold_pct ?? '0.400000',
-        rate_type: (mergedData.rate_type ?? 'FLAT') as any,
+        rate_type: (mergedData.rate_type ?? 'FLAT'),
         aum_basis_include_uitf: mergedData.aum_basis_include_uitf ?? false,
         aum_basis_include_3p_funds: mergedData.aum_basis_include_3p_funds ?? false,
         market_value_includes_accruals_override: mergedData.market_value_includes_accruals_override ?? null,
@@ -627,7 +627,7 @@ export const feePlanService = {
     }
 
     const pricingDef = await pricingDefinitionService.getById(plan.pricing_definition_id);
-    const tiers = (pricingDef.pricing_tiers as any[]) ?? [];
+    const tiers = (pricingDef.pricing_tiers as { from?: number; to?: number; rate?: number; amount?: number }[]) ?? [];
     const pricingType = pricingDef.pricing_type;
 
     // Determine the base value based on charge basis
@@ -777,7 +777,7 @@ export const feePlanService = {
       }
 
       case 'STEP_FUNCTION': {
-        const stepWindows = (pricingDef.step_windows as any[]) ?? [];
+        const stepWindows = (pricingDef.step_windows as { from_month?: number; to_month?: number; amount?: number }[]) ?? [];
         // Step function uses step_windows, not tiers
         for (let i = 0; i < stepWindows.length; i++) {
           const step = stepWindows[i];

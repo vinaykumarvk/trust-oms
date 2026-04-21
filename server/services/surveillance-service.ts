@@ -286,7 +286,7 @@ export const surveillanceService = {
     // If detected, persist as an alert
     if (result.detected) {
       await db.insert(schema.tradeSurveillanceAlerts).values({
-        pattern: pattern as any,
+        pattern: pattern,
         score: String(result.score),
         order_ids: [orderId],
         disposition: null,

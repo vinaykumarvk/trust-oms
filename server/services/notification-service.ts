@@ -226,11 +226,11 @@ export const notificationService = {
           return { ...record, notification_status: 'FAILED', error: `Unsupported channel: ${channel}` };
         }
       }
-    } catch (err: any) {
+    } catch (err) {
       await db.update(schema.notificationLog)
         .set({ notification_status: 'FAILED' })
         .where(eq(schema.notificationLog.id, record.id));
-      return { ...record, notification_status: 'FAILED', error: err.message };
+      return { ...record, notification_status: 'FAILED', error: err instanceof Error ? err.message : String(err) };
     }
   },
 

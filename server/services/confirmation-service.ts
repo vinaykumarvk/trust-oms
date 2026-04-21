@@ -239,7 +239,7 @@ export const confirmationService = {
           ${schema.confirmations.trade_id} ILIKE ${`%${filters.search}%`}
           OR ${schema.confirmations.counterparty_ref} ILIKE ${`%${filters.search}%`}
           OR ${schema.confirmations.exception_reason} ILIKE ${`%${filters.search}%`}
-        )` as any,
+        )`,
       );
     }
 

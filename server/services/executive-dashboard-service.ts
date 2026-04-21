@@ -73,7 +73,7 @@ export const executiveDashboardService = {
         GROUP BY b.name
         ORDER BY aum DESC
       `);
-      byBranch = (branchResult.rows as any[]).map((r) => ({
+      byBranch = (branchResult.rows as { branch: string; aum: number }[]).map((r) => ({
         branch: r.branch ?? 'Unassigned',
         aum: Number(r.aum),
       }));
@@ -132,7 +132,7 @@ export const executiveDashboardService = {
         GROUP BY fs.fee_type
         ORDER BY amount DESC
       `);
-      byFeeType = (feeTypeResult.rows as any[]).map((r) => ({
+      byFeeType = (feeTypeResult.rows as { type: string; amount: number }[]).map((r) => ({
         type: r.type ?? 'OTHER',
         amount: Number(r.amount),
       }));
@@ -152,7 +152,7 @@ export const executiveDashboardService = {
         GROUP BY p.type
         ORDER BY amount DESC
       `);
-      byProduct = (productResult.rows as any[]).map((r) => ({
+      byProduct = (productResult.rows as { product: string; amount: number }[]).map((r) => ({
         product: r.product ?? 'UNKNOWN',
         amount: Number(r.amount),
       }));
