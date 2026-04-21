@@ -36,8 +36,16 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
 
   const authHeader = req.headers.authorization;
 
+  // Extract token: Bearer header takes priority, then httpOnly cookie fallback
+  let token: string | undefined;
+  if (authHeader?.startsWith('Bearer ')) {
+    token = authHeader.slice(7);
+  } else if (req.cookies?.['trustoms-access-token']) {
+    token = req.cookies['trustoms-access-token'];
+  }
+
   // No token provided
-  if (!authHeader?.startsWith('Bearer ')) {
+  if (!token) {
     if (process.env.NODE_ENV === 'development') {
       req.userId = 'dev-user';
       req.userRole = 'rm';
@@ -52,9 +60,6 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
       },
     });
   }
-
-  // Verify JWT (signature + expiry + issuer)
-  const token = authHeader.slice(7);
 
   jose
     .jwtVerify(token, JWT_SECRET, { issuer: 'trustoms' })

@@ -43,6 +43,7 @@ export default function LoginPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: email, password }),
+        credentials: "include",
       });
 
       const body = await res.json();
@@ -53,7 +54,8 @@ export default function LoginPage() {
         return;
       }
 
-      const { user, accessToken, refreshToken } = body.data;
+      const { user } = body.data;
+      // Store non-sensitive display data only; tokens are in httpOnly cookies
       localStorage.setItem(
         "trustoms-user",
         JSON.stringify({
@@ -63,8 +65,6 @@ export default function LoginPage() {
           role: user.role,
         }),
       );
-      localStorage.setItem("trustoms-access-token", accessToken);
-      localStorage.setItem("trustoms-refresh-token", refreshToken);
       setLoading(false);
       navigate("/", { replace: true });
     } catch {

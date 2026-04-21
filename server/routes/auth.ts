@@ -42,6 +42,23 @@ router.post(
         userAgent: req.headers['user-agent'],
       });
 
+      // Set httpOnly cookies (invisible to JS — mitigates XSS token theft)
+      const isProduction = process.env.NODE_ENV === 'production';
+      res.cookie('trustoms-access-token', tokens.accessToken, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'strict',
+        maxAge: 15 * 60 * 1000,
+        path: '/',
+      });
+      res.cookie('trustoms-refresh-token', tokens.refreshToken, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: '/api/v1/auth',
+      });
+
       res.json({
         data: {
           user,
@@ -65,7 +82,8 @@ router.post(
 router.post(
   '/refresh',
   asyncHandler(async (req, res) => {
-    const { refreshToken } = req.body;
+    // Accept refresh token from body or httpOnly cookie
+    const refreshToken = req.body.refreshToken || req.cookies?.['trustoms-refresh-token'];
 
     if (!refreshToken) {
       return res.status(400).json({
@@ -79,6 +97,23 @@ router.post(
         req.ip,
         req.headers['user-agent'],
       );
+
+      // Set httpOnly cookies
+      const isProduction = process.env.NODE_ENV === 'production';
+      res.cookie('trustoms-access-token', tokens.accessToken, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'strict',
+        maxAge: 15 * 60 * 1000,
+        path: '/',
+      });
+      res.cookie('trustoms-refresh-token', tokens.refreshToken, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: '/api/v1/auth',
+      });
 
       res.json({
         data: {
@@ -107,7 +142,8 @@ router.post(
 router.post(
   '/logout',
   asyncHandler(async (req, res) => {
-    const { refreshToken } = req.body;
+    // Accept refresh token from body or httpOnly cookie
+    const refreshToken = req.body.refreshToken || req.cookies?.['trustoms-refresh-token'];
 
     if (refreshToken) {
       await authService.logoutSingle(refreshToken);
@@ -118,6 +154,10 @@ router.post(
         await authService.logout(userId);
       }
     }
+
+    // Clear httpOnly cookies
+    res.clearCookie('trustoms-access-token', { path: '/' });
+    res.clearCookie('trustoms-refresh-token', { path: '/api/v1/auth' });
 
     res.json({ data: { message: 'Logged out successfully' } });
   }),
@@ -135,6 +175,11 @@ router.post(
     }
 
     await authService.logout(userId);
+
+    // Clear httpOnly cookies
+    res.clearCookie('trustoms-access-token', { path: '/' });
+    res.clearCookie('trustoms-refresh-token', { path: '/api/v1/auth' });
+
     res.json({ data: { message: 'All sessions revoked' } });
   }),
 );

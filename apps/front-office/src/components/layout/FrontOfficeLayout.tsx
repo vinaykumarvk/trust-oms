@@ -319,6 +319,7 @@ function SidebarFooter({ collapsed }: { collapsed: boolean }) {
   const navigate = useNavigate();
 
   const handleLogout = () => {
+    fetch("/api/v1/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
     localStorage.removeItem("trustoms-user");
     navigate("/login");
   };

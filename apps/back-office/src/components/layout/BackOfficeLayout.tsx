@@ -318,6 +318,8 @@ function SidebarFooter({ collapsed }: { collapsed: boolean }) {
   const navigate = useNavigate();
 
   const handleLogout = () => {
+    // POST to server to clear httpOnly cookies and revoke session
+    fetch("/api/v1/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
     localStorage.removeItem("trustoms-user");
     navigate("/login");
   };

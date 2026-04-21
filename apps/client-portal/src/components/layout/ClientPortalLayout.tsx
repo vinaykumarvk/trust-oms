@@ -139,6 +139,7 @@ function TopHeader({
   const clientName = getClientName();
 
   const handleLogout = () => {
+    fetch("/api/v1/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
     localStorage.removeItem("trustoms-client-user");
     navigate("/login");
   };
