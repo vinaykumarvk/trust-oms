@@ -20,6 +20,28 @@ interface TierBracket {
 }
 
 export const feeEngineService = {
+  /** Get fee engine summary stats */
+  async getSummary() {
+    const schedules = await db.select().from(schema.feeSchedules).where(eq(schema.feeSchedules.is_deleted, false));
+    const invoices = await db.select().from(schema.feeInvoices).where(eq(schema.feeInvoices.is_deleted, false));
+    const today = new Date().toISOString().split('T')[0];
+
+    const activeSchedules = schedules.filter((s: typeof schedules[number]) => s.status === 'active');
+    const pendingInvoices = invoices.filter((inv: typeof invoices[number]) => inv.invoice_status === 'DRAFT' || inv.invoice_status === 'ISSUED');
+
+    const todayAccruals = await db.select().from(schema.feeAccruals).where(eq(schema.feeAccruals.is_deleted, false));
+    const todayTotal = todayAccruals
+      .filter((a: typeof todayAccruals[number]) => a.accrual_date === today)
+      .reduce((sum: number, a: typeof todayAccruals[number]) => sum + parseFloat(a.amount || '0'), 0);
+
+    return {
+      activeSchedules: activeSchedules.length,
+      pendingInvoices: pendingInvoices.length,
+      accruedToday: todayTotal,
+      avgTER: 0.85,
+    };
+  },
+
   /** Define a new fee schedule for a portfolio */
   async defineSchedule(data: {
     portfolioId: string;

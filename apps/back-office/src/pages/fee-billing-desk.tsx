@@ -79,15 +79,15 @@ export default function FeeBillingDesk() {
   const sum = summaryQ.data ?? { active_schedules: 0, pending_invoices: 0, accrued_today_php: 0, uitf_avg_ter: 0 };
 
   const schedQ = useQuery<FeeSchedule[]>({ queryKey: ["fee-schedules"], queryFn: () => apiRequest("GET", apiUrl("/api/v1/fees/schedules")), refetchInterval: 30_000, enabled: tab === "schedules" });
-  const schedules = schedQ.data ?? [];
+  const schedules = schedQ.data?.data ?? [];
 
   const accrualQ = useQuery<AccrualStatus>({ queryKey: ["fee-accrual-status"], queryFn: () => apiRequest("GET", apiUrl("/api/v1/fees/accruals/status")), refetchInterval: 30_000, enabled: tab === "accruals" });
 
   const invQ = useQuery<Invoice[]>({ queryKey: ["fee-invoices"], queryFn: () => apiRequest("GET", apiUrl("/api/v1/fees/invoices")), refetchInterval: 30_000, enabled: tab === "invoices" });
-  const invoices = invQ.data ?? [];
+  const invoices = invQ.data?.data ?? [];
 
   const portQ = useQuery<PortfolioOption[]>({ queryKey: ["portfolios-list"], queryFn: () => apiRequest("GET", apiUrl("/api/v1/portfolios?pageSize=200")), refetchInterval: 60_000 });
-  const portfolios = portQ.data ?? [];
+  const portfolios = portQ.data?.data ?? [];
 
   const terQ = useQuery<TERResult>({
     queryKey: ["fee-ter", terPid, terFrom, terTo],

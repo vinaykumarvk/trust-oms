@@ -22,6 +22,16 @@ import { asyncHandler } from '../../middleware/async-handler';
 const router = Router();
 
 // ============================================================================
+// Summary
+// ============================================================================
+
+/** GET /summary -- Fee engine summary */
+router.get('/summary', asyncHandler(async (req: any, res: any) => {
+  const summary = await feeEngineService.getSummary();
+  res.json(summary);
+}));
+
+// ============================================================================
 // Fee Schedules
 // ============================================================================
 
@@ -146,7 +156,7 @@ router.get(
 /** POST /invoices/:id/waive -- Process a fee waiver */
 router.post(
   '/invoices/:id/waive',
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req: any, res: any) => {
     const invoiceId = parseInt(req.params.id, 10);
     if (isNaN(invoiceId)) {
       return res.status(400).json({
@@ -154,12 +164,13 @@ router.post(
       });
     }
 
-    const { reason, waivedBy } = req.body;
-    if (!reason || !waivedBy) {
+    const { reason } = req.body;
+    const waivedBy = req.body.waivedBy || req.userId || 'system';
+    if (!reason) {
       return res.status(400).json({
         error: {
           code: 'INVALID_INPUT',
-          message: 'reason and waivedBy are required',
+          message: 'reason is required',
         },
       });
     }
@@ -180,10 +191,10 @@ router.post(
 /** GET /ter/:portfolioId -- Calculate UITF Total Expense Ratio */
 router.get(
   '/ter/:portfolioId',
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req: any, res: any) => {
     const { portfolioId } = req.params;
-    const periodFrom = req.query.periodFrom as string | undefined;
-    const periodTo = req.query.periodTo as string | undefined;
+    const periodFrom = (req.query.periodFrom || req.query.from) as string;
+    const periodTo = (req.query.periodTo || req.query.to) as string;
 
     if (!periodFrom || !periodTo) {
       return res.status(400).json({
