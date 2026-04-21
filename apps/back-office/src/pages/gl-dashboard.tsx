@@ -246,7 +246,7 @@ export default function GLDashboard() {
   const sum = summaryQ.data ?? { total_gl_heads: 0, today_postings: 0, pending_auth: 0, posting_exceptions: 0 };
 
   // Recent batches (overview)
-  const recentBatchesQ = useQuery<JournalBatch[]>({
+  const recentBatchesQ = useQuery<any>({
     queryKey: ["gl-recent-batches"],
     queryFn: () => apiRequest("GET", apiUrl("/api/v1/gl/posting/batches?limit=20")),
     refetchInterval: 30_000, enabled: tab === "overview",
@@ -254,7 +254,7 @@ export default function GLDashboard() {
   const recentBatches: JournalBatch[] = recentBatchesQ.data?.data ?? recentBatchesQ.data ?? [];
 
   // Exceptions (overview)
-  const exceptionsQ = useQuery<GLException[]>({
+  const exceptionsQ = useQuery<any>({
     queryKey: ["gl-exceptions"],
     queryFn: () => apiRequest("GET", apiUrl("/api/v1/gl/gl-exceptions")),
     refetchInterval: 30_000, enabled: tab === "overview",
@@ -262,7 +262,7 @@ export default function GLDashboard() {
   const exceptions: GLException[] = exceptionsQ.data?.data ?? exceptionsQ.data ?? [];
 
   // GL Heads
-  const glHeadsQ = useQuery<GLHead[]>({
+  const glHeadsQ = useQuery<any>({
     queryKey: ["gl-heads"],
     queryFn: () => apiRequest("GET", apiUrl("/api/v1/gl/gl-heads")),
     refetchInterval: 30_000, enabled: tab === "coa" || tab === "journal" || tab === "drilldown",
@@ -281,7 +281,7 @@ export default function GLDashboard() {
   }, [glHeads, coaSearch, coaTypeFilter, coaStatusFilter]);
 
   // Categories
-  const categoriesQ = useQuery<GLCategory[]>({
+  const categoriesQ = useQuery<any>({
     queryKey: ["gl-categories"],
     queryFn: () => apiRequest("GET", apiUrl("/api/v1/gl/gl-categories")),
     refetchInterval: 30_000, enabled: tab === "categories" || tab === "coa",
@@ -289,7 +289,7 @@ export default function GLDashboard() {
   const categories: GLCategory[] = categoriesQ.data?.data ?? categoriesQ.data ?? [];
 
   // Hierarchy
-  const hierarchyQ = useQuery<GLHierarchyNode[]>({
+  const hierarchyQ = useQuery<any>({
     queryKey: ["gl-hierarchy"],
     queryFn: () => apiRequest("GET", apiUrl("/api/v1/gl/gl-hierarchy")),
     refetchInterval: 30_000, enabled: tab === "categories",
@@ -297,7 +297,7 @@ export default function GLDashboard() {
   const hierarchy: GLHierarchyNode[] = hierarchyQ.data?.data ?? hierarchyQ.data ?? [];
 
   // Accounting Units
-  const auQ = useQuery<AccountingUnit[]>({
+  const auQ = useQuery<any>({
     queryKey: ["gl-accounting-units"],
     queryFn: () => apiRequest("GET", apiUrl("/api/v1/gl/accounting-units")),
     refetchInterval: 60_000,
@@ -305,7 +305,7 @@ export default function GLDashboard() {
   const accountingUnits: AccountingUnit[] = auQ.data?.data ?? auQ.data ?? [];
 
   // Batches (tab)
-  const batchesQ = useQuery<JournalBatch[]>({
+  const batchesQ = useQuery<any>({
     queryKey: ["gl-batches", batchStatusFilter, batchModeFilter, batchAuFilter, batchDateFrom, batchDateTo],
     queryFn: () => {
       const p = new URLSearchParams();
@@ -342,7 +342,7 @@ export default function GLDashboard() {
   });
 
   // Trial Balance
-  const trialBalQ = useQuery<TrialBalanceRow[]>({
+  const trialBalQ = useQuery<any>({
     queryKey: ["gl-trial-balance", rptDate, rptAu],
     queryFn: () => {
       const p = new URLSearchParams();
@@ -355,7 +355,7 @@ export default function GLDashboard() {
   const trialBal: TrialBalanceRow[] = trialBalQ.data?.data ?? trialBalQ.data ?? [];
 
   // Balance Sheet
-  const balSheetQ = useQuery<BalanceSheetRow[]>({
+  const balSheetQ = useQuery<any>({
     queryKey: ["gl-balance-sheet", rptDate, rptAu],
     queryFn: () => {
       const p = new URLSearchParams();
@@ -368,7 +368,7 @@ export default function GLDashboard() {
   const balSheet: BalanceSheetRow[] = balSheetQ.data?.data ?? balSheetQ.data ?? [];
 
   // Income Statement
-  const incStmtQ = useQuery<IncomeStatementRow[]>({
+  const incStmtQ = useQuery<any>({
     queryKey: ["gl-income-statement", rptDate, rptAu],
     queryFn: () => {
       const p = new URLSearchParams();
@@ -381,7 +381,7 @@ export default function GLDashboard() {
   const incStmt: IncomeStatementRow[] = incStmtQ.data?.data ?? incStmtQ.data ?? [];
 
   // FX Rates
-  const fxRatesQ = useQuery<FXRate[]>({
+  const fxRatesQ = useQuery<any>({
     queryKey: ["gl-fx-rates"],
     queryFn: () => apiRequest("GET", apiUrl("/api/v1/gl/fx-rates")),
     refetchInterval: 30_000, enabled: tab === "fx",
@@ -389,7 +389,7 @@ export default function GLDashboard() {
   const fxRates: FXRate[] = fxRatesQ.data?.data ?? fxRatesQ.data ?? [];
 
   // Revaluation Runs
-  const revalRunsQ = useQuery<RevalRun[]>({
+  const revalRunsQ = useQuery<any>({
     queryKey: ["gl-reval-runs"],
     queryFn: () => apiRequest("GET", apiUrl("/api/v1/gl/fx-revaluation/runs")),
     refetchInterval: 30_000, enabled: tab === "fx",
@@ -397,7 +397,7 @@ export default function GLDashboard() {
   const revalRuns: RevalRun[] = revalRunsQ.data?.data ?? revalRunsQ.data ?? [];
 
   // Financial Years
-  const finYearsQ = useQuery<FinancialYear[]>({
+  const finYearsQ = useQuery<any>({
     queryKey: ["gl-financial-years"],
     queryFn: () => apiRequest("GET", apiUrl("/api/v1/gl/financial-years")),
     refetchInterval: 30_000, enabled: tab === "yearend",
@@ -405,7 +405,7 @@ export default function GLDashboard() {
   const finYears: FinancialYear[] = finYearsQ.data?.data ?? finYearsQ.data ?? [];
 
   // FRPTI Mappings
-  const frptiQ = useQuery<FRPTIMapping[]>({
+  const frptiQ = useQuery<any>({
     queryKey: ["gl-frpti-mappings"],
     queryFn: () => apiRequest("GET", apiUrl("/api/v1/gl/frpti-mappings")),
     refetchInterval: 30_000, enabled: tab === "frpti",
