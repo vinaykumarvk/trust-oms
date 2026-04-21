@@ -9,10 +9,12 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { withdrawalService } from '../../services/withdrawal-service';
 import { asyncHandler } from '../../middleware/async-handler';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 /** GET / -- List withdrawals with optional filters */
 router.get(

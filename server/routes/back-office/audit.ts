@@ -10,12 +10,14 @@
 
 import { createHash } from 'crypto';
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { db } from '../../db';
 import { auditRecords } from '@shared/schema';
 import { eq, and, desc, asc, sql, or, ilike, gte, lte } from 'drizzle-orm';
 import { asyncHandler } from '../../middleware/async-handler';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // ---------------------------------------------------------------------------
 // GET /api/v1/audit — Paginated list
@@ -45,7 +47,7 @@ router.get(
     }
 
     if (action) {
-      conditions.push(eq(auditRecords.action, action as any));
+      conditions.push(eq(auditRecords.action, action as typeof auditRecords.action.enumValues[number]));
     }
 
     if (actorId) {
@@ -336,8 +338,8 @@ function extractOldValues(
   if (!changes) return {};
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(changes)) {
-    if (value && typeof value === 'object' && 'old' in (value as any)) {
-      result[key] = (value as any).old;
+    if (value && typeof value === 'object' && 'old' in (value as Record<string, unknown>)) {
+      result[key] = (value as Record<string, unknown>).old;
     }
   }
   return result;
@@ -349,8 +351,8 @@ function extractNewValues(
   if (!changes) return {};
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(changes)) {
-    if (value && typeof value === 'object' && 'new' in (value as any)) {
-      result[key] = (value as any).new;
+    if (value && typeof value === 'object' && 'new' in (value as Record<string, unknown>)) {
+      result[key] = (value as Record<string, unknown>).new;
     }
   }
   return result;

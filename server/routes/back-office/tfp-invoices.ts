@@ -12,10 +12,12 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { tfpInvoiceService } from '../../services/tfp-invoice-service';
 import { asyncHandler } from '../../middleware/async-handler';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // ============================================================================
 // List & Read
@@ -75,10 +77,11 @@ router.get(
     try {
       const result = await tfpInvoiceService.getInvoiceDetail(id);
       res.json({ data: result });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
       throw err;
@@ -134,15 +137,16 @@ router.post(
     try {
       const result = await tfpInvoiceService.issueInvoice(id);
       res.json({ data: result });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot issue')) {
+      if (msg.includes('Cannot issue')) {
         return res.status(400).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
       throw err;

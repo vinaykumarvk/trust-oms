@@ -18,6 +18,7 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { asyncHandler } from '../../middleware/async-handler';
 import { requireRole } from '../../middleware/auth';
 import { complianceLimitService } from '../../services/compliance-limit-service';
@@ -28,6 +29,7 @@ import * as schema from '@shared/schema';
 import { eq, desc, and, sql } from 'drizzle-orm';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // ============================================================================
 // Compliance Limits CRUD

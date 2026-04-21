@@ -15,10 +15,12 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { bulkUploadService } from '../../services/bulk-upload-service';
 import { asyncHandler } from '../../middleware/async-handler';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // ============================================================================
 // Static routes
@@ -88,10 +90,11 @@ router.get(
     try {
       const result = await bulkUploadService.getBatchStatus(batchId);
       res.json({ data: result });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
       throw err;
@@ -118,10 +121,11 @@ router.post(
     try {
       const result = await bulkUploadService.validateBatch(batchId, rows);
       res.json({ data: result });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
       throw err;
@@ -142,10 +146,11 @@ router.post(
     try {
       const result = await bulkUploadService.submitBatch(batchId);
       res.json({ data: result });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
       throw err;
@@ -175,10 +180,11 @@ router.post(
         parseInt(authorizedBy, 10),
       );
       res.json({ data: result });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
       throw err;
@@ -199,10 +205,11 @@ router.post(
     try {
       const result = await bulkUploadService.rollbackBatch(batchId);
       res.json({ data: result });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
       throw err;
@@ -223,10 +230,11 @@ router.get(
     try {
       const result = await bulkUploadService.getErrorReport(batchId);
       res.json({ data: result });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
       throw err;

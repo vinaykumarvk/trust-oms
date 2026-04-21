@@ -1,8 +1,10 @@
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { asyncHandler } from '../../middleware/async-handler';
 import { degradedModeService } from '../../services/degraded-mode-service';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 router.get('/feed-health', asyncHandler(async (req: any, res: any) => {
   const health = degradedModeService.getFeedHealthStatus();

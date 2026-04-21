@@ -15,6 +15,7 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { exceptionQueueService } from '../../services/exception-queue-service';
 import { asyncHandler } from '../../middleware/async-handler';
 import { db } from '../../db';
@@ -22,6 +23,7 @@ import * as schema from '@shared/schema';
 import { eq } from 'drizzle-orm';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // ============================================================================
 // List & Read
@@ -143,15 +145,16 @@ router.post(
     try {
       const record = await exceptionQueueService.assignException(id, user_id);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot assign')) {
+      if (msg.includes('Cannot assign')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
       throw err;
@@ -180,15 +183,16 @@ router.post(
     try {
       const record = await exceptionQueueService.resolveException(id, resolution_notes);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot resolve')) {
+      if (msg.includes('Cannot resolve')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
       throw err;
@@ -210,15 +214,16 @@ router.post(
     try {
       const record = await exceptionQueueService.escalateException(id, req.body.reason);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot escalate')) {
+      if (msg.includes('Cannot escalate')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
       throw err;
@@ -247,15 +252,16 @@ router.post(
     try {
       const record = await exceptionQueueService.markWontFix(id, reason);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot mark')) {
+      if (msg.includes('Cannot mark')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
       throw err;

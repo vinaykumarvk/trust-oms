@@ -10,10 +10,12 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { disputeService } from '../../services/dispute-service';
 import { asyncHandler } from '../../middleware/async-handler';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // ============================================================================
 // List & Read
@@ -52,10 +54,11 @@ router.get(
     try {
       const record = await disputeService.getDisputeById(id);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
       throw err;
@@ -88,15 +91,16 @@ router.post(
     try {
       const record = await disputeService.raiseDispute(invoice_id, raisedBy, reason);
       res.status(201).json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot dispute')) {
+      if (msg.includes('Cannot dispute')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
       throw err;
@@ -118,15 +122,16 @@ router.post(
     try {
       const record = await disputeService.investigate(id);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot investigate')) {
+      if (msg.includes('Cannot investigate')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
       throw err;
@@ -159,20 +164,21 @@ router.post(
         refund_amount ? parseFloat(refund_amount) : undefined,
       );
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot resolve')) {
+      if (msg.includes('Cannot resolve')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
-      if (err.message?.includes('exceeds')) {
+      if (msg.includes('exceeds')) {
         return res.status(400).json({
-          error: { code: 'INVALID_INPUT', message: err.message },
+          error: { code: 'INVALID_INPUT', message: msg },
         });
       }
       throw err;
@@ -201,15 +207,16 @@ router.post(
     try {
       const record = await disputeService.rejectDispute(id, reason);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot reject')) {
+      if (msg.includes('Cannot reject')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
       throw err;

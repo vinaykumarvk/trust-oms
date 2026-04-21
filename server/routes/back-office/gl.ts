@@ -99,12 +99,14 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { glPostingEngine } from '../../services/gl-posting-engine';
 import { glMasterService } from '../../services/gl-master-service';
 import { glRuleEngine } from '../../services/gl-rule-engine';
 import { glFxRevaluationService } from '../../services/gl-fx-revaluation-service';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 const asyncHandler = (fn: Function) => (req: any, res: any, next: any) =>
   Promise.resolve(fn(req, res, next)).catch(next);

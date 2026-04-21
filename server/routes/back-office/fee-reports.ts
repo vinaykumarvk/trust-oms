@@ -6,12 +6,14 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { asyncHandler } from '../../middleware/async-handler';
 import { db } from '../../db';
 import * as schema from '@shared/schema';
 import { eq, and, gte, lte, sql, like, or, desc } from 'drizzle-orm';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 /* ---------- Report Catalog ---------- */
 const REPORT_CATALOG = [
@@ -635,12 +637,12 @@ router.post(
             },
           });
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(`[fee-reports] Error generating ${report_type}:`, err);
       return res.status(500).json({
         error: {
           code: 'REPORT_GENERATION_ERROR',
-          message: err.message ?? 'Failed to generate report',
+          message: err instanceof Error ? err.message : 'Failed to generate report',
         },
       });
     }

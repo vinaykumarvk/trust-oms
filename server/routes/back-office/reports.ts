@@ -13,10 +13,12 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { reportGeneratorService } from '../../services/report-generator-service';
 import { asyncHandler } from '../../middleware/async-handler';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 /** Whitelist of allowed tables for ad-hoc queries */
 const ALLOWED_AD_HOC_TABLES = [

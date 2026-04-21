@@ -15,6 +15,7 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole, requireAnyRole } from '../../middleware/role-auth';
 import { corporateActionsService } from '../../services/corporate-actions-service';
 import { asyncHandler } from '../../middleware/async-handler';
 import { requireApproval } from '../../middleware/maker-checker';
@@ -23,6 +24,7 @@ import * as schema from '@shared/schema';
 import { eq } from 'drizzle-orm';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // ============================================================================
 // Static routes (must be declared before parameterized routes)
@@ -124,9 +126,10 @@ router.post(
 // Entitlement sub-routes (before /:id to avoid conflict)
 // ============================================================================
 
-/** POST /entitlements/:id/elect -- Process election on an entitlement */
+/** POST /entitlements/:id/elect -- Process election (requires BO_CHECKER or BO_HEAD) */
 router.post(
   '/entitlements/:id/elect',
+  requireAnyRole('BO_CHECKER', 'BO_HEAD'),
   asyncHandler(async (req, res) => {
     const entitlementId = parseInt(req.params.id, 10);
     if (isNaN(entitlementId)) {
@@ -153,9 +156,10 @@ router.post(
   }),
 );
 
-/** POST /entitlements/:id/post -- Post CA adjustment for an entitlement */
+/** POST /entitlements/:id/post -- Post CA adjustment (requires BO_CHECKER or BO_HEAD) */
 router.post(
   '/entitlements/:id/post',
+  requireAnyRole('BO_CHECKER', 'BO_HEAD'),
   asyncHandler(async (req, res) => {
     const entitlementId = parseInt(req.params.id, 10);
     if (isNaN(entitlementId)) {
@@ -318,10 +322,10 @@ router.post(
             pos.portfolio_id,
           );
         entitlements.push(entitlement);
-      } catch (err: any) {
+      } catch (err) {
         errors.push({
           portfolioId: pos.portfolio_id,
-          error: err.message,
+          error: err instanceof Error ? err.message : String(err),
         });
       }
     }

@@ -12,11 +12,13 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { asyncHandler } from '../../middleware/async-handler';
 import { requireRole } from '../../middleware/auth';
 import { surveillanceService } from '../../services/surveillance-service';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // =============================================================================
 // Pattern Evaluation

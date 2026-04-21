@@ -24,12 +24,14 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { asyncHandler } from '../../middleware/async-handler';
 import { eipService } from '../../services/eip-service';
 import { erpService } from '../../services/erp-service';
 import { standingInstructionsService } from '../../services/standing-instructions-service';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // =============================================================================
 // EIP (Equity Investment Plan)

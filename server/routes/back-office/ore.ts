@@ -14,11 +14,13 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { asyncHandler } from '../../middleware/async-handler';
 import { requireRole } from '../../middleware/auth';
 import { oreService } from '../../services/ore-service';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 /** GET / — List ORE events with optional filters */
 router.get(

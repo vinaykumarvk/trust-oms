@@ -9,10 +9,12 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { tfpAccrualEngine } from '../../services/tfp-accrual-engine';
 import { asyncHandler } from '../../middleware/async-handler';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // ============================================================================
 // List & Read
@@ -64,10 +66,11 @@ router.get(
     try {
       const record = await tfpAccrualEngine.getAccrualById(id);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
       throw err;
@@ -108,7 +111,7 @@ router.post(
     try {
       const result = await tfpAccrualEngine.runDailyAccrual(date);
       res.json({ data: result });
-    } catch (err: any) {
+    } catch (err) {
       throw err;
     }
   }),

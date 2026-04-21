@@ -7,10 +7,12 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { tfpAdhocFeeService } from '../../services/tfp-adhoc-fee-service';
 import { asyncHandler } from '../../middleware/async-handler';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // ============================================================================
 // List & Capture
@@ -71,10 +73,11 @@ router.post(
         reason,
       });
       res.status(201).json({ data: result });
-    } catch (err: any) {
-      if (err.message?.includes('No active fee plan')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('No active fee plan')) {
         return res.status(400).json({
-          error: { code: 'INVALID_STATE', message: err.message },
+          error: { code: 'INVALID_STATE', message: msg },
         });
       }
       throw err;

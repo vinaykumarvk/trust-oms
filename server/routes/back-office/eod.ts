@@ -14,10 +14,12 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole, requireAnyRole } from '../../middleware/role-auth';
 import { eodOrchestrator } from '../../services/eod-orchestrator';
 import { asyncHandler } from '../../middleware/async-handler';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // ============================================================================
 // Static routes
@@ -56,9 +58,10 @@ router.get(
   }),
 );
 
-/** POST /trigger -- Trigger new EOD run */
+/** POST /trigger -- Trigger new EOD run (high-risk: requires BO_HEAD or BO_CHECKER) */
 router.post(
   '/trigger',
+  requireAnyRole('BO_HEAD', 'BO_CHECKER'),
   asyncHandler(async (req: any, res: any) => {
     const runDate = req.body.runDate || req.body.run_date;
     const { triggeredBy } = req.body;

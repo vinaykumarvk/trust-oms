@@ -12,10 +12,12 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { feePlanTemplateService } from '../../services/fee-plan-template-service';
 import { asyncHandler } from '../../middleware/async-handler';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // ============================================================================
 // List
@@ -54,10 +56,11 @@ router.get(
     try {
       const template = await feePlanTemplateService.getById(id);
       res.json({ data: template });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
       throw err;
@@ -83,12 +86,13 @@ router.get(
     try {
       const prefilledPlan = await feePlanTemplateService.instantiate(id);
       res.json({ data: prefilledPlan });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
-        return res.status(404).json({ error: { code: 'NOT_FOUND', message: err.message } });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: msg } });
       }
-      if (err.message?.includes('inactive')) {
-        return res.status(400).json({ error: { code: 'INACTIVE_TEMPLATE', message: err.message } });
+      if (msg.includes('inactive')) {
+        return res.status(400).json({ error: { code: 'INACTIVE_TEMPLATE', message: msg } });
       }
       throw err;
     }
@@ -117,13 +121,15 @@ router.post(
     try {
       const template = await feePlanTemplateService.create(req.body);
       res.status(201).json({ data: template });
-    } catch (err: any) {
-      if (err.message?.includes('Validation') || err.message?.includes('required')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const code = (err as { code?: string })?.code;
+      if (msg.includes('Validation') || msg.includes('required')) {
         return res.status(400).json({
-          error: { code: 'VALIDATION_ERROR', message: err.message },
+          error: { code: 'VALIDATION_ERROR', message: msg },
         });
       }
-      if (err.message?.includes('unique') || err.code === '23505') {
+      if (msg.includes('unique') || code === '23505') {
         return res.status(409).json({
           error: { code: 'DUPLICATE', message: `Template code '${template_code}' already exists` },
         });
@@ -151,9 +157,10 @@ router.put(
     try {
       const updated = await feePlanTemplateService.update(id, req.body);
       res.json({ data: updated });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
-        return res.status(404).json({ error: { code: 'NOT_FOUND', message: err.message } });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: msg } });
       }
       throw err;
     }
@@ -178,9 +185,10 @@ router.post(
     try {
       const updated = await feePlanTemplateService.toggleActive(id);
       res.json({ data: updated });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
-        return res.status(404).json({ error: { code: 'NOT_FOUND', message: err.message } });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: msg } });
       }
       throw err;
     }

@@ -13,6 +13,7 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { db } from '../../db';
 import { approvalRequests, users } from '@shared/schema';
 import { eq, and, desc, sql, or, ilike, gte, lte, inArray } from 'drizzle-orm';
@@ -26,6 +27,7 @@ import {
 import { logAuditEvent } from '../../services/audit-logger';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // ---------------------------------------------------------------------------
 // Aliases for joined user columns

@@ -19,10 +19,12 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { asyncHandler } from '../../middleware/async-handler';
 import { integrationService } from '../../services/integration-service';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // =============================================================================
 // Connector List

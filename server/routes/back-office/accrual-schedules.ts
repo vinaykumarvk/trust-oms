@@ -14,10 +14,12 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { accrualScheduleService } from '../../services/accrual-schedule-service';
 import { asyncHandler } from '../../middleware/async-handler';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // ============================================================================
 // List
@@ -56,10 +58,11 @@ router.get(
     try {
       const schedule = await accrualScheduleService.getById(id);
       res.json({ data: schedule });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
       throw err;
@@ -89,13 +92,15 @@ router.post(
     try {
       const schedule = await accrualScheduleService.create(req.body);
       res.status(201).json({ data: schedule });
-    } catch (err: any) {
-      if (err.message?.includes('Validation failed')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const code = (err as { code?: string })?.code;
+      if (msg.includes('Validation failed')) {
         return res.status(400).json({
-          error: { code: 'VALIDATION_ERROR', message: err.message },
+          error: { code: 'VALIDATION_ERROR', message: msg },
         });
       }
-      if (err.message?.includes('unique') || err.code === '23505') {
+      if (msg.includes('unique') || code === '23505') {
         return res.status(409).json({
           error: { code: 'DUPLICATE', message: `Schedule code '${schedule_code}' already exists` },
         });
@@ -123,12 +128,13 @@ router.put(
     try {
       const updated = await accrualScheduleService.update(id, req.body);
       res.json({ data: updated });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
-        return res.status(404).json({ error: { code: 'NOT_FOUND', message: err.message } });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: msg } });
       }
-      if (err.message?.includes('Cannot update') || err.message?.includes('Validation failed')) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: err.message } });
+      if (msg.includes('Cannot update') || msg.includes('Validation failed')) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: msg } });
       }
       throw err;
     }
@@ -153,12 +159,13 @@ router.post(
     try {
       const updated = await accrualScheduleService.submit(id);
       res.json({ data: updated });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
-        return res.status(404).json({ error: { code: 'NOT_FOUND', message: err.message } });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: msg } });
       }
-      if (err.message?.includes('Cannot submit') || err.message?.includes('Validation failed')) {
-        return res.status(400).json({ error: { code: 'INVALID_STATE', message: err.message } });
+      if (msg.includes('Cannot submit') || msg.includes('Validation failed')) {
+        return res.status(400).json({ error: { code: 'INVALID_STATE', message: msg } });
       }
       throw err;
     }
@@ -179,12 +186,13 @@ router.post(
     try {
       const updated = await accrualScheduleService.approve(id);
       res.json({ data: updated });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
-        return res.status(404).json({ error: { code: 'NOT_FOUND', message: err.message } });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: msg } });
       }
-      if (err.message?.includes('Cannot approve')) {
-        return res.status(400).json({ error: { code: 'INVALID_STATE', message: err.message } });
+      if (msg.includes('Cannot approve')) {
+        return res.status(400).json({ error: { code: 'INVALID_STATE', message: msg } });
       }
       throw err;
     }
@@ -205,12 +213,13 @@ router.post(
     try {
       const updated = await accrualScheduleService.reject(id);
       res.json({ data: updated });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
-        return res.status(404).json({ error: { code: 'NOT_FOUND', message: err.message } });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: msg } });
       }
-      if (err.message?.includes('Cannot reject')) {
-        return res.status(400).json({ error: { code: 'INVALID_STATE', message: err.message } });
+      if (msg.includes('Cannot reject')) {
+        return res.status(400).json({ error: { code: 'INVALID_STATE', message: msg } });
       }
       throw err;
     }
@@ -231,12 +240,13 @@ router.post(
     try {
       const updated = await accrualScheduleService.retire(id);
       res.json({ data: updated });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
-        return res.status(404).json({ error: { code: 'NOT_FOUND', message: err.message } });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: msg } });
       }
-      if (err.message?.includes('Cannot retire')) {
-        return res.status(409).json({ error: { code: 'CONFLICT', message: err.message } });
+      if (msg.includes('Cannot retire')) {
+        return res.status(409).json({ error: { code: 'CONFLICT', message: msg } });
       }
       throw err;
     }

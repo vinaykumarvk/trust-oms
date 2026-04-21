@@ -9,10 +9,12 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { creditNoteService } from '../../services/credit-note-service';
 import { asyncHandler } from '../../middleware/async-handler';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // ============================================================================
 // List & Read
@@ -53,10 +55,11 @@ router.get(
     try {
       const record = await creditNoteService.getCreditNoteById(id);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
       throw err;
@@ -91,15 +94,16 @@ router.post(
         reason_code,
       );
       res.status(201).json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('must be positive') || err.message?.includes('exceeds')) {
+      if (msg.includes('must be positive') || msg.includes('exceeds')) {
         return res.status(400).json({
-          error: { code: 'INVALID_INPUT', message: err.message },
+          error: { code: 'INVALID_INPUT', message: msg },
         });
       }
       throw err;
@@ -121,15 +125,16 @@ router.post(
     try {
       const record = await creditNoteService.applyCreditNote(id);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot apply')) {
+      if (msg.includes('Cannot apply')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
       throw err;
@@ -151,15 +156,16 @@ router.post(
     try {
       const record = await creditNoteService.cancelCreditNote(id);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot cancel')) {
+      if (msg.includes('Cannot cancel')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
       throw err;

@@ -13,11 +13,13 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { reversalService } from '../../services/reversal-service';
 import { asyncHandler } from '../../middleware/async-handler';
 import { requireRole } from '../../middleware/auth';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // ============================================================================
 // Static routes
@@ -89,10 +91,11 @@ router.get(
     try {
       const result = await reversalService.getReversalCase(id);
       res.json({ data: result });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
       throw err;
@@ -123,15 +126,16 @@ router.post(
         parseInt(approvedBy, 10),
       );
       res.json({ data: result });
-    } catch (err: any) {
-      if (err.message?.includes('Self-approval')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('Self-approval')) {
         return res.status(403).json({
-          error: { code: 'FORBIDDEN', message: err.message },
+          error: { code: 'FORBIDDEN', message: msg },
         });
       }
-      if (err.message?.includes('not found')) {
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
       throw err;
@@ -163,10 +167,11 @@ router.post(
         reason,
       );
       res.json({ data: result });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
       throw err;
@@ -188,10 +193,11 @@ router.post(
     try {
       const result = await reversalService.executeReversal(id);
       res.json({ data: result });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
       throw err;

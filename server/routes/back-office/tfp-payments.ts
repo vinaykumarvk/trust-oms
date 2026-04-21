@@ -9,10 +9,12 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { tfpPaymentService } from '../../services/tfp-payment-service';
 import { asyncHandler } from '../../middleware/async-handler';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // ============================================================================
 // List & Read
@@ -97,15 +99,16 @@ router.post(
         reference_no,
       });
       res.status(201).json({ data: result });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot record')) {
+      if (msg.includes('Cannot record')) {
         return res.status(400).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
       throw err;
@@ -137,15 +140,16 @@ router.post(
     try {
       const result = await tfpPaymentService.reversePayment(id, reason);
       res.json({ data: result });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot reverse')) {
+      if (msg.includes('Cannot reverse')) {
         return res.status(400).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
       throw err;

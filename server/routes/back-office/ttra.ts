@@ -1,8 +1,10 @@
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { asyncHandler } from '../../middleware/async-handler';
 import { ttraService } from '../../services/ttra-service';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 router.get('/summary', asyncHandler(async (req: any, res: any) => {
   const summary = await ttraService.getDashboardSummary();

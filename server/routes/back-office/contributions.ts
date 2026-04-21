@@ -8,10 +8,12 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { contributionService } from '../../services/contribution-service';
 import { asyncHandler } from '../../middleware/async-handler';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 /** GET / -- List contributions with optional filters */
 router.get(

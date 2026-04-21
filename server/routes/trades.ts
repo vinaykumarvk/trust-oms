@@ -21,8 +21,10 @@ import { aggregationService } from '../services/aggregation-service';
 import { placementService } from '../services/placement-service';
 import { fillService } from '../services/fill-service';
 import { asyncHandler } from '../middleware/async-handler';
+import { requireFrontOfficeRole } from '../middleware/role-auth';
 
 const router = Router();
+router.use(requireFrontOfficeRole());
 
 // ============================================================================
 // Static routes MUST come before parameterized routes to avoid shadowing

@@ -7,10 +7,12 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole, requireAnyRole } from '../../middleware/role-auth';
 import { asyncHandler } from '../../middleware/async-handler';
 import { claimsService } from '../../services/claims-service';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 /** GET / — paginated list of claims with optional filters */
 router.get('/', asyncHandler(async (req: any, res: any) => {
@@ -99,8 +101,8 @@ router.put('/:id/submit-approval', asyncHandler(async (req: any, res: any) => {
   res.json(result);
 }));
 
-/** PUT /:id/approve — approve (SoD enforced) */
-router.put('/:id/approve', asyncHandler(async (req: any, res: any) => {
+/** PUT /:id/approve — approve (SoD enforced, requires BO_CHECKER or BO_HEAD) */
+router.put('/:id/approve', requireAnyRole('BO_CHECKER', 'BO_HEAD'), asyncHandler(async (req: any, res: any) => {
   const id = parseInt(req.params.id, 10);
   const approverId = req.userId || 'unknown';
   const result = await claimsService.approve(id, approverId);
@@ -120,7 +122,7 @@ router.put('/:id/reject', asyncHandler(async (req: any, res: any) => {
 }));
 
 /** PUT /:id/settle — settle payout via cash ledger */
-router.put('/:id/settle', asyncHandler(async (req: any, res: any) => {
+router.put('/:id/settle', requireAnyRole('BO_CHECKER', 'BO_HEAD'), asyncHandler(async (req: any, res: any) => {
   const id = parseInt(req.params.id, 10);
   const result = await claimsService.settlePayout(id);
   res.json(result);

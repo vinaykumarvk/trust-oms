@@ -13,6 +13,7 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { type InferSelectModel } from 'drizzle-orm';
 import * as schema from '@shared/schema';
 import { kycService } from '../../services/kyc-service';
@@ -21,6 +22,7 @@ import { asyncHandler } from '../../middleware/async-handler';
 type KycCase = InferSelectModel<typeof schema.kycCases>;
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 /** GET /api/v1/kyc/summary */
 router.get('/summary', asyncHandler(async (_req, res) => {

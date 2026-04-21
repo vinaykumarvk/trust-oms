@@ -19,8 +19,10 @@ import { Router } from 'express';
 import { settlementService } from '../services/settlement-service';
 import { cashLedgerService } from '../services/cash-ledger-service';
 import { asyncHandler } from '../middleware/async-handler';
+import { requireBackOfficeRole } from '../middleware/role-auth';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // ============================================================================
 // Static routes MUST come before parameterized routes to avoid shadowing

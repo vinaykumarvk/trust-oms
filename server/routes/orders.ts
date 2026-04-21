@@ -23,8 +23,12 @@ import { authorizationService } from '../services/authorization-service';
 import { suitabilityService } from '../services/suitability-service';
 import { notificationService } from '../services/notification-service';
 import { asyncHandler } from '../middleware/async-handler';
+import { requireFrontOfficeRole, requireAnyRole } from '../middleware/role-auth';
 
 const router = Router();
+
+// Front-office users can create and submit orders
+router.use(requireFrontOfficeRole());
 
 /** POST /api/v1/orders -- Create order */
 router.post('/', asyncHandler(async (req, res) => {
@@ -109,8 +113,8 @@ router.post('/:id/submit', asyncHandler(async (req, res) => {
   res.json({ data: order });
 }));
 
-/** POST /api/v1/orders/:id/authorize -- Authorize order */
-router.post('/:id/authorize', asyncHandler(async (req, res) => {
+/** POST /api/v1/orders/:id/authorize -- Authorize order (requires senior/checker role) */
+router.post('/:id/authorize', requireAnyRole('SENIOR_RM', 'SENIOR_TRADER', 'BO_CHECKER'), asyncHandler(async (req, res) => {
   const { approver_id, approver_role, decision, comment } = req.body;
   if (!approver_id || !decision) {
     return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'approver_id and decision required' } });

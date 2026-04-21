@@ -1,8 +1,10 @@
 import { Router } from 'express';
+import { requireBackOfficeRole, requireAnyRole } from '../../middleware/role-auth';
 import { asyncHandler } from '../../middleware/async-handler';
 import { consentService } from '../../services/consent-service';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 router.get('/client/:clientId', asyncHandler(async (req: any, res: any) => {
   const consents = await consentService.getClientConsents(req.params.clientId);
@@ -33,7 +35,7 @@ router.post('/erasure/:clientId', asyncHandler(async (req: any, res: any) => {
   res.json(result);
 }));
 
-router.post('/erasure/:clientId/process', asyncHandler(async (req: any, res: any) => {
+router.post('/erasure/:clientId/process', requireAnyRole('BO_HEAD', 'COMPLIANCE_OFFICER'), asyncHandler(async (req: any, res: any) => {
   const result = await consentService.processErasure(req.params.clientId);
   res.json(result);
 }));

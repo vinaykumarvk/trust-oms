@@ -15,10 +15,12 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { pricingDefinitionService } from '../../services/pricing-definition-service';
 import { asyncHandler } from '../../middleware/async-handler';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // ============================================================================
 // List & Read
@@ -57,10 +59,11 @@ router.get(
     try {
       const record = await pricingDefinitionService.getById(id);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
       throw err;
@@ -100,8 +103,10 @@ router.post(
       });
 
       res.status(201).json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('duplicate') || err.code === '23505') {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const code = (err as { code?: string })?.code;
+      if (msg.includes('duplicate') || code === '23505') {
         return res.status(409).json({
           error: {
             code: 'DUPLICATE',
@@ -139,15 +144,16 @@ router.put(
       });
 
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot edit')) {
+      if (msg.includes('Cannot edit')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
       throw err;
@@ -173,15 +179,16 @@ router.post(
     try {
       const record = await pricingDefinitionService.submit(id);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot submit')) {
+      if (msg.includes('Cannot submit')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
       throw err;
@@ -213,20 +220,21 @@ router.post(
     try {
       const record = await pricingDefinitionService.approve(id, approverId);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot approve')) {
+      if (msg.includes('Cannot approve')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
-      if (err.message?.includes('Segregation')) {
+      if (msg.includes('Segregation')) {
         return res.status(403).json({
-          error: { code: 'SOD_VIOLATION', message: err.message },
+          error: { code: 'SOD_VIOLATION', message: msg },
         });
       }
       throw err;
@@ -260,15 +268,16 @@ router.post(
     try {
       const record = await pricingDefinitionService.reject(id, approverId, comment);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot reject')) {
+      if (msg.includes('Cannot reject')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
       throw err;
@@ -290,15 +299,16 @@ router.post(
     try {
       const record = await pricingDefinitionService.retire(id);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot retire')) {
+      if (msg.includes('Cannot retire')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
       throw err;

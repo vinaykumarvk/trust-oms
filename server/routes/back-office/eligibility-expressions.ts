@@ -15,10 +15,12 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { eligibilityExpressionService } from '../../services/eligibility-expression-service';
 import { asyncHandler } from '../../middleware/async-handler';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // ============================================================================
 // List & Read
@@ -55,11 +57,12 @@ router.get(
     try {
       const record = await eligibilityExpressionService.getById(id);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res
           .status(404)
-          .json({ error: { code: 'NOT_FOUND', message: err.message } });
+          .json({ error: { code: 'NOT_FOUND', message: msg } });
       }
       throw err;
     }
@@ -93,10 +96,11 @@ router.post(
         createdBy: req.userId ?? req.body.createdBy,
       });
       res.status(201).json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('Invalid expression')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('Invalid expression')) {
         return res.status(400).json({
-          error: { code: 'INVALID_EXPRESSION', message: err.message },
+          error: { code: 'INVALID_EXPRESSION', message: msg },
         });
       }
       throw err;
@@ -124,19 +128,20 @@ router.put(
         updatedBy: req.userId ?? req.body.updatedBy,
       });
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res
           .status(404)
-          .json({ error: { code: 'NOT_FOUND', message: err.message } });
+          .json({ error: { code: 'NOT_FOUND', message: msg } });
       }
       if (
-        err.message?.includes('Only DRAFT') ||
-        err.message?.includes('Invalid expression')
+        msg.includes('Only DRAFT') ||
+        msg.includes('Invalid expression')
       ) {
         return res
           .status(400)
-          .json({ error: { code: 'INVALID_STATE', message: err.message } });
+          .json({ error: { code: 'INVALID_STATE', message: msg } });
       }
       throw err;
     }
@@ -164,16 +169,17 @@ router.post(
         req.userId ?? req.body.submittedBy,
       );
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res
           .status(404)
-          .json({ error: { code: 'NOT_FOUND', message: err.message } });
+          .json({ error: { code: 'NOT_FOUND', message: msg } });
       }
-      if (err.message?.includes('Only DRAFT')) {
+      if (msg.includes('Only DRAFT')) {
         return res
           .status(400)
-          .json({ error: { code: 'INVALID_STATE', message: err.message } });
+          .json({ error: { code: 'INVALID_STATE', message: msg } });
       }
       throw err;
     }
@@ -197,19 +203,20 @@ router.post(
         req.userId ?? req.body.approvedBy,
       );
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res
           .status(404)
-          .json({ error: { code: 'NOT_FOUND', message: err.message } });
+          .json({ error: { code: 'NOT_FOUND', message: msg } });
       }
       if (
-        err.message?.includes('Only PENDING_APPROVAL') ||
-        err.message?.includes('Separation of Duties')
+        msg.includes('Only PENDING_APPROVAL') ||
+        msg.includes('Separation of Duties')
       ) {
         return res
           .status(400)
-          .json({ error: { code: 'INVALID_STATE', message: err.message } });
+          .json({ error: { code: 'INVALID_STATE', message: msg } });
       }
       throw err;
     }
@@ -233,16 +240,17 @@ router.post(
         req.userId ?? req.body.rejectedBy,
       );
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res
           .status(404)
-          .json({ error: { code: 'NOT_FOUND', message: err.message } });
+          .json({ error: { code: 'NOT_FOUND', message: msg } });
       }
-      if (err.message?.includes('Only PENDING_APPROVAL')) {
+      if (msg.includes('Only PENDING_APPROVAL')) {
         return res
           .status(400)
-          .json({ error: { code: 'INVALID_STATE', message: err.message } });
+          .json({ error: { code: 'INVALID_STATE', message: msg } });
       }
       throw err;
     }
@@ -266,19 +274,20 @@ router.post(
         req.userId ?? req.body.retiredBy,
       );
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res
           .status(404)
-          .json({ error: { code: 'NOT_FOUND', message: err.message } });
+          .json({ error: { code: 'NOT_FOUND', message: msg } });
       }
       if (
-        err.message?.includes('Only ACTIVE') ||
-        err.message?.includes('Cannot retire')
+        msg.includes('Only ACTIVE') ||
+        msg.includes('Cannot retire')
       ) {
         return res
           .status(400)
-          .json({ error: { code: 'INVALID_STATE', message: err.message } });
+          .json({ error: { code: 'INVALID_STATE', message: msg } });
       }
       throw err;
     }
@@ -313,11 +322,12 @@ router.post(
     try {
       const result = await eligibilityExpressionService.testExpression(id, context);
       res.json({ data: result });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res
           .status(404)
-          .json({ error: { code: 'NOT_FOUND', message: err.message } });
+          .json({ error: { code: 'NOT_FOUND', message: msg } });
       }
       throw err;
     }

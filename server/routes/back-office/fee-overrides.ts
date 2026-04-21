@@ -10,10 +10,12 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { feeOverrideService } from '../../services/fee-override-service';
 import { asyncHandler } from '../../middleware/async-handler';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // ============================================================================
 // List & Read
@@ -63,10 +65,11 @@ router.get(
     try {
       const record = await feeOverrideService.getOverrideById(id);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
       throw err;
@@ -110,15 +113,16 @@ router.post(
       });
 
       res.status(201).json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('cannot be zero') || err.message?.includes('valid numbers')) {
+      if (msg.includes('cannot be zero') || msg.includes('valid numbers')) {
         return res.status(400).json({
-          error: { code: 'INVALID_INPUT', message: err.message },
+          error: { code: 'INVALID_INPUT', message: msg },
         });
       }
       throw err;
@@ -147,20 +151,21 @@ router.post(
     try {
       const record = await feeOverrideService.approveOverride(id, approverId);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot approve')) {
+      if (msg.includes('Cannot approve')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
-      if (err.message?.includes('Segregation')) {
+      if (msg.includes('Segregation')) {
         return res.status(403).json({
-          error: { code: 'SOD_VIOLATION', message: err.message },
+          error: { code: 'SOD_VIOLATION', message: msg },
         });
       }
       throw err;
@@ -194,15 +199,16 @@ router.post(
     try {
       const record = await feeOverrideService.rejectOverride(id, approverId, comment);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot reject')) {
+      if (msg.includes('Cannot reject')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
       throw err;

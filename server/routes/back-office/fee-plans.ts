@@ -19,10 +19,12 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { feePlanService } from '../../services/fee-plan-service';
 import { asyncHandler } from '../../middleware/async-handler';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // ============================================================================
 // List & Read
@@ -80,10 +82,11 @@ router.get(
     try {
       const record = await feePlanService.getById(id);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
       throw err;
@@ -135,8 +138,10 @@ router.post(
       });
 
       res.status(201).json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('duplicate') || err.code === '23505') {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const code = (err as { code?: string })?.code;
+      if (msg.includes('duplicate') || code === '23505') {
         return res.status(409).json({
           error: {
             code: 'DUPLICATE',
@@ -144,14 +149,14 @@ router.post(
           },
         });
       }
-      if (err.message?.includes('requires')) {
+      if (msg.includes('requires')) {
         return res.status(400).json({
-          error: { code: 'INVALID_INPUT', message: err.message },
+          error: { code: 'INVALID_INPUT', message: msg },
         });
       }
-      if (err.message?.includes('inactive') || err.message?.includes('not found')) {
+      if (msg.includes('inactive') || msg.includes('not found')) {
         return res.status(422).json({
-          error: { code: 'INVALID_REFERENCE', message: err.message },
+          error: { code: 'INVALID_REFERENCE', message: msg },
         });
       }
       throw err;
@@ -176,15 +181,16 @@ router.put(
         updated_by: req.body.updated_by || req.userId || null,
       });
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot edit')) {
+      if (msg.includes('Cannot edit')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
       throw err;
@@ -210,15 +216,16 @@ router.post(
     try {
       const record = await feePlanService.submit(id);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot submit')) {
+      if (msg.includes('Cannot submit')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
       throw err;
@@ -250,20 +257,21 @@ router.post(
     try {
       const record = await feePlanService.approve(id, approverId);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot approve')) {
+      if (msg.includes('Cannot approve')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
-      if (err.message?.includes('Segregation')) {
+      if (msg.includes('Segregation')) {
         return res.status(403).json({
-          error: { code: 'SOD_VIOLATION', message: err.message },
+          error: { code: 'SOD_VIOLATION', message: msg },
         });
       }
       throw err;
@@ -297,15 +305,16 @@ router.post(
     try {
       const record = await feePlanService.reject(id, approverId, comment);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot reject')) {
+      if (msg.includes('Cannot reject')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
       throw err;
@@ -327,15 +336,16 @@ router.post(
     try {
       const record = await feePlanService.suspend(id);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot suspend')) {
+      if (msg.includes('Cannot suspend')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
       throw err;
@@ -357,15 +367,16 @@ router.post(
     try {
       const result = await feePlanService.supersede(id);
       res.json({ data: result });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('Cannot supersede')) {
+      if (msg.includes('Cannot supersede')) {
         return res.status(422).json({
-          error: { code: 'INVALID_STATUS', message: err.message },
+          error: { code: 'INVALID_STATUS', message: msg },
         });
       }
       throw err;
@@ -397,15 +408,16 @@ router.post(
     try {
       const record = await feePlanService.rebindPricing(id, pricing_version_id);
       res.json({ data: record });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('only applicable') || err.message?.includes('exceeds')) {
+      if (msg.includes('only applicable') || msg.includes('exceeds')) {
         return res.status(422).json({
-          error: { code: 'INVALID_OPERATION', message: err.message },
+          error: { code: 'INVALID_OPERATION', message: msg },
         });
       }
       throw err;
@@ -434,15 +446,16 @@ router.post(
         transaction_amount: transaction_amount ? parseFloat(transaction_amount) : undefined,
       });
       res.json({ data: result });
-    } catch (err: any) {
-      if (err.message?.includes('not found')) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
         return res.status(404).json({
-          error: { code: 'NOT_FOUND', message: err.message },
+          error: { code: 'NOT_FOUND', message: msg },
         });
       }
-      if (err.message?.includes('no pricing definition')) {
+      if (msg.includes('no pricing definition')) {
         return res.status(422).json({
-          error: { code: 'INVALID_OPERATION', message: err.message },
+          error: { code: 'INVALID_OPERATION', message: msg },
         });
       }
       throw err;

@@ -17,10 +17,12 @@
  */
 
 import { Router } from 'express';
+import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { asyncHandler } from '../../middleware/async-handler';
 import { peraService } from '../../services/pera-service';
 
 const router = Router();
+router.use(requireBackOfficeRole());
 
 // =============================================================================
 // PERA Accounts
