@@ -225,6 +225,54 @@ router.get(
 );
 
 // ============================================================================
+// Helpers — transform DB rows to camelCase shape the client expects
+// ============================================================================
+
+function toClientEntity(entity: Record<string, unknown>, fields: Record<string, unknown>[]) {
+  const clientFields = fields.map((f) => ({
+    fieldName: f.field_name as string,
+    label: f.label as string,
+    group: (f.group_name as string) || undefined,
+    groupOrder: f.group_order as number,
+    displayOrder: f.display_order as number,
+    inputType: (f.input_type as string) || 'text',
+    required: !!f.required,
+    editable: f.editable !== false,
+    visibleInTable: f.visible_in_table !== false,
+    visibleInForm: f.visible_in_form !== false,
+    piiSensitive: !!f.pii_sensitive,
+    validationRegex: (f.validation_regex as string) || undefined,
+    uniqueCheck: !!f.unique_check,
+    selectOptionsSource: (f.select_options_source as string) || undefined,
+    helpText: (f.help_text as string) || undefined,
+  }));
+
+  // Derive fieldGroups from unique group names
+  const groupSet = new Set<string>();
+  for (const f of clientFields) {
+    if (f.group) groupSet.add(f.group);
+  }
+
+  return {
+    entityKey: entity.entity_key as string,
+    displayName: entity.display_name as string,
+    displayNamePlural: entity.display_name_plural as string,
+    fieldGroups: Array.from(groupSet),
+    fields: clientFields,
+  };
+}
+
+function toClientMockEntity(entity: (typeof mockEntities)[number]) {
+  return {
+    entityKey: entity.entity_key,
+    displayName: entity.display_name,
+    displayNamePlural: entity.display_name,
+    fieldGroups: [],
+    fields: [],
+  };
+}
+
+// ============================================================================
 // GET /:entityKey — Get single entity with its field configs
 // ============================================================================
 router.get(
@@ -240,12 +288,8 @@ router.get(
         return res.status(404).json({ message: `Entity '${entityKey}' not found` });
       }
 
-      const fields = await queryFieldConfigs(entityKey);
-
-      return res.json({
-        entity: rows[0],
-        fields: fields || [],
-      });
+      const fields = (await queryFieldConfigs(entityKey)) || [];
+      return res.json(toClientEntity(rows[0] as Record<string, unknown>, fields as Record<string, unknown>[]));
     }
 
     // Fallback to mock data
@@ -254,11 +298,7 @@ router.get(
       return res.status(404).json({ message: `Entity '${entityKey}' not found` });
     }
 
-    res.json({
-      entity: mockEntity,
-      fields: [],
-      _mock: true,
-    });
+    res.json(toClientMockEntity(mockEntity));
   }),
 );
 

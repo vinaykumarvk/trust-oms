@@ -561,7 +561,7 @@ function ConnectorsTab() {
     refetchInterval: REFRESH_INTERVAL,
   });
 
-  const connectors = connectorsQuery.data ?? [];
+  const connectors = connectorsQuery.data?.data ?? [];
 
   const testMutation = useMutation<TestConnectionResult, Error, string>({
     mutationFn: (id: string) =>
@@ -775,8 +775,8 @@ function RoutingRulesTab() {
     queryFn: () => apiRequest("GET", apiUrl("/api/v1/integrations")),
   });
 
-  const rules = rulesQuery.data ?? [];
-  const connectors = connectorsQuery.data ?? [];
+  const rules = rulesQuery.data?.data ?? [];
+  const connectors = connectorsQuery.data?.data ?? [];
 
   // Create rule mutation
   const createRuleMut = useMutation({
@@ -1190,8 +1190,8 @@ function ActivityLogTab() {
     queryFn: () => apiRequest("GET", apiUrl("/api/v1/integrations")),
   });
 
-  const entries = logQuery.data ?? [];
-  const connectors = connectorsQuery.data ?? [];
+  const entries = logQuery.data?.data ?? [];
+  const connectors = connectorsQuery.data?.data ?? [];
 
   // Filtered entries
   const filteredEntries = useMemo(() => {
@@ -1675,7 +1675,7 @@ export default function IntegrationHub() {
   });
 
   // Quick stats for header
-  const connectors = connectorsQuery.data ?? [];
+  const connectors = connectorsQuery.data?.data ?? [];
   const connectedCount = connectors.filter((c) => c.status === "CONNECTED").length;
   const totalCount = connectors.length;
   const avgLatency = connectors.length > 0

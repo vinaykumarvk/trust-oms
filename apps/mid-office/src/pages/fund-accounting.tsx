@@ -201,13 +201,13 @@ export default function FundAccounting() {
   const [selectedFund, setSelectedFund] = useState<string | null>(null);
 
   // ---- Fetch NAV status ----
-  const navQuery = useQuery<NavStatus[]>({
+  const navQuery = useQuery<{ data: NavStatus[]; total: number }>({
     queryKey: ["nav-status"],
     queryFn: () => apiRequest("GET", apiUrl("/api/v1/nav/status")),
     refetchInterval: 30_000,
   });
 
-  const funds = navQuery.data ?? [];
+  const funds = navQuery.data?.data ?? [];
 
   // ---- Summary counts ----
   const totalFunds = funds.length;
@@ -472,13 +472,13 @@ export default function FundAccounting() {
               <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                 Unable to load NAV history for this fund.
               </div>
-            ) : (historyQuery.data ?? []).length === 0 ? (
+            ) : (historyQuery.data?.data ?? []).length === 0 ? (
               <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                 No historical NAV data available for this fund.
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={historyQuery.data}>
+                <LineChart data={historyQuery.data?.data ?? []}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} domain={["auto", "auto"]} />

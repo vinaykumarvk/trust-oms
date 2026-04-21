@@ -25,30 +25,50 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
     if (!email || !password) {
-      setError("Please enter both email and password.");
+      setError("Please enter both username and password.");
       return;
     }
 
     setLoading(true);
 
-    // Mock authentication — store user in localStorage
-    setTimeout(() => {
-      const mockUser = {
-        id: "1",
-        email,
-        name: email.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-        role: "admin",
-      };
+    try {
+      const res = await fetch("/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: email, password }),
+      });
 
-      localStorage.setItem("trustoms-user", JSON.stringify(mockUser));
+      const body = await res.json();
+
+      if (!res.ok) {
+        setError(body?.error?.message || "Login failed");
+        setLoading(false);
+        return;
+      }
+
+      const { user, accessToken, refreshToken } = body.data;
+      localStorage.setItem(
+        "trustoms-user",
+        JSON.stringify({
+          id: String(user.id),
+          email: user.email,
+          name: user.fullName || user.username,
+          role: user.role,
+        }),
+      );
+      localStorage.setItem("trustoms-access-token", accessToken);
+      localStorage.setItem("trustoms-refresh-token", refreshToken);
       setLoading(false);
       navigate("/", { replace: true });
-    }, 500);
+    } catch {
+      setError("Network error — is the API running?");
+      setLoading(false);
+    }
   };
 
   return (
@@ -75,14 +95,14 @@ export default function LoginPage() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">Username</Label>
                 <Input
                   id="email"
-                  type="email"
-                  placeholder="operator@trustoms.ph"
+                  type="text"
+                  placeholder="admin"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
+                  autoComplete="username"
                   autoFocus
                 />
               </div>

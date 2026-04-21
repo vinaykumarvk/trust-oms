@@ -264,7 +264,7 @@ export default function SettlementDesk() {
       apiRequest("GET", apiUrl("/api/v1/settlements/cash-ledger/liquidity-heatmap")),
     refetchInterval: 15_000,
   });
-  const heatmapData = heatmapQuery.data ?? [];
+  const heatmapData = heatmapQuery.data?.data ?? [];
 
   // Summary counts
   const summaryPending = tab === "pending" ? total : 0;

@@ -42,10 +42,12 @@ router.get('/summary', asyncHandler(async (req, res) => {
   ]);
 
   res.json({
-    book_of_business: bookOfBusiness,
-    pending_tasks: pendingTasks,
-    order_pipeline: orderPipeline,
-    client_alerts: clientAlerts,
+    data: {
+      book_of_business: bookOfBusiness,
+      pending_tasks: pendingTasks,
+      order_pipeline: orderPipeline,
+      client_alerts: clientAlerts,
+    },
   });
 }));
 
@@ -57,7 +59,7 @@ router.get('/aum-breakdown', asyncHandler(async (req, res) => {
   }
 
   const data = await rmDashboardService.getAumByProductType(rmId);
-  res.json(data);
+  res.json({ data });
 }));
 
 /** GET /pipeline -- Order pipeline funnel */
@@ -68,7 +70,7 @@ router.get('/pipeline', asyncHandler(async (req, res) => {
   }
 
   const data = await rmDashboardService.getOrderPipeline(rmId);
-  res.json(data);
+  res.json({ data });
 }));
 
 /** GET /alerts -- Client alerts */
@@ -79,7 +81,7 @@ router.get('/alerts', asyncHandler(async (req, res) => {
   }
 
   const data = await rmDashboardService.getClientAlerts(rmId);
-  res.json(data);
+  res.json({ data });
 }));
 
 /** GET /pending-tasks -- Pending tasks summary */
@@ -90,7 +92,7 @@ router.get('/pending-tasks', asyncHandler(async (req, res) => {
   }
 
   const data = await rmDashboardService.getPendingTasks(rmId);
-  res.json(data);
+  res.json({ data });
 }));
 
 export default router;

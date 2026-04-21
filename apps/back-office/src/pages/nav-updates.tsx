@@ -152,7 +152,7 @@ export default function NavUpdates() {
     refetchInterval: 60_000,
   });
 
-  const records = navQuery.data ?? [];
+  const records = navQuery.data?.data ?? [];
 
   // Compute staleness for each record
   const withStaleness = records.map((r) => ({

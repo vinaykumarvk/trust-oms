@@ -27,7 +27,7 @@ router.get('/:clientId/current', asyncHandler(async (req, res) => {
   if (!profile) {
     return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'No suitability profile found' } });
   }
-  res.json(profile);
+  res.json({ data: profile });
 }));
 
 /** GET /api/v1/suitability/:clientId/history */
@@ -39,7 +39,7 @@ router.get('/:clientId/history', asyncHandler(async (req, res) => {
 /** POST /api/v1/suitability/check-order/:orderId */
 router.post('/check-order/:orderId', asyncHandler(async (req, res) => {
   const result = await suitabilityService.checkOrderSuitability(req.params.orderId);
-  res.json(result);
+  res.json({ data: result });
 }));
 
 export default router;

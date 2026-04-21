@@ -231,7 +231,7 @@ export default function ComplianceLimits() {
     refetchInterval: 30_000,
     enabled: tab === "post-trade",
   });
-  const breachBuckets = breachAgingQ.data ?? [];
+  const breachBuckets = breachAgingQ.data?.data ?? [];
 
   const expiringQ = useQuery<ExpiringLinesResponse>({
     queryKey: ["expiring-lines"],

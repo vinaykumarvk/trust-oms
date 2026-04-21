@@ -29,6 +29,10 @@ export { scheduledPlanFieldConfig } from './scheduled-plan';
 export { peraAccountFieldConfig } from './pera-account';
 export { heldAwayAssetFieldConfig } from './held-away-asset';
 export { standingInstructionFieldConfig } from './standing-instruction';
+export { marketCalendarFieldConfig } from './market-calendar';
+export { legalEntityFieldConfig } from './legal-entity';
+export { feedRoutingFieldConfig } from './feed-routing';
+export { dataStewardshipFieldConfig } from './data-stewardship';
 
 // Import for the map
 import { countryFieldConfig } from './country';
@@ -51,6 +55,10 @@ import { scheduledPlanFieldConfig } from './scheduled-plan';
 import { peraAccountFieldConfig } from './pera-account';
 import { heldAwayAssetFieldConfig } from './held-away-asset';
 import { standingInstructionFieldConfig } from './standing-instruction';
+import { marketCalendarFieldConfig } from './market-calendar';
+import { legalEntityFieldConfig } from './legal-entity';
+import { feedRoutingFieldConfig } from './feed-routing';
+import { dataStewardshipFieldConfig } from './data-stewardship';
 
 /**
  * Map from entity key (URL path segment) to code-level field defaults.
@@ -77,4 +85,8 @@ export const entityFieldDefaultsMap: Record<string, EntityFieldDefaults> = {
   'pera-accounts': peraAccountFieldConfig,
   'held-away-assets': heldAwayAssetFieldConfig,
   'standing-instructions': standingInstructionFieldConfig,
+  'market-calendar': marketCalendarFieldConfig,
+  'legal-entities': legalEntityFieldConfig,
+  'feed-routing': feedRoutingFieldConfig,
+  'data-stewardship': dataStewardshipFieldConfig,
 };

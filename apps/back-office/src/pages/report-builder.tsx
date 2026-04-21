@@ -619,7 +619,7 @@ export default function ReportBuilderPage() {
     staleTime: 60 * 1000,
   });
 
-  const templates = templatesQuery.data ?? [];
+  const templates = templatesQuery.data?.data ?? [];
 
   // Run query mutation
   const runQueryMutation = useMutation<AdHocResult>({

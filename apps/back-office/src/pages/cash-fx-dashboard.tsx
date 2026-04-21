@@ -177,7 +177,7 @@ export default function CashFxDashboard() {
       apiRequest("GET", apiUrl("/api/v1/settlements/cash-ledger/liquidity-heatmap")),
     refetchInterval: 30_000,
   });
-  const heatmapData = heatmapQuery.data ?? [];
+  const heatmapData = heatmapQuery.data?.data ?? [];
 
   // Find the max absolute value across all heatmap data for normalising bars
   const maxAbs = heatmapData.reduce((mx, row) => {

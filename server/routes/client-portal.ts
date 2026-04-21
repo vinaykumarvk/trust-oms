@@ -34,7 +34,7 @@ router.get(
     }
 
     const data = await clientPortalService.getPortfolioSummary(clientId);
-    res.json(data);
+    res.json({ data });
   }),
 );
 
@@ -54,7 +54,7 @@ router.get(
     }
 
     const data = await clientPortalService.getAllocation(portfolioId);
-    res.json(data);
+    res.json({ data });
   }),
 );
 
@@ -76,7 +76,7 @@ router.get(
     }
 
     const data = await clientPortalService.getPerformance(portfolioId, period);
-    res.json(data);
+    res.json({ data });
   }),
 );
 
@@ -96,7 +96,7 @@ router.get(
     }
 
     const data = await clientPortalService.getHoldings(portfolioId);
-    res.json(data);
+    res.json({ data });
   }),
 );
 
@@ -121,7 +121,7 @@ router.get(
       portfolioId,
       Number.isNaN(limit) ? 20 : limit,
     );
-    res.json(data);
+    res.json({ data });
   }),
 );
 
@@ -143,7 +143,7 @@ router.get(
     }
 
     const data = await clientPortalService.getStatements(clientId, period);
-    res.json(data);
+    res.json({ data });
   }),
 );
 
@@ -171,7 +171,7 @@ router.post(
       actionType,
       details ?? {},
     );
-    res.status(201).json(data);
+    res.status(201).json({ data });
   }),
 );
 
@@ -191,7 +191,7 @@ router.get(
     }
 
     const data = await clientPortalService.getNotifications(clientId);
-    res.json(data);
+    res.json({ data });
   }),
 );
 

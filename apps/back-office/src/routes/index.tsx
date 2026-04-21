@@ -57,6 +57,32 @@ const AdminConsole = React.lazy(() => import("@/pages/admin-console"));
 const IntegrationHub = React.lazy(() => import("@/pages/integration-hub"));
 const AiShadowMode = React.lazy(() => import("@/pages/ai-shadow-mode"));
 const AiCosts = React.lazy(() => import("@/pages/ai-costs"));
+const TTRADashboard = React.lazy(() => import("@/pages/ttra-dashboard"));
+const ClaimsWorkbench = React.lazy(() => import("@/pages/claims-workbench"));
+const ConsentPrivacyCenter = React.lazy(() => import("@/pages/consent-privacy-center"));
+const DegradedModeMonitor = React.lazy(() => import("@/pages/degraded-mode-monitor"));
+
+// TrustFees Pro pages
+const PricingLibrary = React.lazy(() => import("@/pages/trustfees/pricing-library"));
+const EligibilityLibrary = React.lazy(() => import("@/pages/trustfees/eligibility-library"));
+const AccrualScheduleLibrary = React.lazy(() => import("@/pages/trustfees/accrual-schedule-library"));
+const FeePlanTemplates = React.lazy(() => import("@/pages/trustfees/fee-plan-templates"));
+const FeePlanList = React.lazy(() => import("@/pages/trustfees/fee-plan-list"));
+const FeePlanWizard = React.lazy(() => import("@/pages/trustfees/fee-plan-wizard"));
+const FeePlanDetail = React.lazy(() => import("@/pages/trustfees/fee-plan-detail"));
+const AccrualWorkbench = React.lazy(() => import("@/pages/trustfees/accrual-workbench"));
+const InvoiceWorkbench = React.lazy(() => import("@/pages/trustfees/invoice-workbench"));
+const PaymentApplication = React.lazy(() => import("@/pages/trustfees/payment-application"));
+const AdhocFeeCapture = React.lazy(() => import("@/pages/trustfees/adhoc-fee-capture"));
+const OverrideApprovalQueue = React.lazy(() => import("@/pages/trustfees/override-approval-queue"));
+const ExceptionWorkbench = React.lazy(() => import("@/pages/trustfees/exception-workbench"));
+const AuditExplorer = React.lazy(() => import("@/pages/trustfees/audit-explorer"));
+const DisputeManagement = React.lazy(() => import("@/pages/trustfees/dispute-management"));
+const FeeDashboard = React.lazy(() => import("@/pages/trustfees/fee-dashboard"));
+const FeeReports = React.lazy(() => import("@/pages/trustfees/fee-reports"));
+
+// GL & Accounting pages
+const GLDashboard = React.lazy(() => import("@/pages/gl-dashboard"));
 
 // Custom entity pages
 const ClientOnboarding = React.lazy(() => import("@/pages/client-onboarding"));
@@ -191,6 +217,72 @@ export const router = createBrowserRouter([
             ),
           },
 
+          // Accounting — GL Dashboard (all GL tabs)
+          {
+            path: "/accounting/gl-dashboard",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <GLDashboard />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/accounting/chart-of-accounts",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <GLDashboard />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/accounting/journal-entry",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <GLDashboard />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/accounting/gl-drilldown",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <GLDashboard />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/accounting/fx-revaluation",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <GLDashboard />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/accounting/year-end",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <GLDashboard />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/accounting/frpti",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <GLDashboard />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/accounting/*",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <GLDashboard />
+              </Suspense>
+            ),
+          },
+
           // Operations — dedicated pages
           {
             path: "/operations/order-explorer",
@@ -271,12 +363,182 @@ export const router = createBrowserRouter([
             ),
           },
 
-          // Operations — Fee & Billing Desk
+          // Operations — Claims & Compensation (TRUST-CA 360 Phase 6)
           {
-            path: "/operations/fee-billing",
+            path: "/operations/claims",
             element: (
               <Suspense fallback={<PageLoader />}>
-                <FeeBillingDesk />
+                <ClaimsWorkbench />
+              </Suspense>
+            ),
+          },
+
+          // Operations — Fee Dashboard (TrustFees Pro Phase 10)
+          {
+            path: "/operations/fee-dashboard",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <FeeDashboard />
+              </Suspense>
+            ),
+          },
+
+          // Operations — Fee Reports (TrustFees Pro Phase 10)
+          {
+            path: "/operations/fee-reports",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <FeeReports />
+              </Suspense>
+            ),
+          },
+
+          // Operations — Fee & Billing Desk (redirect to Fee Dashboard)
+          {
+            path: "/operations/fee-billing",
+            element: <Navigate to="/operations/fee-dashboard" replace />,
+          },
+
+          // Operations — Pricing Definition Library (TrustFees Pro Phase 2)
+          {
+            path: "/operations/pricing-library",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <PricingLibrary />
+              </Suspense>
+            ),
+          },
+
+          // Operations — Eligibility Expression Library (TrustFees Pro Phase 3)
+          {
+            path: "/operations/eligibility-library",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <EligibilityLibrary />
+              </Suspense>
+            ),
+          },
+
+          // Operations — Accrual Schedule Library (TrustFees Pro Phase 4)
+          {
+            path: "/operations/accrual-schedule-library",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <AccrualScheduleLibrary />
+              </Suspense>
+            ),
+          },
+
+          // Operations — Fee Plan Templates (TrustFees Pro Phase 4)
+          {
+            path: "/operations/fee-plan-templates",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <FeePlanTemplates />
+              </Suspense>
+            ),
+          },
+
+          // Operations — Fee Plans (TrustFees Pro Phase 5)
+          {
+            path: "/operations/fee-plans",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <FeePlanList />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/operations/fee-plans/new",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <FeePlanWizard />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/operations/fee-plans/:id",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <FeePlanDetail />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/operations/fee-plans/:id/edit",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <FeePlanWizard />
+              </Suspense>
+            ),
+          },
+
+          // Operations — Accrual Workbench (TrustFees Pro Phase 6)
+          {
+            path: "/operations/accrual-workbench",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <AccrualWorkbench />
+              </Suspense>
+            ),
+          },
+
+          // Operations — Invoice Workbench (TrustFees Pro Phase 7)
+          {
+            path: "/operations/invoice-workbench",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <InvoiceWorkbench />
+              </Suspense>
+            ),
+          },
+
+          // Operations — Payment Application (TrustFees Pro Phase 7)
+          {
+            path: "/operations/payment-application",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <PaymentApplication />
+              </Suspense>
+            ),
+          },
+
+          // Operations — Ad-hoc Fee Capture (TrustFees Pro Phase 7)
+          {
+            path: "/operations/adhoc-fee-capture",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <AdhocFeeCapture />
+              </Suspense>
+            ),
+          },
+
+          // Operations — Override Approval Queue (TrustFees Pro Phase 8)
+          {
+            path: "/operations/override-approval-queue",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <OverrideApprovalQueue />
+              </Suspense>
+            ),
+          },
+
+          // Operations — Exception Workbench (TrustFees Pro Phase 8)
+          {
+            path: "/operations/exception-workbench",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <ExceptionWorkbench />
+              </Suspense>
+            ),
+          },
+
+          // Operations — Dispute Management (TrustFees Pro Phase 9)
+          {
+            path: "/operations/dispute-management",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <DisputeManagement />
               </Suspense>
             ),
           },
@@ -351,6 +613,16 @@ export const router = createBrowserRouter([
             ),
           },
 
+          // Operations — Feed & Degraded Mode Monitor (Phase 8)
+          {
+            path: "/operations/feed-monitor",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <DegradedModeMonitor />
+              </Suspense>
+            ),
+          },
+
           // Operations — placeholder pages (fallback for others)
           {
             path: "/operations/*",
@@ -400,6 +672,15 @@ export const router = createBrowserRouter([
             element: (
               <Suspense fallback={<PageLoader />}>
                 <TaxManagement />
+              </Suspense>
+            ),
+          },
+          // Compliance — TTRA Management (TRUST-CA 360 Phase 4)
+          {
+            path: "/compliance/ttra",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TTRADashboard />
               </Suspense>
             ),
           },
@@ -472,6 +753,24 @@ export const router = createBrowserRouter([
             element: (
               <Suspense fallback={<PageLoader />}>
                 <Whistleblower />
+              </Suspense>
+            ),
+          },
+          // Compliance — Audit Explorer (TrustFees Pro Phase 9)
+          {
+            path: "/compliance/audit-explorer",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <AuditExplorer />
+              </Suspense>
+            ),
+          },
+          // Compliance — Privacy & Consent Center (Phase 8)
+          {
+            path: "/compliance/privacy",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <ConsentPrivacyCenter />
               </Suspense>
             ),
           },

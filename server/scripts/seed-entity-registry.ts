@@ -10,6 +10,7 @@
  *   npx tsx server/scripts/seed-entity-registry.ts
  */
 
+import 'dotenv/config';
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { entityFieldDefaultsMap } from '@shared/entity-configs';

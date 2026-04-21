@@ -41,9 +41,20 @@ function mergeConfigs(
   server: ServerEntityConfig,
   defaults: EntityFieldDefaults | undefined,
 ): MergedEntityConfig {
-  if (!defaults) return server;
+  const serverFields = server.fields ?? [];
+  const serverGroups = server.fieldGroups ?? [];
 
-  const mergedFields: MergedFieldConfig[] = server.fields.map((serverField) => {
+  if (!defaults) {
+    return {
+      entityKey: server.entityKey,
+      displayName: server.displayName,
+      displayNamePlural: server.displayNamePlural,
+      fieldGroups: serverGroups,
+      fields: serverFields,
+    };
+  }
+
+  const mergedFields: MergedFieldConfig[] = serverFields.map((serverField) => {
     const defaultField = defaults.fields[serverField.fieldName];
     if (!defaultField) return serverField;
     // Code-level defaults are overridden by server values (server wins)
@@ -62,8 +73,8 @@ function mergeConfigs(
     displayName: server.displayName,
     displayNamePlural: server.displayNamePlural,
     fieldGroups:
-      server.fieldGroups.length > 0
-        ? server.fieldGroups
+      serverGroups.length > 0
+        ? serverGroups
         : defaults.fieldGroups,
     fields: mergedFields,
   };

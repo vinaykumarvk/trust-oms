@@ -104,6 +104,46 @@ router.use(
   }),
 );
 
+router.use(
+  '/market-calendar',
+  createCrudRouter(schema.marketCalendar, {
+    searchableColumns: ['calendar_key', 'holiday_name'],
+    defaultSort: 'date',
+    entityKey: 'market-calendar',
+    makerChecker: 'market-calendar',
+  }),
+);
+
+router.use(
+  '/legal-entities',
+  createCrudRouter(schema.legalEntities, {
+    searchableColumns: ['entity_code', 'entity_name'],
+    defaultSort: 'entity_code',
+    entityKey: 'legal-entities',
+    makerChecker: 'legal-entities',
+  }),
+);
+
+router.use(
+  '/feed-routing',
+  createCrudRouter(schema.feedRouting, {
+    searchableColumns: ['security_segment'],
+    defaultSort: 'id',
+    entityKey: 'feed-routing',
+    makerChecker: 'feed-routing',
+  }),
+);
+
+router.use(
+  '/data-stewardship',
+  createCrudRouter(schema.dataStewardship, {
+    searchableColumns: ['dataset_key'],
+    defaultSort: 'dataset_key',
+    entityKey: 'data-stewardship',
+    makerChecker: 'data-stewardship',
+  }),
+);
+
 // ============================================================================
 // Master Data
 // ============================================================================
