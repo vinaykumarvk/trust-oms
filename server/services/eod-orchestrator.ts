@@ -8,6 +8,16 @@
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, desc, and, sql, type InferSelectModel } from 'drizzle-orm';
+import { tfpAccrualEngine } from './tfp-accrual-engine';
+import { tfpInvoiceService } from './tfp-invoice-service';
+import { tfpReversalService } from './tfp-reversal-service';
+import { feeEngineService } from './fee-engine-service';
+import { corporateActionsService } from './corporate-actions-service';
+import { taxEngineService } from './tax-engine-service';
+import { reconciliationService } from './reconciliation-service';
+import { ttraService } from './ttra-service';
+import { settlementService } from './settlement-service';
+import { exceptionQueueService } from './exception-queue-service';
 
 type EodJob = InferSelectModel<typeof schema.eodJobs>;
 
@@ -16,6 +26,8 @@ type EodJob = InferSelectModel<typeof schema.eodJobs>;
 // ---------------------------------------------------------------------------
 
 const JOB_DEFINITIONS = [
+  { name: 'ttra_expiry_check', displayName: 'TTRA Expiry Check & Fallback', dependsOn: [] as string[] },
+  { name: 'ttra_reminders', displayName: 'TTRA Expiry Reminders', dependsOn: ['ttra_expiry_check'] },
   { name: 'nav_ingestion', displayName: 'NAV Ingestion', dependsOn: [] as string[] },
   { name: 'nav_validation', displayName: 'NAV Validation', dependsOn: ['nav_ingestion'] },
   { name: 'portfolio_revaluation', displayName: 'Portfolio Revaluation', dependsOn: ['nav_validation'] },
@@ -23,8 +35,16 @@ const JOB_DEFINITIONS = [
   { name: 'settlement_processing', displayName: 'Settlement Processing', dependsOn: ['position_snapshot'] },
   { name: 'fee_accrual', displayName: 'Fee Accrual', dependsOn: ['settlement_processing'] },
   { name: 'commission_accrual', displayName: 'Commission Accrual', dependsOn: ['settlement_processing'] },
+  { name: 'ca_entitlement_calc', displayName: 'CA Entitlement Calculation', dependsOn: ['position_snapshot'] },
+  { name: 'ca_tax_calc', displayName: 'CA WHT Tax Calculation', dependsOn: ['ca_entitlement_calc'] },
+  { name: 'ca_settlement', displayName: 'CA Settlement Posting', dependsOn: ['ca_tax_calc'] },
+  { name: 'ca_recon_triad', displayName: 'Internal Triad Reconciliation', dependsOn: ['ca_settlement', 'fee_accrual'] },
+  { name: 'invoice_generation', displayName: 'Invoice Generation', dependsOn: ['fee_accrual'] },
+  { name: 'notional_accounting', displayName: 'Notional Accounting', dependsOn: ['invoice_generation'] },
+  { name: 'reversal_check', displayName: 'Reversal Check', dependsOn: ['notional_accounting'] },
   { name: 'data_quality_check', displayName: 'Data Quality Check', dependsOn: ['fee_accrual', 'commission_accrual'] },
-  { name: 'regulatory_report_gen', displayName: 'Regulatory Reports', dependsOn: ['data_quality_check'] },
+  { name: 'exception_sweep', displayName: 'Exception Sweep', dependsOn: ['reversal_check', 'data_quality_check'] },
+  { name: 'regulatory_report_gen', displayName: 'Regulatory Reports', dependsOn: ['exception_sweep'] },
   { name: 'daily_report', displayName: 'Daily Report', dependsOn: ['regulatory_report_gen'] },
 ];
 
@@ -164,7 +184,7 @@ export const eodOrchestrator = {
   },
 
   // -------------------------------------------------------------------------
-  // Execute a single job (stub -- simulates work with delay)
+  // Execute a single job -- dispatches to real service or stub
   // -------------------------------------------------------------------------
   async executeJob(jobId: number) {
     const [job] = await db
@@ -175,15 +195,275 @@ export const eodOrchestrator = {
 
     if (!job || !job.run_id) return;
 
+    // Resolve run_date for this EOD run
+    const [run] = await db
+      .select({ run_date: schema.eodRuns.run_date })
+      .from(schema.eodRuns)
+      .where(eq(schema.eodRuns.id, job.run_id))
+      .limit(1);
+    const runDate = run?.run_date ?? new Date().toISOString().split('T')[0];
+
     const startTime = Date.now();
 
     try {
-      // Simulate processing with a 1-3 second delay
-      const delay = 1000 + Math.floor(Math.random() * 2000);
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      let recordsProcessed = 0;
+
+      // Dispatch to real service methods based on job name
+      switch (job.job_name) {
+        // ----- TTRA jobs (Phase 9) -----
+        case 'ttra_expiry_check': {
+          console.log(`[EOD] TTRA expiry check & fallback for ${runDate}`);
+          const expiryResult = await ttraService.processExpiryFallback();
+          recordsProcessed = expiryResult.expiredCount;
+          break;
+        }
+
+        case 'ttra_reminders': {
+          console.log(`[EOD] TTRA expiry reminders for ${runDate}`);
+          const reminderResult = await ttraService.sendExpiryReminders();
+          recordsProcessed = reminderResult.remindersSent;
+          break;
+        }
+
+        // ----- Fee accrual (real service) -----
+        case 'fee_accrual': {
+          console.log(`[EOD] Fee accrual for ${runDate}`);
+          // TFP accrual engine (primary)
+          const tfpResult = await tfpAccrualEngine.runDailyAccrual(runDate);
+          // Fee engine service (supplementary schedules)
+          const feeResult = await feeEngineService.runDailyAccrual(runDate);
+          recordsProcessed = (tfpResult.created + tfpResult.exceptions) + feeResult.schedulesProcessed;
+          break;
+        }
+
+        // ----- Settlement processing (real service) -----
+        case 'settlement_processing': {
+          console.log(`[EOD] Settlement processing for ${runDate}`);
+          // settlementService does not have a processSettlements() method;
+          // use bulkSettle to process pending settlements for the run date
+          const settleResult = await settlementService.bulkSettle({ valueDate: runDate });
+          recordsProcessed = settleResult.settled_count + settleResult.failed_count;
+          break;
+        }
+
+        // ----- CA jobs (Phase 9) -----
+        case 'ca_entitlement_calc': {
+          console.log(`[EOD] CA entitlement calculation for ${runDate}`);
+          // Query corporate actions with GOLDEN_COPY status and ex_date = runDate
+          const goldenCAs = await db
+            .select()
+            .from(schema.corporateActions)
+            .where(
+              and(
+                eq(schema.corporateActions.ca_status, 'GOLDEN_COPY'),
+                eq(schema.corporateActions.ex_date, runDate),
+              ),
+            );
+
+          let entitlementsCreated = 0;
+          for (const ca of goldenCAs) {
+            // Find all portfolios with positions in this security
+            const positionsForCA = await db
+              .select({ portfolio_id: schema.positions.portfolio_id })
+              .from(schema.positions)
+              .where(eq(schema.positions.security_id, ca.security_id!));
+
+            // De-duplicate portfolio IDs
+            const uniquePortfolios = [
+              ...new Set(positionsForCA.map((p: { portfolio_id: string | null }) => p.portfolio_id).filter(Boolean)),
+            ] as string[];
+
+            for (const portfolioId of uniquePortfolios) {
+              try {
+                await corporateActionsService.calculateEntitlement(ca.id, portfolioId);
+                entitlementsCreated++;
+              } catch (entErr: unknown) {
+                console.error(
+                  `[EOD] CA entitlement calc error CA=${ca.id} portfolio=${portfolioId}:`,
+                  entErr instanceof Error ? entErr.message : entErr,
+                );
+                // Continue processing remaining CA/portfolio pairs
+              }
+            }
+          }
+          recordsProcessed = entitlementsCreated;
+          break;
+        }
+
+        case 'ca_tax_calc': {
+          console.log(`[EOD] CA WHT tax calculation for ${runDate}`);
+          // Query new untaxed entitlements: posted=false AND tax_treatment is null
+          const untaxedEntitlements = await db
+            .select()
+            .from(schema.corporateActionEntitlements)
+            .where(
+              and(
+                eq(schema.corporateActionEntitlements.posted, false),
+                sql`${schema.corporateActionEntitlements.tax_treatment} IS NULL`,
+              ),
+            );
+
+          let taxCalcCount = 0;
+          for (const ent of untaxedEntitlements) {
+            try {
+              await taxEngineService.calculateCAWHT(ent.id);
+              taxCalcCount++;
+            } catch (taxErr: unknown) {
+              console.error(
+                `[EOD] CA WHT calc error entitlement=${ent.id}:`,
+                taxErr instanceof Error ? taxErr.message : taxErr,
+              );
+            }
+          }
+          recordsProcessed = taxCalcCount;
+          break;
+        }
+
+        case 'ca_settlement': {
+          console.log(`[EOD] CA settlement posting for ${runDate}`);
+          // Query entitlements with elected_option set and not yet posted
+          const electableEntitlements = await db
+            .select()
+            .from(schema.corporateActionEntitlements)
+            .where(
+              and(
+                eq(schema.corporateActionEntitlements.posted, false),
+                sql`${schema.corporateActionEntitlements.elected_option} IS NOT NULL`,
+              ),
+            );
+
+          let postedCount = 0;
+          for (const ent of electableEntitlements) {
+            try {
+              await corporateActionsService.postCaAdjustment(ent.id);
+              postedCount++;
+            } catch (postErr: unknown) {
+              console.error(
+                `[EOD] CA settlement post error entitlement=${ent.id}:`,
+                postErr instanceof Error ? postErr.message : postErr,
+              );
+            }
+          }
+          recordsProcessed = postedCount;
+          break;
+        }
+
+        case 'ca_recon_triad': {
+          console.log(`[EOD] Internal triad reconciliation for ${runDate}`);
+          const reconResult = await reconciliationService.runInternalTriadRecon(runDate);
+          recordsProcessed = reconResult.breaks_created;
+          break;
+        }
+
+        // ----- Existing stub jobs -----
+        case 'nav_ingestion': {
+          console.log(`[EOD] NAV ingestion stub for ${runDate}`);
+          const delay = 800 + Math.floor(Math.random() * 1200);
+          await new Promise((resolve: (value: unknown) => void) => setTimeout(resolve, delay));
+          recordsProcessed = 20 + Math.floor(Math.random() * 80);
+          break;
+        }
+
+        case 'nav_validation': {
+          console.log(`[EOD] NAV validation stub for ${runDate}`);
+          const delay = 500 + Math.floor(Math.random() * 1000);
+          await new Promise((resolve: (value: unknown) => void) => setTimeout(resolve, delay));
+          recordsProcessed = 20 + Math.floor(Math.random() * 80);
+          break;
+        }
+
+        case 'portfolio_revaluation': {
+          console.log(`[EOD] Portfolio revaluation stub for ${runDate}`);
+          const delay = 1000 + Math.floor(Math.random() * 1500);
+          await new Promise((resolve: (value: unknown) => void) => setTimeout(resolve, delay));
+          recordsProcessed = 15 + Math.floor(Math.random() * 50);
+          break;
+        }
+
+        case 'position_snapshot': {
+          console.log(`[EOD] Position snapshot stub for ${runDate}`);
+          const delay = 800 + Math.floor(Math.random() * 1200);
+          await new Promise((resolve: (value: unknown) => void) => setTimeout(resolve, delay));
+          recordsProcessed = 50 + Math.floor(Math.random() * 200);
+          break;
+        }
+
+        case 'commission_accrual': {
+          console.log(`[EOD] Commission accrual stub for ${runDate}`);
+          const delay = 500 + Math.floor(Math.random() * 1000);
+          await new Promise((resolve: (value: unknown) => void) => setTimeout(resolve, delay));
+          recordsProcessed = 10 + Math.floor(Math.random() * 40);
+          break;
+        }
+
+        case 'invoice_generation': {
+          console.log(`[EOD] Invoice generation for ${runDate}`);
+          // Generate invoices from month start to run date
+          const monthStartForInvoice = runDate.substring(0, 7) + '-01';
+          const invoiceResult = await tfpInvoiceService.generateInvoices(monthStartForInvoice, runDate);
+          // Also batch-mark overdue invoices
+          const overdueResult = await tfpInvoiceService.markOverdue();
+          recordsProcessed = invoiceResult.invoices_created + overdueResult.marked_overdue;
+          break;
+        }
+
+        case 'notional_accounting': {
+          console.log(`[EOD] Notional accounting stub for ${runDate}`);
+          const delay = 500 + Math.floor(Math.random() * 1000);
+          await new Promise((resolve: (value: unknown) => void) => setTimeout(resolve, delay));
+          recordsProcessed = Math.floor(Math.random() * 30);
+          break;
+        }
+
+        case 'reversal_check': {
+          console.log(`[EOD] Reversal check for ${runDate}`);
+          const reversalResult = await tfpReversalService.checkReversals(runDate);
+          recordsProcessed = reversalResult.reversals_processed + reversalResult.invoices_cancelled;
+          break;
+        }
+
+        case 'data_quality_check': {
+          console.log(`[EOD] Data quality check stub for ${runDate}`);
+          const delay = 600 + Math.floor(Math.random() * 900);
+          await new Promise((resolve: (value: unknown) => void) => setTimeout(resolve, delay));
+          recordsProcessed = 30 + Math.floor(Math.random() * 70);
+          break;
+        }
+
+        case 'exception_sweep': {
+          console.log(`[EOD] Exception sweep (SLA breach check) for ${runDate}`);
+          const slaResult = await exceptionQueueService.checkSlaBreaches();
+          recordsProcessed = slaResult.breaches_found;
+          break;
+        }
+
+        case 'regulatory_report_gen': {
+          console.log(`[EOD] Regulatory report generation stub for ${runDate}`);
+          const delay = 700 + Math.floor(Math.random() * 1300);
+          await new Promise((resolve: (value: unknown) => void) => setTimeout(resolve, delay));
+          recordsProcessed = 5 + Math.floor(Math.random() * 15);
+          break;
+        }
+
+        case 'daily_report': {
+          console.log(`[EOD] Daily report stub for ${runDate}`);
+          const delay = 500 + Math.floor(Math.random() * 800);
+          await new Promise((resolve: (value: unknown) => void) => setTimeout(resolve, delay));
+          recordsProcessed = 1 + Math.floor(Math.random() * 5);
+          break;
+        }
+
+        default: {
+          // Default stub: simulate processing with a 1-3 second delay
+          console.log(`[EOD] Unknown job ${job.job_name} stub for ${runDate}`);
+          const delay = 1000 + Math.floor(Math.random() * 2000);
+          await new Promise((resolve: (value: unknown) => void) => setTimeout(resolve, delay));
+          recordsProcessed = 10 + Math.floor(Math.random() * 490);
+          break;
+        }
+      }
 
       const durationMs = Date.now() - startTime;
-      const recordsProcessed = 10 + Math.floor(Math.random() * 490);
 
       await db
         .update(schema.eodJobs)

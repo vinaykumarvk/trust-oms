@@ -50,6 +50,12 @@ import {
   ChevronRight,
   CalendarDays,
   Activity,
+  Calculator,
+  Receipt,
+  ArrowRightLeft,
+  ShieldCheck,
+  Bell,
+  Timer,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -157,6 +163,77 @@ const RUN_STATUS_CONFIG: Record<RunStatus, { label: string; color: string }> = {
 };
 
 // ---------------------------------------------------------------------------
+// Job Category Colors (Phase 9)
+// ---------------------------------------------------------------------------
+
+type JobCategory = "ca" | "ttra" | "default";
+
+const JOB_CATEGORY_COLORS: Record<
+  JobCategory,
+  { bg: string; text: string; darkBg: string; darkText: string; border: string }
+> = {
+  ca: {
+    bg: "bg-orange-100",
+    text: "text-orange-800",
+    darkBg: "dark:bg-orange-900",
+    darkText: "dark:text-orange-200",
+    border: "border-orange-300 dark:border-orange-700",
+  },
+  ttra: {
+    bg: "bg-purple-100",
+    text: "text-purple-800",
+    darkBg: "dark:bg-purple-900",
+    darkText: "dark:text-purple-200",
+    border: "border-purple-300 dark:border-purple-700",
+  },
+  default: {
+    bg: "",
+    text: "",
+    darkBg: "",
+    darkText: "",
+    border: "",
+  },
+};
+
+const JOB_CATEGORIES: Record<string, JobCategory> = {
+  ca_entitlement_calc: "ca",
+  ca_tax_calc: "ca",
+  ca_settlement: "ca",
+  ca_recon_triad: "ca",
+  ttra_expiry_check: "ttra",
+  ttra_reminders: "ttra",
+};
+
+/** Icon component mapping for job types */
+const JOB_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  ca_entitlement_calc: Calculator,
+  ca_tax_calc: Receipt,
+  ca_settlement: ArrowRightLeft,
+  ca_recon_triad: ShieldCheck,
+  ttra_expiry_check: Timer,
+  ttra_reminders: Bell,
+};
+
+/**
+ * Returns the category badge element for a job key, or null if default.
+ */
+function JobCategoryBadge({ jobKey }: { jobKey: string }) {
+  const category = JOB_CATEGORIES[jobKey];
+  if (!category || category === "default") return null;
+
+  const colors = JOB_CATEGORY_COLORS[category];
+  const label = category === "ca" ? "Corporate Actions" : "TTRA";
+
+  return (
+    <span
+      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium ${colors.bg} ${colors.text} ${colors.darkBg} ${colors.darkText}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Run Status Indicator
 // ---------------------------------------------------------------------------
 
@@ -189,16 +266,31 @@ interface JobCardProps {
 
 function JobCard({ job, onRetry, onSkip, retrying, skipping }: JobCardProps) {
   const cfg = JOB_STATUS_CONFIG[job.status] ?? JOB_STATUS_CONFIG.PENDING;
+  const category = JOB_CATEGORIES[job.job_key] ?? "default";
+  const categoryColors = JOB_CATEGORY_COLORS[category];
+  const IconComponent = JOB_ICONS[job.job_key];
+
+  // Use category border when job is pending/running (status border takes priority when completed/failed)
+  const borderClass =
+    category !== "default" &&
+    (job.status === "PENDING" || job.status === "RUNNING")
+      ? categoryColors.border
+      : cfg.borderColor;
 
   return (
-    <Card className={`border-2 ${cfg.borderColor}`}>
+    <Card className={`border-2 ${borderClass}`}>
       <CardContent className="p-4 space-y-2">
         <div className="flex items-center justify-between">
-          <span
-            className={`font-semibold text-sm ${job.status === "SKIPPED" ? "line-through text-muted-foreground" : ""}`}
-          >
-            {job.display_name}
-          </span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            {IconComponent && (
+              <IconComponent className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            )}
+            <span
+              className={`font-semibold text-sm truncate ${job.status === "SKIPPED" ? "line-through text-muted-foreground" : ""}`}
+            >
+              {job.display_name}
+            </span>
+          </div>
           <Badge className={cfg.color}>
             {job.status === "RUNNING" && (
               <Loader2 className="mr-1 h-3 w-3 animate-spin" />
@@ -206,6 +298,8 @@ function JobCard({ job, onRetry, onSkip, retrying, skipping }: JobCardProps) {
             {cfg.label}
           </Badge>
         </div>
+        {/* Category badge for CA / TTRA jobs */}
+        <JobCategoryBadge jobKey={job.job_key} />
 
         {job.status === "COMPLETED" && (
           <div className="flex gap-4 text-xs text-muted-foreground">

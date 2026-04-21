@@ -17,6 +17,7 @@
 import { Router } from 'express';
 import { corporateActionsService } from '../../services/corporate-actions-service';
 import { asyncHandler } from '../../middleware/async-handler';
+import { requireApproval } from '../../middleware/maker-checker';
 import { db } from '../../db';
 import * as schema from '@shared/schema';
 import { eq } from 'drizzle-orm';
@@ -26,6 +27,26 @@ const router = Router();
 // ============================================================================
 // Static routes (must be declared before parameterized routes)
 // ============================================================================
+
+/** GET /summary -- Corporate actions summary */
+router.get('/summary', asyncHandler(async (req: any, res: any) => {
+  const summary = await corporateActionsService.getSummary();
+  res.json(summary);
+}));
+
+/** GET /history -- Corporate actions history */
+router.get('/history', asyncHandler(async (req: any, res: any) => {
+  const { from, to, type, status, page = '1', pageSize = '25' } = req.query;
+  const history = await corporateActionsService.getHistory({
+    from: from as string,
+    to: to as string,
+    type: type as string,
+    status: status as string,
+    page: parseInt(page as string),
+    pageSize: parseInt(pageSize as string),
+  });
+  res.json(history);
+}));
 
 /** GET /upcoming -- Upcoming corporate actions within N days */
 router.get(
@@ -57,6 +78,7 @@ router.get(
 /** POST / -- Ingest a new corporate action */
 router.post(
   '/',
+  requireApproval('corporate_actions'),
   asyncHandler(async (req, res) => {
     const {
       securityId,
@@ -68,6 +90,7 @@ router.post(
       amountPerShare,
       electionDeadline,
       source,
+      calendarKey,
     } = req.body;
 
     if (!securityId || !type || !exDate || !recordDate) {
@@ -90,6 +113,7 @@ router.post(
       amountPerShare,
       electionDeadline,
       source,
+      calendarKey,
     });
 
     res.status(201).json({ data: ca });
@@ -147,6 +171,88 @@ router.post(
 );
 
 // ============================================================================
+// Parameterized CA routes — lifecycle actions (before generic /:id)
+// ============================================================================
+
+/** PUT /:id/scrub -- Scrub a corporate action (validate fields + cross-reference security) */
+router.put(
+  '/:id/scrub',
+  requireApproval('corporate_actions'),
+  asyncHandler(async (req, res) => {
+    const caId = parseInt(req.params.id, 10);
+    if (isNaN(caId)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Invalid corporate action ID' },
+      });
+    }
+
+    try {
+      const result = await corporateActionsService.scrubEvent(caId);
+      res.json({ data: result });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Scrub failed';
+      return res.status(400).json({
+        error: { code: 'SCRUB_FAILED', message },
+      });
+    }
+  }),
+);
+
+/** PUT /:id/golden-copy -- Promote a scrubbed CA to golden copy */
+router.put(
+  '/:id/golden-copy',
+  requireApproval('corporate_actions'),
+  asyncHandler(async (req, res) => {
+    const caId = parseInt(req.params.id, 10);
+    if (isNaN(caId)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Invalid corporate action ID' },
+      });
+    }
+
+    try {
+      const result = await corporateActionsService.goldenCopy(caId);
+      res.json({ data: result });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Golden copy promotion failed';
+      return res.status(400).json({
+        error: { code: 'GOLDEN_COPY_FAILED', message },
+      });
+    }
+  }),
+);
+
+/** POST /:id/simulate -- Simulate entitlement (read-only, no maker-checker) */
+router.post(
+  '/:id/simulate',
+  asyncHandler(async (req, res) => {
+    const caId = parseInt(req.params.id, 10);
+    if (isNaN(caId)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Invalid corporate action ID' },
+      });
+    }
+
+    const { portfolioId } = req.body;
+    if (!portfolioId) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'portfolioId is required' },
+      });
+    }
+
+    try {
+      const result = await corporateActionsService.simulateEntitlement(caId, portfolioId);
+      res.json({ data: result });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Simulation failed';
+      return res.status(400).json({
+        error: { code: 'SIMULATION_FAILED', message },
+      });
+    }
+  }),
+);
+
+// ============================================================================
 // Parameterized CA routes
 // ============================================================================
 
@@ -169,6 +275,7 @@ router.get(
 /** POST /:id/calculate -- Calculate entitlements for all portfolios holding the security */
 router.post(
   '/:id/calculate',
+  requireApproval('corporate_actions'),
   asyncHandler(async (req, res) => {
     const caId = parseInt(req.params.id, 10);
     if (isNaN(caId)) {

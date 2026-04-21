@@ -59,8 +59,9 @@ router.get(
 /** POST /trigger -- Trigger new EOD run */
 router.post(
   '/trigger',
-  asyncHandler(async (req, res) => {
-    const { runDate, triggeredBy } = req.body;
+  asyncHandler(async (req: any, res: any) => {
+    const runDate = req.body.runDate || req.body.run_date;
+    const { triggeredBy } = req.body;
     if (!runDate) {
       return res.status(400).json({
         error: {

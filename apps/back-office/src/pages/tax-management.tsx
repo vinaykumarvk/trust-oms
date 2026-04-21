@@ -1,8 +1,9 @@
 /**
- * Tax Management -- Philippine Taxation Engine (Phase 3D)
+ * Tax Management -- Philippine Taxation Engine (Phase 3D + Phase 5 TTRA Integration)
  *
  * Summary cards, tax events table with pagination, BIR form generation,
- * FATCA/CRS reporting, 1601-FQ monthly filing tracker, and PH WHT rate reference.
+ * FATCA/CRS reporting, 1601-FQ monthly filing tracker, TTRA integration tab,
+ * and PH WHT rate reference (NIRC/TRAIN/CREATE).
  */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -26,7 +27,7 @@ import { Skeleton } from "@ui/components/ui/skeleton";
 import { Separator } from "@ui/components/ui/separator";
 import {
   Loader2, FileText, Globe, Calculator, Receipt,
-  ChevronLeft, ChevronRight, Info,
+  ChevronLeft, ChevronRight, Info, Shield, ArrowRight,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -44,6 +45,10 @@ interface TaxEvent {
   tin: string | null;
   bir_form_type: string | null;
   filing_status: string | null;
+  source: string | null;
+  ttra_id: string | null;
+  model_version: string | null;
+  entitlement_id: number | null;
   created_at: string;
 }
 
@@ -75,7 +80,22 @@ interface Filing1601FQ {
   totalWHT: number;
   eventCount: number;
   breakdown: Array<{ taxType: string; count: number; totalGross: number; totalTax: number }>;
+  bySource?: {
+    TRADE: { count: number; totalGross: number; totalTax: number };
+    CORPORATE_ACTION: { count: number; totalGross: number; totalTax: number };
+  };
   generatedAt: string;
+}
+
+interface TTRASummary {
+  applied: number;
+  underReview: number;
+  approved: number;
+  expired: number;
+  rejected: number;
+  renewalPending: number;
+  expiringSoon: number;
+  total: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -114,17 +134,31 @@ const statusBadgeVariant = (s: string | null) => {
   }
 };
 
+const sourceBadgeVariant = (s: string | null) => {
+  switch (s) {
+    case "CORPORATE_ACTION": return "destructive";
+    case "TRADE": return "default";
+    default: return "outline";
+  }
+};
+
 const thisYear = new Date().getFullYear();
 const today = new Date().toISOString().split("T")[0];
 const janFirst = `${thisYear}-01-01`;
 const PAGE_SIZE = 25;
 
+/** Comprehensive PH WHT rate schedule per NIRC / TRAIN / CREATE */
 const PH_WHT_RATES = [
-  { category: "UITF Distributions (Resident)", rate: "25%" },
-  { category: "UITF Distributions (Non-Resident)", rate: "30%" },
-  { category: "Fixed Income Interest", rate: "20%" },
-  { category: "Equity Dividends (Listed)", rate: "10%" },
-  { category: "Equity Dividends (Unlisted)", rate: "25%" },
+  { category: "Dividend -- Resident Individual", rate: "10%", law: "Sec 24(B)(2) NIRC/TRAIN" },
+  { category: "Dividend -- Non-Resident Engaged in Trade", rate: "20%", law: "Sec 25(A)(2)" },
+  { category: "Dividend -- Non-Resident Not Engaged in Trade", rate: "25%", law: "Sec 25(B)" },
+  { category: "Dividend -- Domestic Corporation (>=20% ownership)", rate: "0% (exempt)", law: "Sec 27(D)(4)" },
+  { category: "Dividend -- Foreign Resident Corporation", rate: "15%", law: "Sec 28(B)(5)(b) CREATE" },
+  { category: "Dividend -- Foreign Non-Resident Corporation", rate: "30%", law: "Sec 28(B)(1)" },
+  { category: "Dividend -- Treaty Rate (default)", rate: "15%", law: "Tax Treaty" },
+  { category: "Interest -- Short-Term (<5 years)", rate: "20%", law: "Sec 24(B)(1) NIRC" },
+  { category: "Interest -- Long-Term (>=5 years)", rate: "0% (exempt)", law: "TRAIN" },
+  { category: "Interest -- Foreign Currency Deposits", rate: "0% (exempt)", law: "NIRC" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -135,6 +169,7 @@ export default function TaxManagement() {
 
   // Events tab state
   const [taxTypeFilter, setTaxTypeFilter] = useState<string>("ALL");
+  const [sourceFilter, setSourceFilter] = useState<string>("ALL");
   const [portfolioFilter, setPortfolioFilter] = useState("");
   const [startDate, setStartDate] = useState(janFirst);
   const [endDate, setEndDate] = useState(today);
@@ -171,10 +206,11 @@ export default function TaxManagement() {
   });
 
   const eventsQ = useQuery<{ data: TaxEvent[]; total: number }>({
-    queryKey: ["tax-events", taxTypeFilter, portfolioFilter, startDate, endDate, page],
+    queryKey: ["tax-events", taxTypeFilter, sourceFilter, portfolioFilter, startDate, endDate, page],
     queryFn: () => {
       const params = new URLSearchParams();
       if (taxTypeFilter !== "ALL") params.set("taxType", taxTypeFilter);
+      if (sourceFilter !== "ALL") params.set("source", sourceFilter);
       if (portfolioFilter.trim()) params.set("portfolioId", portfolioFilter.trim());
       if (startDate) params.set("startDate", startDate);
       if (endDate) params.set("endDate", endDate);
@@ -185,10 +221,18 @@ export default function TaxManagement() {
     refetchInterval: 30_000,
   });
 
+  // TTRA summary query
+  const ttraSummaryQ = useQuery<TTRASummary>({
+    queryKey: ["ttra-summary-tax"],
+    queryFn: () => apiRequest("GET", apiUrl("/api/v1/ttra/summary")),
+    refetchInterval: 60_000,
+  });
+
   const summary = summaryQ.data?.data;
   const events = eventsQ.data?.data ?? [];
   const totalEvents = eventsQ.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalEvents / PAGE_SIZE));
+  const ttraSummary = ttraSummaryQ.data;
 
   // -- Mutations --
   const birMutation = useMutation({
@@ -226,7 +270,7 @@ export default function TaxManagement() {
   const filingMutation = useMutation({
     mutationFn: () => apiRequest("POST", apiUrl("/api/v1/tax/1601fq/" + filingMonth), {}),
     onSuccess: (res: { data: Filing1601FQ }) => {
-      setFilings((prev) => [res.data, ...prev.filter((f) => f.month !== res.data.month)]);
+      setFilings((prev) => [res.data, ...prev.filter((f: Filing1601FQ) => f.month !== res.data.month)]);
       qc.invalidateQueries({ queryKey: ["tax-summary"] });
     },
   });
@@ -238,20 +282,21 @@ export default function TaxManagement() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Tax Management</h1>
-          <p className="text-muted-foreground">Philippine taxation engine -- WHT, BIR forms, FATCA/CRS reporting</p>
+          <p className="text-muted-foreground">Philippine taxation engine -- WHT, BIR forms, FATCA/CRS reporting, TTRA integration</p>
         </div>
         <Dialog>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm"><Info className="mr-2 h-4 w-4" />PH WHT Rates</Button>
           </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Philippine WHT Rate Schedule</DialogTitle></DialogHeader>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader><DialogTitle>Philippine WHT Rate Schedule (NIRC / TRAIN / CREATE)</DialogTitle></DialogHeader>
             <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Category</TableHead>
                   <TableHead className="text-right">Rate</TableHead>
+                  <TableHead>Legal Basis</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -259,6 +304,7 @@ export default function TaxManagement() {
                   <TableRow key={r.category}>
                     <TableCell>{r.category}</TableCell>
                     <TableCell className="text-right font-medium">{r.rate}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{r.law}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -273,7 +319,7 @@ export default function TaxManagement() {
       {/* Summary cards */}
       {summaryQ.isLoading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+          {Array.from({ length: 4 }).map((_: unknown, i: number) => (
             <Card key={i}>
               <CardHeader className="pb-2"><Skeleton className="h-4 w-24" /></CardHeader>
               <CardContent><Skeleton className="h-8 w-32" /></CardContent>
@@ -332,6 +378,7 @@ export default function TaxManagement() {
           <TabsTrigger value="bir">BIR Forms</TabsTrigger>
           <TabsTrigger value="fatca-crs">FATCA / CRS</TabsTrigger>
           <TabsTrigger value="1601fq">1601-FQ</TabsTrigger>
+          <TabsTrigger value="ttra">TTRA</TabsTrigger>
         </TabsList>
 
         {/* ---- Tax Events ---- */}
@@ -339,7 +386,7 @@ export default function TaxManagement() {
           <div className="flex flex-wrap items-end gap-3">
             <div>
               <label className="text-xs text-muted-foreground">Tax Type</label>
-              <Select value={taxTypeFilter} onValueChange={(v) => { setTaxTypeFilter(v); setPage(1); }}>
+              <Select value={taxTypeFilter} onValueChange={(v: string) => { setTaxTypeFilter(v); setPage(1); }}>
                 <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">All Types</SelectItem>
@@ -350,16 +397,27 @@ export default function TaxManagement() {
               </Select>
             </div>
             <div>
+              <label className="text-xs text-muted-foreground">Source</label>
+              <Select value={sourceFilter} onValueChange={(v: string) => { setSourceFilter(v); setPage(1); }}>
+                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Sources</SelectItem>
+                  <SelectItem value="TRADE">Trade</SelectItem>
+                  <SelectItem value="CORPORATE_ACTION">Corporate Action</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <label className="text-xs text-muted-foreground">Portfolio</label>
-              <Input value={portfolioFilter} onChange={(e) => { setPortfolioFilter(e.target.value); setPage(1); }} placeholder="e.g. PF-001" className="w-[160px]" />
+              <Input value={portfolioFilter} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setPortfolioFilter(e.target.value); setPage(1); }} placeholder="e.g. PF-001" className="w-[160px]" />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">From</label>
-              <Input type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setPage(1); }} className="w-[160px]" />
+              <Input type="date" value={startDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setStartDate(e.target.value); setPage(1); }} className="w-[160px]" />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">To</label>
-              <Input type="date" value={endDate} onChange={(e) => { setEndDate(e.target.value); setPage(1); }} className="w-[160px]" />
+              <Input type="date" value={endDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setEndDate(e.target.value); setPage(1); }} className="w-[160px]" />
             </div>
           </div>
 
@@ -370,7 +428,8 @@ export default function TaxManagement() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
-                    <TableHead>Trade ID</TableHead>
+                    <TableHead>Source</TableHead>
+                    <TableHead>Trade / Entitlement</TableHead>
                     <TableHead>Portfolio</TableHead>
                     <TableHead>Tax Type</TableHead>
                     <TableHead className="text-right">Gross Amount</TableHead>
@@ -383,29 +442,45 @@ export default function TaxManagement() {
                 <TableBody>
                   {eventsQ.isLoading && (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8">
+                      <TableCell colSpan={10} className="text-center py-8">
                         <Loader2 className="h-5 w-5 animate-spin inline-block mr-2" />Loading...
                       </TableCell>
                     </TableRow>
                   )}
                   {!eventsQ.isLoading && events.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                         No tax events found for the selected filters.
                       </TableCell>
                     </TableRow>
                   )}
-                  {events.map((ev) => (
+                  {events.map((ev: TaxEvent) => (
                     <TableRow key={ev.id}>
                       <TableCell className="whitespace-nowrap">{fmtDate(ev.created_at)}</TableCell>
-                      <TableCell className="font-mono text-xs">{ev.trade_id ?? "-"}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Badge variant={sourceBadgeVariant(ev.source) as "default" | "destructive" | "outline" | "secondary"}>
+                            {ev.source === "CORPORATE_ACTION" ? "CA" : "TRADE"}
+                          </Badge>
+                          {ev.ttra_id && (
+                            <Badge variant="secondary" className="text-xs">
+                              <Shield className="h-3 w-3 mr-1" />Treaty
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {ev.source === "CORPORATE_ACTION"
+                          ? (ev.entitlement_id ? `ENT-${ev.entitlement_id}` : "-")
+                          : (ev.trade_id ?? "-")}
+                      </TableCell>
                       <TableCell className="font-mono text-xs">{ev.portfolio_id ?? "-"}</TableCell>
-                      <TableCell><Badge variant={taxBadgeVariant(ev.tax_type) as any}>{ev.tax_type}</Badge></TableCell>
+                      <TableCell><Badge variant={taxBadgeVariant(ev.tax_type) as "default" | "destructive" | "outline" | "secondary"}>{ev.tax_type}</Badge></TableCell>
                       <TableCell className="text-right">{fmtCurrency(ev.gross_amount)}</TableCell>
                       <TableCell className="text-right">{fmtPct(ev.tax_rate)}</TableCell>
                       <TableCell className="text-right font-medium">{fmtCurrency(ev.tax_amount)}</TableCell>
                       <TableCell>{ev.bir_form_type ?? "-"}</TableCell>
-                      <TableCell><Badge variant={statusBadgeVariant(ev.filing_status) as any}>{ev.filing_status ?? "N/A"}</Badge></TableCell>
+                      <TableCell><Badge variant={statusBadgeVariant(ev.filing_status) as "default" | "destructive" | "outline" | "secondary"}>{ev.filing_status ?? "N/A"}</Badge></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -420,10 +495,10 @@ export default function TaxManagement() {
               Showing {events.length} of {totalEvents} events (page {page} of {totalPages})
             </p>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p: number) => Math.max(1, p - 1))}>
                 <ChevronLeft className="h-4 w-4 mr-1" />Previous
               </Button>
-              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p: number) => p + 1)}>
                 Next<ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
@@ -449,15 +524,15 @@ export default function TaxManagement() {
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground">Portfolio ID (optional)</label>
-                  <Input value={birPortfolioId} onChange={(e) => setBirPortfolioId(e.target.value)} placeholder="e.g. PF-001" className="w-[180px]" />
+                  <Input value={birPortfolioId} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBirPortfolioId(e.target.value)} placeholder="e.g. PF-001" className="w-[180px]" />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground">Period From</label>
-                  <Input type="date" value={birPeriodFrom} onChange={(e) => setBirPeriodFrom(e.target.value)} className="w-[160px]" />
+                  <Input type="date" value={birPeriodFrom} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBirPeriodFrom(e.target.value)} className="w-[160px]" />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground">Period To</label>
-                  <Input type="date" value={birPeriodTo} onChange={(e) => setBirPeriodTo(e.target.value)} className="w-[160px]" />
+                  <Input type="date" value={birPeriodTo} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBirPeriodTo(e.target.value)} className="w-[160px]" />
                 </div>
                 <Button onClick={() => birMutation.mutate()} disabled={birMutation.isPending}>
                   {birMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Generate
@@ -490,7 +565,7 @@ export default function TaxManagement() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {birResult.data.map((r, i) => (
+                        {birResult.data.map((r: BIRFormResult["data"][number], i: number) => (
                           <TableRow key={i}>
                             <TableCell className="font-mono text-xs">{r.portfolioId}</TableCell>
                             <TableCell>{r.tin ?? "-"}</TableCell>
@@ -523,7 +598,7 @@ export default function TaxManagement() {
                 <div className="flex items-end gap-2">
                   <div>
                     <label className="text-xs text-muted-foreground">Year</label>
-                    <Input type="number" min={2000} max={2100} value={fatcaYear} onChange={(e) => setFatcaYear(e.target.value)} className="w-[120px]" />
+                    <Input type="number" min={2000} max={2100} value={fatcaYear} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFatcaYear(e.target.value)} className="w-[120px]" />
                   </div>
                   <Button onClick={() => fatcaMutation.mutate()} disabled={fatcaMutation.isPending}>
                     {fatcaMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Generate FATCA
@@ -552,7 +627,7 @@ export default function TaxManagement() {
                 <div className="flex items-end gap-2">
                   <div>
                     <label className="text-xs text-muted-foreground">Year</label>
-                    <Input type="number" min={2000} max={2100} value={crsYear} onChange={(e) => setCrsYear(e.target.value)} className="w-[120px]" />
+                    <Input type="number" min={2000} max={2100} value={crsYear} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCrsYear(e.target.value)} className="w-[120px]" />
                   </div>
                   <Button onClick={() => crsMutation.mutate()} disabled={crsMutation.isPending}>
                     {crsMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Generate CRS
@@ -585,7 +660,7 @@ export default function TaxManagement() {
               <div className="flex items-end gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground">Month (YYYY-MM)</label>
-                  <Input type="month" value={filingMonth} onChange={(e) => setFilingMonth(e.target.value)} className="w-[180px]" />
+                  <Input type="month" value={filingMonth} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFilingMonth(e.target.value)} className="w-[180px]" />
                 </div>
                 <Button onClick={() => filingMutation.mutate()} disabled={filingMutation.isPending}>
                   {filingMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Generate 1601-FQ
@@ -606,16 +681,20 @@ export default function TaxManagement() {
                         <TableHead>Month</TableHead>
                         <TableHead className="text-right">Total WHT</TableHead>
                         <TableHead className="text-right">Events</TableHead>
+                        <TableHead className="text-right">From Trades</TableHead>
+                        <TableHead className="text-right">From CA</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Generated</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filings.map((f) => (
+                      {filings.map((f: Filing1601FQ) => (
                         <TableRow key={f.month}>
                           <TableCell className="font-medium">{f.month}</TableCell>
                           <TableCell className="text-right font-medium">{fmtCurrency(f.totalWHT)}</TableCell>
                           <TableCell className="text-right">{f.eventCount}</TableCell>
+                          <TableCell className="text-right">{f.bySource?.TRADE?.count ?? "-"}</TableCell>
+                          <TableCell className="text-right">{f.bySource?.CORPORATE_ACTION?.count ?? "-"}</TableCell>
                           <TableCell><Badge variant="default">GENERATED</Badge></TableCell>
                           <TableCell className="text-sm text-muted-foreground">{fmtDate(f.generatedAt)}</TableCell>
                         </TableRow>
@@ -631,6 +710,86 @@ export default function TaxManagement() {
                   No filings generated yet. Select a month and click Generate.
                 </p>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ---- TTRA ---- */}
+        <TabsContent value="ttra" className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Active TTRAs</CardTitle>
+                <Shield className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{ttraSummary?.approved ?? 0}</div>
+                <p className="text-xs text-muted-foreground mt-1">Approved treaty tax relief applications</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Expiring Within 60 Days</CardTitle>
+                <FileText className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-orange-600">{ttraSummary?.expiringSoon ?? 0}</div>
+                <p className="text-xs text-muted-foreground mt-1">Require renewal action</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
+                <Globe className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{ttraSummary?.total ?? 0}</div>
+                <p className="text-xs text-muted-foreground mt-1">All TTRA applications</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">TTRA Management</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Tax Treaty Relief Applications (TTRA) enable reduced WHT rates for
+                clients covered by bilateral tax treaties. Active TTRAs are automatically
+                applied during corporate action WHT calculation.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <div className="rounded border p-3 flex-1 min-w-[200px]">
+                  <p className="text-xs text-muted-foreground">Applied</p>
+                  <p className="text-lg font-bold">{ttraSummary?.applied ?? 0}</p>
+                </div>
+                <div className="rounded border p-3 flex-1 min-w-[200px]">
+                  <p className="text-xs text-muted-foreground">Under Review</p>
+                  <p className="text-lg font-bold">{ttraSummary?.underReview ?? 0}</p>
+                </div>
+                <div className="rounded border p-3 flex-1 min-w-[200px]">
+                  <p className="text-xs text-muted-foreground">Rejected</p>
+                  <p className="text-lg font-bold">{ttraSummary?.rejected ?? 0}</p>
+                </div>
+                <div className="rounded border p-3 flex-1 min-w-[200px]">
+                  <p className="text-xs text-muted-foreground">Expired</p>
+                  <p className="text-lg font-bold">{ttraSummary?.expired ?? 0}</p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Go to the full TTRA Management dashboard for detailed application management, status transitions, and renewal tracking.
+                </p>
+                <Button variant="outline" size="sm" asChild>
+                  <a href="/compliance/ttra">
+                    Open TTRA Management <ArrowRight className="h-4 w-4 ml-2" />
+                  </a>
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

@@ -5,6 +5,7 @@
  * viewing/resolving breaks, and aging analysis.
  *
  *   GET    /runs              -- Recon run history (?type, page, pageSize)
+ *   POST   /runs/internal-triad -- Trigger internal triad recon (body: { date, triggeredBy })
  *   POST   /runs/transaction  -- Trigger transaction recon (body: { date, triggeredBy })
  *   POST   /runs/position     -- Trigger position recon (body: { date, triggeredBy })
  *   GET    /breaks            -- Get breaks (?type, status, page, pageSize)
@@ -21,6 +22,12 @@ const router = Router();
 // ============================================================================
 // Static routes
 // ============================================================================
+
+/** GET /summary -- Reconciliation summary */
+router.get('/summary', asyncHandler(async (req: any, res: any) => {
+  const summary = await reconciliationService.getSummary();
+  res.json(summary);
+}));
 
 /** GET /runs -- Recon run history */
 router.get(
@@ -40,12 +47,35 @@ router.get(
   }),
 );
 
+/** POST /runs/internal-triad -- Trigger internal triad reconciliation */
+router.post(
+  '/runs/internal-triad',
+  asyncHandler(async (req: any, res: any) => {
+    const runDate = req.body.date || req.body.run_date;
+    const { triggeredBy } = req.body;
+    if (!runDate) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'date is required (YYYY-MM-DD)',
+        },
+      });
+    }
+    const result = await reconciliationService.runInternalTriadRecon(
+      runDate,
+      triggeredBy ? parseInt(triggeredBy, 10) : undefined,
+    );
+    res.status(201).json({ data: result });
+  }),
+);
+
 /** POST /runs/transaction -- Trigger transaction reconciliation */
 router.post(
   '/runs/transaction',
-  asyncHandler(async (req, res) => {
-    const { date, triggeredBy } = req.body;
-    if (!date) {
+  asyncHandler(async (req: any, res: any) => {
+    const runDate = req.body.date || req.body.run_date;
+    const { triggeredBy } = req.body;
+    if (!runDate) {
       return res.status(400).json({
         error: {
           code: 'INVALID_INPUT',
@@ -54,7 +84,7 @@ router.post(
       });
     }
     const result = await reconciliationService.runTransactionRecon(
-      date,
+      runDate,
       triggeredBy ? parseInt(triggeredBy, 10) : undefined,
     );
     res.status(201).json({ data: result });
@@ -114,7 +144,7 @@ router.get(
 /** POST /breaks/:id/resolve -- Resolve a break */
 router.post(
   '/breaks/:id/resolve',
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req: any, res: any) => {
     const breakId = parseInt(req.params.id, 10);
     if (isNaN(breakId)) {
       return res.status(400).json({
@@ -122,15 +152,8 @@ router.post(
       });
     }
 
-    const { resolvedBy, notes } = req.body;
-    if (!resolvedBy) {
-      return res.status(400).json({
-        error: {
-          code: 'INVALID_INPUT',
-          message: 'resolvedBy (user id) is required',
-        },
-      });
-    }
+    const resolvedBy = req.body.resolvedBy || req.userId || 'system';
+    const { notes } = req.body;
     if (!notes) {
       return res.status(400).json({
         error: { code: 'INVALID_INPUT', message: 'notes is required' },

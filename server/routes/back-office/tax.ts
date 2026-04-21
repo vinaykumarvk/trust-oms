@@ -30,6 +30,7 @@ router.get(
     const result = await taxEngineService.getTaxEvents({
       portfolioId: req.query.portfolioId as string | undefined,
       taxType: req.query.taxType as string | undefined,
+      source: req.query.source as string | undefined,
       startDate: req.query.startDate as string | undefined,
       endDate: req.query.endDate as string | undefined,
       page: req.query.page ? parseInt(req.query.page as string, 10) : undefined,

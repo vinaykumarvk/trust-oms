@@ -69,6 +69,7 @@ import {
   Loader2,
   Upload,
   FileUp,
+  Triangle,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -112,6 +113,18 @@ interface BreakAging {
   label: string;
   count: number;
   color: string;
+}
+
+interface InternalTriadBreak {
+  id: string;
+  entity_id: string;
+  break_type: string;
+  internal_value: string | number | null;
+  external_value: string | number | null;
+  difference: string | number | null;
+  break_status: BreakStatus;
+  created_at: string;
+  type: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -348,7 +361,7 @@ function RunsTab() {
     },
   });
 
-  const runs = runsQuery.data ?? [];
+  const runs = runsQuery.data?.data ?? [];
 
   return (
     <div className="space-y-4">
@@ -476,14 +489,14 @@ function BreaksTab() {
     },
   });
 
-  const agingData = agingQuery.data ?? [
+  const agingData = agingQuery.data?.data ?? [
     { label: "0-1d", count: 0, color: AGING_COLORS[0] },
     { label: "2-3d", count: 0, color: AGING_COLORS[1] },
     { label: "4-7d", count: 0, color: AGING_COLORS[2] },
     { label: "7+d", count: 0, color: AGING_COLORS[3] },
   ];
 
-  const breaks = breaksQuery.data ?? [];
+  const breaks = breaksQuery.data?.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -671,6 +684,232 @@ function UploadTab() {
 }
 
 // ---------------------------------------------------------------------------
+// Internal Recon Tab
+// ---------------------------------------------------------------------------
+
+function InternalReconTab() {
+  const qc = useQueryClient();
+  const today = new Date().toISOString().split("T")[0];
+  const [reconDate, setReconDate] = useState(today);
+
+  // Query internal triad breaks
+  const breaksQuery = useQuery<{ data: InternalTriadBreak[]; total: number }>({
+    queryKey: ["recon-breaks-internal-triad"],
+    queryFn: () =>
+      apiRequest(
+        "GET",
+        apiUrl("/api/v1/reconciliation/breaks?type=INTERNAL_TRIAD"),
+      ),
+  });
+
+  // Trigger internal triad recon
+  const triggerMutation = useMutation({
+    mutationFn: (date: string) =>
+      apiRequest(
+        "POST",
+        apiUrl("/api/v1/reconciliation/runs/internal-triad"),
+        { date },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["recon-breaks-internal-triad"] });
+      qc.invalidateQueries({ queryKey: ["recon-runs"] });
+      qc.invalidateQueries({ queryKey: ["recon-summary"] });
+    },
+  });
+
+  const breaks = breaksQuery.data?.data ?? [];
+  const openBreaks = breaks.filter(
+    (b: InternalTriadBreak) =>
+      b.break_status === "OPEN" || b.break_status === "INVESTIGATING",
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Card */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Internal Triad Breaks
+                </p>
+                <p className="mt-1 text-3xl font-bold text-foreground">
+                  {openBreaks.length}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Open / Investigating
+                </p>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-600">
+                <Triangle className="h-5 w-5 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Total Triad Breaks
+                </p>
+                <p className="mt-1 text-3xl font-bold text-foreground">
+                  {breaks.length}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  All statuses
+                </p>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-600">
+                <GitCompareArrows className="h-5 w-5 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Run Internal Recon */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">
+            Run Internal Triad Reconciliation
+          </CardTitle>
+          <CardDescription>
+            Compare custody positions (market values) against NAV accounting
+            valuations for each portfolio.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-end gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Reconciliation Date</label>
+              <Input
+                type="date"
+                value={reconDate}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setReconDate(e.target.value)
+                }
+                className="w-48"
+              />
+            </div>
+            <Button
+              onClick={() => triggerMutation.mutate(reconDate)}
+              disabled={!reconDate || triggerMutation.isPending}
+            >
+              {triggerMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Play className="mr-2 h-4 w-4" />
+              )}
+              Run Internal Recon
+            </Button>
+          </div>
+          {triggerMutation.isSuccess && (
+            <p className="mt-3 text-sm text-green-600">
+              Internal triad reconciliation completed successfully.
+            </p>
+          )}
+          {triggerMutation.isError && (
+            <p className="mt-3 text-sm text-red-600">
+              Failed to run internal triad reconciliation. Please try again.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Results Table */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">
+            Internal Triad Breaks
+          </CardTitle>
+          <CardDescription>
+            Custody vs. Accounting value discrepancies by portfolio
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto rounded-md border-t">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Break ID</TableHead>
+                  <TableHead>Portfolio</TableHead>
+                  <TableHead className="text-right">
+                    Custody Value
+                  </TableHead>
+                  <TableHead className="text-right">
+                    Accounting Value
+                  </TableHead>
+                  <TableHead className="text-right">Difference</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {breaksQuery.isLoading ? (
+                  Array.from({ length: 5 }).map((_: unknown, i: number) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: 6 }).map(
+                        (_: unknown, j: number) => (
+                          <TableCell key={j}>
+                            <Skeleton className="h-4 w-16" />
+                          </TableCell>
+                        ),
+                      )}
+                    </TableRow>
+                  ))
+                ) : breaks.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={6}
+                      className="text-center text-muted-foreground py-8"
+                    >
+                      No internal triad breaks found. Run a reconciliation to
+                      check for discrepancies.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  breaks.map((brk: InternalTriadBreak) => {
+                    const statusCfg =
+                      BREAK_STATUS_CONFIG[brk.break_status] ??
+                      BREAK_STATUS_CONFIG.OPEN;
+                    return (
+                      <TableRow key={brk.id}>
+                        <TableCell className="font-mono text-xs">
+                          {brk.id}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {brk.entity_id}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          {formatNumber(brk.internal_value)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          {formatNumber(brk.external_value)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          {formatNumber(brk.difference)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={statusCfg.color}>
+                            {statusCfg.label}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
 
@@ -754,6 +993,7 @@ export default function Reconciliation() {
         <TabsList>
           <TabsTrigger value="runs">Runs</TabsTrigger>
           <TabsTrigger value="breaks">Breaks</TabsTrigger>
+          <TabsTrigger value="internal-recon">Internal Recon</TabsTrigger>
           <TabsTrigger value="upload">Upload</TabsTrigger>
         </TabsList>
         <TabsContent value="runs">
@@ -761,6 +1001,9 @@ export default function Reconciliation() {
         </TabsContent>
         <TabsContent value="breaks">
           <BreaksTab />
+        </TabsContent>
+        <TabsContent value="internal-recon">
+          <InternalReconTab />
         </TabsContent>
         <TabsContent value="upload">
           <UploadTab />

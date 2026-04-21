@@ -17,13 +17,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/components/ui/tabs
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@ui/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ui/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@ui/components/ui/table";
-import { CalendarDays, ListChecks, History, RefreshCw, Calculator, FileCheck, TrendingUp, Layers } from "lucide-react";
+import { CalendarDays, ListChecks, History, RefreshCw, Calculator, FileCheck, TrendingUp, Layers, Workflow, FlaskConical, ChevronRight, AlertTriangle } from "lucide-react";
 
 /* ---------- Types ---------- */
 interface CorporateAction {
   id: string; security_name: string; security_code: string; type: string;
   ex_date: string; record_date: string; payment_date: string;
   ratio?: string; amount?: number; status: string;
+  ca_status?: string; amount_per_share?: string;
 }
 interface Entitlement {
   id: string; corporate_action_id: string; ca_type: string; security_name: string;
@@ -32,6 +33,78 @@ interface Entitlement {
   position_change?: number; cash_change?: number;
 }
 interface CASummary { pending_count: number; upcoming_30d: number; processed_today: number; total_entitlements: number; }
+interface SimulationResult {
+  corporate_action_id: number; portfolio_id: string; security_id: number;
+  ca_type: string; position_qty: number; entitled_qty: number;
+  estimated_tax: number; net_amount: number; simulation: boolean;
+}
+interface Portfolio { portfolio_id: string; type?: string; base_currency?: string; }
+
+/* ---------- CA Type Categories (31 types) ---------- */
+const CA_TYPE_GROUPS: Array<{ label: string; types: Array<{ value: string; label: string }> }> = [
+  {
+    label: "Mandatory Financial",
+    types: [
+      { value: "DIVIDEND_CASH", label: "Cash Dividend" },
+      { value: "DIVIDEND_STOCK", label: "Stock Dividend" },
+      { value: "COUPON", label: "Coupon" },
+      { value: "SPLIT", label: "Stock Split" },
+      { value: "REVERSE_SPLIT", label: "Reverse Split" },
+      { value: "CONSOLIDATION", label: "Consolidation" },
+      { value: "BONUS", label: "Bonus" },
+      { value: "BONUS_ISSUE", label: "Bonus Issue" },
+      { value: "PARTIAL_REDEMPTION", label: "Partial Redemption" },
+      { value: "FULL_REDEMPTION", label: "Full Redemption" },
+      { value: "MATURITY", label: "Maturity" },
+      { value: "CAPITAL_DISTRIBUTION", label: "Capital Distribution" },
+      { value: "CAPITAL_GAINS_DISTRIBUTION", label: "Capital Gains Distribution" },
+      { value: "RETURN_OF_CAPITAL", label: "Return of Capital" },
+    ],
+  },
+  {
+    label: "Mandatory Non-Financial",
+    types: [
+      { value: "NAME_CHANGE", label: "Name Change" },
+      { value: "ISIN_CHANGE", label: "ISIN Change" },
+      { value: "TICKER_CHANGE", label: "Ticker Change" },
+      { value: "PAR_VALUE_CHANGE", label: "Par Value Change" },
+      { value: "SECURITY_RECLASSIFICATION", label: "Security Reclassification" },
+    ],
+  },
+  {
+    label: "Voluntary",
+    types: [
+      { value: "TENDER", label: "Tender Offer" },
+      { value: "RIGHTS", label: "Rights Issue" },
+      { value: "BUYBACK", label: "Buyback" },
+      { value: "DUTCH_AUCTION", label: "Dutch Auction" },
+      { value: "EXCHANGE_OFFER", label: "Exchange Offer" },
+      { value: "WARRANT_EXERCISE", label: "Warrant Exercise" },
+      { value: "CONVERSION", label: "Conversion" },
+      { value: "MERGER", label: "Merger" },
+      { value: "PROXY_VOTE", label: "Proxy Vote" },
+      { value: "CLASS_ACTION", label: "Class Action" },
+    ],
+  },
+  {
+    label: "Mandatory With Choice",
+    types: [
+      { value: "DIVIDEND_WITH_OPTION", label: "Dividend With Option" },
+      { value: "MERGER_WITH_ELECTION", label: "Merger With Election" },
+      { value: "SPINOFF_WITH_OPTION", label: "Spinoff With Option" },
+    ],
+  },
+];
+
+/* ---------- Pipeline status columns ---------- */
+const PIPELINE_COLUMNS = [
+  { key: "ANNOUNCED", label: "Announced", color: "bg-yellow-500" },
+  { key: "SCRUBBED", label: "Scrubbed", color: "bg-orange-500" },
+  { key: "GOLDEN_COPY", label: "Golden Copy", color: "bg-blue-500" },
+  { key: "ENTITLED", label: "Entitled", color: "bg-indigo-500" },
+  { key: "ELECTED", label: "Elected", color: "bg-purple-500" },
+  { key: "SETTLED", label: "Settled", color: "bg-green-500" },
+] as const;
 
 /* ---------- Helpers ---------- */
 const CA_TYPE_COLORS: Record<string, string> = {
@@ -41,6 +114,9 @@ const CA_TYPE_COLORS: Record<string, string> = {
 const STATUS_COLORS: Record<string, string> = {
   PENDING: "bg-yellow-100 text-yellow-800", CALCULATED: "bg-blue-100 text-blue-800",
   ELECTED: "bg-indigo-100 text-indigo-800", POSTED: "bg-green-100 text-green-800", CANCELLED: "bg-muted text-foreground",
+  ANNOUNCED: "bg-yellow-100 text-yellow-800", SCRUBBED: "bg-orange-100 text-orange-800",
+  GOLDEN_COPY: "bg-blue-100 text-blue-800", ENTITLED: "bg-indigo-100 text-indigo-800",
+  SETTLED: "bg-green-100 text-green-800", REVERSED: "bg-red-100 text-red-800",
 };
 const fmtDate = (d: string) => { try { return new Date(d).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }); } catch { return d; } };
 const fmtPHP = (n: number) => n.toLocaleString("en-PH", { style: "currency", currency: "PHP", minimumFractionDigits: 2 });
@@ -99,19 +175,24 @@ export default function CorporateActions() {
   const [historyFrom, setHistoryFrom] = useState("");
   const [historyTo, setHistoryTo] = useState("");
 
+  // --- Simulation state ---
+  const [simCaId, setSimCaId] = useState<string>("");
+  const [simPortfolioId, setSimPortfolioId] = useState<string>("");
+  const [simResult, setSimResult] = useState<SimulationResult | null>(null);
+
   // --- Queries ---
   const summaryQ = useQuery<CASummary>({ queryKey: ["ca-summary"], queryFn: () => apiRequest("GET", apiUrl("/api/v1/corporate-actions/summary")), refetchInterval: 30_000 });
   const summary = summaryQ.data ?? { pending_count: 0, upcoming_30d: 0, processed_today: 0, total_entitlements: 0 };
 
   const upcomingQ = useQuery<CorporateAction[]>({ queryKey: ["ca-upcoming"], queryFn: () => apiRequest("GET", apiUrl("/api/v1/corporate-actions/upcoming?days=30")), refetchInterval: 30_000 });
-  const upcomingCAs = upcomingQ.data ?? [];
+  const upcomingCAs = upcomingQ.data?.data ?? [];
 
   const entQ = useQuery<Entitlement[]>({
     queryKey: ["ca-entitlements", selectedCaId],
     queryFn: () => { const u = selectedCaId ? `/api/v1/corporate-actions/${selectedCaId}/entitlements` : "/api/v1/corporate-actions/entitlements"; return apiRequest("GET", apiUrl(u)); },
     refetchInterval: 30_000, enabled: tab === "entitlements",
   });
-  const entitlements = entQ.data ?? [];
+  const entitlements = entQ.data?.data ?? [];
 
   const historyParams = useMemo(() => { const p = new URLSearchParams(); if (historyFrom) p.set("from", historyFrom); if (historyTo) p.set("to", historyTo); return p.toString(); }, [historyFrom, historyTo]);
   const historyQ = useQuery<CorporateAction[]>({
@@ -119,11 +200,43 @@ export default function CorporateActions() {
     queryFn: () => apiRequest("GET", apiUrl(`/api/v1/corporate-actions/history${historyParams ? `?${historyParams}` : ""}`)),
     refetchInterval: 30_000, enabled: tab === "history",
   });
-  const historyCAs = historyQ.data ?? [];
+  const historyCAs = historyQ.data?.data ?? [];
+
+  // Pipeline: fetch ALL CAs (large page) to group by status
+  const pipelineQ = useQuery<{ data: CorporateAction[]; total: number }>({
+    queryKey: ["ca-pipeline"],
+    queryFn: () => apiRequest("GET", apiUrl("/api/v1/corporate-actions?pageSize=100")),
+    refetchInterval: 30_000,
+    enabled: tab === "pipeline",
+  });
+  const pipelineCAs = pipelineQ.data?.data ?? [];
+
+  // Portfolios (for simulation dropdown)
+  const portfoliosQ = useQuery<Portfolio[]>({
+    queryKey: ["portfolios-list"],
+    queryFn: () => apiRequest("GET", apiUrl("/api/v1/portfolios?pageSize=100")),
+    enabled: tab === "simulation",
+  });
+  const portfoliosList: Portfolio[] = portfoliosQ.data?.data ?? portfoliosQ.data ?? [];
+
+  // All CAs for the simulation dropdown (reuse pipeline or separate)
+  const allCAsQ = useQuery<{ data: CorporateAction[] }>({
+    queryKey: ["ca-all-for-sim"],
+    queryFn: () => apiRequest("GET", apiUrl("/api/v1/corporate-actions?pageSize=100")),
+    enabled: tab === "simulation",
+  });
+  const allCAsForSim = allCAsQ.data?.data ?? [];
 
   // --- Mutations ---
-  const invalidateCA = () => { qc.invalidateQueries({ queryKey: ["ca-upcoming"] }); qc.invalidateQueries({ queryKey: ["ca-entitlements"] }); qc.invalidateQueries({ queryKey: ["ca-summary"] }); };
+  const invalidateCA = () => { qc.invalidateQueries({ queryKey: ["ca-upcoming"] }); qc.invalidateQueries({ queryKey: ["ca-entitlements"] }); qc.invalidateQueries({ queryKey: ["ca-summary"] }); qc.invalidateQueries({ queryKey: ["ca-pipeline"] }); };
   const calcMut = useMutation({ mutationFn: (id: string) => apiRequest("POST", apiUrl(`/api/v1/corporate-actions/${id}/calculate`)), onSuccess: invalidateCA });
+  const scrubMut = useMutation({ mutationFn: (id: string) => apiRequest("PUT", apiUrl(`/api/v1/corporate-actions/${id}/scrub`)), onSuccess: invalidateCA });
+  const goldenCopyMut = useMutation({ mutationFn: (id: string) => apiRequest("PUT", apiUrl(`/api/v1/corporate-actions/${id}/golden-copy`)), onSuccess: invalidateCA });
+  const simulateMut = useMutation({
+    mutationFn: ({ caId, portfolioId }: { caId: string; portfolioId: string }) =>
+      apiRequest("POST", apiUrl(`/api/v1/corporate-actions/${caId}/simulate`), { portfolioId }),
+    onSuccess: (data: { data: SimulationResult }) => { setSimResult(data.data); },
+  });
   const electMut = useMutation({
     mutationFn: ({ entId, option }: { entId: string; option: string }) => apiRequest("POST", apiUrl(`/api/v1/corporate-actions/entitlements/${entId}/elect`), { option }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["ca-entitlements"] }); qc.invalidateQueries({ queryKey: ["ca-summary"] }); setElectOpen(false); },
@@ -173,7 +286,9 @@ export default function CorporateActions() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="calendar"><CalendarDays className="mr-1 h-4 w-4" /> Calendar</TabsTrigger>
+          <TabsTrigger value="pipeline"><Workflow className="mr-1 h-4 w-4" /> Pipeline</TabsTrigger>
           <TabsTrigger value="entitlements"><ListChecks className="mr-1 h-4 w-4" /> Entitlements</TabsTrigger>
+          <TabsTrigger value="simulation"><FlaskConical className="mr-1 h-4 w-4" /> Simulation</TabsTrigger>
           <TabsTrigger value="history"><History className="mr-1 h-4 w-4" /> History</TabsTrigger>
         </TabsList>
 
@@ -188,6 +303,72 @@ export default function CorporateActions() {
               </TableBody>
             </Table></div></CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Pipeline — Kanban-like view grouped by status */}
+        <TabsContent value="pipeline" className="mt-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            {PIPELINE_COLUMNS.map((col) => {
+              const items = pipelineCAs.filter((ca: CorporateAction) => (ca.ca_status ?? ca.status) === col.key);
+              return (
+                <div key={col.key} className="flex flex-col rounded-lg border bg-card">
+                  <div className="flex items-center gap-2 border-b px-3 py-2">
+                    <div className={`h-2 w-2 rounded-full ${col.color}`} />
+                    <span className="text-sm font-semibold">{col.label}</span>
+                    <Badge variant="secondary" className="ml-auto text-xs">{items.length}</Badge>
+                  </div>
+                  <div className="flex-1 space-y-2 p-2 max-h-[500px] overflow-y-auto">
+                    {pipelineQ.isLoading ? (
+                      Array.from({ length: 2 }).map((_: unknown, i: number) => <Skeleton key={i} className="h-24 w-full rounded-md" />)
+                    ) : items.length === 0 ? (
+                      <p className="py-6 text-center text-xs text-muted-foreground">No items</p>
+                    ) : (
+                      items.map((ca: CorporateAction) => (
+                        <Card key={ca.id} className="shadow-sm">
+                          <CardContent className="p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium truncate max-w-[120px]">{ca.security_name ?? `Security #${ca.id}`}</span>
+                              <Badge className={badgeCls(CA_TYPE_COLORS, ca.type)} variant="secondary">{(ca.type ?? "").replace(/_/g, " ")}</Badge>
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              Ex: {ca.ex_date ? fmtDate(ca.ex_date) : "N/A"}
+                            </div>
+                            <div className="flex gap-1">
+                              {col.key === "ANNOUNCED" && (
+                                <Button size="sm" variant="outline" className="text-xs h-7 w-full" onClick={() => scrubMut.mutate(ca.id)} disabled={scrubMut.isPending}>
+                                  <ChevronRight className="mr-1 h-3 w-3" />Scrub
+                                </Button>
+                              )}
+                              {col.key === "SCRUBBED" && (
+                                <Button size="sm" variant="outline" className="text-xs h-7 w-full" onClick={() => goldenCopyMut.mutate(ca.id)} disabled={goldenCopyMut.isPending}>
+                                  <ChevronRight className="mr-1 h-3 w-3" />Golden Copy
+                                </Button>
+                              )}
+                              {col.key === "GOLDEN_COPY" && (
+                                <Button size="sm" variant="outline" className="text-xs h-7 w-full" onClick={() => calcMut.mutate(ca.id)} disabled={calcMut.isPending}>
+                                  <Calculator className="mr-1 h-3 w-3" />Calculate
+                                </Button>
+                              )}
+                              {col.key === "ENTITLED" && (
+                                <Button size="sm" variant="outline" className="text-xs h-7 w-full" onClick={() => { setSelectedCaId(ca.id); setTab("entitlements"); }}>
+                                  <ChevronRight className="mr-1 h-3 w-3" />Elect
+                                </Button>
+                              )}
+                              {col.key === "ELECTED" && (
+                                <Button size="sm" variant="outline" className="text-xs h-7 w-full" onClick={() => { setSelectedCaId(ca.id); setTab("entitlements"); }}>
+                                  <ChevronRight className="mr-1 h-3 w-3" />Post
+                                </Button>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </TabsContent>
 
         {/* Entitlements */}
@@ -237,6 +418,119 @@ export default function CorporateActions() {
               </TableBody>
             </Table></div></CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Simulation — What-if calculator */}
+        <TabsContent value="simulation" className="mt-4">
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Input panel */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FlaskConical className="h-4 w-4" /> What-If Simulator
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="rounded-lg border border-yellow-300 bg-yellow-50 p-3 flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 shrink-0" />
+                  <p className="text-xs text-yellow-800 font-medium">SIMULATION ONLY -- no data persisted</p>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Corporate Action</label>
+                  <Select value={simCaId} onValueChange={(v: string) => { setSimCaId(v); setSimResult(null); }}>
+                    <SelectTrigger><SelectValue placeholder="Select corporate action" /></SelectTrigger>
+                    <SelectContent>
+                      {CA_TYPE_GROUPS.map((group: typeof CA_TYPE_GROUPS[number]) => (
+                        <div key={group.label}>
+                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{group.label}</div>
+                          {allCAsForSim
+                            .filter((ca: CorporateAction) => group.types.some((t: typeof group.types[number]) => t.value === ca.type))
+                            .map((ca: CorporateAction) => (
+                              <SelectItem key={ca.id} value={ca.id}>
+                                {ca.security_name ?? `CA #${ca.id}`} -- {(ca.type ?? "").replace(/_/g, " ")} (Ex: {ca.ex_date ?? "N/A"})
+                              </SelectItem>
+                            ))}
+                        </div>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Portfolio</label>
+                  <Select value={simPortfolioId} onValueChange={(v: string) => { setSimPortfolioId(v); setSimResult(null); }}>
+                    <SelectTrigger><SelectValue placeholder="Select portfolio" /></SelectTrigger>
+                    <SelectContent>
+                      {portfoliosList.map((p: Portfolio) => (
+                        <SelectItem key={p.portfolio_id} value={p.portfolio_id}>
+                          {p.portfolio_id} {p.type ? `(${p.type})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Button
+                  className="w-full"
+                  onClick={() => { if (simCaId && simPortfolioId) simulateMut.mutate({ caId: simCaId, portfolioId: simPortfolioId }); }}
+                  disabled={!simCaId || !simPortfolioId || simulateMut.isPending}
+                >
+                  <FlaskConical className="mr-2 h-4 w-4" />
+                  {simulateMut.isPending ? "Simulating..." : "Run Simulation"}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Results panel */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Simulation Results</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {simulateMut.isError && (
+                  <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+                    Simulation failed: {(simulateMut.error as Error)?.message ?? "Unknown error"}
+                  </div>
+                )}
+                {!simResult && !simulateMut.isError && (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                    <FlaskConical className="h-10 w-10 mb-3 opacity-30" />
+                    <p className="text-sm">Select a CA and portfolio, then run the simulation</p>
+                  </div>
+                )}
+                {simResult && (
+                  <div className="space-y-4">
+                    <div className="rounded-lg border border-yellow-300 bg-yellow-50 p-2 text-center">
+                      <span className="text-xs font-semibold text-yellow-800">SIMULATION ONLY -- no data persisted</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-lg border p-3">
+                        <p className="text-xs text-muted-foreground">CA Type</p>
+                        <p className="text-sm font-semibold">{(simResult.ca_type ?? "").replace(/_/g, " ")}</p>
+                      </div>
+                      <div className="rounded-lg border p-3">
+                        <p className="text-xs text-muted-foreground">Position Qty</p>
+                        <p className="text-sm font-semibold font-mono">{fmtQty(simResult.position_qty)}</p>
+                      </div>
+                      <div className="rounded-lg border p-3">
+                        <p className="text-xs text-muted-foreground">Entitled Qty</p>
+                        <p className="text-lg font-bold font-mono text-primary">{fmtQty(simResult.entitled_qty)}</p>
+                      </div>
+                      <div className="rounded-lg border p-3">
+                        <p className="text-xs text-muted-foreground">Estimated WHT</p>
+                        <p className="text-sm font-semibold font-mono text-red-600">{fmtPHP(simResult.estimated_tax)}</p>
+                      </div>
+                    </div>
+                    <div className="rounded-lg border bg-primary/5 p-4 text-center">
+                      <p className="text-xs text-muted-foreground mb-1">Net Amount (After Tax)</p>
+                      <p className="text-2xl font-bold font-mono text-primary">{fmtPHP(simResult.net_amount)}</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* History */}

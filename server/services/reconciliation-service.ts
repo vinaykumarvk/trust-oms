@@ -155,6 +155,146 @@ export const reconciliationService = {
   },
 
   // -------------------------------------------------------------------------
+  // Run internal triad reconciliation (custody vs. accounting) for a date
+  // -------------------------------------------------------------------------
+  async runInternalTriadRecon(date: string, triggeredBy?: number) {
+    // Create the recon run record
+    const [run] = await db
+      .insert(schema.reconRuns)
+      .values({
+        type: 'INTERNAL_TRIAD',
+        run_date: date,
+        recon_status: 'RUNNING',
+        started_at: new Date(),
+        triggered_by: triggeredBy ?? null,
+      })
+      .returning();
+
+    try {
+      // Step 1: Query all positions (custody source of truth)
+      const positions = await db
+        .select()
+        .from(schema.positions);
+
+      // Step 2: Query all NAV computations for the specified date (accounting valuation)
+      const navComps = await db
+        .select()
+        .from(schema.navComputations)
+        .where(eq(schema.navComputations.computation_date, date));
+
+      // Step 3: Group positions by portfolio_id
+      const positionsByPortfolio = new Map<string, typeof positions>();
+      for (const pos of positions) {
+        const pid = pos.portfolio_id ?? '__unknown__';
+        const group = positionsByPortfolio.get(pid);
+        if (group) {
+          group.push(pos);
+        } else {
+          positionsByPortfolio.set(pid, [pos]);
+        }
+      }
+
+      // Build a lookup of NAV computations by portfolio_id
+      const navByPortfolio = new Map<string, typeof navComps[number]>();
+      for (const nav of navComps) {
+        if (nav.portfolio_id) {
+          navByPortfolio.set(nav.portfolio_id, nav);
+        }
+      }
+
+      // Step 4: For each portfolio, compare custody total vs accounting total
+      const breaks: Array<{
+        type: string;
+        entity_id: string;
+        break_type: string;
+        internal_value: string;
+        external_value: string;
+        difference: string;
+      }> = [];
+
+      // Collect all unique portfolio IDs from both positions and NAV computations
+      const allPortfolioIds = new Set<string>([
+        ...positionsByPortfolio.keys(),
+        ...navByPortfolio.keys(),
+      ]);
+
+      for (const portfolioId of allPortfolioIds) {
+        if (portfolioId === '__unknown__') continue;
+
+        // Sum position market_values as custodyTotal
+        const portfolioPositions = positionsByPortfolio.get(portfolioId) ?? [];
+        const custodyTotal = portfolioPositions.reduce(
+          (sum: number, pos: typeof positions[number]) =>
+            sum + parseFloat(pos.market_value ?? '0'),
+          0,
+        );
+
+        // Find the NAV computation for this portfolio and date
+        const navComp = navByPortfolio.get(portfolioId);
+        const accountingTotal = navComp ? parseFloat(navComp.total_nav ?? '0') : 0;
+
+        // Calculate variance
+        const variance = Math.abs(custodyTotal - accountingTotal);
+
+        // If variance > threshold, create a break
+        if (variance > 0.01) {
+          breaks.push({
+            type: 'INTERNAL_TRIAD',
+            entity_id: portfolioId,
+            break_type: 'CUSTODY_VS_ACCOUNTING',
+            internal_value: String(custodyTotal),
+            external_value: String(accountingTotal),
+            difference: String(custodyTotal - accountingTotal),
+          });
+        }
+      }
+
+      // Step 5: Insert break records
+      for (const brk of breaks) {
+        await db.insert(schema.reconBreaks).values({
+          run_id: run.id,
+          type: brk.type,
+          entity_id: brk.entity_id,
+          break_type: brk.break_type,
+          internal_value: brk.internal_value,
+          external_value: brk.external_value,
+          difference: brk.difference,
+          break_status: 'OPEN',
+        });
+      }
+
+      // Step 6: Update run record with totals
+      const totalRecords = allPortfolioIds.size - (positionsByPortfolio.has('__unknown__') ? 1 : 0);
+      const matchedRecords = totalRecords - breaks.length;
+
+      const [updatedRun] = await db
+        .update(schema.reconRuns)
+        .set({
+          recon_status: 'COMPLETED',
+          completed_at: new Date(),
+          total_records: totalRecords,
+          matched_records: Math.max(matchedRecords, 0),
+          breaks_found: breaks.length,
+        })
+        .where(eq(schema.reconRuns.id, run.id))
+        .returning();
+
+      return { run: updatedRun, breaks_created: breaks.length };
+    } catch (err) {
+      // Mark run as failed
+      await db
+        .update(schema.reconRuns)
+        .set({
+          recon_status: 'FAILED',
+          completed_at: new Date(),
+        })
+        .where(eq(schema.reconRuns.id, run.id));
+
+      throw err;
+    }
+  },
+
+  // -------------------------------------------------------------------------
   // Run position reconciliation for a date
   // -------------------------------------------------------------------------
   async runPositionRecon(date: string, triggeredBy?: number) {
@@ -365,6 +505,27 @@ export const reconciliationService = {
     return {
       buckets,
       total: openBreaks.length,
+    };
+  },
+
+  // -------------------------------------------------------------------------
+  // Get reconciliation summary
+  // -------------------------------------------------------------------------
+  async getSummary() {
+    const runs = await db.select().from(schema.reconRuns).where(eq(schema.reconRuns.is_deleted, false));
+    const breaks = await db.select().from(schema.reconBreaks).where(eq(schema.reconBreaks.is_deleted, false));
+    const today = new Date().toISOString().split('T')[0];
+
+    const lastRun = runs.sort((a: typeof runs[number], b: typeof runs[number]) => (b.started_at?.getTime() || 0) - (a.started_at?.getTime() || 0))[0];
+    const openBreaks = breaks.filter((b: typeof breaks[number]) => b.break_status === 'OPEN' || b.break_status === 'INVESTIGATING');
+    const resolvedToday = breaks.filter((b: typeof breaks[number]) => b.resolved_at && b.resolved_at.toISOString().split('T')[0] === today);
+
+    return {
+      totalRuns: runs.length,
+      lastRunStatus: lastRun?.recon_status || 'N/A',
+      lastRunDate: lastRun?.run_date || null,
+      openBreaks: openBreaks.length,
+      resolvedToday: resolvedToday.length,
     };
   },
 
