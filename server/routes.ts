@@ -60,6 +60,26 @@ import creditNotesRouter from './routes/back-office/credit-notes';
 import feeReportsRouter from './routes/back-office/fee-reports';
 import authRouter from './routes/auth';
 import glRouter from './routes/back-office/gl';
+import circuitBreakerRouter from './routes/back-office/circuit-breakers';
+import collectionTriggersRouter from './routes/back-office/collection-triggers';
+import tfpEventFeesRouter from './routes/back-office/tfp-event-fees';
+import contentPacksRouter from './routes/back-office/content-packs';
+import dsarRouter from './routes/back-office/dsar';
+import regulatoryCalendarRouter from './routes/back-office/regulatory-calendar';
+import campaignRouter from './routes/back-office/campaigns';
+import serviceRequestRouter from './routes/back-office/service-requests';
+import riskProfilingRouter from './routes/back-office/risk-profiling';
+import proposalsRouter from './routes/back-office/proposals';
+import leadMgmtRouter from './routes/back-office/leads';
+import prospectMgmtRouter from './routes/back-office/prospects';
+import negativeListRouter from './routes/back-office/negative-list';
+import hamRouter from './routes/back-office/handover';
+import meetingsRouter from './routes/back-office/meetings';
+import callReportsRouter from './routes/back-office/call-reports';
+import opportunitiesRouter from './routes/back-office/opportunities';
+import crmTasksRouter from './routes/back-office/tasks';
+import crmNotificationsRouter from './routes/back-office/notifications';
+import crmHandoversRouter from './routes/back-office/crm-handovers';
 
 export function registerRoutes(app: Express) {
   // API v1 routes
@@ -244,9 +264,86 @@ export function registerRoutes(app: Express) {
   // Fee Reports — TrustFees Pro Phase 10
   app.use('/api/v1/fee-reports', feeReportsRouter);
 
+  // Circuit Breaker Dashboard — TrustFees Pro Gap A03
+  app.use('/api/v1/circuit-breakers', circuitBreakerRouter);
+
+  // Collection Triggers — TrustFees Pro Gap C12
+  app.use('/api/v1/collection-triggers', collectionTriggersRouter);
+
+  // TFP Event Fees — TrustFees Pro Gap C06
+  app.use('/api/v1/tfp-event-fees', tfpEventFeesRouter);
+
+  // Content Packs — TrustFees Pro Gap A14/B04
+  app.use('/api/v1/content-packs', contentPacksRouter);
+
+  // DSAR Requests — TrustFees Pro Gap A15/B05/B06/B07
+  app.use('/api/v1/dsar', dsarRouter);
+
+  // Regulatory Calendar — TrustFees Pro Gap A18/A19
+  app.use('/api/v1/regulatory-calendar', regulatoryCalendarRouter);
+
   // Enterprise GL & Posting Engine routes
   app.use('/api/v1/gl', glRouter);
+
+  // Campaign Management custom routes (lifecycle, dispatch, interactions)
+  app.use('/api/v1/campaign-mgmt', campaignRouter);
+
+  // Service Request / Task Management routes
+  app.use('/api/v1/service-requests', serviceRequestRouter);
+
+  // Risk Profiling & Proposal Generation routes (RP-PGM Module)
+  app.use('/api/v1/risk-profiling', riskProfilingRouter);
+  app.use('/api/v1/proposals', proposalsRouter);
+
+  // Lead Management custom routes (CRM Phase 2 — lifecycle, conversion, sub-entities)
+  app.use('/api/v1/lead-mgmt', leadMgmtRouter);
+
+  // Prospect Management custom routes (CRM Phase 2 — lifecycle, conversion, sub-entities)
+  app.use('/api/v1/prospect-mgmt', prospectMgmtRouter);
+
+  // Negative List / Screening routes (CRM Phase 3)
+  app.use('/api/v1/negative-list', negativeListRouter);
+
+  // Handover & Assignment Management (HAM) routes
+  app.use('/api/v1/ham', hamRouter);
+
+  // CRM Meeting Management routes (CRM Phase 7)
+  app.use('/api/v1/meetings', meetingsRouter);
+
+  // CRM Call Report routes (CRM Phase 7)
+  app.use('/api/v1/call-reports', callReportsRouter);
+
+  // CRM Opportunity Pipeline routes (CRM Phase 8)
+  app.use('/api/v1/opportunities', opportunitiesRouter);
+
+  // CRM Task Management routes (CRM Phase 8)
+  app.use('/api/v1/crm-tasks', crmTasksRouter);
+
+  // CRM Notification Inbox routes (CRM Phase 8)
+  app.use('/api/v1/crm-notifications', crmNotificationsRouter);
+
+  // CRM Handover routes (CRM Phase 9)
+  app.use('/api/v1/crm-handovers', crmHandoversRouter);
+
+  // HAM Handover & Assignment Management routes
+  app.use('/api/v1/handovers', hamRouter);
 
   // Back-office CRUD routes — all entity data operations
   app.use('/api/v1', backOfficeRouter);
 }
+
+// HAM delegation auto-expiry scheduler — runs every 60 minutes
+// Initial run is deferred 60 seconds to let the DB warm up
+setTimeout(() => {
+  const runDelegationJobs = async () => {
+    try {
+      const { handoverService } = await import('./services/handover-service');
+      await handoverService.processExpiredDelegations();
+      await handoverService.processExpiringDelegations();
+    } catch (err) {
+      console.error('[HAM-Scheduler] delegation job failed:', err);
+    }
+  };
+  runDelegationJobs();
+  setInterval(runDelegationJobs, 60 * 60 * 1000); // every hour
+}, 60 * 1000); // defer 60s after startup
