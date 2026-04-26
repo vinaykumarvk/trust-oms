@@ -1,0 +1,32 @@
+steps:
+  # Build Back-Office frontend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - -f
+      - Dockerfile.bo
+      - -t
+      - gcr.io/$PROJECT_ID/trust-banking-bo:latest
+      - .
+    id: build-bo
+
+  # Build Client Portal frontend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - -f
+      - Dockerfile.portal
+      - -t
+      - gcr.io/$PROJECT_ID/trust-banking-portal:latest
+      - .
+    id: build-portal
+
+images:
+  - gcr.io/$PROJECT_ID/trust-banking-bo:latest
+  - gcr.io/$PROJECT_ID/trust-banking-portal:latest
+
+options:
+  machineType: E2_HIGHCPU_8
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 900s
