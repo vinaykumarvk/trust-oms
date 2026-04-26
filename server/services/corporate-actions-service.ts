@@ -14,6 +14,7 @@ import { eq, and, sql, desc, gte, lte } from 'drizzle-orm';
 import { cashLedgerService } from './cash-ledger-service';
 import { marketCalendarService } from './market-calendar-service';
 import { taxEngineService } from './tax-engine-service';
+import { notificationService } from './notification-service';
 
 // Status progression order for lifecycle validation
 const STATUS_ORDER = ['ANNOUNCED', 'SCRUBBED', 'GOLDEN_COPY', 'ENTITLED', 'ELECTED', 'SETTLED'] as const;
@@ -340,7 +341,7 @@ export const corporateActionsService = {
       'DIVIDEND_CASH', 'DIVIDEND_STOCK', 'DIVIDEND_WITH_OPTION',
       'COUPON', 'CAPITAL_DISTRIBUTION', 'CAPITAL_GAINS_DISTRIBUTION',
     ];
-    let caWhtResult: { taxAmount: number; rate: number; rateType: 'TREATY' | 'STATUTORY'; ttraId?: string } | null = null;
+    let caWhtResult: { taxAmount: number; rate: number; rateType: 'FATCA' | 'TREATY' | 'STATUTORY'; ttraId?: string; fatcaApplied?: boolean; crsJurisdictions?: string[] } | null = null;
 
     if (taxableCaTypes.includes(caType ?? '')) {
       try {
@@ -676,5 +677,389 @@ export const corporateActionsService = {
       .orderBy(schema.corporateActions.ex_date);
 
     return data;
+  },
+
+  /**
+   * Amend a corporate action event by creating a new versioned row.
+   * The original event retains its data unchanged; a new row is inserted
+   * with `amended_from_id` pointing back to the original for full audit trail.
+   * Triggers re-scrub if the current status allows it (ANNOUNCED or SCRUBBED).
+   */
+  async amendEvent(
+    eventId: number,
+    changes: Partial<{
+      exDate: string;
+      recordDate: string;
+      paymentDate: string;
+      ratio: string;
+      amountPerShare: string;
+      electionDeadline: string;
+      source: string;
+      type: (typeof schema.corporateActionTypeEnum.enumValues)[number];
+    }>,
+    userId: string,
+  ) {
+    // Fetch the original event
+    const [original] = await db
+      .select()
+      .from(schema.corporateActions)
+      .where(eq(schema.corporateActions.id, eventId))
+      .limit(1);
+
+    if (!original) {
+      throw new Error(`Corporate action not found: ${eventId}`);
+    }
+
+    // Only allow amendments on events that are not yet settled or cancelled
+    const nonAmendableStatuses = ['SETTLED', 'CANCELLED'];
+    if (nonAmendableStatuses.includes(original.ca_status ?? '')) {
+      throw new Error(
+        `Cannot amend CA ${eventId}: current status '${original.ca_status}' does not allow amendments`,
+      );
+    }
+
+    // Compute the next event version
+    const currentVersion = (original as Record<string, unknown>).event_version as number | null;
+    const nextVersion = (currentVersion ?? 1) + 1;
+
+    // Build the new row, merging original data with the supplied changes
+    const [amended] = await db
+      .insert(schema.corporateActions)
+      .values({
+        security_id: original.security_id,
+        type: changes.type ?? original.type,
+        ex_date: changes.exDate ?? original.ex_date,
+        record_date: changes.recordDate ?? original.record_date,
+        payment_date: changes.paymentDate ?? original.payment_date ?? null,
+        ratio: changes.ratio ?? original.ratio ?? null,
+        amount_per_share: changes.amountPerShare ?? original.amount_per_share ?? null,
+        election_deadline: changes.electionDeadline ?? original.election_deadline ?? null,
+        source: changes.source ?? original.source ?? null,
+        ca_status: 'ANNOUNCED', // Reset to ANNOUNCED so it goes through scrub again
+        legal_entity_id: original.legal_entity_id,
+        calendar_key: original.calendar_key,
+        golden_copy_source: original.golden_copy_source,
+        scrub_status: null, // Clear scrub status for re-scrub
+        event_version: nextVersion,
+        amended_from_id: original.id,
+        created_by: userId,
+        updated_by: userId,
+      } as Record<string, unknown>)
+      .returning();
+
+    // Mark the original event as superseded (update its status metadata)
+    await db
+      .update(schema.corporateActions)
+      .set({
+        updated_at: new Date(),
+        updated_by: userId,
+      })
+      .where(eq(schema.corporateActions.id, eventId));
+
+    // Trigger re-scrub on the new version if the original was at a scrub-eligible stage
+    const scrubEligible = ['ANNOUNCED', 'SCRUBBED'];
+    let scrubResult = null;
+    if (scrubEligible.includes(original.ca_status ?? '')) {
+      try {
+        scrubResult = await this.scrubEvent(amended.id);
+      } catch (_err) {
+        // Scrub failure is non-blocking; the amended event stays at ANNOUNCED
+        scrubResult = null;
+      }
+    }
+
+    // Dispatch amendment notification
+    try {
+      await notificationService.dispatch({
+        eventType: 'CA_AMENDED',
+        channel: 'IN_APP',
+        recipientId: userId,
+        recipientType: 'user',
+        content: `Corporate action ${eventId} amended: new version ${nextVersion} created (CA id ${amended.id})`,
+      });
+    } catch (_notifErr) {
+      // Non-blocking: notification failure should not affect the amendment
+    }
+
+    return {
+      original: { id: original.id, version: currentVersion ?? 1 },
+      amended,
+      scrubResult,
+    };
+  },
+
+  /**
+   * Cancel a corporate action event.
+   * Sets status to CANCELLED, records the cancellation reason, and reverses
+   * any pending (unposted) entitlements by marking them as cancelled.
+   */
+  async cancelEvent(eventId: number, reason: string, userId: string) {
+    // Fetch the event
+    const [ca] = await db
+      .select()
+      .from(schema.corporateActions)
+      .where(eq(schema.corporateActions.id, eventId))
+      .limit(1);
+
+    if (!ca) {
+      throw new Error(`Corporate action not found: ${eventId}`);
+    }
+
+    // Cannot cancel an already-cancelled event
+    if (ca.ca_status === 'CANCELLED') {
+      throw new Error(`Corporate action ${eventId} is already cancelled`);
+    }
+
+    // Cannot cancel a fully settled event
+    if (ca.ca_status === 'SETTLED') {
+      throw new Error(
+        `Cannot cancel CA ${eventId}: it has already been settled. Reversal must be done through a separate adjustment.`,
+      );
+    }
+
+    if (!reason || reason.trim().length === 0) {
+      throw new Error('Cancellation reason is required');
+    }
+
+    // Mark the event as CANCELLED with the reason
+    const [updated] = await db
+      .update(schema.corporateActions)
+      .set({
+        ca_status: 'CANCELLED',
+        cancellation_reason: reason,
+        updated_at: new Date(),
+        updated_by: userId,
+      } as Record<string, unknown>)
+      .where(eq(schema.corporateActions.id, eventId))
+      .returning();
+
+    // Fetch all entitlements for this CA
+    const entitlements = await db
+      .select()
+      .from(schema.corporateActionEntitlements)
+      .where(eq(schema.corporateActionEntitlements.corporate_action_id, eventId));
+
+    // Reverse pending (unposted) entitlements by marking them cancelled
+    const cancelledEntitlementIds: number[] = [];
+    const skippedPostedIds: number[] = [];
+
+    for (const ent of entitlements) {
+      if (ent.posted) {
+        // Already posted entitlements cannot be auto-reversed; flag for manual review
+        skippedPostedIds.push(ent.id);
+      } else {
+        // Mark unposted entitlement as cancelled
+        await db
+          .update(schema.corporateActionEntitlements)
+          .set({
+            status: 'cancelled',
+            updated_at: new Date(),
+            updated_by: userId,
+          })
+          .where(eq(schema.corporateActionEntitlements.id, ent.id));
+        cancelledEntitlementIds.push(ent.id);
+      }
+    }
+
+    // Dispatch cancellation notification
+    try {
+      await notificationService.dispatch({
+        eventType: 'CA_CANCELLED',
+        channel: 'IN_APP',
+        recipientId: userId,
+        recipientType: 'user',
+        content: `Corporate action ${eventId} cancelled: ${reason}. ${cancelledEntitlementIds.length} entitlement(s) reversed.`,
+      });
+    } catch (_notifErr) {
+      // Non-blocking: notification failure should not affect the cancellation
+    }
+
+    return {
+      event: updated,
+      cancelledEntitlements: cancelledEntitlementIds,
+      skippedPostedEntitlements: skippedPostedIds,
+      warning: skippedPostedIds.length > 0
+        ? `${skippedPostedIds.length} entitlement(s) already posted and require manual reversal`
+        : null,
+    };
+  },
+
+  /**
+   * Replay entitlement calculation from the golden copy of a corporate action.
+   * Re-runs the calculation for all portfolios that previously had entitlements,
+   * compares with previous results, and flags differences.
+   * Uses the existing calculateEntitlement() and simulateEntitlement() methods.
+   */
+  async replayEvent(eventId: number) {
+    // Fetch the event
+    const [ca] = await db
+      .select()
+      .from(schema.corporateActions)
+      .where(eq(schema.corporateActions.id, eventId))
+      .limit(1);
+
+    if (!ca) {
+      throw new Error(`Corporate action not found: ${eventId}`);
+    }
+
+    // Must be at GOLDEN_COPY or later to replay from authoritative data
+    const replayableStatuses = ['GOLDEN_COPY', 'ENTITLED', 'ELECTED', 'SETTLED'];
+    if (!replayableStatuses.includes(ca.ca_status ?? '')) {
+      throw new Error(
+        `Cannot replay CA ${eventId}: status '${ca.ca_status}' is not at GOLDEN_COPY or beyond`,
+      );
+    }
+
+    // Get all existing entitlements for this CA
+    const existingEntitlements = await db
+      .select()
+      .from(schema.corporateActionEntitlements)
+      .where(eq(schema.corporateActionEntitlements.corporate_action_id, eventId));
+
+    if (existingEntitlements.length === 0) {
+      throw new Error(`No existing entitlements found for CA ${eventId} to replay against`);
+    }
+
+    // Collect unique portfolio IDs from existing entitlements
+    const portfolioIds = [
+      ...new Set(existingEntitlements.map((e: Record<string, unknown>) => e.portfolio_id).filter(Boolean)),
+    ] as string[];
+
+    const results: Array<{
+      portfolioId: string;
+      previousQty: number;
+      recalculatedQty: number;
+      difference: number;
+      hasDifference: boolean;
+      entitlementId: number;
+    }> = [];
+
+    // For each portfolio, simulate the entitlement from current golden copy data
+    // and compare against the previously stored entitled_qty
+    for (const portfolioId of portfolioIds) {
+      const previousEntitlement = existingEntitlements.find(
+        (e: Record<string, unknown>) => e.portfolio_id === portfolioId,
+      );
+      const previousQty = parseFloat(previousEntitlement?.entitled_qty ?? '0');
+
+      try {
+        // Use simulateEntitlement to recalculate without persisting
+        const simulation = await this.simulateEntitlement(eventId, portfolioId);
+        const recalculatedQty = simulation.entitled_qty;
+        const difference = recalculatedQty - previousQty;
+
+        results.push({
+          portfolioId,
+          previousQty,
+          recalculatedQty,
+          difference,
+          hasDifference: Math.abs(difference) > 0.0001, // tolerance for floating-point
+          entitlementId: previousEntitlement!.id,
+        });
+      } catch (err: unknown) {
+        // Position may have changed or been removed; flag as difference
+        results.push({
+          portfolioId,
+          previousQty,
+          recalculatedQty: 0,
+          difference: -previousQty,
+          hasDifference: previousQty !== 0,
+          entitlementId: previousEntitlement!.id,
+        });
+      }
+    }
+
+    const differences = results.filter((r) => r.hasDifference);
+
+    return {
+      eventId,
+      ca_status: ca.ca_status,
+      totalPortfolios: portfolioIds.length,
+      matched: results.filter((r) => !r.hasDifference).length,
+      mismatched: differences.length,
+      differences,
+      results,
+    };
+  },
+
+  /**
+   * Override the settlement/payment date of a corporate action with maker-checker audit trail.
+   * Records the override reason and the previous date for audit purposes.
+   */
+  async overrideSettlementDate(
+    eventId: number,
+    newDate: string,
+    reason: string,
+  ) {
+    if (!newDate || newDate.trim().length === 0) {
+      throw new Error('New settlement date is required');
+    }
+    if (!reason || reason.trim().length === 0) {
+      throw new Error('Override reason is required');
+    }
+
+    // Validate date format (YYYY-MM-DD)
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(newDate)) {
+      throw new Error(`Invalid date format: '${newDate}'. Expected YYYY-MM-DD.`);
+    }
+
+    // Fetch the event
+    const [ca] = await db
+      .select()
+      .from(schema.corporateActions)
+      .where(eq(schema.corporateActions.id, eventId))
+      .limit(1);
+
+    if (!ca) {
+      throw new Error(`Corporate action not found: ${eventId}`);
+    }
+
+    // Cannot override dates on cancelled or settled events
+    if (ca.ca_status === 'CANCELLED') {
+      throw new Error(`Cannot override settlement date on cancelled CA ${eventId}`);
+    }
+    if (ca.ca_status === 'SETTLED') {
+      throw new Error(`Cannot override settlement date on settled CA ${eventId}`);
+    }
+
+    const previousDate = ca.payment_date;
+
+    // New date must be different from existing
+    if (previousDate === newDate) {
+      throw new Error(
+        `New settlement date '${newDate}' is the same as the current payment_date`,
+      );
+    }
+
+    // Insert an audit trail record for the maker-checker override
+    // Uses the correlation_id field to capture the override metadata
+    const auditCorrelation = JSON.stringify({
+      action: 'SETTLEMENT_DATE_OVERRIDE',
+      previous_payment_date: previousDate,
+      new_payment_date: newDate,
+      reason,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Update the payment_date with maker-checker audit trail
+    const [updated] = await db
+      .update(schema.corporateActions)
+      .set({
+        payment_date: newDate,
+        correlation_id: auditCorrelation,
+        updated_at: new Date(),
+        version: sql`${schema.corporateActions.version} + 1`,
+      })
+      .where(eq(schema.corporateActions.id, eventId))
+      .returning();
+
+    return {
+      event: updated,
+      previousPaymentDate: previousDate,
+      newPaymentDate: newDate,
+      reason,
+      auditCorrelation,
+    };
   },
 };

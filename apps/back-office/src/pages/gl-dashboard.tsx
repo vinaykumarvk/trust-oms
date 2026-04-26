@@ -25,6 +25,7 @@ import {
   Check, X, Ban, ArrowRightLeft, Calendar, FileText, Download, Play,
   AlertTriangle, ChevronRight, DollarSign, Building2, ClipboardList,
   Calculator, TrendingUp, Lock, Unlock, Landmark,
+  Settings, Shield, Clock, RotateCcw, Percent, Users,
 } from "lucide-react";
 
 /* ---------- Types ---------- */
@@ -100,6 +101,50 @@ interface GLSummary {
   total_gl_heads: number; today_postings: number;
   pending_auth: number; posting_exceptions: number;
 }
+interface AuthMatrixEntry {
+  id: string; entity_type: string; action: string;
+  amount_from?: number; amount_to?: number;
+  required_approvers: number; approval_level: number;
+  role_required?: string; is_active: boolean;
+}
+interface AuthAuditEntry {
+  id: string; object_type: string; object_id: string;
+  action: string; actor_id: string; decision: string;
+  reason?: string; amount?: number; created_at: string;
+}
+interface AccrualSchedule {
+  id: string; accrual_type: string; coupon_rate: number;
+  face_value: number; day_count_convention: string;
+  accrual_frequency: string; effective_from: string;
+  effective_to?: string; fund_id?: string; security_id?: string;
+}
+interface AmortizationSchedule {
+  id: string; amortization_method: string; purchase_price: number;
+  par_value: number; premium_discount: number;
+  total_periods: number; periods_elapsed: number;
+  amortized_amount: number; remaining_amount: number;
+  maturity_date: string; fund_id?: string; security_id?: string;
+}
+interface EodRun {
+  id: string; business_date: string; status: string;
+  started_at: string; completed_at?: string;
+  rollback_status?: string;
+}
+interface EodJobDetail {
+  id: string; job_name: string; status: string;
+  retry_count: number; max_retries: number;
+  started_at?: string; completed_at?: string;
+  error_message?: string;
+}
+interface FinancialPeriod {
+  id: string; period_label: string; start_date: string;
+  end_date: string; is_closed: boolean; closed_at?: string;
+}
+interface ReportDefinition {
+  id: string; name: string; description?: string;
+  columns: unknown[]; filters?: unknown[];
+  created_at: string;
+}
 
 /* ---------- Helpers ---------- */
 const GL_TYPE_COLORS: Record<string, string> = {
@@ -152,6 +197,9 @@ export default function GLDashboard() {
     "/accounting/fx-revaluation": "fx",
     "/accounting/year-end": "yearend",
     "/accounting/frpti": "frpti",
+    "/accounting/operations": "operations",
+    "/accounting/accruals": "accruals",
+    "/accounting/authorization": "authorization",
   };
   const initialTab = pathTabMap[location.pathname] || "overview";
   const [tab, setTab] = useState(initialTab);
@@ -217,6 +265,30 @@ export default function GLDashboard() {
   // --- FRPTI state ---
   const [frptiSchedule, setFrptiSchedule] = useState("ALL");
   const [frptiPeriod, setFrptiPeriod] = useState("");
+  const [frptiComparePeriod1, setFrptiComparePeriod1] = useState("");
+  const [frptiComparePeriod2, setFrptiComparePeriod2] = useState("");
+  const [frptiAmendPeriod, setFrptiAmendPeriod] = useState("");
+  const [frptiAmendReason, setFrptiAmendReason] = useState("");
+
+  // --- Operations state ---
+  const [sodDate, setSodDate] = useState("");
+  const [eodRollbackRunId, setEodRollbackRunId] = useState("");
+  const [eodRollbackReason, setEodRollbackReason] = useState("");
+
+  // --- Accruals state ---
+  const [accrualRunDate, setAccrualRunDate] = useState("");
+  const [amortRunDate, setAmortRunDate] = useState("");
+
+  // --- Authorization state ---
+  const [createAuthMatrixOpen, setCreateAuthMatrixOpen] = useState(false);
+  const [newAuthMatrix, setNewAuthMatrix] = useState({
+    entity_type: "JOURNAL_BATCH", action: "APPROVE", amount_from: "",
+    amount_to: "", required_approvers: "1", approval_level: "1", role_required: "",
+  });
+
+  // --- Period Management state ---
+  const [createPeriodOpen, setCreatePeriodOpen] = useState(false);
+  const [newPeriod, setNewPeriod] = useState({ period_label: "", start_date: "", end_date: "" });
 
   // =========================================================================
   // Queries
@@ -417,6 +489,62 @@ export default function GLDashboard() {
     return frptiMappings.filter((m) => m.schedule === frptiSchedule);
   }, [frptiMappings, frptiSchedule]);
 
+  // Auth Matrix
+  const authMatrixQ = useQuery<any>({
+    queryKey: ["gl-auth-matrix"],
+    queryFn: () => apiRequest("GET", apiUrl("/api/v1/gl/auth-matrix")),
+    refetchInterval: 30_000, enabled: tab === "authorization",
+  });
+  const authMatrix: AuthMatrixEntry[] = authMatrixQ.data?.data ?? authMatrixQ.data ?? [];
+
+  // Pending Approvals
+  const authPendingQ = useQuery<any>({
+    queryKey: ["gl-auth-pending"],
+    queryFn: () => apiRequest("GET", apiUrl("/api/v1/gl/posting/batches?status=PENDING_AUTH")),
+    refetchInterval: 15_000, enabled: tab === "authorization",
+  });
+  const authPendingBatches: JournalBatch[] = authPendingQ.data?.data ?? authPendingQ.data ?? [];
+
+  // Accrual Schedules
+  const accrualSchedulesQ = useQuery<any>({
+    queryKey: ["gl-accrual-schedules"],
+    queryFn: () => apiRequest("GET", apiUrl("/api/v1/gl/accruals/schedules")),
+    refetchInterval: 30_000, enabled: tab === "accruals",
+  });
+  const accrualSchedules: AccrualSchedule[] = accrualSchedulesQ.data?.data ?? accrualSchedulesQ.data ?? [];
+
+  // Amortization Schedules
+  const amortSchedulesQ = useQuery<any>({
+    queryKey: ["gl-amort-schedules"],
+    queryFn: () => apiRequest("GET", apiUrl("/api/v1/gl/amortization/schedules")),
+    refetchInterval: 30_000, enabled: tab === "accruals",
+  });
+  const amortSchedules: AmortizationSchedule[] = amortSchedulesQ.data?.data ?? amortSchedulesQ.data ?? [];
+
+  // EOD Runs
+  const eodRunsQ = useQuery<any>({
+    queryKey: ["gl-eod-runs"],
+    queryFn: () => apiRequest("GET", apiUrl("/api/v1/gl/eod/runs")),
+    refetchInterval: 15_000, enabled: tab === "operations",
+  });
+  const eodRuns: EodRun[] = eodRunsQ.data?.data ?? eodRunsQ.data ?? [];
+
+  // Financial Periods
+  const finPeriodsQ = useQuery<any>({
+    queryKey: ["gl-financial-periods"],
+    queryFn: () => apiRequest("GET", apiUrl("/api/v1/gl/financial-periods")),
+    refetchInterval: 30_000, enabled: tab === "yearend",
+  });
+  const financialPeriods: FinancialPeriod[] = finPeriodsQ.data?.data ?? finPeriodsQ.data ?? [];
+
+  // Report Definitions
+  const reportDefsQ = useQuery<any>({
+    queryKey: ["gl-report-definitions"],
+    queryFn: () => apiRequest("GET", apiUrl("/api/v1/gl/report-definitions")),
+    refetchInterval: 30_000, enabled: tab === "reports",
+  });
+  const reportDefs: ReportDefinition[] = reportDefsQ.data?.data ?? reportDefsQ.data ?? [];
+
   // =========================================================================
   // Mutations
   // =========================================================================
@@ -488,6 +616,62 @@ export default function GLDashboard() {
   const frptiExtractMut = useMutation({
     mutationFn: (body: Record<string, unknown>) => apiRequest("POST", apiUrl("/api/v1/gl/frpti/extract"), body),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["gl-frpti-mappings"] }); },
+  });
+
+  // --- Operations mutations ---
+  const runSodMut = useMutation({
+    mutationFn: (date: string) => apiRequest("POST", apiUrl("/api/v1/gl/sod/run"), { business_date: date }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["gl-eod-runs"] }); },
+  });
+
+  const rollbackEodMut = useMutation({
+    mutationFn: (body: { runId: string; reason: string }) => apiRequest("POST", apiUrl(`/api/v1/gl/eod/rollback/${body.runId}`), { reason: body.reason }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["gl-eod-runs"] }); },
+  });
+
+  // --- Accrual mutations ---
+  const runAccrualMut = useMutation({
+    mutationFn: (date: string) => apiRequest("POST", apiUrl("/api/v1/gl/accruals/interest/run"), { business_date: date }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["gl-accrual-schedules"] }); },
+  });
+
+  const runAmortMut = useMutation({
+    mutationFn: (date: string) => apiRequest("POST", apiUrl("/api/v1/gl/accruals/amortization/run"), { business_date: date }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["gl-amort-schedules"] }); },
+  });
+
+  // --- Auth matrix mutations ---
+  const createAuthMatrixMut = useMutation({
+    mutationFn: (body: Record<string, unknown>) => apiRequest("POST", apiUrl("/api/v1/gl/auth-matrix"), body),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["gl-auth-matrix"] }); setCreateAuthMatrixOpen(false); },
+  });
+
+  // --- Period management mutations ---
+  const createPeriodMut = useMutation({
+    mutationFn: (body: Record<string, unknown>) => apiRequest("POST", apiUrl("/api/v1/gl/financial-periods"), body),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["gl-financial-periods"] }); setCreatePeriodOpen(false); },
+  });
+
+  const closePeriodMut = useMutation({
+    mutationFn: (id: string) => apiRequest("POST", apiUrl(`/api/v1/gl/financial-periods/${id}/close`), {}),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["gl-financial-periods"] }); },
+  });
+
+  const reopenPeriodMut = useMutation({
+    mutationFn: (body: { id: string; reason: string }) => apiRequest("PUT", apiUrl(`/api/v1/gl/financial-periods/${body.id}/reopen`), { reason: body.reason }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["gl-financial-periods"] }); },
+  });
+
+  // --- FRPTI enhancement mutations ---
+  const frptiAmendMut = useMutation({
+    mutationFn: (body: Record<string, unknown>) => apiRequest("POST", apiUrl(`/api/v1/gl/frpti/amend/${body.period}`), body),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["gl-frpti-mappings"] }); },
+  });
+
+  const frptiCompareQ = useQuery<any>({
+    queryKey: ["gl-frpti-compare", frptiComparePeriod1, frptiComparePeriod2],
+    queryFn: () => apiRequest("GET", apiUrl(`/api/v1/gl/frpti/compare?period1=${frptiComparePeriod1}&period2=${frptiComparePeriod2}`)),
+    enabled: !!frptiComparePeriod1 && !!frptiComparePeriod2 && tab === "frpti",
   });
 
   // =========================================================================
@@ -562,6 +746,9 @@ export default function GLDashboard() {
           <TabsTrigger value="drilldown"><Search className="mr-1 h-4 w-4" /> Drilldown</TabsTrigger>
           <TabsTrigger value="reports"><BarChart3 className="mr-1 h-4 w-4" /> Reports</TabsTrigger>
           <TabsTrigger value="fx"><ArrowRightLeft className="mr-1 h-4 w-4" /> FX & Reval</TabsTrigger>
+          <TabsTrigger value="operations"><Settings className="mr-1 h-4 w-4" /> Operations</TabsTrigger>
+          <TabsTrigger value="accruals"><Percent className="mr-1 h-4 w-4" /> Accruals</TabsTrigger>
+          <TabsTrigger value="authorization"><Shield className="mr-1 h-4 w-4" /> Authorization</TabsTrigger>
           <TabsTrigger value="yearend"><Calendar className="mr-1 h-4 w-4" /> Year-End</TabsTrigger>
           <TabsTrigger value="frpti"><Landmark className="mr-1 h-4 w-4" /> FRPTI</TabsTrigger>
         </TabsList>
@@ -1175,6 +1362,7 @@ export default function GLDashboard() {
               <TabsTrigger value="balance-sheet">Balance Sheet</TabsTrigger>
               <TabsTrigger value="income-statement">Income Statement</TabsTrigger>
               <TabsTrigger value="nav-summary">NAV Summary</TabsTrigger>
+              <TabsTrigger value="report-builder">Report Builder</TabsTrigger>
             </TabsList>
 
             {/* Trial Balance */}
@@ -1306,6 +1494,40 @@ export default function GLDashboard() {
                       <p className="text-xs">Consolidated NAV across funds and accounting units</p>
                       <p className="mt-2 text-xs">Select an as-of date and accounting unit to generate</p>
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Report Builder */}
+            <TabsContent value="report-builder" className="mt-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Saved Report Definitions</CardTitle>
+                  <CardDescription>User-configurable report templates with custom columns, filters, and grouping</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          {["ID", "Name", "Description", "Columns", "Created At"].map((h) => <TableHead key={h}>{h}</TableHead>)}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {reportDefsQ.isLoading ? <SkeletonRows cols={5} /> :
+                          reportDefs.length === 0 ? <EmptyRow cols={5} msg="No report definitions saved. Use the API to create report templates." /> :
+                            reportDefs.map((r) => (
+                              <TableRow key={r.id}>
+                                <TableCell className="font-mono text-sm">#{r.id}</TableCell>
+                                <TableCell className="font-medium text-sm">{r.name}</TableCell>
+                                <TableCell className="text-xs max-w-[200px] truncate">{r.description ?? "\u2014"}</TableCell>
+                                <TableCell className="text-xs">{Array.isArray(r.columns) ? r.columns.length : 0} cols</TableCell>
+                                <TableCell className="text-xs">{fmtDate(r.created_at)}</TableCell>
+                              </TableRow>
+                            ))}
+                      </TableBody>
+                    </Table>
                   </div>
                 </CardContent>
               </Card>
@@ -1461,19 +1683,54 @@ export default function GLDashboard() {
             </CardContent>
           </Card>
 
-          {/* Period Close Controls */}
+          {/* Financial Periods */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Period Close Controls</CardTitle>
-              <CardDescription>Monthly and quarterly period management for GL posting restrictions</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">Financial Periods</CardTitle>
+                  <CardDescription>Monthly and quarterly period management for GL posting restrictions</CardDescription>
+                </div>
+                <Button size="sm" onClick={() => { setNewPeriod({ period_label: "", start_date: "", end_date: "" }); setCreatePeriodOpen(true); }}>
+                  <Plus className="mr-1 h-3 w-3" /> New Period
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="flex h-32 items-center justify-center rounded-md border border-dashed text-muted-foreground">
-                <div className="text-center">
-                  <Calendar className="mx-auto mb-2 h-8 w-8" />
-                  <p className="text-sm">Period close management</p>
-                  <p className="text-xs">Close/open individual months and quarters for posting control</p>
-                </div>
+              <div className="overflow-x-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {["Period", "Start Date", "End Date", "Status", "Closed At", "Actions"].map((h) => <TableHead key={h}>{h}</TableHead>)}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {finPeriodsQ.isLoading ? <SkeletonRows cols={6} /> :
+                      financialPeriods.length === 0 ? <EmptyRow cols={6} msg="No financial periods defined" /> :
+                        financialPeriods.map((p) => (
+                          <TableRow key={p.id}>
+                            <TableCell className="font-medium">{p.period_label}</TableCell>
+                            <TableCell className="text-xs">{fmtDate(p.start_date)}</TableCell>
+                            <TableCell className="text-xs">{fmtDate(p.end_date)}</TableCell>
+                            <TableCell><Badge className={bc(STATUS_COLORS, p.is_closed ? "CLOSED" : "OPEN")}>{p.is_closed ? "CLOSED" : "OPEN"}</Badge></TableCell>
+                            <TableCell className="text-xs">{p.closed_at ? fmtDate(p.closed_at) : "\u2014"}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                {!p.is_closed ? (
+                                  <Button variant="outline" size="sm" onClick={() => closePeriodMut.mutate(p.id)} disabled={closePeriodMut.isPending}>
+                                    <Lock className="mr-1 h-3 w-3" /> Close
+                                  </Button>
+                                ) : (
+                                  <Button variant="outline" size="sm" onClick={() => reopenPeriodMut.mutate({ id: p.id, reason: "Reopened from dashboard" })} disabled={reopenPeriodMut.isPending}>
+                                    <Unlock className="mr-1 h-3 w-3" /> Reopen
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                  </TableBody>
+                </Table>
               </div>
             </CardContent>
           </Card>
@@ -1563,6 +1820,405 @@ export default function GLDashboard() {
                   <AlertTriangle className="mx-auto mb-1 h-6 w-6" />
                   <p className="text-xs">Validation results will appear here after generation</p>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* FRPTI Amendment */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">FRPTI Amendment</CardTitle>
+              <CardDescription>Submit amendments for a previously submitted FRPTI period</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Period</label>
+                  <Input type="month" value={frptiAmendPeriod} onChange={(e) => setFrptiAmendPeriod(e.target.value)} className="w-[200px]" />
+                </div>
+                <div className="space-y-1 flex-1">
+                  <label className="text-sm font-medium">Reason</label>
+                  <Input value={frptiAmendReason} onChange={(e) => setFrptiAmendReason(e.target.value)} placeholder="Reason for amendment" />
+                </div>
+                <Button onClick={() => frptiAmendMut.mutate({ period: frptiAmendPeriod, reason: frptiAmendReason })} disabled={!frptiAmendPeriod || !frptiAmendReason || frptiAmendMut.isPending}>
+                  <PenLine className="mr-1 h-4 w-4" />{frptiAmendMut.isPending ? "Submitting..." : "Submit Amendment"}
+                </Button>
+              </div>
+              {frptiAmendMut.isSuccess && (
+                <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                  <Check className="mr-1 inline h-4 w-4" /> Amendment submitted successfully
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* FRPTI Period Comparison */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Period Comparison</CardTitle>
+              <CardDescription>Compare FRPTI extracts between two reporting periods</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Period 1</label>
+                  <Input type="month" value={frptiComparePeriod1} onChange={(e) => setFrptiComparePeriod1(e.target.value)} className="w-[200px]" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Period 2</label>
+                  <Input type="month" value={frptiComparePeriod2} onChange={(e) => setFrptiComparePeriod2(e.target.value)} className="w-[200px]" />
+                </div>
+              </div>
+              {frptiCompareQ.isLoading && <div className="py-4"><Skeleton className="h-8 w-full" /></div>}
+              {frptiCompareQ.data && (
+                <div className="rounded-md border p-4 text-sm">
+                  <p className="font-medium mb-2">Comparison Results</p>
+                  <pre className="text-xs bg-muted p-3 rounded overflow-x-auto">{JSON.stringify(frptiCompareQ.data, null, 2)}</pre>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ================================================================
+            TAB: OPERATIONS — SOD/EOD Controls
+            ================================================================ */}
+        <TabsContent value="operations" className="mt-4 space-y-4">
+          {/* SOD Controls */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Start of Day (SOD)</CardTitle>
+              <CardDescription>Carry forward closing balances to new business day opening balances</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Business Date</label>
+                  <Input type="date" value={sodDate} onChange={(e) => setSodDate(e.target.value)} className="w-[200px]" />
+                </div>
+                <Button onClick={() => runSodMut.mutate(sodDate)} disabled={!sodDate || runSodMut.isPending}>
+                  <Play className="mr-1 h-4 w-4" />{runSodMut.isPending ? "Running..." : "Run SOD"}
+                </Button>
+              </div>
+              {runSodMut.isSuccess && (
+                <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                  <Check className="mr-1 inline h-4 w-4" /> SOD completed successfully
+                </div>
+              )}
+              {runSodMut.isError && (
+                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                  <AlertTriangle className="mr-1 inline h-4 w-4" /> {(runSodMut.error as Error)?.message ?? "SOD failed"}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* EOD Rollback */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">EOD Rollback</CardTitle>
+              <CardDescription>Roll back an EOD run by reversing all posted batches from that run</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">EOD Run ID</label>
+                  <Select value={eodRollbackRunId} onValueChange={setEodRollbackRunId}>
+                    <SelectTrigger className="w-[240px]"><SelectValue placeholder="Select EOD run" /></SelectTrigger>
+                    <SelectContent>
+                      {eodRuns.filter((r) => r.status === "COMPLETED").map((r) => (
+                        <SelectItem key={r.id} value={r.id}>Run #{r.id} — {fmtDate(r.business_date)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1 flex-1">
+                  <label className="text-sm font-medium">Reason</label>
+                  <Input value={eodRollbackReason} onChange={(e) => setEodRollbackReason(e.target.value)} placeholder="Reason for rollback" />
+                </div>
+                <Button variant="destructive" onClick={() => rollbackEodMut.mutate({ runId: eodRollbackRunId, reason: eodRollbackReason })} disabled={!eodRollbackRunId || !eodRollbackReason || rollbackEodMut.isPending}>
+                  <RotateCcw className="mr-1 h-4 w-4" />{rollbackEodMut.isPending ? "Rolling back..." : "Rollback EOD"}
+                </Button>
+              </div>
+              {rollbackEodMut.isSuccess && (
+                <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                  <Check className="mr-1 inline h-4 w-4" /> EOD rollback completed
+                </div>
+              )}
+              {rollbackEodMut.isError && (
+                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                  <AlertTriangle className="mr-1 inline h-4 w-4" /> {(rollbackEodMut.error as Error)?.message ?? "Rollback failed"}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* EOD Run History */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">EOD Run History</CardTitle>
+              <CardDescription>Recent end-of-day processing runs and their status</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {["Run ID", "Business Date", "Status", "Started At", "Completed At", "Rollback"].map((h) => <TableHead key={h}>{h}</TableHead>)}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {eodRunsQ.isLoading ? <SkeletonRows cols={6} /> :
+                      eodRuns.length === 0 ? <EmptyRow cols={6} msg="No EOD runs recorded" /> :
+                        eodRuns.map((r) => (
+                          <TableRow key={r.id}>
+                            <TableCell className="font-mono text-sm">#{r.id}</TableCell>
+                            <TableCell className="text-sm">{fmtDate(r.business_date)}</TableCell>
+                            <TableCell><Badge className={bc(STATUS_COLORS, r.status)}>{r.status}</Badge></TableCell>
+                            <TableCell className="text-xs">{r.started_at ? fmtDate(r.started_at) : "\u2014"}</TableCell>
+                            <TableCell className="text-xs">{r.completed_at ? fmtDate(r.completed_at) : "\u2014"}</TableCell>
+                            <TableCell>
+                              {r.rollback_status ? <Badge className={bc(STATUS_COLORS, r.rollback_status)}>{r.rollback_status}</Badge> : "\u2014"}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ================================================================
+            TAB: ACCRUALS — Interest Accrual & Amortization
+            ================================================================ */}
+        <TabsContent value="accruals" className="mt-4 space-y-4">
+          {/* Run Controls */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Interest Accrual</CardTitle>
+                <CardDescription>Run daily interest accrual across active schedules</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap items-end gap-4">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Business Date</label>
+                    <Input type="date" value={accrualRunDate} onChange={(e) => setAccrualRunDate(e.target.value)} className="w-[180px]" />
+                  </div>
+                  <Button onClick={() => runAccrualMut.mutate(accrualRunDate)} disabled={!accrualRunDate || runAccrualMut.isPending}>
+                    <Play className="mr-1 h-4 w-4" />{runAccrualMut.isPending ? "Running..." : "Run Accrual"}
+                  </Button>
+                </div>
+                {runAccrualMut.isSuccess && (
+                  <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                    <Check className="mr-1 inline h-4 w-4" /> Interest accrual completed
+                  </div>
+                )}
+                {runAccrualMut.isError && (
+                  <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                    <AlertTriangle className="mr-1 inline h-4 w-4" /> {(runAccrualMut.error as Error)?.message ?? "Accrual failed"}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Amortization</CardTitle>
+                <CardDescription>Run daily amortization for premium/discount schedules</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap items-end gap-4">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Business Date</label>
+                    <Input type="date" value={amortRunDate} onChange={(e) => setAmortRunDate(e.target.value)} className="w-[180px]" />
+                  </div>
+                  <Button onClick={() => runAmortMut.mutate(amortRunDate)} disabled={!amortRunDate || runAmortMut.isPending}>
+                    <Play className="mr-1 h-4 w-4" />{runAmortMut.isPending ? "Running..." : "Run Amortization"}
+                  </Button>
+                </div>
+                {runAmortMut.isSuccess && (
+                  <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                    <Check className="mr-1 inline h-4 w-4" /> Amortization completed
+                  </div>
+                )}
+                {runAmortMut.isError && (
+                  <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                    <AlertTriangle className="mr-1 inline h-4 w-4" /> {(runAmortMut.error as Error)?.message ?? "Amortization failed"}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Accrual Schedules */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Interest Accrual Schedules</CardTitle>
+              <CardDescription>Active schedules for daily interest accrual processing</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {["ID", "Type", "Day Count", "Coupon Rate", "Face Value", "Frequency", "Effective From", "Effective To"].map((h) => (
+                        <TableHead key={h} className={["Coupon Rate", "Face Value"].includes(h) ? "text-right" : ""}>{h}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {accrualSchedulesQ.isLoading ? <SkeletonRows cols={8} /> :
+                      accrualSchedules.length === 0 ? <EmptyRow cols={8} msg="No accrual schedules configured" /> :
+                        accrualSchedules.map((s) => (
+                          <TableRow key={s.id}>
+                            <TableCell className="font-mono text-sm">#{s.id}</TableCell>
+                            <TableCell><Badge className="bg-blue-100 text-blue-800">{s.accrual_type}</Badge></TableCell>
+                            <TableCell className="text-xs">{s.day_count_convention}</TableCell>
+                            <TableCell className="text-right font-mono">{(s.coupon_rate * 100).toFixed(4)}%</TableCell>
+                            <TableCell className="text-right font-mono">{fmtPHP(s.face_value)}</TableCell>
+                            <TableCell className="text-xs">{s.accrual_frequency}</TableCell>
+                            <TableCell className="text-xs">{fmtDate(s.effective_from)}</TableCell>
+                            <TableCell className="text-xs">{s.effective_to ? fmtDate(s.effective_to) : "\u2014"}</TableCell>
+                          </TableRow>
+                        ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Amortization Schedules */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Amortization Schedules</CardTitle>
+              <CardDescription>Premium/discount amortization tracking for held securities</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {["ID", "Method", "Purchase", "Par Value", "Prem/Disc", "Periods", "Elapsed", "Amortized", "Remaining", "Maturity"].map((h) => (
+                        <TableHead key={h} className={["Purchase", "Par Value", "Prem/Disc", "Amortized", "Remaining"].includes(h) ? "text-right" : ""}>{h}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {amortSchedulesQ.isLoading ? <SkeletonRows cols={10} /> :
+                      amortSchedules.length === 0 ? <EmptyRow cols={10} msg="No amortization schedules configured" /> :
+                        amortSchedules.map((s) => (
+                          <TableRow key={s.id}>
+                            <TableCell className="font-mono text-sm">#{s.id}</TableCell>
+                            <TableCell><Badge className="bg-purple-100 text-purple-800">{s.amortization_method}</Badge></TableCell>
+                            <TableCell className="text-right font-mono">{fmtPHP(s.purchase_price)}</TableCell>
+                            <TableCell className="text-right font-mono">{fmtPHP(s.par_value)}</TableCell>
+                            <TableCell className={`text-right font-mono ${s.premium_discount >= 0 ? "text-green-600" : "text-red-600"}`}>{fmtPHP(s.premium_discount)}</TableCell>
+                            <TableCell className="text-center">{s.total_periods}</TableCell>
+                            <TableCell className="text-center">{s.periods_elapsed}</TableCell>
+                            <TableCell className="text-right font-mono">{fmtPHP(s.amortized_amount)}</TableCell>
+                            <TableCell className="text-right font-mono">{fmtPHP(s.remaining_amount)}</TableCell>
+                            <TableCell className="text-xs">{fmtDate(s.maturity_date)}</TableCell>
+                          </TableRow>
+                        ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ================================================================
+            TAB: AUTHORIZATION — Matrix Config & Approval Queue
+            ================================================================ */}
+        <TabsContent value="authorization" className="mt-4 space-y-4">
+          {/* Authorization Matrix */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">Authorization Matrix</CardTitle>
+                  <CardDescription>Configure approval tiers based on entity type, action, and amount range</CardDescription>
+                </div>
+                <Button size="sm" onClick={() => { setNewAuthMatrix({ entity_type: "JOURNAL_BATCH", action: "APPROVE", amount_from: "", amount_to: "", required_approvers: "1", approval_level: "1", role_required: "" }); setCreateAuthMatrixOpen(true); }}>
+                  <Plus className="mr-1 h-3 w-3" /> New Rule
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {["Entity Type", "Action", "Amount From", "Amount To", "Approvers", "Level", "Role", "Active"].map((h) => (
+                        <TableHead key={h} className={["Amount From", "Amount To", "Approvers", "Level"].includes(h) ? "text-right" : ""}>{h}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {authMatrixQ.isLoading ? <SkeletonRows cols={8} /> :
+                      authMatrix.length === 0 ? <EmptyRow cols={8} msg="No authorization rules configured" /> :
+                        authMatrix.map((m) => (
+                          <TableRow key={m.id}>
+                            <TableCell className="text-sm font-medium">{m.entity_type}</TableCell>
+                            <TableCell className="text-sm">{m.action}</TableCell>
+                            <TableCell className="text-right font-mono">{m.amount_from != null ? fmtPHP(m.amount_from) : "\u2014"}</TableCell>
+                            <TableCell className="text-right font-mono">{m.amount_to != null ? fmtPHP(m.amount_to) : "\u2014"}</TableCell>
+                            <TableCell className="text-right">{m.required_approvers}</TableCell>
+                            <TableCell className="text-right">{m.approval_level}</TableCell>
+                            <TableCell className="text-xs">{m.role_required ?? "Any"}</TableCell>
+                            <TableCell>{m.is_active ? <Check className="h-4 w-4 text-green-600" /> : <X className="h-4 w-4 text-muted-foreground" />}</TableCell>
+                          </TableRow>
+                        ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Pending Approvals Queue */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Pending Approvals</CardTitle>
+              <CardDescription>Journal batches awaiting authorization</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {["Batch Ref", "Source", "Mode", "Date", "Total DR", "Total CR", "Maker", "Actions"].map((h) => (
+                        <TableHead key={h} className={["Total DR", "Total CR"].includes(h) ? "text-right" : ""}>{h}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {authPendingQ.isLoading ? <SkeletonRows cols={8} /> :
+                      authPendingBatches.length === 0 ? <EmptyRow cols={8} msg="No batches pending authorization" /> :
+                        authPendingBatches.map((b) => (
+                          <TableRow key={b.id}>
+                            <TableCell className="font-mono text-sm font-medium">{b.batch_ref}</TableCell>
+                            <TableCell className="text-sm">{b.source}</TableCell>
+                            <TableCell><Badge className={bc(BATCH_MODE_COLORS, b.posting_mode)}>{b.posting_mode}</Badge></TableCell>
+                            <TableCell className="text-xs">{fmtDate(b.transaction_date)}</TableCell>
+                            <TableCell className="text-right font-mono">{fmtPHP(b.total_debit)}</TableCell>
+                            <TableCell className="text-right font-mono">{fmtPHP(b.total_credit)}</TableCell>
+                            <TableCell className="text-xs">{b.maker ?? "\u2014"}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Button variant="outline" size="sm" onClick={() => approveBatchMut.mutate(b.id)} disabled={approveBatchMut.isPending}>
+                                  <Check className="mr-1 h-3 w-3" /> Approve
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={() => rejectBatchMut.mutate(b.id)} disabled={rejectBatchMut.isPending}>
+                                  <X className="mr-1 h-3 w-3" /> Reject
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                  </TableBody>
+                </Table>
               </div>
             </CardContent>
           </Card>
@@ -1849,6 +2505,100 @@ export default function GLDashboard() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setBatchDetailOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Auth Matrix Rule Dialog */}
+      <Dialog open={createAuthMatrixOpen} onOpenChange={setCreateAuthMatrixOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Create Authorization Rule</DialogTitle></DialogHeader>
+          <div className="grid gap-4 py-4 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Entity Type</label>
+              <Select value={newAuthMatrix.entity_type} onValueChange={(v) => setNewAuthMatrix({ ...newAuthMatrix, entity_type: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {["JOURNAL_BATCH", "MANUAL_JOURNAL", "FX_REVALUATION", "YEAR_END"].map((t) => <SelectItem key={t} value={t}>{t.replace(/_/g, " ")}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Action</label>
+              <Select value={newAuthMatrix.action} onValueChange={(v) => setNewAuthMatrix({ ...newAuthMatrix, action: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {["APPROVE", "REJECT", "CANCEL", "REVERSE"].map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Amount From</label>
+              <Input type="number" value={newAuthMatrix.amount_from} onChange={(e) => setNewAuthMatrix({ ...newAuthMatrix, amount_from: e.target.value })} placeholder="0.00" step="0.01" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Amount To</label>
+              <Input type="number" value={newAuthMatrix.amount_to} onChange={(e) => setNewAuthMatrix({ ...newAuthMatrix, amount_to: e.target.value })} placeholder="No limit" step="0.01" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Required Approvers</label>
+              <Input type="number" min={1} max={10} value={newAuthMatrix.required_approvers} onChange={(e) => setNewAuthMatrix({ ...newAuthMatrix, required_approvers: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Approval Level</label>
+              <Input type="number" min={1} max={5} value={newAuthMatrix.approval_level} onChange={(e) => setNewAuthMatrix({ ...newAuthMatrix, approval_level: e.target.value })} />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <label className="text-sm font-medium">Role Required (optional)</label>
+              <Input value={newAuthMatrix.role_required} onChange={(e) => setNewAuthMatrix({ ...newAuthMatrix, role_required: e.target.value })} placeholder="e.g. GL_SUPERVISOR" />
+            </div>
+          </div>
+          {createAuthMatrixMut.isError && (
+            <div className="rounded-md border border-red-200 bg-red-50 p-2 text-sm text-red-800">{(createAuthMatrixMut.error as Error)?.message ?? "Creation failed"}</div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateAuthMatrixOpen(false)}>Cancel</Button>
+            <Button onClick={() => createAuthMatrixMut.mutate({
+              entity_type: newAuthMatrix.entity_type,
+              action: newAuthMatrix.action,
+              amount_from: newAuthMatrix.amount_from ? parseFloat(newAuthMatrix.amount_from) : undefined,
+              amount_to: newAuthMatrix.amount_to ? parseFloat(newAuthMatrix.amount_to) : undefined,
+              required_approvers: parseInt(newAuthMatrix.required_approvers) || 1,
+              approval_level: parseInt(newAuthMatrix.approval_level) || 1,
+              role_required: newAuthMatrix.role_required || undefined,
+            })} disabled={createAuthMatrixMut.isPending}>
+              {createAuthMatrixMut.isPending ? "Creating..." : "Create Rule"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Financial Period Dialog */}
+      <Dialog open={createPeriodOpen} onOpenChange={setCreatePeriodOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Create Financial Period</DialogTitle></DialogHeader>
+          <div className="grid gap-4 py-4 sm:grid-cols-2">
+            <div className="space-y-1 sm:col-span-2">
+              <label className="text-sm font-medium">Period Label</label>
+              <Input value={newPeriod.period_label} onChange={(e) => setNewPeriod({ ...newPeriod, period_label: e.target.value })} placeholder="e.g. 2026-Q1 or 2026-01" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Start Date</label>
+              <Input type="date" value={newPeriod.start_date} onChange={(e) => setNewPeriod({ ...newPeriod, start_date: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">End Date</label>
+              <Input type="date" value={newPeriod.end_date} onChange={(e) => setNewPeriod({ ...newPeriod, end_date: e.target.value })} />
+            </div>
+          </div>
+          {createPeriodMut.isError && (
+            <div className="rounded-md border border-red-200 bg-red-50 p-2 text-sm text-red-800">{(createPeriodMut.error as Error)?.message ?? "Creation failed"}</div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreatePeriodOpen(false)}>Cancel</Button>
+            <Button onClick={() => createPeriodMut.mutate({ ...newPeriod })} disabled={!newPeriod.period_label || !newPeriod.start_date || !newPeriod.end_date || createPeriodMut.isPending}>
+              {createPeriodMut.isPending ? "Creating..." : "Create Period"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

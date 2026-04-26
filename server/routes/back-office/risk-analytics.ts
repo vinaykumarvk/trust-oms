@@ -20,6 +20,7 @@ import { asyncHandler } from '../../middleware/async-handler';
 import { varService } from '../../services/var-service';
 import { durationService } from '../../services/duration-service';
 import { irepService } from '../../services/irep-service';
+import { riskAnalyticsService } from '../../services/risk-analytics-service';
 
 const router = Router();
 router.use(requireBackOfficeRole());
@@ -224,6 +225,37 @@ router.get(
   asyncHandler(async (_req, res) => {
     const result = await irepService.getIREPDashboard();
     res.json({ data: result });
+  }),
+);
+
+// =============================================================================
+// Stress Test Export (FR-RISK-003)
+// =============================================================================
+
+/** GET /stress-test/:portfolioId/export?format=pdf|csv -- Export stress test results */
+router.get(
+  '/stress-test/:portfolioId/export',
+  asyncHandler(async (req, res) => {
+    const { portfolioId } = req.params;
+    const format = (req.query.format as string)?.toLowerCase();
+
+    if (!format || !['csv', 'pdf'].includes(format)) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'format query param is required (csv or pdf)',
+        },
+      });
+    }
+
+    const result = await riskAnalyticsService.exportStressTestResults(
+      portfolioId,
+      format as 'csv' | 'pdf',
+    );
+
+    res.setHeader('Content-Type', result.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+    res.send(result.data);
   }),
 );
 

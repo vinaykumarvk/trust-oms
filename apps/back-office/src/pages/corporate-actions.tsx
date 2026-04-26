@@ -184,10 +184,10 @@ export default function CorporateActions() {
   const summaryQ = useQuery<CASummary>({ queryKey: ["ca-summary"], queryFn: () => apiRequest("GET", apiUrl("/api/v1/corporate-actions/summary")), refetchInterval: 30_000 });
   const summary = summaryQ.data ?? { pending_count: 0, upcoming_30d: 0, processed_today: 0, total_entitlements: 0 };
 
-  const upcomingQ = useQuery<CorporateAction[]>({ queryKey: ["ca-upcoming"], queryFn: () => apiRequest("GET", apiUrl("/api/v1/corporate-actions/upcoming?days=30")), refetchInterval: 30_000 });
+  const upcomingQ = useQuery<{ data: CorporateAction[] }>({ queryKey: ["ca-upcoming"], queryFn: () => apiRequest("GET", apiUrl("/api/v1/corporate-actions/upcoming?days=30")), refetchInterval: 30_000 });
   const upcomingCAs = upcomingQ.data?.data ?? [];
 
-  const entQ = useQuery<Entitlement[]>({
+  const entQ = useQuery<{ data: Entitlement[] }>({
     queryKey: ["ca-entitlements", selectedCaId],
     queryFn: () => { const u = selectedCaId ? `/api/v1/corporate-actions/${selectedCaId}/entitlements` : "/api/v1/corporate-actions/entitlements"; return apiRequest("GET", apiUrl(u)); },
     refetchInterval: 30_000, enabled: tab === "entitlements",
@@ -195,7 +195,7 @@ export default function CorporateActions() {
   const entitlements = entQ.data?.data ?? [];
 
   const historyParams = useMemo(() => { const p = new URLSearchParams(); if (historyFrom) p.set("from", historyFrom); if (historyTo) p.set("to", historyTo); return p.toString(); }, [historyFrom, historyTo]);
-  const historyQ = useQuery<CorporateAction[]>({
+  const historyQ = useQuery<{ data: CorporateAction[] }>({
     queryKey: ["ca-history", historyParams],
     queryFn: () => apiRequest("GET", apiUrl(`/api/v1/corporate-actions/history${historyParams ? `?${historyParams}` : ""}`)),
     refetchInterval: 30_000, enabled: tab === "history",
@@ -212,12 +212,12 @@ export default function CorporateActions() {
   const pipelineCAs = pipelineQ.data?.data ?? [];
 
   // Portfolios (for simulation dropdown)
-  const portfoliosQ = useQuery<Portfolio[]>({
+  const portfoliosQ = useQuery<{ data: Portfolio[] }>({
     queryKey: ["portfolios-list"],
     queryFn: () => apiRequest("GET", apiUrl("/api/v1/portfolios?pageSize=100")),
     enabled: tab === "simulation",
   });
-  const portfoliosList: Portfolio[] = portfoliosQ.data?.data ?? portfoliosQ.data ?? [];
+  const portfoliosList: Portfolio[] = portfoliosQ.data?.data ?? [];
 
   // All CAs for the simulation dropdown (reuse pipeline or separate)
   const allCAsQ = useQuery<{ data: CorporateAction[] }>({

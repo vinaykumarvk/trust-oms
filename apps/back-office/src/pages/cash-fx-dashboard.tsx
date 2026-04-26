@@ -171,7 +171,7 @@ function AccountTable({ rows }: { rows: AccountRow[] }) {
 // ---------------------------------------------------------------------------
 
 export default function CashFxDashboard() {
-  const heatmapQuery = useQuery<LiquidityRow[]>({
+  const heatmapQuery = useQuery<{ data: LiquidityRow[] }>({
     queryKey: ["liquidity-heatmap"],
     queryFn: () =>
       apiRequest("GET", apiUrl("/api/v1/settlements/cash-ledger/liquidity-heatmap")),
@@ -180,7 +180,7 @@ export default function CashFxDashboard() {
   const heatmapData = heatmapQuery.data?.data ?? [];
 
   // Find the max absolute value across all heatmap data for normalising bars
-  const maxAbs = heatmapData.reduce((mx, row) => {
+  const maxAbs = heatmapData.reduce((mx: number, row: LiquidityRow) => {
     return Math.max(
       mx,
       Math.abs(row.t0_balance),
@@ -248,7 +248,7 @@ export default function CashFxDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {heatmapData.map((row) => (
+                  {heatmapData.map((row: LiquidityRow) => (
                     <TableRow key={row.currency}>
                       <TableCell className="font-semibold">{row.currency}</TableCell>
                       {[row.t0_balance, row.t1_projected, row.t2_projected].map((val, idx) => {

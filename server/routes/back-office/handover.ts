@@ -34,10 +34,13 @@ router.use(requireBackOfficeRole());
 // ---------------------------------------------------------------------------
 
 router.get('/leads', asyncHandler(async (req: any, res: any) => {
-  const { search, branch, page, pageSize } = req.query;
+  // HAM-GAP-008: location and language quick-filter params
+  const { search, branch, location, language, page, pageSize } = req.query;
   const result = await handoverService.listEntities('lead', {
     search: search as string,
     branch: branch as string,
+    location: location as string,
+    language: language as string,
     page: page ? Number(page) : undefined,
     pageSize: pageSize ? Number(pageSize) : undefined,
   });
@@ -45,10 +48,13 @@ router.get('/leads', asyncHandler(async (req: any, res: any) => {
 }));
 
 router.get('/prospects', asyncHandler(async (req: any, res: any) => {
-  const { search, branch, page, pageSize } = req.query;
+  // HAM-GAP-008: location and language quick-filter params
+  const { search, branch, location, language, page, pageSize } = req.query;
   const result = await handoverService.listEntities('prospect', {
     search: search as string,
     branch: branch as string,
+    location: location as string,
+    language: language as string,
     page: page ? Number(page) : undefined,
     pageSize: pageSize ? Number(pageSize) : undefined,
   });
@@ -56,10 +62,13 @@ router.get('/prospects', asyncHandler(async (req: any, res: any) => {
 }));
 
 router.get('/clients', asyncHandler(async (req: any, res: any) => {
-  const { search, branch, page, pageSize } = req.query;
+  // HAM-GAP-008: clients don't have a leads/prospects table — location/language ignored gracefully
+  const { search, branch, location, language, page, pageSize } = req.query;
   const result = await handoverService.listEntities('client', {
     search: search as string,
     branch: branch as string,
+    location: location as string,
+    language: language as string,
     page: page ? Number(page) : undefined,
     pageSize: pageSize ? Number(pageSize) : undefined,
   });
@@ -121,13 +130,15 @@ router.get('/request/:id', asyncHandler(async (req: any, res: any) => {
 // ---------------------------------------------------------------------------
 
 router.get('/history', asyncHandler(async (req: any, res: any) => {
-  const { event_type, reference_type, dateFrom, dateTo, actor_id, page, pageSize } = req.query;
+  const { event_type, reference_type, dateFrom, dateTo, actor_id, entity_id, status, page, pageSize } = req.query;
   const result = await handoverService.getHandoverHistory({
     event_type: event_type as string,
     reference_type: reference_type as string,
     dateFrom: dateFrom as string,
     dateTo: dateTo as string,
     actor_id: actor_id ? Number(actor_id) : undefined,
+    entity_id: entity_id ? Number(entity_id) : undefined,
+    status: status as string | undefined,
     page: page ? Number(page) : undefined,
     pageSize: pageSize ? Number(pageSize) : undefined,
   });
@@ -359,11 +370,12 @@ router.post('/delegation/cancel/:id', asyncHandler(async (req: any, res: any) =>
 }));
 
 router.get('/delegation/calendar', asyncHandler(async (req: any, res: any) => {
-  const { from_date, to_date, rm_id } = req.query;
+  const { from_date, to_date, rm_id, branch_code } = req.query;
   const result = await handoverService.getDelegationCalendar({
     from_date: from_date as string,
     to_date: to_date as string,
     rm_id: rm_id ? Number(rm_id) : undefined,
+    branch_code: branch_code as string | undefined,
   });
   res.json(result);
 }));
@@ -399,6 +411,15 @@ router.post('/bulk-upload', asyncHandler(async (req: any, res: any) => {
   const { rows } = req.body;
   if (!Array.isArray(rows) || rows.length === 0) {
     return res.status(400).json({ error: 'Missing rows array' });
+  }
+  // HAM-GAP-015: max 5000 rows per upload
+  if (rows.length > 5000) {
+    return res.status(400).json({ error: `Maximum 5,000 rows per upload. Received: ${rows.length}` });
+  }
+  // HAM-GAP-015: approximate 10MB check on serialised payload
+  const payloadBytes = Buffer.byteLength(JSON.stringify(rows), 'utf8');
+  if (payloadBytes > 10 * 1024 * 1024) {
+    return res.status(400).json({ error: 'Upload payload exceeds 10 MB limit' });
   }
   const userId = req.userId || req.body.uploader_id || '0';
   const result = await handoverService.processBulkUpload(rows, String(userId));

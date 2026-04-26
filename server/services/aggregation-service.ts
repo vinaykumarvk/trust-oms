@@ -1,6 +1,6 @@
 import { db } from '../db';
 import * as schema from '@shared/schema';
-import { eq, and, sql, inArray, asc, type InferSelectModel } from 'drizzle-orm';
+import { eq, and, sql, inArray, asc, desc, type InferSelectModel } from 'drizzle-orm';
 
 type Order = InferSelectModel<typeof schema.orders>;
 type Block = InferSelectModel<typeof schema.blocks>;
@@ -357,5 +357,157 @@ export const aggregationService = {
     }
 
     return suggestions;
+  },
+
+  // ---------------------------------------------------------------------------
+  // FR-AGG-009: Waitlist Auto-Allocation (time-receipt priority)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Add an order to a block's waitlist with time-receipt priority.
+   * Priority rank is auto-assigned as max(existing rank) + 1.
+   */
+  async addToWaitlist(blockId: string, orderId: string, requestedQty: number) {
+    if (requestedQty <= 0) {
+      throw new Error('Requested quantity must be positive');
+    }
+
+    // Verify the block exists
+    const [block] = await db
+      .select()
+      .from(schema.blocks)
+      .where(eq(schema.blocks.block_id, blockId))
+      .limit(1);
+
+    if (!block) {
+      throw new Error(`Block not found: ${blockId}`);
+    }
+
+    // Atomic INSERT with inline SELECT for priority rank — prevents
+    // duplicate ranks from concurrent inserts.
+    const result = await db.execute(sql`
+      INSERT INTO block_waitlist_entries (block_id, order_id, priority_rank, requested_qty, allocated_qty, waitlist_status, queued_at)
+      VALUES (
+        ${blockId},
+        ${orderId},
+        COALESCE((SELECT MAX(priority_rank) FROM block_waitlist_entries WHERE block_id = ${blockId}), 0) + 1,
+        ${String(requestedQty)},
+        '0',
+        'QUEUED',
+        NOW()
+      )
+      RETURNING *
+    `);
+
+    const entry = result.rows[0];
+    return entry;
+  },
+
+  /**
+   * Auto-allocate available quantity to queued waitlist orders by priority
+   * (lowest rank = highest priority = earliest queued).
+   *
+   * Returns the list of entries that received allocations.
+   */
+  async processWaitlist(blockId: string, availableQty: number) {
+    if (availableQty <= 0) {
+      return [];
+    }
+
+    // Use a transaction with FOR UPDATE to prevent double-allocation
+    // from concurrent calls.
+    return db.transaction(async (tx: typeof db) => {
+      // Lock rows to prevent concurrent allocation
+      const entries = await tx
+        .select()
+        .from(schema.blockWaitlistEntries)
+        .where(
+          and(
+            eq(schema.blockWaitlistEntries.block_id, blockId),
+            sql`${schema.blockWaitlistEntries.waitlist_status} IN ('QUEUED', 'PARTIALLY_ALLOCATED')`,
+          ),
+        )
+        .orderBy(asc(schema.blockWaitlistEntries.priority_rank))
+        .for('update');
+
+      let remaining = availableQty;
+      const allocated: Array<typeof entries[number]> = [];
+
+      for (const entry of entries) {
+        if (remaining <= 0) break;
+
+        const requested = parseFloat(entry.requested_qty ?? '0');
+        const alreadyAllocated = parseFloat(entry.allocated_qty ?? '0');
+        const still_needed = requested - alreadyAllocated;
+
+        if (still_needed <= 0) continue;
+
+        const fillAmount = Math.min(still_needed, remaining);
+        const newAllocated = alreadyAllocated + fillAmount;
+        const newStatus = newAllocated >= requested ? 'FULLY_ALLOCATED' : 'PARTIALLY_ALLOCATED';
+
+        const [updated] = await tx
+          .update(schema.blockWaitlistEntries)
+          .set({
+            allocated_qty: String(newAllocated),
+            waitlist_status: newStatus as 'QUEUED' | 'PARTIALLY_ALLOCATED' | 'FULLY_ALLOCATED' | 'CANCELLED',
+            updated_at: new Date(),
+          })
+          .where(eq(schema.blockWaitlistEntries.id, entry.id))
+          .returning();
+
+        allocated.push(updated);
+        remaining -= fillAmount;
+      }
+
+      return allocated;
+    });
+  },
+
+  /**
+   * Handle an order backing out of a block waitlist.
+   * Cancels the entry and re-allocates its freed quantity to the next orders
+   * in the waitlist.
+   */
+  async handleBackout(blockId: string, orderId: string) {
+    // Find the entry
+    const [entry] = await db
+      .select()
+      .from(schema.blockWaitlistEntries)
+      .where(
+        and(
+          eq(schema.blockWaitlistEntries.block_id, blockId),
+          eq(schema.blockWaitlistEntries.order_id, orderId),
+          sql`${schema.blockWaitlistEntries.waitlist_status} != 'CANCELLED'`,
+        ),
+      )
+      .limit(1);
+
+    if (!entry) {
+      throw new Error(`Waitlist entry not found for block ${blockId}, order ${orderId}`);
+    }
+
+    const freedQty = parseFloat(entry.allocated_qty ?? '0');
+
+    // Cancel the entry
+    await db
+      .update(schema.blockWaitlistEntries)
+      .set({
+        waitlist_status: 'CANCELLED',
+        updated_at: new Date(),
+      })
+      .where(eq(schema.blockWaitlistEntries.id, entry.id));
+
+    // Re-allocate freed quantity to remaining waitlist entries
+    let reAllocated: Array<typeof entry> = [];
+    if (freedQty > 0) {
+      reAllocated = await aggregationService.processWaitlist(blockId, freedQty);
+    }
+
+    return {
+      cancelled_entry: { ...entry, waitlist_status: 'CANCELLED' },
+      freed_qty: freedQty,
+      re_allocated_entries: reAllocated,
+    };
   },
 };

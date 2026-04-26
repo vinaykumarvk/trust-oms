@@ -22,6 +22,18 @@ const MessagesPage = React.lazy(() => import("@/pages/messages"));
 const PreferencesPage = React.lazy(() => import("@/pages/preferences"));
 const RequestActionPage = React.lazy(() => import("@/pages/request-action"));
 
+// Service Requests
+const ServiceRequestsPage = React.lazy(() => import("@/pages/service-requests"));
+const ServiceRequestCreatePage = React.lazy(() => import("@/pages/service-request-create"));
+const ServiceRequestDetailPage = React.lazy(() => import("@/pages/service-request-detail"));
+
+// Risk Profiling & Proposals
+const RiskProfilePage = React.lazy(() => import("@/pages/risk-profile"));
+const ProposalsPage = React.lazy(() => import("@/pages/proposals"));
+
+// Campaign Management (CRM)
+const CampaignInbox = React.lazy(() => import("@/pages/campaign-inbox"));
+
 // ---- Loading fallback ----
 function PageLoader() {
   return (
@@ -132,6 +144,62 @@ export const router = createBrowserRouter([
             element: (
               <Suspense fallback={<PageLoader />}>
                 <RequestActionPage />
+              </Suspense>
+            ),
+          },
+
+          // Risk Profile
+          {
+            path: "/risk-profile",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <RiskProfilePage />
+              </Suspense>
+            ),
+          },
+
+          // Investment Proposals
+          {
+            path: "/proposals",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <ProposalsPage />
+              </Suspense>
+            ),
+          },
+
+          // Service Requests
+          {
+            path: "/service-requests",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <ServiceRequestsPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/service-requests/new",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <ServiceRequestCreatePage />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/service-requests/:id",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <ServiceRequestDetailPage />
+              </Suspense>
+            ),
+          },
+
+          // Campaign Inbox — view invitations and RSVP to events
+          {
+            path: "/campaign-inbox",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <CampaignInbox />
               </Suspense>
             ),
           },

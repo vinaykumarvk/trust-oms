@@ -13,16 +13,27 @@
  */
 
 import { Router } from 'express';
+import multer from 'multer';
 import { clientPortalService } from '../services/client-portal-service';
 import { serviceRequestService } from '../services/service-request-service';
+import { srDocumentService } from '../services/sr-document-service';
 import { riskProfilingService } from '../services/risk-profiling-service';
 import { proposalService } from '../services/proposal-service';
+import { clientMessageService } from '../services/client-message-service';
+import { statementService } from '../services/statement-service';
 import { asyncHandler } from '../middleware/async-handler';
+import { validatePortalOwnership } from '../middleware/portal-ownership';
+import { ForbiddenError, ValidationError, httpStatusFromError, safeErrorMessage } from '../services/service-errors';
 import { db } from '../db';
 import * as schema from '@shared/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 
 const router = Router();
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
+});
 
 // ---------------------------------------------------------------------------
 // Portfolio Summary
@@ -31,6 +42,7 @@ const router = Router();
 /** GET /portfolio-summary/:clientId -- Aggregated portfolio overview */
 router.get(
   '/portfolio-summary/:clientId',
+  validatePortalOwnership,
   asyncHandler(async (req, res) => {
     const { clientId } = req.params;
     if (!clientId) {
@@ -135,12 +147,12 @@ router.get(
 // Statements
 // ---------------------------------------------------------------------------
 
-/** GET /statements/:clientId -- Available statements list */
+/** GET /statements/:clientId -- Available statements list (paginated) */
 router.get(
   '/statements/:clientId',
+  validatePortalOwnership,
   asyncHandler(async (req, res) => {
     const { clientId } = req.params;
-    const period = req.query.period as string | undefined;
 
     if (!clientId) {
       return res.status(400).json({
@@ -148,8 +160,58 @@ router.get(
       });
     }
 
-    const data = await clientPortalService.getStatements(clientId, period);
-    res.json({ data });
+    const rawPage = parseInt(req.query.page as string, 10);
+    const rawPageSize = parseInt(req.query.pageSize as string, 10);
+    const page = isNaN(rawPage) || rawPage < 1 ? 1 : rawPage;
+    const pageSize = isNaN(rawPageSize) || rawPageSize < 1 ? 20 : rawPageSize;
+
+    const result = await statementService.getForClient(clientId, { page, pageSize });
+    res.json(result);
+  }),
+);
+
+/** GET /statements/:clientId/:statementId/download -- Download a single statement PDF */
+router.get(
+  '/statements/:clientId/:statementId/download',
+  validatePortalOwnership,
+  asyncHandler(async (req, res) => {
+    const { clientId, statementId: statementIdRaw } = req.params;
+    const statementId = parseInt(statementIdRaw, 10);
+
+    if (isNaN(statementId)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Invalid statement ID' },
+      });
+    }
+
+    // QUAL-06: always use session-derived clientId for the IDOR guard; never fall back
+    // to the URL parameter — validatePortalOwnership above already confirmed they match.
+    const sessionClientId = (req as any).user?.clientId as string | undefined;
+    if (!sessionClientId) {
+      return res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required' } });
+    }
+
+    try {
+      const result = await statementService.download(statementId, sessionClientId);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="statement-${statementId}.pdf"`);
+      res.setHeader('X-Delivery-Status', 'AVAILABLE');
+      res.send(result.buffer);
+    } catch (err: unknown) {
+      if (err instanceof ValidationError) {
+        return res.status(202).json({
+          status: 'NOT_AVAILABLE',
+          delivery_status: err.message,
+          message: 'Statement is being prepared. You will be notified when it is ready.',
+        });
+      }
+      if (err instanceof ForbiddenError) {
+        return res.status(403).json({
+          error: { code: 'FORBIDDEN', message: safeErrorMessage(err) },
+        });
+      }
+      res.status(httpStatusFromError(err)).json({ error: { message: safeErrorMessage(err) } });
+    }
   }),
 );
 
@@ -188,6 +250,7 @@ router.post(
 /** GET /notifications/:clientId -- Client notifications */
 router.get(
   '/notifications/:clientId',
+  validatePortalOwnership,
   asyncHandler(async (req, res) => {
     const { clientId } = req.params;
     if (!clientId) {
@@ -208,6 +271,7 @@ router.get(
 /** GET /service-requests/:clientId — List with status/priority/search filters */
 router.get(
   '/service-requests/:clientId',
+  validatePortalOwnership,
   asyncHandler(async (req, res) => {
     const { clientId } = req.params;
     const { status, priority, search, page, pageSize } = req.query;
@@ -226,6 +290,7 @@ router.get(
 /** GET /service-requests/action-count/:clientId — Count of INCOMPLETE SRs for badge */
 router.get(
   '/service-requests/action-count/:clientId',
+  validatePortalOwnership,
   asyncHandler(async (req, res) => {
     const result = await serviceRequestService.getActionCount(req.params.clientId);
     res.json({ data: result });
@@ -236,14 +301,20 @@ router.get(
 router.post(
   '/service-requests',
   asyncHandler(async (req, res) => {
-    const clientId = (req as any).user?.clientId || req.body.client_id;
-    const { sr_type, sr_details, priority, remarks, documents } = req.body;
-    if (!clientId || !sr_type) {
-      return res.status(400).json({
-        error: { code: 'INVALID_INPUT', message: 'client_id and sr_type are required' },
+    // SEC-03: always use session-derived clientId; never accept client_id from body
+    const clientId = (req as any).user?.clientId as string | undefined;
+    if (!clientId) {
+      return res.status(401).json({
+        error: { code: 'UNAUTHENTICATED', message: 'Authentication required' },
       });
     }
-    const userId = String((req as any).user?.id || (req as any).user?.clientId || clientId);
+    const { sr_type, sr_details, priority, remarks, documents } = req.body;
+    if (!sr_type) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'sr_type is required' },
+      });
+    }
+    const userId = String((req as any).user?.id || clientId);
     const result = await serviceRequestService.createServiceRequest({
       client_id: clientId,
       sr_type,
@@ -270,11 +341,44 @@ router.get(
   }),
 );
 
+// ---------------------------------------------------------------------------
+// Helper: assert the SR identified by numeric `id` belongs to the
+// requesting client.  Returns the SR on success; sends 403/404 and returns
+// null on failure.  Callers must guard on `null` before continuing.
+// ---------------------------------------------------------------------------
+async function assertSROwnership(
+  req: any,
+  res: any,
+  id: number,
+): Promise<{ id: number; client_id: string; [key: string]: unknown } | null> {
+  const sessionClientId = req.user?.clientId as string | undefined;
+  if (!sessionClientId) {
+    res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required' } });
+    return null;
+  }
+  const sr = await serviceRequestService.getServiceRequestById(id);
+  if (!sr) {
+    res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Service request not found' } });
+    return null;
+  }
+  if (sr.client_id !== sessionClientId) {
+    res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied' } });
+    return null;
+  }
+  return sr;
+}
+
 /** PUT /service-requests/:id — Update fields (status-aware) */
 router.put(
   '/service-requests/:id',
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Invalid service request ID' } });
+    }
+    // SEC-04: ownership check before mutation
+    const sr = await assertSROwnership(req, res, id);
+    if (!sr) return;
     const userId = String((req as any).user?.id || (req as any).user?.clientId || 'unknown');
     const result = await serviceRequestService.updateServiceRequest(id, req.body, userId);
     res.json({ data: result });
@@ -286,10 +390,16 @@ router.put(
   '/service-requests/:id/close',
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Invalid service request ID' } });
+    }
     const { reason } = req.body;
     if (!reason) {
       return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'reason is required' } });
     }
+    // SEC-05: ownership check before mutation
+    const sr = await assertSROwnership(req, res, id);
+    if (!sr) return;
     const userId = String((req as any).user?.id || (req as any).user?.clientId || 'unknown');
     const result = await serviceRequestService.closeRequest(id, reason, userId);
     res.json({ data: result });
@@ -301,6 +411,12 @@ router.put(
   '/service-requests/:id/resubmit',
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Invalid service request ID' } });
+    }
+    // SEC-06: ownership check before mutation
+    const sr = await assertSROwnership(req, res, id);
+    if (!sr) return;
     const userId = String((req as any).user?.id || (req as any).user?.clientId || 'unknown');
     const result = await serviceRequestService.resubmitForVerification(id, req.body, userId);
     res.json({ data: result });
@@ -312,8 +428,90 @@ router.get(
   '/service-requests/:id/history',
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Invalid service request ID' } });
+    }
+    // SEC-07: ownership check before exposing history
+    const sr = await assertSROwnership(req, res, id);
+    if (!sr) return;
     const history = await serviceRequestService.getStatusHistory(id);
     res.json({ data: history });
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Service Request Documents (Phase 3B)
+// ---------------------------------------------------------------------------
+
+/** POST /service-requests/:id/documents — Upload a document */
+router.post(
+  '/service-requests/:id/documents',
+  // Wrap multer to intercept LIMIT_FILE_SIZE and return 413 with structured body
+  (req, res, next) => {
+    upload.single('file')(req, res, (err: unknown) => {
+      if (err && typeof err === 'object' && (err as any).code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({
+          error: { code: 'FILE_TOO_LARGE', message: 'File must not exceed 20MB' },
+        });
+      }
+      next(err);
+    });
+  },
+  asyncHandler(async (req, res) => {
+    const srId = parseInt(req.params.id, 10);
+    if (isNaN(srId)) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Invalid service request ID' } });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'file is required (multipart field: file)' } });
+    }
+    const uploadedById = parseInt(String((req as any).user?.id ?? '0'), 10) || 0;
+    const uploadedByType = (req as any).user?.clientId ? 'CLIENT' : 'RM';
+    const { document_class } = req.body;
+    try {
+      const doc = await srDocumentService.upload(srId, req.file, uploadedByType, uploadedById, document_class);
+      res.status(201).json({ data: doc });
+    } catch (err: unknown) {
+      const status = httpStatusFromError(err);
+      res.status(status).json({ error: safeErrorMessage(err) });
+    }
+  }),
+);
+
+/** GET /service-requests/:id/documents — List documents for an SR */
+router.get(
+  '/service-requests/:id/documents',
+  asyncHandler(async (req, res) => {
+    const srId = parseInt(req.params.id, 10);
+    if (isNaN(srId)) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Invalid service request ID' } });
+    }
+    // SEC-02: verify the SR belongs to the requesting client before listing its documents
+    const sr = await assertSROwnership(req, res, srId);
+    if (!sr) return;
+    const docs = await srDocumentService.list(srId);
+    res.json({ data: docs });
+  }),
+);
+
+/** GET /service-requests/:id/documents/:docId/download — Download a document */
+router.get(
+  '/service-requests/:id/documents/:docId/download',
+  asyncHandler(async (req, res) => {
+    const docId = parseInt(req.params.docId, 10);
+    if (isNaN(docId)) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Invalid document ID' } });
+    }
+    const requesterClientId = (req as any).user?.clientId as string | undefined;
+    try {
+      const { buffer, document } = await srDocumentService.download(docId, requesterClientId);
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${document.document_name}"`);
+      res.send(buffer);
+    } catch (err: unknown) {
+      const status = httpStatusFromError(err);
+      res.status(status).json({ error: safeErrorMessage(err) });
+    }
   }),
 );
 
@@ -324,6 +522,7 @@ router.get(
 /** GET /risk-profile/:clientId — Active profile + allocation + history */
 router.get(
   '/risk-profile/:clientId',
+  validatePortalOwnership,
   asyncHandler(async (req, res) => {
     const { clientId } = req.params;
     if (!clientId) {
@@ -547,7 +746,65 @@ router.post(
       .from(schema.leads)
       .where(eq(schema.leads.existing_client_id, String(clientId)))
       .limit(1);
-    const resolvedLeadId = clientLead?.id || 0;
+    if (!clientLead) {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'No lead record associated with this client' } });
+    }
+    const resolvedLeadId = clientLead.id;
+
+    // Verify this client's lead is in the communication's recipient list (IDOR guard)
+    if (comm.recipient_list_id) {
+      const [membership] = await db
+        .select({ id: schema.leadListMembers.id })
+        .from(schema.leadListMembers)
+        .where(and(
+          eq(schema.leadListMembers.lead_list_id, comm.recipient_list_id),
+          eq(schema.leadListMembers.lead_id, resolvedLeadId),
+        ))
+        .limit(1);
+      if (!membership) {
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not a recipient of this communication' } });
+      }
+    }
+
+    // BRD G-038: enforce RSVP cutoff — block changes within 2 days of event_date
+    const [campaign] = await db
+      .select({ event_date: schema.campaigns.event_date })
+      .from(schema.campaigns)
+      .where(eq(schema.campaigns.id, comm.campaign_id))
+      .limit(1);
+    if (campaign?.event_date) {
+      const cutoff = new Date(campaign.event_date);
+      cutoff.setDate(cutoff.getDate() - 2);
+      if (new Date() >= cutoff) {
+        return res.status(400).json({
+          error: { code: 'RSVP_CLOSED', message: 'RSVP changes are not accepted within 2 days of the event date' },
+        });
+      }
+    }
+
+    // BR1: One response per lead per campaign — upsert to overwrite prior response
+    if (resolvedLeadId && comm.campaign_id) {
+      const [existingResp] = await db
+        .select({ id: schema.campaignResponses.id })
+        .from(schema.campaignResponses)
+        .where(and(
+          eq(schema.campaignResponses.campaign_id, comm.campaign_id),
+          eq(schema.campaignResponses.lead_id, resolvedLeadId),
+          eq(schema.campaignResponses.is_deleted, false),
+        ))
+        .limit(1);
+      if (existingResp) {
+        await db.update(schema.campaignResponses)
+          .set({
+            response_type: rsvp_status === 'ACCEPTED' ? 'INTERESTED' : rsvp_status === 'DECLINED' ? 'NOT_INTERESTED' : 'MAYBE',
+            response_notes: note || null,
+            updated_at: new Date(),
+          } as any)
+          .where(eq(schema.campaignResponses.id, existingResp.id));
+        const [updated] = await db.select().from(schema.campaignResponses).where(eq(schema.campaignResponses.id, existingResp.id));
+        return res.json({ data: updated });
+      }
+    }
 
     // Record the response
     const [response] = await db
@@ -689,6 +946,104 @@ router.post(
       .returning();
 
     res.json({ data: record });
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Client Messages
+// ---------------------------------------------------------------------------
+
+/** GET /messages -- Paginated inbox for the authenticated client */
+router.get(
+  '/messages',
+  asyncHandler(async (req: any, res: any) => {
+    const clientId = req.user?.clientId;
+    if (!clientId) {
+      return res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required' } });
+    }
+
+    const { page, pageSize } = req.query;
+    const result = await clientMessageService.listForClient(clientId, {
+      page: page ? (parseInt(page as string, 10) || 1) : 1,
+      pageSize: pageSize ? (parseInt(pageSize as string, 10) || 20) : 20,
+    });
+
+    res.json(result);
+  }),
+);
+
+/** GET /messages/unread-count -- Count of unread messages for the authenticated client */
+router.get(
+  '/messages/unread-count',
+  asyncHandler(async (req: any, res: any) => {
+    const clientId = req.user?.clientId;
+    if (!clientId) {
+      return res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required' } });
+    }
+
+    try {
+      const unread_count = await clientMessageService.getUnreadCount(clientId);
+      res.json({ unread_count });
+    } catch (err: unknown) {
+      const status = httpStatusFromError(err);
+      res.status(status).json({ error: safeErrorMessage(err) });
+    }
+  }),
+);
+
+/** POST /messages -- Client sends a new message to their RM */
+router.post(
+  '/messages',
+  asyncHandler(async (req: any, res: any) => {
+    const clientId = req.user?.clientId;
+    if (!clientId) {
+      return res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required' } });
+    }
+
+    const userId = req.user?.id ?? req.userId;
+    const { subject, body, thread_id, parent_message_id, related_sr_id } = req.body;
+
+    try {
+      const message = await clientMessageService.create({
+        sender_type: 'CLIENT',
+        sender_id: Number(userId) || 0,
+        recipient_client_id: clientId,
+        subject,
+        body,
+        thread_id: thread_id ?? null,
+        parent_message_id: parent_message_id ? Number(parent_message_id) : null,
+        related_sr_id: related_sr_id ? Number(related_sr_id) : null,
+      });
+
+      res.status(201).json({ data: message });
+    } catch (err: unknown) {
+      const status = httpStatusFromError(err);
+      res.status(status).json({ error: safeErrorMessage(err) });
+    }
+  }),
+);
+
+/** PATCH /messages/:id/read -- Mark a message as read (IDOR-safe) */
+router.patch(
+  '/messages/:id/read',
+  asyncHandler(async (req: any, res: any) => {
+    const clientId = req.user?.clientId;
+    if (!clientId) {
+      return res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required' } });
+    }
+
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Invalid message ID' } });
+    }
+
+    try {
+      await clientMessageService.markRead(id, clientId);
+      res.json({ success: true });
+    } catch (err: unknown) {
+      const status = httpStatusFromError(err);
+      res.status(status).json({ error: safeErrorMessage(err) });
+    }
   }),
 );
 

@@ -164,14 +164,14 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Welcome */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground dark:text-white">
             Welcome back, {clientName}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">{today}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground dark:text-gray-400 mt-1">{today}</p>
         </div>
         <Button
           className="bg-teal-600 hover:bg-teal-700 text-white"
@@ -183,53 +183,53 @@ export default function DashboardPage() {
       </div>
 
       {/* Snapshot Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {/* Total AUM */}
-        <Card className="border-border">
-          <CardContent className="p-5">
+        <Card className="border-border dark:border-gray-700 dark:bg-gray-800">
+          <CardContent className="p-3 sm:p-5">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-muted-foreground font-medium">Total Value</p>
-                <p className="text-2xl font-bold text-foreground mt-1">
+                <p className="text-xs sm:text-sm text-muted-foreground dark:text-gray-400 font-medium">Total Value</p>
+                <p className="text-xl sm:text-2xl font-bold text-foreground dark:text-white mt-1">
                   {summaryLoading ? "..." : formatCompact(summary?.totalAum ?? 0)}
                 </p>
               </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-50">
-                <DollarSign className="h-5 w-5 text-teal-600" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-50 dark:bg-teal-900/30">
+                <DollarSign className="h-5 w-5 text-teal-600 dark:text-teal-400" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Portfolio Count */}
-        <Card className="border-border">
-          <CardContent className="p-5">
+        <Card className="border-border dark:border-gray-700 dark:bg-gray-800">
+          <CardContent className="p-3 sm:p-5">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-muted-foreground font-medium">Portfolios</p>
-                <p className="text-2xl font-bold text-foreground mt-1">
+                <p className="text-xs sm:text-sm text-muted-foreground dark:text-gray-400 font-medium">Portfolios</p>
+                <p className="text-xl sm:text-2xl font-bold text-foreground dark:text-white mt-1">
                   {summaryLoading ? "..." : summary?.portfolioCount ?? 0}
                 </p>
               </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
-                <Briefcase className="h-5 w-5 text-blue-600" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-900/30">
+                <Briefcase className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* 1Y Performance */}
-        <Card className="border-border">
-          <CardContent className="p-5">
+        <Card className="border-border dark:border-gray-700 dark:bg-gray-800">
+          <CardContent className="p-3 sm:p-5">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-muted-foreground font-medium">1Y Return</p>
-                <p className="text-2xl font-bold text-foreground mt-1">
+                <p className="text-xs sm:text-sm text-muted-foreground dark:text-gray-400 font-medium">1Y Return</p>
+                <p className="text-xl sm:text-2xl font-bold text-foreground dark:text-white mt-1">
                   {perf1Y ? `${perf1Y.twr.toFixed(2)}%` : "..."}
                 </p>
               </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
-                <TrendingUp className="h-5 w-5 text-emerald-600" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-900/30">
+                <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               </div>
             </div>
           </CardContent>
@@ -237,13 +237,13 @@ export default function DashboardPage() {
       </div>
 
       {/* Two-column: Allocation + Performance */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
         {/* Allocation Breakdown */}
-        <Card className="border-border">
-          <CardHeader className="pb-3">
+        <Card className="border-border dark:border-gray-700 dark:bg-gray-800">
+          <CardHeader className="pb-3 px-3 sm:px-6">
             <div className="flex items-center gap-2">
-              <PieChart className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-base text-foreground">Asset Allocation</CardTitle>
+              <PieChart className="h-4 w-4 text-muted-foreground dark:text-gray-400" />
+              <CardTitle className="text-sm sm:text-base text-foreground dark:text-gray-100">Asset Allocation</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
@@ -272,10 +272,10 @@ export default function DashboardPage() {
                           className={`h-3 w-3 rounded-sm shrink-0 ${ALLOCATION_COLORS[i % ALLOCATION_COLORS.length]}`}
                         />
                         <div className="min-w-0">
-                          <p className="text-xs font-medium text-foreground truncate">
+                          <p className="text-xs font-medium text-foreground dark:text-gray-200 truncate">
                             {a.assetClass}
                           </p>
-                          <p className="text-[10px] text-muted-foreground">
+                          <p className="text-[10px] text-muted-foreground dark:text-gray-400">
                             {a.weight.toFixed(1)}%
                           </p>
                         </div>
@@ -293,24 +293,24 @@ export default function DashboardPage() {
         </Card>
 
         {/* Performance Summary */}
-        <Card className="border-border">
-          <CardHeader className="pb-3">
+        <Card className="border-border dark:border-gray-700 dark:bg-gray-800">
+          <CardHeader className="pb-3 px-3 sm:px-6">
             <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-base text-foreground">Performance</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground dark:text-gray-400" />
+              <CardTitle className="text-sm sm:text-base text-foreground dark:text-gray-100">Performance</CardTitle>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-3">
+          <CardContent className="px-3 sm:px-6">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               {perfPeriods.map((p) => {
                 const twr = p.data?.twr ?? null;
                 const isPositive = twr !== null && twr >= 0;
                 return (
                   <div
                     key={p.label}
-                    className="rounded-lg border border-border bg-muted/50 p-3"
+                    className="rounded-lg border border-border dark:border-gray-600 bg-muted/50 dark:bg-gray-700/50 p-2 sm:p-3"
                   >
-                    <p className="text-xs text-muted-foreground font-medium">{p.label}</p>
+                    <p className="text-xs text-muted-foreground dark:text-gray-400 font-medium">{p.label}</p>
                     <div className="flex items-center gap-1 mt-1">
                       {twr !== null ? (
                         <>
@@ -320,15 +320,15 @@ export default function DashboardPage() {
                             <ArrowDownRight className="h-4 w-4 text-red-500" />
                           )}
                           <span
-                            className={`text-lg font-semibold ${
-                              isPositive ? "text-emerald-700" : "text-red-600"
+                            className={`text-base sm:text-lg font-semibold ${
+                              isPositive ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
                             }`}
                           >
                             {twr.toFixed(2)}%
                           </span>
                         </>
                       ) : (
-                        <span className="text-lg font-semibold text-muted-foreground">--</span>
+                        <span className="text-base sm:text-lg font-semibold text-muted-foreground dark:text-gray-500">--</span>
                       )}
                     </div>
                   </div>
@@ -339,7 +339,7 @@ export default function DashboardPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="w-full text-teal-700 border-teal-200 hover:bg-teal-50"
+                className="w-full text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-800 hover:bg-teal-50 dark:hover:bg-teal-900/30"
                 onClick={() => navigate("/performance")}
               >
                 View Full Performance
@@ -350,28 +350,28 @@ export default function DashboardPage() {
       </div>
 
       {/* Recent Transactions */}
-      <Card className="border-border">
-        <CardHeader className="pb-3">
+      <Card className="border-border dark:border-gray-700 dark:bg-gray-800">
+        <CardHeader className="pb-3 px-3 sm:px-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-base text-foreground">
+              <Clock className="h-4 w-4 text-muted-foreground dark:text-gray-400" />
+              <CardTitle className="text-sm sm:text-base text-foreground dark:text-gray-100">
                 Recent Transactions
               </CardTitle>
             </div>
             <Button
               variant="ghost"
               size="sm"
-              className="text-teal-700 hover:text-teal-800"
+              className="text-teal-700 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300"
               onClick={() => navigate("/portfolio")}
             >
               View All
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-3 sm:px-6">
           {txData?.transactions && txData.transactions.length > 0 ? (
-            <div className="divide-y divide-border">
+            <div className="divide-y divide-border dark:divide-gray-700">
               {txData.transactions.map(
                 (tx: {
                   orderId: string;
@@ -392,8 +392,8 @@ export default function DashboardPage() {
                       <div
                         className={`flex h-8 w-8 items-center justify-center rounded-full shrink-0 ${
                           tx.side === "BUY"
-                            ? "bg-emerald-50 text-emerald-600"
-                            : "bg-red-50 text-red-500"
+                            ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
+                            : "bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400"
                         }`}
                       >
                         {tx.side === "BUY" ? (
@@ -403,10 +403,10 @@ export default function DashboardPage() {
                         )}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">
+                        <p className="text-sm font-medium text-foreground dark:text-gray-100 truncate">
                           {tx.side} {tx.securityName}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground dark:text-gray-400">
                           {tx.quantity} units &middot;{" "}
                           {tx.createdAt
                             ? new Date(tx.createdAt).toLocaleDateString("en-PH")
@@ -415,17 +415,17 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="text-right shrink-0 ml-4">
-                      <p className="text-sm font-medium text-foreground">
+                      <p className="text-sm font-medium text-foreground dark:text-gray-100">
                         {formatCurrency(tx.quantity * tx.price, tx.currency)}
                       </p>
                       <Badge
                         variant="outline"
                         className={`text-[10px] ${
                           tx.status === "FILLED"
-                            ? "border-emerald-200 text-emerald-700"
+                            ? "border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400"
                             : tx.status === "PENDING"
-                              ? "border-amber-200 text-amber-700"
-                              : "border-border text-muted-foreground"
+                              ? "border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400"
+                              : "border-border dark:border-gray-600 text-muted-foreground dark:text-gray-400"
                         }`}
                       >
                         {tx.status}
@@ -445,15 +445,15 @@ export default function DashboardPage() {
 
       {/* Portfolio List */}
       {summary?.portfolios && summary.portfolios.length > 0 && (
-        <Card className="border-border">
-          <CardHeader className="pb-3">
+        <Card className="border-border dark:border-gray-700 dark:bg-gray-800">
+          <CardHeader className="pb-3 px-3 sm:px-6">
             <div className="flex items-center gap-2">
-              <Briefcase className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-base text-foreground">Your Portfolios</CardTitle>
+              <Briefcase className="h-4 w-4 text-muted-foreground dark:text-gray-400" />
+              <CardTitle className="text-sm sm:text-base text-foreground dark:text-gray-100">Your Portfolios</CardTitle>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="divide-y divide-border">
+          <CardContent className="px-3 sm:px-6">
+            <div className="divide-y divide-border dark:divide-gray-700">
               {summary.portfolios.map(
                 (p: {
                   id: string;
@@ -468,21 +468,21 @@ export default function DashboardPage() {
                     className="flex items-center justify-between py-3 first:pt-0 last:pb-0"
                   >
                     <div>
-                      <p className="text-sm font-medium text-foreground">{p.name}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm font-medium text-foreground dark:text-gray-100">{p.name}</p>
+                      <p className="text-xs text-muted-foreground dark:text-gray-400">
                         {p.productType ?? "Portfolio"} &middot; {p.currency}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-semibold text-foreground">
+                      <p className="text-sm font-semibold text-foreground dark:text-gray-100">
                         {formatCurrency(p.marketValue, p.currency)}
                       </p>
                       <Badge
                         variant="outline"
                         className={`text-[10px] ${
                           p.status === "active"
-                            ? "border-emerald-200 text-emerald-700"
-                            : "border-border text-muted-foreground"
+                            ? "border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400"
+                            : "border-border dark:border-gray-600 text-muted-foreground dark:text-gray-400"
                         }`}
                       >
                         {p.status ?? "Active"}

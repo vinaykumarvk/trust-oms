@@ -235,6 +235,104 @@ const connectors: Connector[] = [
     credentials_configured: true,
     enabled: true,
   },
+  {
+    id: 'dtcc-gca',
+    name: 'DTCC Global Corporate Actions',
+    type: 'MARKET_DATA' as ConnectorType,
+    status: 'HEALTHY' as ConnectorStatus,
+    endpoint: 'https://gca.dtcc.com/api/v2',
+    last_checked: new Date().toISOString(),
+    success_rate: 99.1,
+    avg_latency_ms: 280,
+    protocol: 'REST' as ConnectorProtocol,
+    description: 'DTCC Global Corporate Actions feed — announcements, entitlements, elections',
+    credentials_configured: true,
+    enabled: true,
+  },
+  {
+    id: 'pdtc',
+    name: 'PDTC (Philippine Depository & Trust Corp)',
+    type: 'EXCHANGE' as ConnectorType,
+    status: 'HEALTHY' as ConnectorStatus,
+    endpoint: 'https://api.pdtc.com.ph/v1',
+    last_checked: new Date().toISOString(),
+    success_rate: 98.8,
+    avg_latency_ms: 150,
+    protocol: 'REST' as ConnectorProtocol,
+    description: 'Philippine Depository & Trust Corp — securities depository, corporate actions, settlement',
+    credentials_configured: true,
+    enabled: true,
+  },
+  {
+    id: 'bir-efps',
+    name: 'BIR eFPS (Electronic Filing & Payment)',
+    type: 'REGULATORY' as ConnectorType,
+    status: 'HEALTHY' as ConnectorStatus,
+    endpoint: 'https://efps.bir.gov.ph/api/v1',
+    last_checked: new Date().toISOString(),
+    success_rate: 97.5,
+    avg_latency_ms: 3800,
+    protocol: 'REST' as ConnectorProtocol,
+    description: 'Bureau of Internal Revenue eFPS — electronic tax filing and payment (1601-FQ, 1604-E)',
+    credentials_configured: true,
+    enabled: true,
+  },
+  {
+    id: 'esign',
+    name: 'Electronic Signature Service',
+    type: 'CORE_BANKING' as ConnectorType,
+    status: 'HEALTHY' as ConnectorStatus,
+    endpoint: 'https://esign.bankph.local/api/v1',
+    last_checked: new Date().toISOString(),
+    success_rate: 99.5,
+    avg_latency_ms: 90,
+    protocol: 'REST' as ConnectorProtocol,
+    description: 'Electronic signature service for document signing and verification',
+    credentials_configured: true,
+    enabled: true,
+  },
+  {
+    id: 'biometric',
+    name: 'Biometric Verification Service',
+    type: 'CORE_BANKING' as ConnectorType,
+    status: 'HEALTHY' as ConnectorStatus,
+    endpoint: 'https://biometric.bankph.local/api/v1',
+    last_checked: new Date().toISOString(),
+    success_rate: 99.2,
+    avg_latency_ms: 200,
+    protocol: 'REST' as ConnectorProtocol,
+    description: 'Biometric verification — fingerprint and facial recognition for client authentication',
+    credentials_configured: true,
+    enabled: true,
+  },
+  {
+    id: 's3-archive',
+    name: 'S3 Document Archive',
+    type: 'CORE_BANKING' as ConnectorType,
+    status: 'HEALTHY' as ConnectorStatus,
+    endpoint: 'https://s3.ap-southeast-1.amazonaws.com/trustoms-archive',
+    last_checked: new Date().toISOString(),
+    success_rate: 99.99,
+    avg_latency_ms: 50,
+    protocol: 'REST' as ConnectorProtocol,
+    description: 'S3/object storage for long-term document archival and retrieval',
+    credentials_configured: true,
+    enabled: true,
+  },
+  {
+    id: 'bi-warehouse',
+    name: 'BI Data Warehouse',
+    type: 'CORE_BANKING' as ConnectorType,
+    status: 'HEALTHY' as ConnectorStatus,
+    endpoint: 'https://bi-warehouse.bankph.local/api/v1',
+    last_checked: new Date().toISOString(),
+    success_rate: 99.3,
+    avg_latency_ms: 180,
+    protocol: 'REST' as ConnectorProtocol,
+    description: 'Business Intelligence data warehouse — export for analytics and reporting',
+    credentials_configured: true,
+    enabled: true,
+  },
 ];
 
 // =============================================================================
@@ -544,6 +642,13 @@ export const integrationService = {
       'amlc-goaml': [1200, 6000],
       'bir-ides': [2000, 10000],
       'sanctions-vendor': [150, 800],
+      'dtcc-gca': [100, 600],
+      'pdtc': [80, 400],
+      'bir-efps': [2000, 8000],
+      'esign': [40, 200],
+      'biometric': [100, 500],
+      's3-archive': [20, 150],
+      'bi-warehouse': [100, 500],
     };
 
     const range = latencyRanges[id] || [50, 500];
@@ -866,6 +971,13 @@ export const integrationService = {
       'amlc-goaml': 3,
       'bir-ides': 1,
       'sanctions-vendor': 45,
+      'dtcc-gca': 60,
+      'pdtc': 40,
+      'bir-efps': 5,
+      'esign': 20,
+      'biometric': 15,
+      's3-archive': 100,
+      'bi-warehouse': 30,
     };
 
     const reqsPerHour = baseRequestsPerHour[id] || 50;
@@ -888,5 +1000,64 @@ export const integrationService = {
           ? new Date(Date.now() - randomBetween(3600000, 86400000)).toISOString()
           : null,
     };
+  },
+
+  // ---------------------------------------------------------------------------
+  // ISO 20022 Export
+  // ---------------------------------------------------------------------------
+
+  /** Generate ISO 20022 XML for corporate action events (seev.031, seev.035) */
+  async exportISO20022(eventId: number, messageType: 'seev.031' | 'seev.035' = 'seev.031'): Promise<{
+    eventId: number;
+    messageType: string;
+    xml: string;
+    generatedAt: string;
+  }> {
+    // In production, this would query the CA event and generate proper ISO 20022 XML
+    // For now, generate a stub XML structure
+    const timestamp = new Date().toISOString();
+    const msgId = `TRUSTOMS-${messageType.toUpperCase().replace('.', '')}-${eventId}-${Date.now()}`;
+
+    const xml = messageType === 'seev.031'
+      ? `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:seev.031.001.12">
+  <CorpActnNtfctn>
+    <Id>
+      <MsgId>${msgId}</MsgId>
+      <CreDtTm>${timestamp}</CreDtTm>
+    </Id>
+    <CorpActnGnlInf>
+      <CorpActnEvtId>${eventId}</CorpActnEvtId>
+      <EvtTp>DVCA</EvtTp>
+    </CorpActnGnlInf>
+  </CorpActnNtfctn>
+</Document>`
+      : `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:seev.035.001.12">
+  <CorpActnMvmntPrlmnryAdvc>
+    <Id>
+      <MsgId>${msgId}</MsgId>
+      <CreDtTm>${timestamp}</CreDtTm>
+    </Id>
+    <CorpActnGnlInf>
+      <CorpActnEvtId>${eventId}</CorpActnEvtId>
+    </CorpActnGnlInf>
+  </CorpActnMvmntPrlmnryAdvc>
+</Document>`;
+
+    // Log the export activity
+    const logEntry: ActivityLogEntry = {
+      id: generateId('AL', activityLogIdSeq++),
+      timestamp,
+      connector_id: 'dtcc-gca',
+      connector_name: 'DTCC Global Corporate Actions',
+      event_type: 'ISO20022_EXPORT',
+      status: 'SUCCESS',
+      latency_ms: 15,
+      details: `ISO 20022 ${messageType} generated for CA event ${eventId}`,
+    };
+    activityLog.unshift(logEntry);
+
+    return { eventId, messageType, xml, generatedAt: timestamp };
   },
 };

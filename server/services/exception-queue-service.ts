@@ -13,6 +13,7 @@
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, and, sql, desc, ilike, or, lte, gt, ne, inArray } from 'drizzle-orm';
+import { tfpAuditService } from './tfp-audit-service';
 
 // SLA duration in hours by severity
 const SLA_HOURS: Record<string, number> = {
@@ -74,6 +75,8 @@ export const exceptionQueueService = {
       })
       .returning();
 
+    await tfpAuditService.logEvent('EXCEPTION_ITEM', String(exception.id), 'EXCEPTION_CREATED', { exception_type: data.exception_type, severity, title: data.title }, null);
+
     return exception;
   },
 
@@ -106,6 +109,8 @@ export const exceptionQueueService = {
       })
       .where(eq(schema.exceptionItems.id, exceptionId))
       .returning();
+
+    await tfpAuditService.logEvent('EXCEPTION_ITEM', String(exceptionId), 'EXCEPTION_ASSIGNED', { assigned_to: userId, previous_status: current.exception_status }, userId);
 
     return updated;
   },
@@ -140,6 +145,8 @@ export const exceptionQueueService = {
       })
       .where(eq(schema.exceptionItems.id, exceptionId))
       .returning();
+
+    await tfpAuditService.logEvent('EXCEPTION_ITEM', String(exceptionId), 'EXCEPTION_RESOLVED', { resolution_notes: resolutionNotes }, null);
 
     return updated;
   },
@@ -177,6 +184,8 @@ export const exceptionQueueService = {
       .where(eq(schema.exceptionItems.id, exceptionId))
       .returning();
 
+    await tfpAuditService.logEvent('EXCEPTION_ITEM', String(exceptionId), 'EXCEPTION_ESCALATED', { reason: reason ?? 'N/A' }, null);
+
     return updated;
   },
 
@@ -210,6 +219,8 @@ export const exceptionQueueService = {
       })
       .where(eq(schema.exceptionItems.id, exceptionId))
       .returning();
+
+    await tfpAuditService.logEvent('EXCEPTION_ITEM', String(exceptionId), 'EXCEPTION_WONT_FIX', { reason }, null);
 
     return updated;
   },
@@ -354,8 +365,16 @@ export const exceptionQueueService = {
 
   /**
    * KPI Dashboard for exceptions.
+   * GAP-C13: When userRole is provided, filter KPI data by role
+   * (e.g. FEE_OPS sees only their team's items).
    */
-  async getKpiDashboard() {
+  async getKpiDashboard(userRole?: string) {
+    // GAP-C13: Role-based KPI filter — FEE_OPS users see only OPERATIONS team items
+    const roleTeamFilter = userRole === 'FEE_OPS'
+      ? eq(schema.exceptionItems.assigned_to_team, 'OPERATIONS')
+      : userRole === 'COMPLIANCE_OFFICER'
+        ? eq(schema.exceptionItems.assigned_to_team, 'COMPLIANCE')
+        : undefined;
     // Status counts
     const statusCounts = await db
       .select({
@@ -363,6 +382,7 @@ export const exceptionQueueService = {
         count: sql<number>`count(*)`,
       })
       .from(schema.exceptionItems)
+      .where(roleTeamFilter)
       .groupBy(schema.exceptionItems.exception_status);
 
     const statusMap: Record<string, number> = {};
@@ -382,7 +402,11 @@ export const exceptionQueueService = {
         on_time: sql<number>`count(*) FILTER (WHERE ${schema.exceptionItems.resolved_at} <= ${schema.exceptionItems.sla_due_at})`,
       })
       .from(schema.exceptionItems)
-      .where(eq(schema.exceptionItems.exception_status, 'RESOLVED'));
+      .where(
+        roleTeamFilter
+          ? and(eq(schema.exceptionItems.exception_status, 'RESOLVED'), roleTeamFilter)
+          : eq(schema.exceptionItems.exception_status, 'RESOLVED'),
+      );
 
     const totalResolvedForSla = Number(slaAdherenceResult[0]?.total_resolved ?? 0);
     const onTime = Number(slaAdherenceResult[0]?.on_time ?? 0);
@@ -398,10 +422,16 @@ export const exceptionQueueService = {
       })
       .from(schema.exceptionItems)
       .where(
-        and(
-          ne(schema.exceptionItems.exception_status, 'RESOLVED'),
-          ne(schema.exceptionItems.exception_status, 'WONT_FIX'),
-        ),
+        roleTeamFilter
+          ? and(
+              ne(schema.exceptionItems.exception_status, 'RESOLVED'),
+              ne(schema.exceptionItems.exception_status, 'WONT_FIX'),
+              roleTeamFilter,
+            )
+          : and(
+              ne(schema.exceptionItems.exception_status, 'RESOLVED'),
+              ne(schema.exceptionItems.exception_status, 'WONT_FIX'),
+            ),
       )
       .groupBy(schema.exceptionItems.severity);
 
@@ -417,6 +447,7 @@ export const exceptionQueueService = {
         count: sql<number>`count(*)`,
       })
       .from(schema.exceptionItems)
+      .where(roleTeamFilter)
       .groupBy(schema.exceptionItems.exception_type);
 
     const typeDistMap: Record<string, number> = {};
@@ -430,7 +461,11 @@ export const exceptionQueueService = {
         avg_hours: sql<number>`COALESCE(AVG(EXTRACT(EPOCH FROM (${schema.exceptionItems.resolved_at} - ${schema.exceptionItems.created_at})) / 3600), 0)`,
       })
       .from(schema.exceptionItems)
-      .where(eq(schema.exceptionItems.exception_status, 'RESOLVED'));
+      .where(
+        roleTeamFilter
+          ? and(eq(schema.exceptionItems.exception_status, 'RESOLVED'), roleTeamFilter)
+          : eq(schema.exceptionItems.exception_status, 'RESOLVED'),
+      );
 
     const avgResolutionHours = Math.round(Number(avgResolutionResult[0]?.avg_hours ?? 0) * 100) / 100;
 
@@ -444,6 +479,53 @@ export const exceptionQueueService = {
       type_distribution: typeDistMap,
       avg_resolution_hours: avgResolutionHours,
     };
+  },
+
+  /**
+   * GAP-C13: CSV-exportable KPI data.
+   * Returns flat rows suitable for CSV export.
+   */
+  async getKpiExportData(userRole?: string) {
+    const roleTeamFilter = userRole === 'FEE_OPS'
+      ? eq(schema.exceptionItems.assigned_to_team, 'OPERATIONS')
+      : userRole === 'COMPLIANCE_OFFICER'
+        ? eq(schema.exceptionItems.assigned_to_team, 'COMPLIANCE')
+        : undefined;
+
+    const data = await db
+      .select({
+        id: schema.exceptionItems.id,
+        exception_type: schema.exceptionItems.exception_type,
+        severity: schema.exceptionItems.severity,
+        title: schema.exceptionItems.title,
+        exception_status: schema.exceptionItems.exception_status,
+        assigned_to_team: schema.exceptionItems.assigned_to_team,
+        assigned_to_user: schema.exceptionItems.assigned_to_user,
+        sla_due_at: schema.exceptionItems.sla_due_at,
+        created_at: schema.exceptionItems.created_at,
+        resolved_at: schema.exceptionItems.resolved_at,
+        escalated_at: schema.exceptionItems.escalated_at,
+      })
+      .from(schema.exceptionItems)
+      .where(roleTeamFilter)
+      .orderBy(desc(schema.exceptionItems.created_at));
+
+    const columns = [
+      'id', 'exception_type', 'severity', 'title', 'exception_status',
+      'assigned_to_team', 'assigned_to_user', 'sla_due_at', 'created_at',
+      'resolved_at', 'escalated_at',
+    ];
+
+    const rows = data.map((r: any) => [
+      r.id, r.exception_type, r.severity, r.title, r.exception_status,
+      r.assigned_to_team, r.assigned_to_user,
+      r.sla_due_at ? new Date(r.sla_due_at).toISOString() : null,
+      r.created_at ? new Date(r.created_at).toISOString() : null,
+      r.resolved_at ? new Date(r.resolved_at).toISOString() : null,
+      r.escalated_at ? new Date(r.escalated_at).toISOString() : null,
+    ]);
+
+    return { columns, rows };
   },
 
   /**
@@ -472,6 +554,8 @@ export const exceptionQueueService = {
         ),
       )
       .returning();
+
+    await tfpAuditService.logEvent('EXCEPTION_ITEM', 'BULK', 'EXCEPTION_BULK_REASSIGNED', { exception_ids: exceptionIds, new_user: newUserId, count: result.length }, newUserId);
 
     return { reassigned: result.length };
   },
@@ -506,6 +590,93 @@ export const exceptionQueueService = {
       )
       .returning();
 
+    await tfpAuditService.logEvent('EXCEPTION_ITEM', 'BULK', 'EXCEPTION_BULK_RESOLVED', { exception_ids: exceptionIds, resolution_notes: resolutionNotes, count: result.length }, null);
+
     return { resolved: result.length };
+  },
+
+  /**
+   * GAP-C17: Bulk escalate multiple exceptions.
+   */
+  async bulkEscalate(ids: number[], escalatedBy: number) {
+    if (!ids.length) {
+      throw new Error('No exception IDs provided');
+    }
+
+    const now = new Date();
+
+    const result = await db
+      .update(schema.exceptionItems)
+      .set({
+        exception_status: 'ESCALATED',
+        escalated_at: now,
+        updated_at: now,
+      })
+      .where(
+        and(
+          inArray(schema.exceptionItems.id, ids),
+          or(
+            eq(schema.exceptionItems.exception_status, 'OPEN'),
+            eq(schema.exceptionItems.exception_status, 'IN_PROGRESS'),
+          ),
+        ),
+      )
+      .returning();
+
+    await tfpAuditService.logEvent(
+      'EXCEPTION_ITEM',
+      'BULK',
+      'EXCEPTION_BULK_ESCALATED',
+      { exception_ids: ids, escalated_by: escalatedBy, count: result.length },
+      String(escalatedBy),
+    );
+
+    return { escalated: result.length };
+  },
+
+  /**
+   * GAP-C17: Static resolution templates for common exception resolutions.
+   */
+  getResolutionTemplates() {
+    return [
+      { id: 'duplicate_entry', label: 'Duplicate Entry', resolution: 'Resolved as duplicate - original entry retained' },
+      { id: 'rounding_diff', label: 'Rounding Difference', resolution: 'Within tolerance threshold - auto-resolved' },
+      { id: 'fx_variance', label: 'FX Rate Variance', resolution: 'FX rate updated - recalculated amount within tolerance' },
+      { id: 'manual_override', label: 'Manual Override Applied', resolution: 'Manually reviewed and override applied per approval' },
+    ];
+  },
+
+  /**
+   * GAP-C18: Backlog age distribution.
+   * Buckets OPEN exceptions by age: <1h, 1-4h, 4-8h, 8-24h, >24h.
+   */
+  async getBacklogAgeDistribution() {
+    const openExceptions = await db
+      .select({
+        id: schema.exceptionItems.id,
+        created_at: schema.exceptionItems.created_at,
+      })
+      .from(schema.exceptionItems)
+      .where(eq(schema.exceptionItems.exception_status, 'OPEN'));
+
+    const now = Date.now();
+    const buckets: Record<string, number> = {
+      '<1h': 0,
+      '1-4h': 0,
+      '4-8h': 0,
+      '8-24h': 0,
+      '>24h': 0,
+    };
+
+    for (const item of openExceptions) {
+      const ageHours = (now - new Date(item.created_at!).getTime()) / (1000 * 60 * 60);
+      if (ageHours < 1) buckets['<1h']++;
+      else if (ageHours < 4) buckets['1-4h']++;
+      else if (ageHours < 8) buckets['4-8h']++;
+      else if (ageHours < 24) buckets['8-24h']++;
+      else buckets['>24h']++;
+    }
+
+    return Object.entries(buckets).map(([bucket, count]) => ({ bucket, count }));
   },
 };

@@ -78,15 +78,15 @@ export default function FeeBillingDesk() {
   const summaryQ = useQuery<FeeSummary>({ queryKey: ["fee-summary"], queryFn: () => apiRequest("GET", apiUrl("/api/v1/fees/summary")), refetchInterval: 30_000 });
   const sum = summaryQ.data ?? { active_schedules: 0, pending_invoices: 0, accrued_today_php: 0, uitf_avg_ter: 0 };
 
-  const schedQ = useQuery<FeeSchedule[]>({ queryKey: ["fee-schedules"], queryFn: () => apiRequest("GET", apiUrl("/api/v1/fees/schedules")), refetchInterval: 30_000, enabled: tab === "schedules" });
+  const schedQ = useQuery<{ data: FeeSchedule[] }>({ queryKey: ["fee-schedules"], queryFn: () => apiRequest("GET", apiUrl("/api/v1/fees/schedules")), refetchInterval: 30_000, enabled: tab === "schedules" });
   const schedules = schedQ.data?.data ?? [];
 
   const accrualQ = useQuery<AccrualStatus>({ queryKey: ["fee-accrual-status"], queryFn: () => apiRequest("GET", apiUrl("/api/v1/fees/accruals/status")), refetchInterval: 30_000, enabled: tab === "accruals" });
 
-  const invQ = useQuery<Invoice[]>({ queryKey: ["fee-invoices"], queryFn: () => apiRequest("GET", apiUrl("/api/v1/fees/invoices")), refetchInterval: 30_000, enabled: tab === "invoices" });
+  const invQ = useQuery<{ data: Invoice[] }>({ queryKey: ["fee-invoices"], queryFn: () => apiRequest("GET", apiUrl("/api/v1/fees/invoices")), refetchInterval: 30_000, enabled: tab === "invoices" });
   const invoices = invQ.data?.data ?? [];
 
-  const portQ = useQuery<PortfolioOption[]>({ queryKey: ["portfolios-list"], queryFn: () => apiRequest("GET", apiUrl("/api/v1/portfolios?pageSize=200")), refetchInterval: 60_000 });
+  const portQ = useQuery<{ data: PortfolioOption[] }>({ queryKey: ["portfolios-list"], queryFn: () => apiRequest("GET", apiUrl("/api/v1/portfolios?pageSize=200")), refetchInterval: 60_000 });
   const portfolios = portQ.data?.data ?? [];
 
   const terQ = useQuery<TERResult>({
@@ -161,7 +161,7 @@ export default function FeeBillingDesk() {
               </TableRow></TableHeader>
               <TableBody>
                 {schedQ.isLoading ? <SkeletonRows cols={6} /> : schedules.length === 0 ? <EmptyRow cols={6} msg="No fee schedules configured" /> :
-                  schedules.map((s) => (
+                  schedules.map((s: FeeSchedule) => (
                     <TableRow key={s.id}>
                       <TableCell className="font-medium">{s.portfolio_name}</TableCell>
                       <TableCell><Badge className={bc(FEE_COLORS, s.fee_type)}>{s.fee_type}</Badge></TableCell>
@@ -225,7 +225,7 @@ export default function FeeBillingDesk() {
               </TableRow></TableHeader>
               <TableBody>
                 {invQ.isLoading ? <SkeletonRows cols={8} /> : invoices.length === 0 ? <EmptyRow cols={8} msg="No invoices found" /> :
-                  invoices.map((inv) => (
+                  invoices.map((inv: Invoice) => (
                     <TableRow key={inv.id}>
                       <TableCell className="font-medium">{inv.portfolio_name}</TableCell>
                       <TableCell><Badge className={bc(FEE_COLORS, inv.fee_type)}>{inv.fee_type}</Badge></TableCell>
@@ -258,7 +258,7 @@ export default function FeeBillingDesk() {
                   <label className="text-sm font-medium">Portfolio</label>
                   <Select value={terPid} onValueChange={setTerPid}>
                     <SelectTrigger className="w-[250px]"><SelectValue placeholder="Select portfolio" /></SelectTrigger>
-                    <SelectContent>{portfolios.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                    <SelectContent>{portfolios.map((p: PortfolioOption) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1"><label className="text-sm font-medium">From</label><Input type="date" value={terFrom} onChange={(e) => setTerFrom(e.target.value)} className="w-[150px]" /></div>
@@ -302,7 +302,7 @@ export default function FeeBillingDesk() {
               <label className="text-sm font-medium">Portfolio</label>
               <Select value={ns.portfolio_id} onValueChange={(v) => setNs((s) => ({ ...s, portfolio_id: v }))}>
                 <SelectTrigger><SelectValue placeholder="Select portfolio" /></SelectTrigger>
-                <SelectContent>{portfolios.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                <SelectContent>{portfolios.map((p: PortfolioOption) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-1">

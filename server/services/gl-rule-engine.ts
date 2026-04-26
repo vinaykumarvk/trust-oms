@@ -1059,6 +1059,118 @@ export const glRuleEngine = {
       results,
     };
   },
+
+  // =========================================================================
+  // AE-008: Rule change history
+  // =========================================================================
+
+  async getRuleChangeHistory(ruleSetId: number) {
+    const history = await db
+      .select()
+      .from(schema.glAuditLog)
+      .where(
+        and(
+          eq(schema.glAuditLog.object_type, 'RULE_SET'),
+          eq(schema.glAuditLog.object_id, ruleSetId),
+        ),
+      )
+      .orderBy(desc(schema.glAuditLog.timestamp));
+    return history;
+  },
+
+  // =========================================================================
+  // AE-009: Import rules from JSON
+  // =========================================================================
+
+  async importRules(rulesData: Array<{
+    rule_code: string;
+    rule_name: string;
+    event_code: string;
+    entries: Array<{
+      line_order: number;
+      dr_cr: 'DR' | 'CR';
+      gl_selector_type: string;
+      gl_selector: string;
+      amount_type: string;
+      amount_field?: string;
+    }>;
+  }>) {
+    const results: Array<{ rule_code: string; status: string; id?: number; error?: string }> = [];
+
+    for (const rule of rulesData) {
+      try {
+        // Check if rule_code already exists
+        const [existing] = await db
+          .select()
+          .from(schema.glAccountingRuleSets)
+          .where(eq(schema.glAccountingRuleSets.rule_code, rule.rule_code))
+          .limit(1);
+
+        if (existing) {
+          results.push({ rule_code: rule.rule_code, status: 'SKIPPED', id: existing.id, error: 'Already exists' });
+          continue;
+        }
+
+        // Find event definition
+        const [eventDef] = await db
+          .select()
+          .from(schema.glEventDefinitions)
+          .where(eq(schema.glEventDefinitions.event_code, rule.event_code))
+          .limit(1);
+
+        if (!eventDef) {
+          results.push({ rule_code: rule.rule_code, status: 'FAILED', error: `Event code ${rule.event_code} not found` });
+          continue;
+        }
+
+        // Create rule set
+        const [ruleSet] = await db
+          .insert(schema.glAccountingRuleSets)
+          .values({
+            rule_code: rule.rule_code,
+            rule_name: rule.rule_name,
+            event_id: eventDef.id,
+            criteria_id: null,
+            rule_version: 1,
+            approval_status: 'DRAFT',
+          })
+          .returning();
+
+        // Create entry definitions
+        for (const entry of rule.entries) {
+          await db.insert(schema.glAccountingEntryDefinitions).values({
+            rule_set_id: ruleSet.id,
+            line_order: entry.line_order,
+            dr_cr: entry.dr_cr,
+            gl_selector_type: entry.gl_selector_type,
+            gl_selector: entry.gl_selector,
+            amount_type: entry.amount_type,
+            amount_field: entry.amount_field ?? null,
+          });
+        }
+
+        // Log import
+        await db.insert(schema.glAuditLog).values({
+          action: 'IMPORT_RULE',
+          object_type: 'RULE_SET',
+          object_id: ruleSet.id,
+          new_values: { rule_code: rule.rule_code, entries_count: rule.entries.length } as Record<string, unknown>,
+        });
+
+        results.push({ rule_code: rule.rule_code, status: 'IMPORTED', id: ruleSet.id });
+      } catch (err) {
+        results.push({ rule_code: rule.rule_code, status: 'FAILED', error: (err as Error).message });
+      }
+    }
+
+    return {
+      total: rulesData.length,
+      imported: results.filter((r) => r.status === 'IMPORTED').length,
+      skipped: results.filter((r) => r.status === 'SKIPPED').length,
+      failed: results.filter((r) => r.status === 'FAILED').length,
+      results,
+    };
+  },
 };
 
 /* ---------- Helper: Compare Journal Lines ---------- */

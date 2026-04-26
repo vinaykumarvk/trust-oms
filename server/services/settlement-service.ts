@@ -109,7 +109,7 @@ export const settlementService = {
     return settlement;
   },
 
-  /** Resolve SSI for a trade based on counterparty + security type */
+  /** Resolve SSI for a trade based on counterparty + security type (FR-SET-005) */
   async resolveSSI(tradeId: string): Promise<{
     ssi_id: string;
     routing_bic: string;
@@ -127,6 +127,7 @@ export const settlementService = {
     }
 
     let currency = 'PHP';
+    let portfolioId: string | null = null;
     if (trade.order_id) {
       const [order] = await db
         .select()
@@ -135,10 +136,30 @@ export const settlementService = {
         .limit(1);
       if (order) {
         currency = order.currency ?? 'PHP';
+        portfolioId = order.portfolio_id;
       }
     }
 
-    // Stub: return default SSI based on currency
+    // FR-SET-005: Look up settlementAccountConfigs for this currency
+    // First try a config matching the currency specifically
+    const configs = await db
+      .select()
+      .from(schema.settlementAccountConfigs)
+      .where(eq(schema.settlementAccountConfigs.currency, currency));
+
+    if (configs.length > 0) {
+      // Prefer a default config, otherwise use the first match
+      const defaultConfig = configs.find((c: Record<string, unknown>) => c.is_default === true);
+      const config = defaultConfig ?? configs[0];
+
+      return {
+        ssi_id: config.ssi_id ?? `SSI-${currency}-CONFIG`,
+        routing_bic: config.routing_bic ?? '',
+        swift_message_type: config.swift_message_type ?? 'MT543',
+      };
+    }
+
+    // Fall back to hardcoded defaults when no config found
     if (currency === 'PHP') {
       return {
         ssi_id: 'SSI-PHP-PHILPASS',
@@ -624,5 +645,119 @@ export const settlementService = {
     const datePart = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
     const seq = String(receiptSeq).padStart(6, '0');
     return `OR-${datePart}-${seq}`;
+  },
+
+  /**
+   * Execute Cash Sweep (FR-SET-004)
+   *
+   * EOD job: for each active rule in cashSweepRules, check if the portfolio's
+   * idle cash (from cashLedger) exceeds threshold_amount. If so, log the
+   * sweep action as a cash transaction.
+   */
+  async executeCashSweep(): Promise<{
+    rulesEvaluated: number;
+    sweepsTriggered: number;
+    details: Array<{
+      rule_id: number;
+      portfolio_id: string;
+      idle_cash: number;
+      threshold: number;
+      swept_amount: number;
+      target_fund_id: string | null;
+    }>;
+  }> {
+    // Fetch all active cash sweep rules
+    const activeRules = await db
+      .select()
+      .from(schema.cashSweepRules)
+      .where(eq(schema.cashSweepRules.is_active, true));
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    let sweepsTriggered = 0;
+    const details: Array<{
+      rule_id: number;
+      portfolio_id: string;
+      idle_cash: number;
+      threshold: number;
+      swept_amount: number;
+      target_fund_id: string | null;
+    }> = [];
+
+    for (const rule of activeRules) {
+      if (!rule.portfolio_id) continue;
+
+      const threshold = parseFloat(rule.threshold_amount ?? '0');
+
+      // Get total idle cash for the portfolio across all currencies
+      const balanceResult = await db
+        .select({
+          total_available: sql<string>`COALESCE(SUM(${schema.cashLedger.available_balance}::numeric), 0)`,
+        })
+        .from(schema.cashLedger)
+        .where(eq(schema.cashLedger.portfolio_id, rule.portfolio_id));
+
+      const idleCash = parseFloat(balanceResult[0]?.total_available ?? '0');
+
+      if (idleCash > threshold) {
+        const sweptAmount = idleCash - threshold;
+
+        // Find the primary cash ledger for this portfolio (first available)
+        const [ledger] = await db
+          .select()
+          .from(schema.cashLedger)
+          .where(eq(schema.cashLedger.portfolio_id, rule.portfolio_id))
+          .limit(1);
+
+        if (ledger) {
+          // Log the sweep as a DEBIT cash transaction
+          await db.insert(schema.cashTransactions).values({
+            cash_ledger_id: ledger.id,
+            type: 'DEBIT',
+            amount: String(-sweptAmount),
+            currency: ledger.currency ?? 'PHP',
+            reference: `CASH-SWEEP-${rule.id}-${todayStr}`,
+            counterparty: rule.target_fund_id
+              ? `FUND-${rule.target_fund_id}`
+              : null,
+            value_date: todayStr,
+          });
+
+          // Update ledger balance
+          const newBalance = parseFloat(ledger.balance ?? '0') - sweptAmount;
+          const newAvailable =
+            parseFloat(ledger.available_balance ?? '0') - sweptAmount;
+
+          await db
+            .update(schema.cashLedger)
+            .set({
+              balance: String(newBalance),
+              available_balance: String(newAvailable),
+              as_of_date: todayStr,
+              updated_at: new Date(),
+            })
+            .where(eq(schema.cashLedger.id, ledger.id));
+        }
+
+        sweepsTriggered++;
+        details.push({
+          rule_id: rule.id,
+          portfolio_id: rule.portfolio_id,
+          idle_cash: idleCash,
+          threshold,
+          swept_amount: sweptAmount,
+          target_fund_id: rule.target_fund_id,
+        });
+      }
+    }
+
+    console.log(
+      `[CashSweep] Evaluated ${activeRules.length} rules, triggered ${sweepsTriggered} sweeps`,
+    );
+
+    return {
+      rulesEvaluated: activeRules.length,
+      sweepsTriggered,
+      details,
+    };
   },
 };

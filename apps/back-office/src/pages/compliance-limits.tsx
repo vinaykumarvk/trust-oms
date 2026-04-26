@@ -225,7 +225,7 @@ export default function ComplianceLimits() {
   const limitsTotal = limitsQ.data?.total ?? 0;
   const limitsTotalPages = Math.ceil(limitsTotal / pageSize);
 
-  const breachAgingQ = useQuery<BreachAgingBucket[]>({
+  const breachAgingQ = useQuery<{ data: BreachAgingBucket[] }>({
     queryKey: ["breach-aging"],
     queryFn: () => apiRequest("GET", apiUrl("/api/v1/compliance-limits/post-trade/breach-aging")),
     refetchInterval: 30_000,
@@ -588,8 +588,8 @@ export default function ComplianceLimits() {
                 <p className="text-sm text-muted-foreground py-8 text-center">No breach data available</p>
               ) : (
                 <div className="flex items-end gap-3 h-48">
-                  {breachBuckets.map((bucket, idx) => {
-                    const maxCount = Math.max(...breachBuckets.map((b) => b.count), 1);
+                  {breachBuckets.map((bucket: BreachAgingBucket, idx: number) => {
+                    const maxCount = Math.max(...breachBuckets.map((b: BreachAgingBucket) => b.count), 1);
                     const heightPct = (bucket.count / maxCount) * 100;
                     const barColor = bucket.severity === "hard" ? "bg-red-500" : "bg-yellow-500";
                     return (

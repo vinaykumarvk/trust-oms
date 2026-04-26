@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/components/ui/tabs
 import { toast } from 'sonner';
 import {
   FileText, Clock, CheckCircle, AlertTriangle, XCircle, RefreshCw, Plus, Send,
+  Eye, History, ExternalLink,
 } from 'lucide-react';
 
 const API = '/api/v1/ttra';

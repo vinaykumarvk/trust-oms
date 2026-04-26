@@ -144,12 +144,12 @@ export default function PortfolioPage() {
   const totalPnlPct = totalCostBasis > 0 ? (totalPnl / totalCostBasis) * 100 : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Portfolio</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground dark:text-white">Portfolio</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground dark:text-gray-400 mt-1">
             View your holdings and asset allocation
           </p>
         </div>
@@ -175,27 +175,27 @@ export default function PortfolioPage() {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border-border">
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground font-medium">Market Value</p>
-            <p className="text-xl font-bold text-foreground mt-1">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <Card className="border-border dark:border-gray-700 dark:bg-gray-800">
+          <CardContent className="p-3 sm:p-4">
+            <p className="text-xs text-muted-foreground dark:text-gray-400 font-medium">Market Value</p>
+            <p className="text-lg sm:text-xl font-bold text-foreground dark:text-white mt-1">
               {formatCurrency(totalMarketValue)}
             </p>
           </CardContent>
         </Card>
-        <Card className="border-border">
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground font-medium">Total P&L</p>
+        <Card className="border-border dark:border-gray-700 dark:bg-gray-800">
+          <CardContent className="p-3 sm:p-4">
+            <p className="text-xs text-muted-foreground dark:text-gray-400 font-medium">Total P&L</p>
             <div className="flex items-center gap-2 mt-1">
               {totalPnl >= 0 ? (
-                <TrendingUp className="h-4 w-4 text-emerald-600" />
+                <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               ) : (
-                <TrendingDown className="h-4 w-4 text-red-500" />
+                <TrendingDown className="h-4 w-4 text-red-500 dark:text-red-400" />
               )}
               <p
-                className={`text-xl font-bold ${
-                  totalPnl >= 0 ? "text-emerald-700" : "text-red-600"
+                className={`text-lg sm:text-xl font-bold ${
+                  totalPnl >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
                 }`}
               >
                 {formatCurrency(totalPnl)}
@@ -203,10 +203,10 @@ export default function PortfolioPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-border">
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground font-medium">Holdings</p>
-            <p className="text-xl font-bold text-foreground mt-1">
+        <Card className="border-border dark:border-gray-700 dark:bg-gray-800">
+          <CardContent className="p-3 sm:p-4">
+            <p className="text-xs text-muted-foreground dark:text-gray-400 font-medium">Holdings</p>
+            <p className="text-lg sm:text-xl font-bold text-foreground dark:text-white mt-1">
               {holdings.length}
             </p>
           </CardContent>
@@ -215,9 +215,9 @@ export default function PortfolioPage() {
 
       {/* Asset Allocation Visual */}
       {allocations.length > 0 && (
-        <Card className="border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base text-foreground">
+        <Card className="border-border dark:border-gray-700 dark:bg-gray-800">
+          <CardHeader className="pb-3 px-3 sm:px-6">
+            <CardTitle className="text-sm sm:text-base text-foreground dark:text-gray-100">
               Asset Allocation
             </CardTitle>
           </CardHeader>
@@ -238,14 +238,14 @@ export default function PortfolioPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-2 text-xs font-medium text-muted-foreground">
+                  <tr className="border-b border-border dark:border-gray-600">
+                    <th className="text-left py-2 text-xs font-medium text-muted-foreground dark:text-gray-400">
                       Asset Class
                     </th>
-                    <th className="text-right py-2 text-xs font-medium text-muted-foreground">
+                    <th className="text-right py-2 text-xs font-medium text-muted-foreground dark:text-gray-400">
                       Weight
                     </th>
-                    <th className="text-right py-2 text-xs font-medium text-muted-foreground">
+                    <th className="text-right py-2 text-xs font-medium text-muted-foreground dark:text-gray-400">
                       Market Value
                     </th>
                   </tr>
@@ -254,20 +254,20 @@ export default function PortfolioPage() {
                   {allocations.map((a, i) => (
                     <tr
                       key={a.assetClass}
-                      className="border-b border-border/50 last:border-0"
+                      className="border-b border-border/50 dark:border-gray-700/50 last:border-0"
                     >
                       <td className="py-2.5">
                         <div className="flex items-center gap-2">
                           <div
                             className={`h-3 w-3 rounded-sm shrink-0 ${ALLOCATION_COLORS[i % ALLOCATION_COLORS.length]}`}
                           />
-                          <span className="text-foreground">{a.assetClass}</span>
+                          <span className="text-foreground dark:text-gray-200">{a.assetClass}</span>
                         </div>
                       </td>
-                      <td className="text-right py-2.5 text-foreground font-medium">
+                      <td className="text-right py-2.5 text-foreground dark:text-gray-200 font-medium">
                         {a.weight.toFixed(1)}%
                       </td>
-                      <td className="text-right py-2.5 text-foreground">
+                      <td className="text-right py-2.5 text-foreground dark:text-gray-200">
                         {formatCurrency(a.marketValue)}
                       </td>
                     </tr>
@@ -280,25 +280,25 @@ export default function PortfolioPage() {
       )}
 
       {/* Holdings Table */}
-      <Card className="border-border">
-        <CardHeader className="pb-3">
+      <Card className="border-border dark:border-gray-700 dark:bg-gray-800">
+        <CardHeader className="pb-3 px-3 sm:px-6">
           <div className="flex items-center gap-2">
-            <Briefcase className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-base text-foreground">
+            <Briefcase className="h-4 w-4 text-muted-foreground dark:text-gray-400" />
+            <CardTitle className="text-sm sm:text-base text-foreground dark:text-gray-100">
               Holdings
             </CardTitle>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-0 sm:px-0">
           {holdingsLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="h-6 w-6 animate-spin rounded-full border-4 border-teal-600 border-t-transparent" />
             </div>
           ) : holdings.length > 0 ? (
-            <div className="overflow-x-auto -mx-6">
+            <div className="overflow-x-auto">
               <table className="w-full text-sm min-w-[800px]">
                 <thead>
-                  <tr className="border-b border-border bg-muted/80">
+                  <tr className="border-b border-border dark:border-gray-600 bg-muted/80 dark:bg-gray-700/50">
                     <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       Security
                     </th>
@@ -326,34 +326,34 @@ export default function PortfolioPage() {
                   {holdings.map((h) => (
                     <tr
                       key={h.positionId}
-                      className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors"
+                      className="border-b border-border dark:border-gray-700 last:border-0 hover:bg-muted/50 dark:hover:bg-gray-700/50 transition-colors"
                     >
                       <td className="py-3 px-4">
                         <div>
-                          <p className="font-medium text-foreground">
+                          <p className="font-medium text-foreground dark:text-gray-100">
                             {h.securityName}
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground dark:text-gray-400">
                             {h.assetClass}
                             {h.isin ? ` | ${h.isin}` : ""}
                           </p>
                         </div>
                       </td>
-                      <td className="text-right py-3 px-4 text-foreground tabular-nums">
+                      <td className="text-right py-3 px-4 text-foreground dark:text-gray-200 tabular-nums">
                         {formatNumber(h.quantity, 0)}
                       </td>
-                      <td className="text-right py-3 px-4 text-foreground tabular-nums">
+                      <td className="text-right py-3 px-4 text-foreground dark:text-gray-200 tabular-nums">
                         {formatNumber(h.price, 4)}
                       </td>
-                      <td className="text-right py-3 px-4 font-medium text-foreground tabular-nums">
+                      <td className="text-right py-3 px-4 font-medium text-foreground dark:text-gray-100 tabular-nums">
                         {formatCurrency(h.marketValue, h.currency)}
                       </td>
-                      <td className="text-right py-3 px-4 text-foreground tabular-nums">
+                      <td className="text-right py-3 px-4 text-foreground dark:text-gray-200 tabular-nums">
                         {h.weight.toFixed(2)}%
                       </td>
                       <td
                         className={`text-right py-3 px-4 font-medium tabular-nums ${
-                          h.pnl >= 0 ? "text-emerald-700" : "text-red-600"
+                          h.pnl >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
                         }`}
                       >
                         {formatCurrency(h.pnl, h.currency)}
@@ -363,8 +363,8 @@ export default function PortfolioPage() {
                           variant="outline"
                           className={`text-xs font-medium ${
                             h.pnlPct >= 0
-                              ? "border-emerald-200 text-emerald-700 bg-emerald-50"
-                              : "border-red-200 text-red-700 bg-red-50"
+                              ? "border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30"
+                              : "border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/30"
                           }`}
                         >
                           {h.pnlPct >= 0 ? "+" : ""}
@@ -377,21 +377,21 @@ export default function PortfolioPage() {
 
                 {/* Summary Row */}
                 <tfoot>
-                  <tr className="border-t-2 border-border bg-muted/80">
-                    <td className="py-3 px-4 font-semibold text-foreground">
+                  <tr className="border-t-2 border-border dark:border-gray-600 bg-muted/80 dark:bg-gray-700/50">
+                    <td className="py-3 px-4 font-semibold text-foreground dark:text-gray-100">
                       Total
                     </td>
                     <td className="py-3 px-4" />
                     <td className="py-3 px-4" />
-                    <td className="text-right py-3 px-4 font-bold text-foreground tabular-nums">
+                    <td className="text-right py-3 px-4 font-bold text-foreground dark:text-white tabular-nums">
                       {formatCurrency(totalMarketValue)}
                     </td>
-                    <td className="text-right py-3 px-4 font-semibold text-foreground tabular-nums">
+                    <td className="text-right py-3 px-4 font-semibold text-foreground dark:text-gray-100 tabular-nums">
                       100.00%
                     </td>
                     <td
                       className={`text-right py-3 px-4 font-bold tabular-nums ${
-                        totalPnl >= 0 ? "text-emerald-700" : "text-red-600"
+                        totalPnl >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
                       }`}
                     >
                       {formatCurrency(totalPnl)}
@@ -401,8 +401,8 @@ export default function PortfolioPage() {
                         variant="outline"
                         className={`text-xs font-medium ${
                           totalPnlPct >= 0
-                            ? "border-emerald-200 text-emerald-700 bg-emerald-50"
-                            : "border-red-200 text-red-700 bg-red-50"
+                            ? "border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30"
+                            : "border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/30"
                         }`}
                       >
                         {totalPnlPct >= 0 ? "+" : ""}

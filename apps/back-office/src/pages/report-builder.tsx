@@ -613,7 +613,7 @@ export default function ReportBuilderPage() {
   }, []);
 
   // Templates query
-  const templatesQuery = useQuery<QueryTemplate[]>({
+  const templatesQuery = useQuery<{ data: QueryTemplate[] }>({
     queryKey: ["report-templates"],
     queryFn: () => apiRequest("GET", apiUrl("/api/v1/reports/templates")),
     staleTime: 60 * 1000,
@@ -691,12 +691,12 @@ export default function ReportBuilderPage() {
   // Load template
   const handleLoadTemplate = useCallback(
     (templateId: string) => {
-      const tmpl = templates.find((t) => t.id === templateId);
+      const tmpl = templates.find((t: QueryTemplate) => t.id === templateId);
       if (!tmpl) return;
       setSelectedTable(tmpl.table);
       setSelectedColumns(tmpl.columns);
       setFilters(
-        tmpl.filters.map((f) => ({
+        tmpl.filters.map((f: FilterRow) => ({
           ...f,
           id: nextFilterId(),
         }))
@@ -786,7 +786,7 @@ export default function ReportBuilderPage() {
                       No templates saved yet
                     </SelectItem>
                   ) : (
-                    templates.map((tmpl) => (
+                    templates.map((tmpl: QueryTemplate) => (
                       <SelectItem key={tmpl.id} value={tmpl.id}>
                         {tmpl.name}{" "}
                         <span className="text-muted-foreground">

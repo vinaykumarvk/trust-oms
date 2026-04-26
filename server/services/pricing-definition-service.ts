@@ -13,6 +13,25 @@ import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, and, sql, desc } from 'drizzle-orm';
 
+/** G-002: Validate that slab pricing tiers are non-overlapping, contiguous, and each from < to */
+function validateSlabTiers(tiers: Array<{ from?: number; to?: number }>, label = 'tiers'): void {
+  const sorted = [...tiers].sort((a, b) => (a.from ?? 0) - (b.from ?? 0));
+  for (let i = 0; i < sorted.length; i++) {
+    const tier = sorted[i];
+    const from = tier.from ?? 0;
+    const to = tier.to;
+    if (to !== undefined && to !== null && from >= to) {
+      throw new Error(`Pricing ${label} tier ${i + 1}: from (${from}) must be less than to (${to})`);
+    }
+    if (i > 0) {
+      const prevTo = sorted[i - 1].to;
+      if (prevTo !== undefined && prevTo !== null && from !== prevTo) {
+        throw new Error(`Pricing ${label} tier ${i + 1}: gap or overlap detected (prev to=${prevTo}, curr from=${from})`);
+      }
+    }
+  }
+}
+
 export const pricingDefinitionService = {
   /** Create a new pricing definition (starts as DRAFT v1) */
   async create(data: {
@@ -24,6 +43,26 @@ export const pricingDefinitionService = {
     step_windows?: unknown[];
     created_by?: string;
   }) {
+    // G-002: Validate slab tier from < to and contiguity
+    if (data.pricing_type?.startsWith('SLAB_') && data.pricing_tiers && data.pricing_tiers.length > 0) {
+      validateSlabTiers(data.pricing_tiers as Array<{ from?: number; to?: number }>);
+    }
+
+    // GAP-A22: Validate STEP_FUNCTION window contiguity
+    if (data.pricing_type === 'STEP_FUNCTION' && data.step_windows && data.step_windows.length > 1) {
+      const windows = data.step_windows as Array<{ from_month?: number; to_month?: number }>;
+      const sorted = [...windows].sort((a, b) => (a.from_month ?? 0) - (b.from_month ?? 0));
+      for (let i = 1; i < sorted.length; i++) {
+        const prevTo = sorted[i - 1].to_month ?? 0;
+        const currFrom = sorted[i].from_month ?? 0;
+        if (currFrom !== prevTo) {
+          throw new Error(
+            `Step function windows are not contiguous: gap between to_month=${prevTo} and from_month=${currFrom} at window ${i + 1}`,
+          );
+        }
+      }
+    }
+
     const [record] = await db
       .insert(schema.pricingDefinitions)
       .values({
@@ -89,6 +128,30 @@ export const pricingDefinitionService = {
       setValues.step_windows = data.step_windows
         ? (data.step_windows as unknown as Record<string, unknown>)
         : null;
+
+    // G-002: Validate slab tier from < to and contiguity on update
+    const effectiveTiers = data.pricing_tiers ?? (current.pricing_tiers as unknown[] | null);
+    const effectivePricingType = data.pricing_type ?? current.pricing_type;
+    if (effectivePricingType?.startsWith('SLAB_') && effectiveTiers && Array.isArray(effectiveTiers) && effectiveTiers.length > 0) {
+      validateSlabTiers(effectiveTiers as Array<{ from?: number; to?: number }>);
+    }
+
+    // GAP-A22: Validate STEP_FUNCTION window contiguity on update
+    const effectiveType = data.pricing_type ?? current.pricing_type;
+    const effectiveWindows = data.step_windows ?? (current.step_windows as unknown[] | null);
+    if (effectiveType === 'STEP_FUNCTION' && effectiveWindows && Array.isArray(effectiveWindows) && effectiveWindows.length > 1) {
+      const windows = effectiveWindows as Array<{ from_month?: number; to_month?: number }>;
+      const sorted = [...windows].sort((a, b) => (a.from_month ?? 0) - (b.from_month ?? 0));
+      for (let i = 1; i < sorted.length; i++) {
+        const prevTo = sorted[i - 1].to_month ?? 0;
+        const currFrom = sorted[i].from_month ?? 0;
+        if (currFrom !== prevTo) {
+          throw new Error(
+            `Step function windows are not contiguous: gap between to_month=${prevTo} and from_month=${currFrom} at window ${i + 1}`,
+          );
+        }
+      }
+    }
 
     const [updated] = await db
       .update(schema.pricingDefinitions)

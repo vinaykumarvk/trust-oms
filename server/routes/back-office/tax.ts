@@ -167,4 +167,25 @@ router.post(
   }),
 );
 
+/** POST /1601fq/generate -- Generate quarterly 1601-FQ filing (FR-TAX-003) */
+router.post(
+  '/1601fq/generate',
+  asyncHandler(async (req, res) => {
+    const { quarter, year } = req.body;
+    if (!quarter || !year || quarter < 1 || quarter > 4) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'quarter (1-4) and year are required',
+        },
+      });
+    }
+
+    // Use tax-service for quarterly filing
+    const { taxService } = await import('../../services/tax-service');
+    const result = await taxService.generateForm1601FQ(quarter, year);
+    res.status(201).json({ data: result });
+  }),
+);
+
 export default router;

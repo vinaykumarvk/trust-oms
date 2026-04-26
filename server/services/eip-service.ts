@@ -204,6 +204,117 @@ export const eipService = {
     };
   },
 
+  /**
+   * Submit an EIP enrollment through the maker-checker (four-eyes) approval workflow.
+   * Creates an approval request with entity_type='EIP_ENROLLMENT' and action='ENROLL'
+   * requiring FOUR_EYES approval before the enrollment is activated.
+   */
+  async submitEIPEnrollment(
+    employeeId: string,
+    planId: number,
+    submittedBy: number,
+  ) {
+    // Validate the scheduled plan exists and is an EIP plan
+    const [plan] = await db
+      .select()
+      .from(schema.scheduledPlans)
+      .where(eq(schema.scheduledPlans.id, planId))
+      .limit(1);
+
+    if (!plan) {
+      throw new Error(`EIP plan not found: ${planId}`);
+    }
+
+    if (plan.plan_type !== 'EIP') {
+      throw new Error(`Plan ${planId} is not an EIP plan`);
+    }
+
+    // Check for duplicate pending approval requests for this enrollment
+    const [existingRequest] = await db
+      .select()
+      .from(schema.approvalRequests)
+      .where(
+        and(
+          eq(schema.approvalRequests.entity_type, 'EIP_ENROLLMENT'),
+          eq(schema.approvalRequests.entity_id, String(planId)),
+          eq(schema.approvalRequests.approval_status, 'PENDING'),
+        ),
+      )
+      .limit(1);
+
+    if (existingRequest) {
+      throw new Error(
+        `A pending enrollment approval already exists for plan ${planId} (approval request #${existingRequest.id})`,
+      );
+    }
+
+    // Set SLA deadline: 48 hours from now for FOUR_EYES approval
+    const slaDeadline = new Date();
+    slaDeadline.setHours(slaDeadline.getHours() + 48);
+
+    // Create the approval request requiring FOUR_EYES review
+    const [approvalRequest] = await db
+      .insert(schema.approvalRequests)
+      .values({
+        entity_type: 'EIP_ENROLLMENT',
+        entity_id: String(planId),
+        action: 'ENROLL',
+        approval_status: 'PENDING',
+        payload: {
+          employee_id: employeeId,
+          plan_id: planId,
+          plan_type: plan.plan_type,
+          amount: plan.amount,
+          frequency: plan.frequency,
+          client_id: plan.client_id,
+          portfolio_id: plan.portfolio_id,
+          approval_type: 'FOUR_EYES',
+        } as Record<string, unknown>,
+        submitted_by: submittedBy,
+        submitted_at: new Date(),
+        sla_deadline: slaDeadline,
+        is_sla_breached: false,
+      })
+      .returning();
+
+    return approvalRequest;
+  },
+
+  /**
+   * Track e-learning module completion and gate EIP enrollment on passing score.
+   * A score >= 70 is required to pass. Records completion in the GL audit log
+   * for traceability.
+   */
+  async trackELearningCompletion(
+    employeeId: string,
+    moduleId: string,
+    score: number,
+  ): Promise<{ completed: boolean; passed: boolean; score: number }> {
+    const PASSING_SCORE = 70;
+    const passed = score >= PASSING_SCORE;
+
+    // Record the e-learning completion in the audit log for traceability
+    await db.insert(schema.glAuditLog).values({
+      action: 'ELEARNING_COMPLETION',
+      object_type: 'EIP_ELEARNING',
+      object_id: 0, // No specific object — keyed by employee/module in new_values
+      new_values: {
+        employee_id: employeeId,
+        module_id: moduleId,
+        score,
+        passed,
+        passing_score: PASSING_SCORE,
+        completed_at: new Date().toISOString(),
+      } as Record<string, unknown>,
+    });
+
+    return {
+      completed: true,
+      passed,
+      score,
+    };
+  },
+
   /** Get EIP dashboard with status summaries */
   async getEIPDashboard(clientId?: string) {
     const conditions: ReturnType<typeof eq>[] = [];

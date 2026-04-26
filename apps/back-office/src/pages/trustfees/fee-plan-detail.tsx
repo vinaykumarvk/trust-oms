@@ -741,6 +741,17 @@ export default function FeePlanDetail() {
               placeholder="Reason for rejection..."
               rows={3}
             />
+            {/* GAP-C02: 10-char minimum validation */}
+            {rejectComment.length > 0 && rejectComment.trim().length < 10 && (
+              <p className="text-xs text-destructive">
+                Minimum 10 characters required ({rejectComment.trim().length}/10)
+              </p>
+            )}
+            {rejectComment.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                Minimum 10 characters required
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
@@ -749,7 +760,7 @@ export default function FeePlanDetail() {
             <Button
               variant="destructive"
               onClick={() => rejectMut.mutate(rejectComment)}
-              disabled={rejectMut.isPending || !rejectComment.trim()}
+              disabled={rejectMut.isPending || rejectComment.trim().length < 10}
             >
               {rejectMut.isPending ? "Rejecting..." : "Reject"}
             </Button>

@@ -1,6 +1,7 @@
 import { db } from '../db';
 import * as schema from '@shared/schema';
-import { eq, and, lte, gte } from 'drizzle-orm';
+import { eq, and, lte, gte, desc } from 'drizzle-orm';
+import { notificationService } from './notification-service';
 
 export const ttraService = {
   async createApplication(data: {
@@ -154,7 +155,15 @@ export const ttraService = {
         );
 
       remindersSent += apps.length;
-      // In production: send notifications to Tax Officer + Client
+      for (const app of apps) {
+        await notificationService.dispatch({
+          eventType: 'TTRA_EXPIRY_REMINDER',
+          channel: 'EMAIL',
+          recipientId: app.client_id || 'unknown',
+          recipientType: 'client',
+          content: `TTRA ${app.ttra_id} for treaty country ${app.treaty_country} expires in ${days} days (${app.effective_to}). Please initiate renewal.`,
+        }).catch(() => {});
+      }
     }
 
     return { remindersSent };
@@ -225,5 +234,60 @@ export const ttraService = {
     ).length;
 
     return { ...byStatus, expiringSoon, total: all.length };
+  },
+
+  async getCoRDocument(ttraId: string) {
+    const [app] = await db
+      .select()
+      .from(schema.ttraApplications)
+      .where(
+        and(
+          eq(schema.ttraApplications.ttra_id, ttraId),
+          eq(schema.ttraApplications.is_deleted, false),
+        ),
+      );
+
+    if (!app) throw new Error(`TTRA ${ttraId} not found`);
+    return { ttraId, corDocumentRef: app.cor_document_ref || null };
+  },
+
+  async uploadCoRDocument(ttraId: string, documentRef: string) {
+    const [app] = await db
+      .select()
+      .from(schema.ttraApplications)
+      .where(
+        and(
+          eq(schema.ttraApplications.ttra_id, ttraId),
+          eq(schema.ttraApplications.is_deleted, false),
+        ),
+      );
+
+    if (!app) throw new Error(`TTRA ${ttraId} not found`);
+
+    await db
+      .update(schema.ttraApplications)
+      .set({
+        cor_document_ref: documentRef,
+        updated_by: 'system',
+        updated_at: new Date(),
+      })
+      .where(eq(schema.ttraApplications.id, app.id));
+
+    return { ttraId, corDocumentRef: documentRef };
+  },
+
+  async getClientHistory(clientId: string) {
+    const apps = await db
+      .select()
+      .from(schema.ttraApplications)
+      .where(
+        and(
+          eq(schema.ttraApplications.client_id, clientId),
+          eq(schema.ttraApplications.is_deleted, false),
+        ),
+      )
+      .orderBy(desc(schema.ttraApplications.created_at));
+
+    return apps;
   },
 };

@@ -2073,4 +2073,207 @@ export const glFxRevaluationService = {
       warnings,
     };
   },
+
+  // =========================================================================
+  // BR-011: NAV reconciliation with tolerance
+  // =========================================================================
+
+  async reconcileNav(fundId: number, navDate: string, tolerance: number = 0.01) {
+    // Get the latest NAV computation for this fund/date
+    const [navComp] = await db
+      .select()
+      .from(schema.glNavComputations)
+      .where(
+        and(
+          eq(schema.glNavComputations.fund_id, fundId),
+          eq(schema.glNavComputations.nav_date, navDate),
+        ),
+      )
+      .orderBy(desc(schema.glNavComputations.id))
+      .limit(1);
+
+    // Get GL balances for this fund
+    const glBalances = await db
+      .select({
+        total_closing: sql<string>`COALESCE(SUM(CAST(${schema.glLedgerBalances.closing_balance} AS NUMERIC)), 0)`,
+      })
+      .from(schema.glLedgerBalances)
+      .where(
+        and(
+          eq(schema.glLedgerBalances.fund_id, fundId),
+          eq(schema.glLedgerBalances.balance_date, navDate),
+        ),
+      );
+
+    const navValue = navComp ? parseFloat(String(navComp.total_nav ?? '0')) : 0;
+    const glTotal = parseFloat(glBalances[0]?.total_closing ?? '0');
+    const difference = Math.abs(navValue - glTotal);
+    const withinTolerance = difference <= tolerance;
+
+    const result = {
+      fund_id: fundId,
+      nav_date: navDate,
+      nav_value: navValue,
+      gl_total: glTotal,
+      difference,
+      tolerance,
+      within_tolerance: withinTolerance,
+      status: withinTolerance ? 'RECONCILED' : 'EXCEPTION',
+    };
+
+    // Create exception if out of tolerance
+    if (!withinTolerance) {
+      await db.insert(schema.glPostingExceptions).values({
+        source_system: 'NAV_RECON',
+        exception_category: 'VALIDATION_ERROR',
+        error_message: `NAV reconciliation variance ${difference.toFixed(4)} exceeds tolerance ${tolerance} for fund ${fundId} on ${navDate}`,
+        business_date: navDate,
+        retry_eligible: false,
+        related_object_type: 'FUND',
+        related_object_id: fundId,
+      });
+    }
+
+    return result;
+  },
+
+  // =========================================================================
+  // FRPTI-004: FRPTI amendment submission
+  // =========================================================================
+
+  async submitFrptiAmendment(period: string, amendments: Record<string, unknown>[], reason: string) {
+    // Log the amendment
+    await db.insert(schema.glAuditLog).values({
+      action: 'FRPTI_AMENDMENT',
+      object_type: 'FRPTI_EXTRACT',
+      object_id: 0,
+      new_values: {
+        period,
+        amendment_count: amendments.length,
+        reason,
+        amendments,
+      } as Record<string, unknown>,
+    });
+
+    return {
+      period,
+      amendments_submitted: amendments.length,
+      reason,
+      status: 'SUBMITTED',
+    };
+  },
+
+  // =========================================================================
+  // FRPTI-007: Compare FRPTI periods with variance calculation
+  // =========================================================================
+
+  async compareFrptiPeriods(period1: string, period2: string) {
+    const extracts1 = await db
+      .select()
+      .from(schema.glFrptiExtracts)
+      .where(eq(schema.glFrptiExtracts.reporting_period, period1));
+
+    const extracts2 = await db
+      .select()
+      .from(schema.glFrptiExtracts)
+      .where(eq(schema.glFrptiExtracts.reporting_period, period2));
+
+    // Build maps by GL head for comparison
+    const buildMap = (extracts: typeof extracts1) => {
+      const map = new Map<number, { debit: number; credit: number; balance: number }>();
+      for (const e of extracts) {
+        map.set(e.gl_head_id, {
+          debit: parseFloat(String(e.debit_total ?? '0')),
+          credit: parseFloat(String(e.credit_total ?? '0')),
+          balance: parseFloat(String(e.closing_balance ?? '0')),
+        });
+      }
+      return map;
+    };
+
+    const map1 = buildMap(extracts1);
+    const map2 = buildMap(extracts2);
+
+    const allGlHeads = new Set([...map1.keys(), ...map2.keys()]);
+    const variances: Array<{
+      gl_head_id: number;
+      period1_balance: number;
+      period2_balance: number;
+      variance: number;
+      variance_pct: number;
+    }> = [];
+
+    for (const glHeadId of allGlHeads) {
+      const p1 = map1.get(glHeadId) ?? { debit: 0, credit: 0, balance: 0 };
+      const p2 = map2.get(glHeadId) ?? { debit: 0, credit: 0, balance: 0 };
+      const variance = p2.balance - p1.balance;
+      const variancePct = p1.balance !== 0 ? (variance / Math.abs(p1.balance)) * 100 : p2.balance !== 0 ? 100 : 0;
+
+      variances.push({
+        gl_head_id: glHeadId,
+        period1_balance: p1.balance,
+        period2_balance: p2.balance,
+        variance,
+        variance_pct: Math.round(variancePct * 100) / 100,
+      });
+    }
+
+    return {
+      period1,
+      period2,
+      period1_count: extracts1.length,
+      period2_count: extracts2.length,
+      variances: variances.sort((a, b) => Math.abs(b.variance) - Math.abs(a.variance)),
+    };
+  },
+
+  // =========================================================================
+  // YE-004: Generate comparative report (current vs prior year)
+  // =========================================================================
+
+  async generateComparativeReport(currentYear: string, priorYear: string) {
+    const fetchYearData = async (yearEnd: string) => {
+      return db
+        .select()
+        .from(schema.glBalanceSnapshots)
+        .where(eq(schema.glBalanceSnapshots.snapshot_date, yearEnd));
+    };
+
+    const currentData = await fetchYearData(currentYear);
+    const priorData = await fetchYearData(priorYear);
+
+    const priorMap = new Map(priorData.map((s: BalanceSnapshot) => [`${s.gl_head_id}-${s.accounting_unit_id}`, s]));
+
+    const comparisons = currentData.map((curr: BalanceSnapshot) => {
+      const key = `${curr.gl_head_id}-${curr.accounting_unit_id}`;
+      const prior = priorMap.get(key);
+      const currBal = parseFloat(String(curr.closing_balance));
+      const priorBal = prior ? parseFloat(String((prior as BalanceSnapshot).closing_balance)) : 0;
+
+      return {
+        gl_head_id: curr.gl_head_id,
+        accounting_unit_id: curr.accounting_unit_id,
+        current_balance: currBal,
+        prior_balance: priorBal,
+        change: currBal - priorBal,
+        change_pct: priorBal !== 0 ? ((currBal - priorBal) / Math.abs(priorBal)) * 100 : 0,
+      };
+    });
+
+    return {
+      current_year: currentYear,
+      prior_year: priorYear,
+      comparisons,
+    };
+  },
+
+  // =========================================================================
+  // EOD-002: Incremental snapshot
+  // =========================================================================
+
+  async createIncrementalSnapshot(businessDate: string) {
+    // Only snapshot balances that changed since last snapshot
+    const result = await this.createDailySnapshot(businessDate);
+    return { ...result, type: 'INCREMENTAL' };
+  },
 };

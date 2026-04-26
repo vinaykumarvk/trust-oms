@@ -5,10 +5,11 @@ import { cn } from '../../lib/utils';
 const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement>
->(({ className, ...props }, ref) => (
+>(({ className, role, ...props }, ref) => (
   <div className="relative w-full overflow-auto">
     <table
       ref={ref}
+      role={role ?? 'grid'}
       className={cn('w-full caption-bottom text-sm', className)}
       {...props}
     />
@@ -66,14 +67,19 @@ const TableRow = React.forwardRef<
 ));
 TableRow.displayName = 'TableRow';
 
+interface TableHeadProps extends React.ThHTMLAttributes<HTMLTableCellElement> {
+  /** WCAG 2.1 AA: aria-sort for sortable column headers */
+  'aria-sort'?: 'ascending' | 'descending' | 'none' | 'other';
+}
+
 const TableHead = React.forwardRef<
   HTMLTableCellElement,
-  React.ThHTMLAttributes<HTMLTableCellElement>
+  TableHeadProps
 >(({ className, ...props }, ref) => (
   <th
     ref={ref}
     className={cn(
-      'h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0',
+      'h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
       className
     )}
     {...props}
@@ -87,7 +93,7 @@ const TableCell = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <td
     ref={ref}
-    className={cn('p-4 align-middle [&:has([role=checkbox])]:pr-0', className)}
+    className={cn('p-4 align-middle [&:has([role=checkbox])]:pr-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1', className)}
     {...props}
   />
 ));

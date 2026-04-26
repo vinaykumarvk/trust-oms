@@ -14,6 +14,7 @@
 import { Router } from 'express';
 import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { tfpInvoiceService } from '../../services/tfp-invoice-service';
+import { pdfInvoiceService } from '../../services/pdf-invoice-service';
 import { asyncHandler } from '../../middleware/async-handler';
 
 const router = Router();
@@ -160,6 +161,29 @@ router.post(
   asyncHandler(async (_req, res) => {
     const result = await tfpInvoiceService.markOverdue();
     res.json({ data: result });
+  }),
+);
+
+/** GET /:id/pdf — Generate and download invoice PDF (GAP-A07) */
+router.get(
+  '/:id/pdf',
+  asyncHandler(async (req: any, res: any) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Invalid invoice ID' } });
+    }
+    try {
+      const pdfBuffer = await pdfInvoiceService.generateInvoicePdf(id);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=invoice-${id}.pdf`);
+      res.send(pdfBuffer);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found')) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: msg } });
+      }
+      throw err;
+    }
   }),
 );
 

@@ -275,7 +275,7 @@ export default function PositionReconciliation() {
   });
 
   // Breaks
-  const breaksQuery = useQuery<PositionBreak[]>({
+  const breaksQuery = useQuery<{ data: PositionBreak[] }>({
     queryKey: ["position-recon-breaks"],
     queryFn: () =>
       apiRequest(

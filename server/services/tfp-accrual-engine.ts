@@ -26,6 +26,7 @@ import * as schema from '@shared/schema';
 import { eq, and, sql, desc } from 'drizzle-orm';
 import { pricingDefinitionService } from './pricing-definition-service';
 import { eligibilityEngine, type ASTNode } from './eligibility-engine';
+import { fxRateService } from './fx-rate-service';
 
 /* ---------- Types ---------- */
 
@@ -283,6 +284,69 @@ async function getADB(portfolioId: string, date: string): Promise<number> {
   return 10_000_000; // 10M PHP default ADB
 }
 
+/* ---------- Helper: Get Position Value ---------- */
+
+/**
+ * Get position value by basis type for a portfolio/security.
+ * Queries the positions table for face_value, cost, or principal balance.
+ * Falls back to ADB if no position data found.
+ */
+async function getPositionValue(
+  portfolioId: string,
+  securityId: string | null,
+  valueBasis: string,
+  date: string,
+): Promise<number> {
+  const conditions = [eq(schema.positions.portfolio_id, portfolioId)];
+  if (securityId) {
+    conditions.push(eq(schema.positions.security_id, parseInt(securityId, 10)));
+  }
+
+  const [position] = await db
+    .select({
+      quantity: schema.positions.quantity,
+      market_value: schema.positions.market_value,
+      cost_basis: schema.positions.cost_basis,
+    })
+    .from(schema.positions)
+    .where(and(...conditions))
+    .limit(1);
+
+  if (!position) {
+    // Fallback to ADB
+    return getADB(portfolioId, date);
+  }
+
+  switch (valueBasis) {
+    case 'FACE_VALUE':
+      return parseFloat(String(position.quantity ?? '0')) * 1000; // par value assumption
+    case 'COST':
+      return parseFloat(String(position.cost_basis ?? position.market_value ?? '0'));
+    case 'PRINCIPAL':
+      return parseFloat(String(position.market_value ?? '0'));
+    default:
+      return getADB(portfolioId, date);
+  }
+}
+
+/* ---------- Helper: Day Count Factor ---------- */
+
+/**
+ * Get day count factor for fee calculation.
+ * Returns appropriate day count based on fee type and instrument.
+ * Default: 1 (daily accrual = annual / 360).
+ */
+function getDayCountFactor(
+  feeType: string,
+  _securityId: string | null,
+  _date: string,
+): number {
+  // In production, this would query the security master for
+  // coupon_days, dividend_days, interest_payment_days, or term.
+  // For now, return 1 (standard daily accrual).
+  return 1;
+}
+
 /* ---------- Helper: Get Base Amount ---------- */
 
 /**
@@ -326,6 +390,89 @@ async function getBaseAmount(
         amount: adb,
         formula: `AUM(${portfolioId}) x performance_rate / 360`,
       };
+    }
+
+    case 'SUBSCRIPTION':
+    case 'REDEMPTION': {
+      // Directional deposits: use transaction/deposit amount
+      // value_basis=TXN_AMOUNT
+      const adb = await getADB(portfolioId, date);
+      return {
+        amount: adb,
+        formula: `DEPOSIT(${portfolioId}) x rate x term / 360`,
+      };
+    }
+
+    case 'COMMISSION': {
+      // Bonds: face value basis
+      // value_basis=FACE_VALUE
+      if (feePlan.value_basis === 'FACE_VALUE') {
+        const faceValue = await getPositionValue(portfolioId, _securityId, 'FACE_VALUE', date);
+        return {
+          amount: faceValue,
+          formula: `FACE_VALUE(${portfolioId}) x rate x coupon_days / 360`,
+        };
+      }
+      // Preferred equities: cost basis
+      if (feePlan.value_basis === 'COST') {
+        const cost = await getPositionValue(portfolioId, _securityId, 'COST', date);
+        return {
+          amount: cost,
+          formula: `COST(${portfolioId}) x rate x dividend_days / 360`,
+        };
+      }
+      const adb = await getADB(portfolioId, date);
+      return {
+        amount: adb,
+        formula: `ADB(${portfolioId}) x rate / 360`,
+      };
+    }
+
+    case 'ADMIN': {
+      // Loans: principal balance
+      if (feePlan.value_basis === 'PRINCIPAL') {
+        const principal = await getPositionValue(portfolioId, _securityId, 'PRINCIPAL', date);
+        return {
+          amount: principal,
+          formula: `PRINCIPAL(${portfolioId}) x rate x interest_days / 360`,
+        };
+      }
+      // T-Bills/CPs: cost basis
+      if (feePlan.value_basis === 'COST') {
+        const cost = await getPositionValue(portfolioId, _securityId, 'COST', date);
+        return {
+          amount: cost,
+          formula: `COST(${portfolioId}) x rate x term / 360`,
+        };
+      }
+      const adb = await getADB(portfolioId, date);
+      return {
+        amount: adb,
+        formula: `ADB(${portfolioId}) x rate / 360`,
+      };
+    }
+
+    case 'TAX':
+    case 'OTHER': {
+      // Generic: check value_basis
+      if (feePlan.value_basis === 'FACE_VALUE') {
+        const val = await getPositionValue(portfolioId, _securityId, 'FACE_VALUE', date);
+        return { amount: val, formula: `FACE_VALUE(${portfolioId}) x rate / 360` };
+      }
+      if (feePlan.value_basis === 'COST') {
+        const val = await getPositionValue(portfolioId, _securityId, 'COST', date);
+        return { amount: val, formula: `COST(${portfolioId}) x rate / 360` };
+      }
+      if (feePlan.value_basis === 'PRINCIPAL') {
+        const val = await getPositionValue(portfolioId, _securityId, 'PRINCIPAL', date);
+        return { amount: val, formula: `PRINCIPAL(${portfolioId}) x rate / 360` };
+      }
+      if (feePlan.value_basis === 'TXN_AMOUNT') {
+        const adb = await getADB(portfolioId, date);
+        return { amount: adb, formula: `TXN_AMOUNT(${portfolioId}) x rate x term / 360` };
+      }
+      const adb = await getADB(portfolioId, date);
+      return { amount: adb, formula: `ADB(${portfolioId}) x rate / 360` };
     }
 
     default: {
@@ -517,6 +664,20 @@ export const tfpAccrualEngine = {
             const appliedRounded = Math.round(appliedFee * 10000) / 10000;
             const baseRounded = Math.round(baseAmount * 10000) / 10000;
 
+            // GAP-C07: Determine currency from pricing definition
+            const planCurrency = pricingDef.currency ?? 'PHP';
+            let fxRateLocked: string | null = null;
+
+            // If plan currency differs from base (PHP), lock FX rate
+            if (planCurrency !== 'PHP') {
+              try {
+                const fxResult = await fxRateService.getFxRate('PHP', planCurrency, businessDate);
+                fxRateLocked = String(fxResult.mid_rate);
+              } catch {
+                // FX rate unavailable — continue with null
+              }
+            }
+
             // Insert accrual record
             await db.insert(schema.tfpAccruals).values({
               fee_plan_id: plan.id,
@@ -527,8 +688,8 @@ export const tfpAccrualEngine = {
               base_amount: String(baseRounded),
               computed_fee: String(computedRounded),
               applied_fee: String(appliedRounded),
-              currency: 'PHP',
-              fx_rate_locked: null,
+              currency: planCurrency,
+              fx_rate_locked: fxRateLocked,
               accrual_date: businessDate,
               accrual_status: 'OPEN',
               override_id: override?.id ?? null,

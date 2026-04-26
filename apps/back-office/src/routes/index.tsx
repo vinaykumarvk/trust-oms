@@ -59,8 +59,12 @@ const AiShadowMode = React.lazy(() => import("@/pages/ai-shadow-mode"));
 const AiCosts = React.lazy(() => import("@/pages/ai-costs"));
 const TTRADashboard = React.lazy(() => import("@/pages/ttra-dashboard"));
 const ClaimsWorkbench = React.lazy(() => import("@/pages/claims-workbench"));
+const ServiceRequestWorkbench = React.lazy(() => import("@/pages/service-request-workbench"));
 const ConsentPrivacyCenter = React.lazy(() => import("@/pages/consent-privacy-center"));
 const DegradedModeMonitor = React.lazy(() => import("@/pages/degraded-mode-monitor"));
+
+// Regulator Portal (Phase 10C)
+const RegulatorPortal = React.lazy(() => import("@/pages/regulator-portal"));
 
 // TrustFees Pro pages
 const PricingLibrary = React.lazy(() => import("@/pages/trustfees/pricing-library"));
@@ -80,9 +84,56 @@ const AuditExplorer = React.lazy(() => import("@/pages/trustfees/audit-explorer"
 const DisputeManagement = React.lazy(() => import("@/pages/trustfees/dispute-management"));
 const FeeDashboard = React.lazy(() => import("@/pages/trustfees/fee-dashboard"));
 const FeeReports = React.lazy(() => import("@/pages/trustfees/fee-reports"));
+const ContentPackAdmin = React.lazy(() => import("@/pages/trustfees/content-pack-admin"));
+const DsarConsole = React.lazy(() => import("@/pages/trustfees/dsar-console"));
+const ReconciliationReport = React.lazy(() => import("@/pages/trustfees/reconciliation-report"));
+
+// Campaign Management / CRM pages
+const CampaignDashboard = React.lazy(() => import("@/pages/crm/campaign-dashboard"));
+const LeadListManager = React.lazy(() => import("@/pages/crm/lead-list-manager"));
+const ProspectManager = React.lazy(() => import("@/pages/crm/prospect-manager"));
+const MeetingsCalendar = React.lazy(() => import("@/pages/crm/meetings-calendar"));
+const InteractionLogger = React.lazy(() => import("@/pages/crm/interaction-logger"));
+const CampaignAnalytics = React.lazy(() => import("@/pages/crm/campaign-analytics"));
+const RMHandover = React.lazy(() => import("@/pages/crm/rm-handover"));
+const HandoverList = React.lazy(() => import("@/pages/crm/handover-list"));
+const HandoverAuthorization = React.lazy(() => import("@/pages/crm/handover-authorization"));
+const HandoverDetail = React.lazy(() => import("@/pages/crm/handover-detail"));
+const DelegationPage = React.lazy(() => import("@/pages/crm/delegation-page"));
+const HandoverDashboard = React.lazy(() => import("@/pages/crm/handover-dashboard"));
+const DelegationCalendar = React.lazy(() => import("@/pages/crm/delegation-calendar"));
+const HandoverHistory = React.lazy(() => import("@/pages/crm/handover-history"));
+const BulkUploadPage = React.lazy(() => import("@/pages/crm/bulk-upload-page"));
+const CampaignDetailPage = React.lazy(() => import("@/pages/crm/campaign-detail"));
+const ProspectDetailPage = React.lazy(() => import("@/pages/crm/prospect-detail"));
+const CallReportForm = React.lazy(() => import("@/pages/crm/call-report-form"));
+const CallReportList = React.lazy(() => import("@/pages/crm/call-report-list"));
+const ApprovalWorkspace = React.lazy(() => import("@/pages/crm/approval-workspace"));
+const CampaignForm = React.lazy(() => import("@/pages/crm/campaign-form"));
+const LeadRuleBuilder = React.lazy(() => import("@/pages/crm/lead-rule-builder"));
+const ConversionHistory = React.lazy(() => import("@/pages/crm/conversion-history"));
+const OpportunityPipeline = React.lazy(() => import("@/pages/crm/opportunity-pipeline"));
+const TaskManager = React.lazy(() => import("@/pages/crm/task-manager"));
+const LeadForm = React.lazy(() => import("@/pages/crm/lead-form"));
+const LeadDashboard = React.lazy(() => import("@/pages/crm/lead-dashboard"));
+const ProspectForm = React.lazy(() => import("@/pages/crm/prospect-form"));
+const RmWorkspace = React.lazy(() => import("@/pages/crm/rm-workspace"));
+const CrmReports = React.lazy(() => import("@/pages/crm/crm-reports"));
+
+// Risk Profiling & Proposal Generation pages (RP-PGM Module)
+const QuestionnaireMaintenance = React.lazy(() => import("@/pages/questionnaire-maintenance"));
+const RiskAppetiteMapping = React.lazy(() => import("@/pages/risk-appetite-mapping"));
+const AssetAllocationConfig = React.lazy(() => import("@/pages/asset-allocation-config"));
+const RiskAssessmentWizard = React.lazy(() => import("@/pages/risk-assessment-wizard"));
+const InvestmentProposals = React.lazy(() => import("@/pages/investment-proposals"));
+const SupervisorDashboardRP = React.lazy(() => import("@/pages/supervisor-dashboard-rp"));
+const RiskProfilingCompletionReport = React.lazy(() => import("@/pages/risk-profiling-completion-report"));
 
 // GL & Accounting pages
 const GLDashboard = React.lazy(() => import("@/pages/gl-dashboard"));
+
+// Branch Operations
+const BranchDashboard = React.lazy(() => import("@/pages/branch-dashboard"));
 
 // Custom entity pages
 const ClientOnboarding = React.lazy(() => import("@/pages/client-onboarding"));
@@ -213,6 +264,402 @@ export const router = createBrowserRouter([
             element: (
               <Suspense fallback={<PageLoader />}>
                 <EntityGenericPage />
+              </Suspense>
+            ),
+          },
+
+          // ---- Risk Profiling & Proposal Generation (RP-PGM) ----
+          {
+            path: "/risk-profiling/questionnaires",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <QuestionnaireMaintenance />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/risk-profiling/risk-appetite",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <RiskAppetiteMapping />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/risk-profiling/asset-allocation",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <AssetAllocationConfig />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/risk-profiling/assessment",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <RiskAssessmentWizard />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/risk-profiling/proposals",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <InvestmentProposals />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/risk-profiling/supervisor",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <SupervisorDashboardRP />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/risk-profiling/completion-report",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <RiskProfilingCompletionReport />
+              </Suspense>
+            ),
+          },
+
+          // ---- CRM / Campaign Management ----
+
+          // CRM — RM Workspace (Phase 4 Lead & Prospect)
+          {
+            path: "/crm/workspace",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <RmWorkspace />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Campaign Dashboard
+          {
+            path: "/crm/campaigns",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <CampaignDashboard />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Campaign Form (new) — must come before :id route
+          {
+            path: "/crm/campaigns/new",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <CampaignForm />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Campaign Form (edit) — must come before :id route
+          {
+            path: "/crm/campaigns/:id/edit",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <CampaignForm />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Campaign Detail (tabbed)
+          {
+            path: "/crm/campaigns/:id",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <CampaignDetailPage />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Lead List Manager
+          {
+            path: "/crm/lead-lists",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <LeadListManager />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Prospect Pipeline
+          {
+            path: "/crm/prospects",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <ProspectManager />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Prospect Form (new) — must come before :id route
+          {
+            path: "/crm/prospects/new",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <ProspectForm />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Prospect Form (edit)
+          {
+            path: "/crm/prospects/:id/edit",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <ProspectForm />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Prospect Detail (tabbed)
+          {
+            path: "/crm/prospects/:id",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <ProspectDetailPage />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Meetings & Call Reports
+          {
+            path: "/crm/meetings",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <MeetingsCalendar />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Interaction Logger (Unified Response + Action Item + Meeting)
+          {
+            path: "/crm/interactions",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <InteractionLogger />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Campaign Analytics
+          {
+            path: "/crm/analytics",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <CampaignAnalytics />
+              </Suspense>
+            ),
+          },
+
+          // CRM — RM Handover & Delegation (legacy)
+          {
+            path: "/crm/handovers-legacy",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <RMHandover />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Handover & Assignment Management (HAM)
+          {
+            path: "/crm/handovers",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <HandoverList />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/crm/handover-authorization",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <HandoverAuthorization />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/crm/handovers/:id",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <HandoverDetail />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/crm/ham-dashboard",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <HandoverDashboard />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/crm/delegations",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <DelegationPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/crm/delegation-calendar",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <DelegationCalendar />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/crm/handover-history",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <HandoverHistory />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/crm/bulk-upload",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <BulkUploadPage />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Call Report List
+          {
+            path: "/crm/call-reports",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <CallReportList />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Call Report Form (new)
+          {
+            path: "/crm/call-reports/new",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <CallReportForm />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Call Report Form (view)
+          {
+            path: "/crm/call-reports/:id",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <CallReportForm />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Call Report Form (edit)
+          {
+            path: "/crm/call-reports/:id/edit",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <CallReportForm />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Lead Rule Builder (Phase 6)
+          {
+            path: "/crm/lead-rules",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <LeadRuleBuilder />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Conversion History (Phase 6)
+          {
+            path: "/crm/conversion-history",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <ConversionHistory />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Approval Workspace
+          {
+            path: "/crm/approvals",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <ApprovalWorkspace />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Lead Dashboard (My Leads)
+          {
+            path: "/crm/leads",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <LeadDashboard />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Lead Form (new)
+          {
+            path: "/crm/leads/new",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <LeadForm />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Lead Form (edit)
+          {
+            path: "/crm/leads/:id/edit",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <LeadForm />
+              </Suspense>
+            ),
+          },
+
+          // CRM — CRM Reports Dashboard
+          {
+            path: "/crm/reports",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <CrmReports />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Opportunity Pipeline (Phase 7/8)
+          {
+            path: "/crm/pipeline",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <OpportunityPipeline />
+              </Suspense>
+            ),
+          },
+
+          // CRM — Task Manager (Phase 7/8)
+          {
+            path: "/crm/tasks",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TaskManager />
               </Suspense>
             ),
           },
@@ -369,6 +816,16 @@ export const router = createBrowserRouter([
             element: (
               <Suspense fallback={<PageLoader />}>
                 <ClaimsWorkbench />
+              </Suspense>
+            ),
+          },
+
+          // Operations — Service Request Workbench
+          {
+            path: "/operations/service-requests",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <ServiceRequestWorkbench />
               </Suspense>
             ),
           },
@@ -619,6 +1076,46 @@ export const router = createBrowserRouter([
             element: (
               <Suspense fallback={<PageLoader />}>
                 <DegradedModeMonitor />
+              </Suspense>
+            ),
+          },
+
+          // Operations — Content Pack Admin (TrustFees Pro Phase 5 GAP-A14/B04)
+          {
+            path: "/operations/content-pack-admin",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <ContentPackAdmin />
+              </Suspense>
+            ),
+          },
+
+          // Operations — DSAR Console (TrustFees Pro Phase 5 GAP-A15/B05/B06/B07)
+          {
+            path: "/operations/dsar-console",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <DsarConsole />
+              </Suspense>
+            ),
+          },
+
+          // Operations — Reconciliation Report (TrustFees Pro Phase 5 GAP-A17)
+          {
+            path: "/operations/reconciliation-report",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <ReconciliationReport />
+              </Suspense>
+            ),
+          },
+
+          // Operations — Branch Operations Dashboard (Phase 10B)
+          {
+            path: "/operations/branch-dashboard",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <BranchDashboard />
               </Suspense>
             ),
           },
@@ -903,6 +1400,26 @@ export const router = createBrowserRouter([
           // Tools — placeholder pages
           {
             path: "/tools/*",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <PlaceholderPage />
+              </Suspense>
+            ),
+          },
+
+          // Regulatory — BSP Examiner Portal (Phase 10C)
+          {
+            path: "/regulatory/bsp-portal",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <RegulatorPortal />
+              </Suspense>
+            ),
+          },
+
+          // Regulatory — placeholder pages
+          {
+            path: "/regulatory/*",
             element: (
               <Suspense fallback={<PageLoader />}>
                 <PlaceholderPage />

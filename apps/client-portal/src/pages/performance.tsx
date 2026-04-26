@@ -108,12 +108,12 @@ export default function PerformancePage() {
     twr !== null && benchmarkReturn !== null ? twr - benchmarkReturn : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Performance</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground dark:text-white">Performance</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground dark:text-gray-400 mt-1">
             Track your portfolio returns and benchmark comparison
           </p>
         </div>
@@ -141,16 +141,16 @@ export default function PerformancePage() {
       </div>
 
       {/* Period Selector */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5 sm:gap-2">
         {PERIODS.map((p) => (
           <button
             type="button"
             key={p.value}
             onClick={() => setSelectedPeriod(p.value)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
               selectedPeriod === p.value
                 ? "bg-teal-600 text-white shadow-sm"
-                : "bg-card text-muted-foreground border border-border hover:bg-muted"
+                : "bg-card dark:bg-gray-800 text-muted-foreground dark:text-gray-400 border border-border dark:border-gray-600 hover:bg-muted dark:hover:bg-gray-700"
             }`}
           >
             {p.label}
@@ -165,99 +165,99 @@ export default function PerformancePage() {
       ) : (
         <>
           {/* Performance Metric Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {/* TWR */}
-            <Card className="border-border">
-              <CardContent className="p-5">
+            <Card className="border-border dark:border-gray-700 dark:bg-gray-800">
+              <CardContent className="p-3 sm:p-5">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+                    <p className="text-xs text-muted-foreground dark:text-gray-400 font-medium uppercase tracking-wider">
                       TWR
                     </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-xs text-muted-foreground dark:text-gray-500 mt-0.5">
                       Time-Weighted Return
                     </p>
                     <div className="flex items-center gap-1.5 mt-2">
                       {twr !== null && twr >= 0 ? (
-                        <ArrowUpRight className="h-5 w-5 text-emerald-600" />
+                        <ArrowUpRight className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                       ) : (
-                        <ArrowDownRight className="h-5 w-5 text-red-500" />
+                        <ArrowDownRight className="h-5 w-5 text-red-500 dark:text-red-400" />
                       )}
                       <span
-                        className={`text-2xl font-bold ${
+                        className={`text-xl sm:text-2xl font-bold ${
                           twr !== null && twr >= 0
-                            ? "text-emerald-700"
-                            : "text-red-600"
+                            ? "text-emerald-700 dark:text-emerald-400"
+                            : "text-red-600 dark:text-red-400"
                         }`}
                       >
                         {twr !== null ? `${twr.toFixed(2)}%` : "--"}
                       </span>
                     </div>
                   </div>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-50">
-                    <TrendingUp className="h-5 w-5 text-teal-600" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-50 dark:bg-teal-900/30">
+                    <TrendingUp className="h-5 w-5 text-teal-600 dark:text-teal-400" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* IRR */}
-            <Card className="border-border">
-              <CardContent className="p-5">
+            <Card className="border-border dark:border-gray-700 dark:bg-gray-800">
+              <CardContent className="p-3 sm:p-5">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+                    <p className="text-xs text-muted-foreground dark:text-gray-400 font-medium uppercase tracking-wider">
                       IRR
                     </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-xs text-muted-foreground dark:text-gray-500 mt-0.5">
                       Internal Rate of Return
                     </p>
                     <div className="flex items-center gap-1.5 mt-2">
                       {irr !== null && irr >= 0 ? (
-                        <ArrowUpRight className="h-5 w-5 text-emerald-600" />
+                        <ArrowUpRight className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                       ) : (
-                        <ArrowDownRight className="h-5 w-5 text-red-500" />
+                        <ArrowDownRight className="h-5 w-5 text-red-500 dark:text-red-400" />
                       )}
                       <span
-                        className={`text-2xl font-bold ${
+                        className={`text-xl sm:text-2xl font-bold ${
                           irr !== null && irr >= 0
-                            ? "text-emerald-700"
-                            : "text-red-600"
+                            ? "text-emerald-700 dark:text-emerald-400"
+                            : "text-red-600 dark:text-red-400"
                         }`}
                       >
                         {irr !== null ? `${irr.toFixed(2)}%` : "--"}
                       </span>
                     </div>
                   </div>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
-                    <Activity className="h-5 w-5 text-blue-600" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-900/30">
+                    <Activity className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* Benchmark */}
-            <Card className="border-border">
-              <CardContent className="p-5">
+            <Card className="border-border dark:border-gray-700 dark:bg-gray-800">
+              <CardContent className="p-3 sm:p-5">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+                    <p className="text-xs text-muted-foreground dark:text-gray-400 font-medium uppercase tracking-wider">
                       Benchmark
                     </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-xs text-muted-foreground dark:text-gray-500 mt-0.5">
                       Index Return
                     </p>
                     <div className="flex items-center gap-1.5 mt-2">
                       {benchmarkReturn !== null && benchmarkReturn >= 0 ? (
-                        <ArrowUpRight className="h-5 w-5 text-emerald-600" />
+                        <ArrowUpRight className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                       ) : (
-                        <ArrowDownRight className="h-5 w-5 text-red-500" />
+                        <ArrowDownRight className="h-5 w-5 text-red-500 dark:text-red-400" />
                       )}
                       <span
-                        className={`text-2xl font-bold ${
+                        className={`text-xl sm:text-2xl font-bold ${
                           benchmarkReturn !== null && benchmarkReturn >= 0
-                            ? "text-emerald-700"
-                            : "text-red-600"
+                            ? "text-emerald-700 dark:text-emerald-400"
+                            : "text-red-600 dark:text-red-400"
                         }`}
                       >
                         {benchmarkReturn !== null
@@ -266,35 +266,35 @@ export default function PerformancePage() {
                       </span>
                     </div>
                   </div>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-50">
-                    <Target className="h-5 w-5 text-purple-600" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-50 dark:bg-purple-900/30">
+                    <Target className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* Excess Return */}
-            <Card className="border-border">
-              <CardContent className="p-5">
+            <Card className="border-border dark:border-gray-700 dark:bg-gray-800">
+              <CardContent className="p-3 sm:p-5">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+                    <p className="text-xs text-muted-foreground dark:text-gray-400 font-medium uppercase tracking-wider">
                       Excess Return
                     </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-xs text-muted-foreground dark:text-gray-500 mt-0.5">
                       vs Benchmark
                     </p>
                     <div className="flex items-center gap-1.5 mt-2">
                       {excessReturn !== null && excessReturn >= 0 ? (
-                        <ArrowUpRight className="h-5 w-5 text-emerald-600" />
+                        <ArrowUpRight className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                       ) : (
-                        <ArrowDownRight className="h-5 w-5 text-red-500" />
+                        <ArrowDownRight className="h-5 w-5 text-red-500 dark:text-red-400" />
                       )}
                       <span
-                        className={`text-2xl font-bold ${
+                        className={`text-xl sm:text-2xl font-bold ${
                           excessReturn !== null && excessReturn >= 0
-                            ? "text-emerald-700"
-                            : "text-red-600"
+                            ? "text-emerald-700 dark:text-emerald-400"
+                            : "text-red-600 dark:text-red-400"
                         }`}
                       >
                         {excessReturn !== null
@@ -303,8 +303,8 @@ export default function PerformancePage() {
                       </span>
                     </div>
                   </div>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50">
-                    <BarChart3 className="h-5 w-5 text-amber-600" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-900/30">
+                    <BarChart3 className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                   </div>
                 </div>
               </CardContent>
@@ -313,25 +313,25 @@ export default function PerformancePage() {
 
           {/* Comparison Bar */}
           {twr !== null && benchmarkReturn !== null && (
-            <Card className="border-border">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base text-foreground">
+            <Card className="border-border dark:border-gray-700 dark:bg-gray-800">
+              <CardHeader className="pb-3 px-3 sm:px-6">
+                <CardTitle className="text-sm sm:text-base text-foreground dark:text-gray-100">
                   Return Comparison - {periodLabel}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-3 sm:px-6">
                 <div className="space-y-4">
                   {/* Portfolio bar */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-sm text-foreground font-medium">
+                      <span className="text-sm text-foreground dark:text-gray-200 font-medium">
                         Your Portfolio
                       </span>
-                      <span className="text-sm font-semibold text-teal-700">
+                      <span className="text-sm font-semibold text-teal-700 dark:text-teal-400">
                         {twr.toFixed(2)}%
                       </span>
                     </div>
-                    <div className="h-4 rounded-full bg-muted overflow-hidden">
+                    <div className="h-4 rounded-full bg-muted dark:bg-gray-700 overflow-hidden">
                       <div
                         className="h-full rounded-full bg-teal-500 transition-all duration-500"
                         style={{
@@ -344,14 +344,14 @@ export default function PerformancePage() {
                   {/* Benchmark bar */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-sm text-foreground font-medium">
+                      <span className="text-sm text-foreground dark:text-gray-200 font-medium">
                         Benchmark
                       </span>
-                      <span className="text-sm font-semibold text-purple-700">
+                      <span className="text-sm font-semibold text-purple-700 dark:text-purple-400">
                         {benchmarkReturn.toFixed(2)}%
                       </span>
                     </div>
-                    <div className="h-4 rounded-full bg-muted overflow-hidden">
+                    <div className="h-4 rounded-full bg-muted dark:bg-gray-700 overflow-hidden">
                       <div
                         className="h-full rounded-full bg-purple-500 transition-all duration-500"
                         style={{
@@ -367,16 +367,16 @@ export default function PerformancePage() {
 
           {/* Data Points Table */}
           {dataPoints.length > 0 && (
-            <Card className="border-border">
-              <CardHeader className="pb-3">
+            <Card className="border-border dark:border-gray-700 dark:bg-gray-800">
+              <CardHeader className="pb-3 px-3 sm:px-6">
                 <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <CardTitle className="text-base text-foreground">
+                  <Calendar className="h-4 w-4 text-muted-foreground dark:text-gray-400" />
+                  <CardTitle className="text-sm sm:text-base text-foreground dark:text-gray-100">
                     Portfolio Value Over Time
                   </CardTitle>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-3 sm:px-6">
                 {/* Simple visual bar chart using divs */}
                 <div className="space-y-2 mb-6">
                   {dataPoints.map((dp, idx) => {
@@ -384,14 +384,14 @@ export default function PerformancePage() {
                     const pct = maxVal > 0 ? (dp.value / maxVal) * 100 : 0;
                     const isLast = idx === dataPoints.length - 1;
                     return (
-                      <div key={dp.date} className="flex items-center gap-3">
-                        <span className="text-xs text-muted-foreground font-mono w-24 shrink-0">
+                      <div key={dp.date} className="flex items-center gap-2 sm:gap-3">
+                        <span className="text-xs text-muted-foreground dark:text-gray-400 font-mono w-20 sm:w-24 shrink-0">
                           {new Date(dp.date).toLocaleDateString("en-PH", {
                             month: "short",
                             year: "numeric",
                           })}
                         </span>
-                        <div className="flex-1 h-5 rounded bg-muted overflow-hidden">
+                        <div className="flex-1 h-5 rounded bg-muted dark:bg-gray-700 overflow-hidden">
                           <div
                             className={`h-full rounded transition-all duration-300 ${
                               isLast ? "bg-teal-500" : "bg-teal-300"
@@ -399,7 +399,7 @@ export default function PerformancePage() {
                             style={{ width: `${Math.max(pct, 3)}%` }}
                           />
                         </div>
-                        <span className="text-xs font-medium text-foreground w-28 text-right shrink-0">
+                        <span className="text-xs font-medium text-foreground dark:text-gray-200 w-24 sm:w-28 text-right shrink-0">
                           {formatCurrency(dp.value)}
                         </span>
                       </div>
@@ -409,20 +409,20 @@ export default function PerformancePage() {
 
                 {/* Table fallback */}
                 <details className="group">
-                  <summary className="cursor-pointer text-sm text-teal-700 font-medium hover:text-teal-800">
+                  <summary className="cursor-pointer text-sm text-teal-700 dark:text-teal-400 font-medium hover:text-teal-800 dark:hover:text-teal-300">
                     View data table
                   </summary>
                   <div className="mt-3 overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-border">
-                          <th className="text-left py-2 text-xs font-semibold text-muted-foreground">
+                        <tr className="border-b border-border dark:border-gray-600">
+                          <th className="text-left py-2 text-xs font-semibold text-muted-foreground dark:text-gray-400">
                             Date
                           </th>
-                          <th className="text-right py-2 text-xs font-semibold text-muted-foreground">
+                          <th className="text-right py-2 text-xs font-semibold text-muted-foreground dark:text-gray-400">
                             Portfolio Value
                           </th>
-                          <th className="text-right py-2 text-xs font-semibold text-muted-foreground">
+                          <th className="text-right py-2 text-xs font-semibold text-muted-foreground dark:text-gray-400">
                             Change
                           </th>
                         </tr>
@@ -439,16 +439,16 @@ export default function PerformancePage() {
                           return (
                             <tr
                               key={dp.date}
-                              className="border-b border-border/50 last:border-0"
+                              className="border-b border-border/50 dark:border-gray-700/50 last:border-0"
                             >
-                              <td className="py-2 text-foreground">
+                              <td className="py-2 text-foreground dark:text-gray-200">
                                 {new Date(dp.date).toLocaleDateString("en-PH", {
                                   month: "short",
                                   day: "numeric",
                                   year: "numeric",
                                 })}
                               </td>
-                              <td className="text-right py-2 text-foreground font-medium tabular-nums">
+                              <td className="text-right py-2 text-foreground dark:text-gray-200 font-medium tabular-nums">
                                 {formatCurrency(dp.value)}
                               </td>
                               <td className="text-right py-2">

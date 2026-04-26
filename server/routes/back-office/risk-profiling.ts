@@ -7,7 +7,7 @@
 
 import { Router } from 'express';
 import { riskProfilingService } from '../../services/risk-profiling-service';
-import { requireBackOfficeRole } from '../../middleware/role-auth';
+import { requireBackOfficeRole, requireAnyRole } from '../../middleware/role-auth';
 
 const router = Router();
 
@@ -443,11 +443,16 @@ router.get('/reports/completion', requireBackOfficeRole(), async (req, res, next
 // Audit Logs (compliance/audit access only — FR-039.BR1)
 // ============================================================================
 
-router.get('/audit-logs', requireBackOfficeRole(), async (req, res, next) => {
+// G-098: Audit log restricted to COMPLIANCE_OFFICER, BO_HEAD, SYSTEM_ADMIN (FR-039.BR1)
+router.get('/audit-logs', requireAnyRole('COMPLIANCE_OFFICER', 'BO_HEAD', 'SYSTEM_ADMIN'), async (req, res, next) => {
   try {
-    const { entity_id, customer_id, page = '1', page_size = '20' } = req.query;
-    // Return audit trail from customerRiskProfiles / productRiskDeviations / complianceEscalations
-    res.json({ message: 'Audit log endpoint — restrict to COMPLIANCE/AUDIT roles', data: [] });
+    const { customer_id, page = '1', page_size = '20' } = req.query;
+    const logs = await riskProfilingService.getAuditLogs({
+      customer_id: customer_id as string | undefined,
+      page: parseInt(page as string, 10),
+      pageSize: parseInt(page_size as string, 10),
+    });
+    res.json(logs);
   } catch (err) {
     next(err);
   }

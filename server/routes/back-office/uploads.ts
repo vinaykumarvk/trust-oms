@@ -242,4 +242,30 @@ router.get(
   }),
 );
 
+/** POST /:id/parse — Parse uploaded file content (GAP-C16) */
+router.post(
+  '/:id/parse',
+  asyncHandler(async (req: any, res: any) => {
+    const { content, format } = req.body;
+    if (!content || !format) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Required: content, format (csv|json)' } });
+    }
+    const rows = bulkUploadService.parseFile(content, format);
+    res.json({ data: { batch_id: parseInt(req.params.id, 10), parsed_rows: rows.length, rows } });
+  }),
+);
+
+/** GET /:id/export — Export batch data (GAP-C16) */
+router.get(
+  '/:id/export',
+  asyncHandler(async (req: any, res: any) => {
+    const id = parseInt(req.params.id, 10);
+    const format = (req.query.format as string) === 'csv' ? 'csv' : 'json';
+    const content = await bulkUploadService.exportBatch(id, format);
+    const contentType = format === 'csv' ? 'text/csv' : 'application/json';
+    res.setHeader('Content-Type', contentType);
+    res.send(content);
+  }),
+);
+
 export default router;

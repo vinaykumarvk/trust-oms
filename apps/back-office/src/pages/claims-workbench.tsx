@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import {
   FileWarning, Search, Plus, CheckCircle, XCircle, Clock, DollarSign,
   AlertTriangle, ArrowRight, Eye, Tag, Send, Ban, ShieldCheck,
+  LayoutGrid, LayoutList, ArrowUpCircle,
 } from 'lucide-react';
 
 const API = '/api/v1/claims';
@@ -144,6 +145,10 @@ export default function ClaimsWorkbench() {
   const [evidenceInput, setEvidenceInput] = useState('');
   const [rejectReason, setRejectReason] = useState('');
 
+  const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
+  const [escalateDialogOpen, setEscalateDialogOpen] = useState(false);
+  const [escalateReason, setEscalateReason] = useState('');
+
   const [newClaim, setNewClaim] = useState({
     account_id: '',
     origination: '' as string,
@@ -159,6 +164,7 @@ export default function ClaimsWorkbench() {
     investigating: 'INVESTIGATING',
     pending: 'PENDING_APPROVAL',
     paid: 'PAID',
+    rejected: 'REJECTED',
     all: '',
   };
   const statusParam = statusFilterMap[activeTab] || '';
@@ -273,6 +279,20 @@ export default function ClaimsWorkbench() {
 
   const claims = claimsList?.data ?? [];
 
+  /** Compute SLA ageing: days remaining until investigation_sla_deadline */
+  function slaAgeing(claim: ClaimRecord): { daysRemaining: number; color: string; label: string } | null {
+    if (!claim.investigation_sla_deadline) return null;
+    const deadline = new Date(claim.investigation_sla_deadline).getTime();
+    const now = Date.now();
+    const daysRemaining = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
+    let color = 'bg-green-100 text-green-800'; // plenty of time
+    if (daysRemaining <= 0) color = 'bg-red-100 text-red-800';
+    else if (daysRemaining <= 2) color = 'bg-orange-100 text-orange-800';
+    else if (daysRemaining <= 5) color = 'bg-yellow-100 text-yellow-800';
+    const label = daysRemaining <= 0 ? `${Math.abs(daysRemaining)}d overdue` : `${daysRemaining}d left`;
+    return { daysRemaining, color, label };
+  }
+
   function renderActions(claim: ClaimRecord) {
     const s = claim.claim_status;
     return (
@@ -320,6 +340,14 @@ export default function ClaimsWorkbench() {
             >
               <XCircle className="mr-1 h-3 w-3" /> Reject
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-orange-300 text-orange-700 hover:bg-orange-50"
+              onClick={() => { setSelectedClaimId(claim.id); setEscalateReason(''); setEscalateDialogOpen(true); }}
+            >
+              <ArrowUpCircle className="mr-1 h-3 w-3" /> Escalate
+            </Button>
           </>
         )}
         {s === 'APPROVED' && (
@@ -366,12 +394,13 @@ export default function ClaimsWorkbench() {
                 <TableHead>Currency</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Approval Tier</TableHead>
+                <TableHead>SLA</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              <SkeletonRows cols={9} />
+              <SkeletonRows cols={10} />
             </TableBody>
           </Table>
         </div>
@@ -423,6 +452,18 @@ export default function ClaimsWorkbench() {
                     {claim.approval_tier.replace(/_/g, ' ')}
                   </Badge>
                 </TableCell>
+                <TableCell>
+                  {(() => {
+                    const sla = slaAgeing(claim);
+                    if (!sla) return <span className="text-muted-foreground">-</span>;
+                    return (
+                      <Badge className={sla.color} variant="secondary">
+                        <Clock className="mr-1 h-3 w-3" />
+                        {sla.label}
+                      </Badge>
+                    );
+                  })()}
+                </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {new Date(claim.created_at).toLocaleDateString()}
                 </TableCell>
@@ -431,6 +472,84 @@ export default function ClaimsWorkbench() {
             ))}
           </TableBody>
         </Table>
+      </div>
+    );
+  }
+
+  function renderClaimsCards(data: ClaimRecord[]) {
+    if (listPending) {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="pt-6 space-y-3">
+                <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+                <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+                <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      );
+    }
+
+    if (data.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
+          <FileWarning className="h-10 w-10 text-muted-foreground/50" />
+          <p>No claims found</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {data.map((claim: ClaimRecord) => {
+          const sla = slaAgeing(claim);
+          return (
+            <Card key={claim.id} className="flex flex-col">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-mono">{claim.claim_reference}</CardTitle>
+                  <Badge className={statusColors[claim.claim_status] || ''} variant="secondary">
+                    {claim.claim_status.replace(/_/g, ' ')}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="flex-1 space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Amount</span>
+                  <span className="font-mono font-medium">
+                    {claim.currency} {parseFloat(claim.claim_amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Root Cause</span>
+                  <span>{claim.root_cause_code ? claim.root_cause_code.replace(/_/g, ' ') : '-'}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Tier</span>
+                  <Badge className={tierColors[claim.approval_tier] || ''} variant="outline">
+                    {claim.approval_tier.replace(/_/g, ' ')}
+                  </Badge>
+                </div>
+                {sla && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">SLA</span>
+                    <Badge className={sla.color} variant="secondary">
+                      <Clock className="mr-1 h-3 w-3" />
+                      {sla.label}
+                    </Badge>
+                  </div>
+                )}
+                <div className="text-xs text-muted-foreground pt-1">
+                  Created {new Date(claim.created_at).toLocaleDateString()}
+                </div>
+                <div className="pt-2 border-t">{renderActions(claim)}</div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     );
   }
@@ -445,6 +564,26 @@ export default function ClaimsWorkbench() {
             Manage claim lifecycle: investigation, approval, settlement, and disclosure
           </p>
         </div>
+        <div className="flex items-center gap-2">
+          {/* View Mode Toggle */}
+          <div className="flex items-center border rounded-md">
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-r-none"
+              onClick={() => setViewMode('table')}
+            >
+              <LayoutList className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'card' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-l-none"
+              onClick={() => setViewMode('card')}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+          </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
             <Button size="sm">
@@ -533,6 +672,7 @@ export default function ClaimsWorkbench() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -607,10 +747,13 @@ export default function ClaimsWorkbench() {
           <TabsTrigger value="paid">
             Paid {summary?.byStatus.paid ? `(${summary.byStatus.paid})` : ''}
           </TabsTrigger>
+          <TabsTrigger value="rejected">
+            Rejected {summary?.byStatus.rejected ? `(${summary.byStatus.rejected})` : ''}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value={activeTab} className="mt-4">
-          {renderClaimsTable(claims)}
+          {viewMode === 'table' ? renderClaimsTable(claims) : renderClaimsCards(claims)}
         </TabsContent>
       </Tabs>
 
@@ -706,6 +849,38 @@ export default function ClaimsWorkbench() {
               }}
             >
               Reject
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Escalate Dialog */}
+      <Dialog open={escalateDialogOpen} onOpenChange={setEscalateDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Escalate Claim</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Escalation Reason *</label>
+            <Input
+              placeholder="Describe the reason for escalation"
+              value={escalateReason}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEscalateReason(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEscalateDialogOpen(false)}>Cancel</Button>
+            <Button
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+              disabled={!escalateReason.trim()}
+              onClick={() => {
+                if (selectedClaimId != null) {
+                  doAction(selectedClaimId, 'escalate', { reason: escalateReason });
+                  setEscalateDialogOpen(false);
+                }
+              }}
+            >
+              <ArrowUpCircle className="mr-1 h-4 w-4" /> Escalate
             </Button>
           </DialogFooter>
         </DialogContent>

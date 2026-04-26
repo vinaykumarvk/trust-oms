@@ -146,7 +146,7 @@ function SummaryCard({ title, value, icon: Icon, accent }: SummaryCardProps) {
 // ---------------------------------------------------------------------------
 
 export default function NavUpdates() {
-  const navQuery = useQuery<NavRecord[]>({
+  const navQuery = useQuery<{ data: NavRecord[] }>({
     queryKey: ["nav-updates"],
     queryFn: () => apiRequest("GET", apiUrl("/api/v1/nav/status")),
     refetchInterval: 60_000,
@@ -155,7 +155,7 @@ export default function NavUpdates() {
   const records = navQuery.data?.data ?? [];
 
   // Compute staleness for each record
-  const withStaleness = records.map((r) => ({
+  const withStaleness = records.map((r: NavRecord) => ({
     ...r,
     staleness: getStaleness(r.last_computed),
   }));
@@ -163,13 +163,13 @@ export default function NavUpdates() {
   // Summary counts
   const totalCount = withStaleness.length;
   const currentCount = withStaleness.filter(
-    (r) => r.staleness === "current"
+    (r: NavRecord & { staleness: StalenessLevel }) => r.staleness === "current"
   ).length;
   const staleCount = withStaleness.filter(
-    (r) => r.staleness === "1day" || r.staleness === "2plus"
+    (r: NavRecord & { staleness: StalenessLevel }) => r.staleness === "1day" || r.staleness === "2plus"
   ).length;
   const missingCount = withStaleness.filter(
-    (r) => r.staleness === "missing"
+    (r: NavRecord & { staleness: StalenessLevel }) => r.staleness === "missing"
   ).length;
 
   const handleRefreshAll = () => {
@@ -284,7 +284,7 @@ export default function NavUpdates() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  withStaleness.map((record) => {
+                  withStaleness.map((record: NavRecord & { staleness: StalenessLevel }) => {
                     const stalenessCfg = STALENESS_CONFIG[record.staleness];
                     const statusColor =
                       STATUS_COLORS[record.nav_status] ??

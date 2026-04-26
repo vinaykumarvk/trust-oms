@@ -75,30 +75,30 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-muted px-4">
+    <div className="flex min-h-dvh items-center justify-center bg-muted dark:bg-gray-950 px-3 sm:px-4">
       <div className="w-full max-w-sm">
         {/* Branding */}
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-teal-600 shadow-lg shadow-teal-600/20">
-            <span className="text-2xl font-bold text-white">T</span>
+        <div className="mb-6 sm:mb-8 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-xl bg-teal-600 shadow-lg shadow-teal-600/20">
+            <span className="text-xl sm:text-2xl font-bold text-white">T</span>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">TrustOMS</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground dark:text-white">TrustOMS</h1>
+          <p className="mt-1 text-sm text-muted-foreground dark:text-gray-400">
             Client Portal &mdash; Self-Service
           </p>
         </div>
 
-        <Card className="border-border shadow-sm">
+        <Card className="border-border dark:border-gray-700 dark:bg-gray-800 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg text-foreground">Sign In</CardTitle>
-            <CardDescription className="text-muted-foreground">
+            <CardTitle className="text-lg text-foreground dark:text-gray-100">Sign In</CardTitle>
+            <CardDescription className="text-muted-foreground dark:text-gray-400">
               Enter your credentials to access your portfolio.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-foreground">
+                <Label htmlFor="email" className="text-foreground dark:text-gray-200">
                   Username
                 </Label>
                 <Input
@@ -109,11 +109,11 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="username"
                   autoFocus
-                  className="border-border focus:border-teal-500 focus:ring-teal-500"
+                  className="border-border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder:text-gray-400 focus:border-teal-500 focus:ring-teal-500"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-foreground">
+                <Label htmlFor="password" className="text-foreground dark:text-gray-200">
                   Password
                 </Label>
                 <div className="relative">
@@ -124,7 +124,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete="current-password"
-                    className="border-border focus:border-teal-500 focus:ring-teal-500 pr-10"
+                    className="border-border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder:text-gray-400 focus:border-teal-500 focus:ring-teal-500 pr-10"
                   />
                   <button
                     type="button"
@@ -137,7 +137,7 @@ export default function LoginPage() {
                 </div>
               </div>
               {error && (
-                <p className="text-sm text-red-600" role="alert">
+                <p className="text-sm text-red-600 dark:text-red-400" role="alert">
                   {error}
                 </p>
               )}
@@ -152,7 +152,7 @@ export default function LoginPage() {
           </CardContent>
         </Card>
 
-        <p className="mt-4 text-center text-xs text-muted-foreground">
+        <p className="mt-4 text-center text-xs text-muted-foreground dark:text-gray-500">
           TrustOMS Philippines v1.0 &mdash; Phase 5C Client Portal
         </p>
       </div>

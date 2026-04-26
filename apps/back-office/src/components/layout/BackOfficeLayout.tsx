@@ -10,6 +10,8 @@
  * - Collapsible navigation sections
  * - Skip-link for accessibility
  * - localStorage persistence for collapsed state
+ * - WCAG 2.1 AA: keyboard shortcut Alt+B for sidebar toggle
+ * - WCAG 2.1 AA: ARIA roles & labels on landmark regions
  */
 
 import { useState, useCallback, useEffect } from "react";
@@ -267,8 +269,9 @@ function SidebarNav({ collapsed, onNavigate }: SidebarNavProps) {
 
   return (
     <nav
+      role="navigation"
       className={cn("flex flex-col gap-3", collapsed ? "items-center px-2" : "px-3")}
-      aria-label="Sidebar navigation"
+      aria-label="Main navigation"
     >
       {dashboardElement}
       <Separator className={collapsed ? "w-9" : ""} />
@@ -444,7 +447,7 @@ function DesktopSidebar({
             </Button>
           </TooltipTrigger>
           <TooltipContent side="right" className="text-xs">
-            {collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            {collapsed ? "Expand sidebar (Alt+B)" : "Collapse sidebar (Alt+B)"}
           </TooltipContent>
         </Tooltip>
       </div>
@@ -526,6 +529,18 @@ export function BackOfficeLayout() {
   const closeMobile = useCallback(() => setMobileOpen(false), []);
   const openMobile = useCallback(() => setMobileOpen(true), []);
 
+  // WCAG 2.1 AA: Alt+B keyboard shortcut for sidebar toggle
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && (e.key === "b" || e.key === "B")) {
+        e.preventDefault();
+        toggleCollapsed();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [toggleCollapsed]);
+
   return (
     <TooltipProvider delayDuration={0}>
       <div className="flex h-dvh overflow-hidden">
@@ -543,6 +558,8 @@ export function BackOfficeLayout() {
           <MobileHeader onOpen={openMobile} />
 
           <main
+            role="main"
+            aria-label="Main content"
             className="flex-1 overflow-y-auto bg-background"
             id="main-content"
             tabIndex={-1}

@@ -221,7 +221,7 @@ export default function FundAccounting() {
   const level3Count = Math.max(0, totalFunds - level1Count - level2Count);
 
   // ---- NAV History query (when a fund is selected) ----
-  const historyQuery = useQuery<NavHistoryPoint[]>({
+  const historyQuery = useQuery<{ data: NavHistoryPoint[] }>({
     queryKey: ["nav-history", selectedFund],
     queryFn: () => apiRequest("GET", apiUrl(`/api/v1/nav/history/${selectedFund}?days=30`)),
     enabled: !!selectedFund,

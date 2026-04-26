@@ -7,7 +7,7 @@
  *   Step 3: Schedule & Thresholds (only for PERIOD charge basis)
  *   Step 4: Review & Preview (read-only summary + live calculation)
  */
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@ui/lib/queryClient";
@@ -215,6 +215,63 @@ export default function FeePlanWizard() {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FeePlanForm>(emptyForm());
 
+  // --- GAP-A20: Draft save on wizard exit ---
+  const DRAFT_KEY = "fee-plan-wizard-draft";
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [hasDraft, setHasDraft] = useState(false);
+
+  // Restore draft on mount (only for new plans, not edit)
+  useEffect(() => {
+    if (isEdit) return;
+    try {
+      const saved = localStorage.getItem(DRAFT_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setForm(parsed);
+        setHasDraft(true);
+      }
+    } catch {
+      // Ignore invalid draft data
+    }
+  }, [isEdit]);
+
+  // Debounced auto-save (3 seconds) on form changes
+  useEffect(() => {
+    if (isEdit) return;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(form));
+        setHasDraft(true);
+      } catch {
+        // localStorage full or unavailable
+      }
+    }, 3000);
+    return () => {
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    };
+  }, [form, isEdit]);
+
+  // Warn on unsaved changes when leaving
+  useEffect(() => {
+    if (isEdit) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      if (form.fee_plan_code || form.fee_plan_name) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [form.fee_plan_code, form.fee_plan_name, isEdit]);
+
+  // Discard draft handler
+  const discardDraft = useCallback(() => {
+    localStorage.removeItem(DRAFT_KEY);
+    setForm(emptyForm());
+    setStep(0);
+    setHasDraft(false);
+  }, []);
+
   // Preview state
   const [previewAum, setPreviewAum] = useState("");
   const [previewTxn, setPreviewTxn] = useState("");
@@ -358,6 +415,8 @@ export default function FeePlanWizard() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["fee-plans"] });
+      // GAP-A20: Clear draft on successful save
+      localStorage.removeItem(DRAFT_KEY);
       navigate("/operations/fee-plans");
     },
   });
@@ -452,6 +511,12 @@ export default function FeePlanWizard() {
             </p>
           </div>
         </div>
+        {/* GAP-A20: Discard Draft button */}
+        {!isEdit && hasDraft && (
+          <Button variant="outline" size="sm" onClick={discardDraft} className="text-destructive border-destructive/50">
+            Discard Draft
+          </Button>
+        )}
       </div>
 
       {/* Stepper */}

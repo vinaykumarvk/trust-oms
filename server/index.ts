@@ -9,6 +9,7 @@ import { requestId } from './middleware/request-id';
 import { authMiddleware } from './middleware/auth';
 import { registerRoutes } from './routes';
 import { pool, dbReady } from './db';
+import { initializeFeedRegistry } from './services/degraded-mode-service';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '5000', 10);
@@ -59,6 +60,8 @@ async function start() {
   } catch (err) {
     console.warn('[DB] Database not available:', (err as Error).message);
   }
+
+  await initializeFeedRegistry();
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[SERVER] TrustOMS API listening on port ${PORT}`);

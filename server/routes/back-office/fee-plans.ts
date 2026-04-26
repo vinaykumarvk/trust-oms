@@ -300,6 +300,16 @@ router.post(
       });
     }
 
+    // GAP-C02: Rejection comment must be at least 10 characters
+    if (comment.trim().length < 10) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'Rejection comment must be at least 10 characters',
+        },
+      });
+    }
+
     const approverId = req.body.approverId || req.userId || null;
 
     try {

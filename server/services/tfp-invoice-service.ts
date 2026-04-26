@@ -215,6 +215,15 @@ export const tfpInvoiceService = {
 
         const dueDate = addDays(today, dueDateOffset);
 
+        // GAP-C08: Stamp FX rate from accruals onto invoice
+        let invoiceFxRate: string | null = null;
+        for (const acc of accruals) {
+          if (acc.fx_rate_locked) {
+            invoiceFxRate = acc.fx_rate_locked;
+            break;
+          }
+        }
+
         // Insert the invoice
         const [invoice] = await db
           .insert(schema.tfpInvoices)
@@ -229,6 +238,7 @@ export const tfpInvoiceService = {
             invoice_date: today,
             due_date: dueDate,
             invoice_status: 'DRAFT',
+            fx_rate: invoiceFxRate,
           })
           .returning();
 

@@ -74,6 +74,19 @@ import {
   ClipboardCheck,
   FileWarning,
   PlusCircle,
+  ClipboardList,
+  UserSearch,
+  FileSpreadsheet,
+  Compass,
+  LineChart,
+  Megaphone,
+  ListFilter,
+  UserPlus,
+  CalendarRange,
+  MessageCircle,
+  ArrowRightLeft,
+  Calendar,
+  CheckSquare,
 } from "lucide-react";
 
 export interface NavItem {
@@ -141,6 +154,19 @@ export const navSections: NavSection[] = [
     ],
   },
   {
+    label: "Risk Profiling",
+    icon: Compass,
+    items: [
+      { label: "Questionnaires", path: "/risk-profiling/questionnaires", icon: ClipboardList },
+      { label: "Risk Appetite Mapping", path: "/risk-profiling/risk-appetite", icon: Target },
+      { label: "Asset Allocation", path: "/risk-profiling/asset-allocation", icon: PieChart },
+      { label: "Risk Assessment", path: "/risk-profiling/assessment", icon: UserSearch },
+      { label: "Investment Proposals", path: "/risk-profiling/proposals", icon: FileSpreadsheet },
+      { label: "Supervisor Dashboard", path: "/risk-profiling/supervisor", icon: LineChart },
+      { label: "Completion Report", path: "/risk-profiling/completion-report", icon: BarChart3 },
+    ],
+  },
+  {
     label: "Fees & Charges",
     icon: Receipt,
     items: [
@@ -177,12 +203,14 @@ export const navSections: NavSection[] = [
     label: "Operations",
     icon: Settings,
     items: [
+      { label: "Branch Operations", path: "/operations/branch-dashboard", icon: Building2 },
       { label: "Order Explorer", path: "/operations/order-explorer", icon: FileSearch },
       { label: "Transaction Monitor", path: "/operations/transactions", icon: ArrowLeftRight },
       { label: "NAV Updates", path: "/operations/nav-updates", icon: TrendingUp },
       { label: "Cash & FX", path: "/operations/cash-fx", icon: DollarSign },
       { label: "Corporate Actions", path: "/operations/corporate-actions", icon: Activity },
       { label: "Claims", path: "/operations/claims", icon: FileWarning },
+      { label: "Service Requests", path: "/operations/service-requests", icon: ClipboardCheck },
       { label: "Transfers", path: "/operations/transfers", icon: Send },
       { label: "Contributions", path: "/operations/contributions", icon: ArrowDownCircle },
       { label: "Withdrawals", path: "/operations/withdrawals", icon: ArrowUpCircle },
@@ -194,6 +222,47 @@ export const navSections: NavSection[] = [
       { label: "Transaction Recon", path: "/operations/transaction-recon", icon: GitCompare },
       { label: "EOD Processing", path: "/operations/eod", icon: Clock },
       { label: "Feed Monitor", path: "/operations/feed-monitor", icon: Radio },
+    ],
+  },
+  {
+    label: "CRM",
+    icon: Users,
+    defaultOpen: true,
+    items: [
+      { label: "My Leads", path: "/crm/leads", icon: UserPlus },
+      { label: "Prospects", path: "/crm/prospects", icon: UserSearch },
+      { label: "Pipeline", path: "/crm/pipeline", icon: TrendingUp },
+      { label: "Calendar", path: "/crm/meetings", icon: Calendar },
+      { label: "Call Reports", path: "/crm/call-reports", icon: FileText },
+      { label: "Tasks", path: "/crm/tasks", icon: CheckSquare },
+      { label: "Conversion History", path: "/crm/conversion-history", icon: ArrowRightLeft },
+      { label: "CRM Reports", path: "/crm/reports", icon: BarChart3 },
+      { label: "Approvals", path: "/crm/approvals", icon: CheckCircle },
+      { label: "RM Handovers", path: "/crm/handovers", icon: ArrowRightLeft },
+    ],
+  },
+  {
+    label: "Handover & Delegation",
+    icon: ArrowLeftRight,
+    items: [
+      { label: "HAM Dashboard", path: "/crm/ham-dashboard", icon: LayoutDashboard },
+      { label: "Handover Requests", path: "/crm/handovers", icon: ArrowRightLeft },
+      { label: "Authorization Queue", path: "/crm/handover-authorization", icon: ClipboardCheck },
+      { label: "Delegations", path: "/crm/delegations", icon: UserCheck },
+      { label: "Delegation Calendar", path: "/crm/delegation-calendar", icon: CalendarDays },
+      { label: "Bulk Upload", path: "/crm/bulk-upload", icon: Upload },
+      { label: "Handover History", path: "/crm/handover-history", icon: FileSearch },
+    ],
+  },
+  {
+    label: "Campaign Management",
+    icon: Megaphone,
+    items: [
+      { label: "Campaign Dashboard", path: "/crm/campaigns", icon: LayoutDashboard },
+      { label: "Lead Lists", path: "/crm/lead-lists", icon: ListFilter },
+      { label: "Lead Rule Builder", path: "/crm/lead-rules", icon: Target },
+      { label: "Campaign Analytics", path: "/crm/analytics", icon: BarChart3 },
+      { label: "Interaction Logger", path: "/crm/interactions", icon: MessageCircle },
     ],
   },
   {
@@ -228,6 +297,13 @@ export const navSections: NavSection[] = [
       { label: "Reports Hub", path: "/analytics/reports", icon: FileBarChart },
       { label: "Report Builder", path: "/analytics/report-builder", icon: PenTool },
       { label: "Data Quality", path: "/analytics/data-quality", icon: Activity },
+    ],
+  },
+  {
+    label: "Regulatory",
+    icon: Gavel,
+    items: [
+      { label: "BSP Examiner Portal", path: "/regulatory/bsp-portal", icon: Shield, roles: ["regulator", "admin", "compliance_officer"] },
     ],
   },
   {

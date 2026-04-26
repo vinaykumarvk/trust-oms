@@ -8,6 +8,7 @@
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, desc, and, sql } from 'drizzle-orm';
+import { notificationService } from './notification-service';
 
 export const reversalService = {
   // -------------------------------------------------------------------------
@@ -19,6 +20,11 @@ export const reversalService = {
     evidence?: string;
     requestedBy: number;
   }) {
+    // H-002: reason is mandatory — reject empty/blank values
+    if (!data.reason || !data.reason.trim()) {
+      throw new Error('Reversal reason is required and cannot be blank.');
+    }
+
     const [reversalCase] = await db
       .insert(schema.reversalCases)
       .values({
@@ -147,6 +153,25 @@ export const reversalService = {
       })
       .where(eq(schema.reversalCases.id, caseId))
       .returning();
+
+    // FR-REV-002: Dispatch reversal advice notification to the requester
+    const recipientId = existing.requested_by ? String(existing.requested_by) : 'system';
+    const adviceContent = [
+      `Reversal Case #${caseId} has been executed.`,
+      `Original Transaction: ${existing.original_transaction_id}`,
+      `Reason: ${existing.reason ?? 'N/A'}`,
+      `Reversal Date: ${reversingEntries.reversal_date}`,
+      `Reversing Entries: ${reversingEntries.entries.map((e: { account: string; amount: number; description: string }) => `${e.account} ${e.description}`).join('; ')}`,
+      `Status: EXECUTED`,
+    ].join('\n');
+
+    await notificationService.dispatch({
+      eventType: 'REVERSAL_ADVICE',
+      channel: 'EMAIL',
+      recipientId,
+      recipientType: 'user',
+      content: adviceContent,
+    });
 
     return updated;
   },

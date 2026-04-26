@@ -10,6 +10,7 @@ import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, and, sql, desc } from 'drizzle-orm';
 import { cashLedgerService } from './cash-ledger-service';
+import { notificationService } from './notification-service';
 
 /** Determine approval tier based on claim amount */
 function determineApprovalTier(amount: number): 'AUTO' | 'MANAGER' | 'HEAD' | 'EXEC_COMMITTEE' {
@@ -62,6 +63,15 @@ export const claimsService = {
         updated_by: data.created_by || 'system',
       })
       .returning();
+
+    // Dispatch notification for new claim creation
+    notificationService.dispatch({
+      eventType: 'CLAIM_CREATED',
+      channel: 'IN_APP',
+      recipientId: data.created_by || 'system',
+      recipientType: 'user',
+      content: `New claim ${claimReference} created for ${data.claim_amount} ${data.currency || 'PHP'}`,
+    }).catch(() => {});
 
     return result;
   },
@@ -196,6 +206,15 @@ export const claimsService = {
       })
       .where(eq(schema.claims.id, claimId));
 
+    // Dispatch notification for claim approval
+    notificationService.dispatch({
+      eventType: 'CLAIM_APPROVED',
+      channel: 'IN_APP',
+      recipientId: claim.created_by || 'system',
+      recipientType: 'user',
+      content: `Claim ${claim.claim_reference} has been approved by ${approverId} for ${claim.claim_amount} ${claim.currency || 'PHP'}`,
+    }).catch(() => {});
+
     return { ...claim, claim_status: 'APPROVED', approved_by: approverIdNum, approved_at: now };
   },
 
@@ -248,6 +267,10 @@ export const claimsService = {
       reference: claim.claim_reference,
     });
 
+    // GL posting: post CA-Loss journal entry for the settled claim
+    // In production, this would call:
+    //   await glPostingEngine.postClaimLoss(claim.claim_id, parseFloat(claim.claim_amount), claim.currency);
+
     const now = new Date();
     await db
       .update(schema.claims)
@@ -258,6 +281,15 @@ export const claimsService = {
         updated_by: 'system',
       })
       .where(eq(schema.claims.id, claimId));
+
+    // Dispatch notification for claim settlement
+    notificationService.dispatch({
+      eventType: 'CLAIM_SETTLED',
+      channel: 'IN_APP',
+      recipientId: claim.created_by || 'system',
+      recipientType: 'user',
+      content: `Claim ${claim.claim_reference} has been settled — payout of ${claim.claim_amount} ${claim.currency || 'PHP'} completed`,
+    }).catch(() => {});
 
     return {
       ...claim,

@@ -1,147 +1,164 @@
 /**
- * Collection Trigger Service (TrustFees Pro -- Phase 9)
+ * Collection Trigger Service (TrustFees Pro — BRD Gap C12)
  *
- * Event-driven fee collection triggers that fire when corporate action
- * lifecycle events occur (dividend, maturity, pre-termination, redemption).
- *
- * Each handler:
- *   1. Finds OPEN accruals for the relevant portfolio/security
- *   2. Triggers immediate invoicing via tfpInvoiceService
- *   3. Returns summary of generated invoices
- *
- * Methods:
- *   - onCorporateAction(caEvent)      -- Dividend/coupon triggers
- *   - onMaturity(maturityEvent)       -- Bond/deposit maturity
- *   - onPreTermination(preTermEvent)  -- Early termination
- *   - onRedemptionViaSale(saleEvent)  -- Fund redemption or sale
+ * Handles fee collection triggers on corporate actions, maturity,
+ * pre-termination, and redemption-via-sale events.
  */
 
 import { db } from '../db';
 import * as schema from '@shared/schema';
-import { eq, and, sql, inArray } from 'drizzle-orm';
-import { tfpInvoiceService } from './tfp-invoice-service';
-
-/* ---------- Types ---------- */
-
-interface CorporateActionEvent {
-  portfolio_id: string;
-  security_id?: string;
-  event_type: string; // DIVIDEND, COUPON, etc.
-  event_date: string;
-  amount?: number;
-}
-
-interface MaturityEvent {
-  portfolio_id: string;
-  security_id: string;
-  maturity_date: string;
-  face_value?: number;
-}
-
-interface PreTerminationEvent {
-  portfolio_id: string;
-  security_id?: string;
-  termination_date: string;
-  reason?: string;
-}
-
-interface RedemptionViaSaleEvent {
-  portfolio_id: string;
-  security_id?: string;
-  sale_date: string;
-  proceeds?: number;
-}
-
-/* ---------- Helpers ---------- */
-
-/**
- * Find OPEN accruals for a given portfolio (and optionally security).
- * Returns the accrual IDs and the date range for invoicing.
- */
-async function findOpenAccruals(portfolioId: string, securityId?: string) {
-  const conditions: ReturnType<typeof eq>[] = [
-    eq(schema.tfpAccruals.accrual_status, 'OPEN'),
-    eq(schema.tfpAccruals.portfolio_id, portfolioId),
-  ];
-
-  if (securityId) {
-    conditions.push(eq(schema.tfpAccruals.security_id, securityId));
-  }
-
-  const accruals = await db
-    .select()
-    .from(schema.tfpAccruals)
-    .where(and(...conditions));
-
-  return accruals;
-}
-
-/**
- * Generate invoices for a set of accruals by finding the date range
- * and delegating to the invoice service.
- */
-async function triggerInvoicing(accruals: Array<{ accrual_date: string }>, triggerType: string) {
-  if (accruals.length === 0) {
-    return {
-      trigger_type: triggerType,
-      invoices_created: 0,
-      total_amount: 0,
-      message: 'No OPEN accruals found for the given portfolio/security',
-    };
-  }
-
-  // Get the date range from the accruals
-  const dates = accruals.map((a) => a.accrual_date).sort();
-  const periodFrom = dates[0];
-  const periodTo = dates[dates.length - 1];
-
-  const result = await tfpInvoiceService.generateInvoices(periodFrom, periodTo);
-
-  return {
-    trigger_type: triggerType,
-    period_from: periodFrom,
-    period_to: periodTo,
-    accruals_found: accruals.length,
-    ...result,
-  };
-}
-
-/* ---------- Main Service ---------- */
+import { eq, and, sql } from 'drizzle-orm';
+import { tfpAuditService } from './tfp-audit-service';
 
 export const collectionTriggerService = {
   /**
-   * On corporate action event (dividend, coupon, etc.):
-   * Find all OPEN accruals for the portfolio/security and generate immediate invoice.
+   * Trigger fee collection on a corporate action event.
+   * Finds applicable ACTIVE fee plans for the portfolio and creates
+   * immediate invoiceable accruals.
    */
-  async onCorporateAction(caEvent: CorporateActionEvent) {
-    const accruals = await findOpenAccruals(caEvent.portfolio_id, caEvent.security_id);
-    return triggerInvoicing(accruals, `CORPORATE_ACTION:${caEvent.event_type}`);
+  async triggerOnCorporateAction(caId: number, portfolioId: string, feePlanId?: number) {
+    const plans = await this.resolveApplicablePlans(portfolioId, 'EVENT', feePlanId);
+    let created = 0;
+
+    for (const plan of plans) {
+      const idempotencyKey = `CT:CA:${caId}:${portfolioId}:${plan.id}`;
+      const existing = await this.checkIdempotency(idempotencyKey);
+      if (existing) continue;
+
+      await this.createTriggerAccrual(plan, portfolioId, idempotencyKey, `Corporate action ${caId}`);
+      created++;
+    }
+
+    await tfpAuditService.logEvent('COLLECTION_TRIGGER', String(caId), 'CA_TRIGGER_FIRED', { ca_id: caId, portfolio_id: portfolioId, accruals_created: created }, null);
+    return { trigger_type: 'CORPORATE_ACTION', ca_id: caId, portfolio_id: portfolioId, accruals_created: created };
   },
 
   /**
-   * On bond/deposit maturity:
-   * Find all OPEN accruals for the portfolio/security and generate immediate invoice.
+   * Trigger fee collection on instrument maturity.
    */
-  async onMaturity(maturityEvent: MaturityEvent) {
-    const accruals = await findOpenAccruals(maturityEvent.portfolio_id, maturityEvent.security_id);
-    return triggerInvoicing(accruals, 'MATURITY');
+  async triggerOnMaturity(securityId: string, portfolioId: string, maturityDate?: string) {
+    const plans = await this.resolveApplicablePlans(portfolioId, 'EVENT');
+    let created = 0;
+
+    for (const plan of plans) {
+      const idempotencyKey = `CT:MAT:${securityId}:${portfolioId}:${plan.id}`;
+      const existing = await this.checkIdempotency(idempotencyKey);
+      if (existing) continue;
+
+      await this.createTriggerAccrual(plan, portfolioId, idempotencyKey, `Maturity ${securityId}`);
+      created++;
+    }
+
+    await tfpAuditService.logEvent('COLLECTION_TRIGGER', securityId, 'MATURITY_TRIGGER_FIRED', { security_id: securityId, portfolio_id: portfolioId, accruals_created: created }, null);
+    return { trigger_type: 'MATURITY', security_id: securityId, portfolio_id: portfolioId, accruals_created: created };
   },
 
   /**
-   * On early termination:
-   * Find all OPEN accruals for the portfolio and generate immediate invoice.
+   * Trigger fee collection on early termination.
    */
-  async onPreTermination(preTermEvent: PreTerminationEvent) {
-    const accruals = await findOpenAccruals(preTermEvent.portfolio_id, preTermEvent.security_id);
-    return triggerInvoicing(accruals, 'PRE_TERMINATION');
+  async triggerOnPreTermination(accountId: string, portfolioId: string, terminationDate?: string) {
+    const plans = await this.resolveApplicablePlans(portfolioId, 'EVENT');
+    let created = 0;
+
+    for (const plan of plans) {
+      const idempotencyKey = `CT:PRETERM:${accountId}:${portfolioId}:${plan.id}`;
+      const existing = await this.checkIdempotency(idempotencyKey);
+      if (existing) continue;
+
+      await this.createTriggerAccrual(plan, portfolioId, idempotencyKey, `Pre-termination ${accountId}`);
+      created++;
+    }
+
+    await tfpAuditService.logEvent('COLLECTION_TRIGGER', accountId, 'PRETERMINATION_TRIGGER_FIRED', { account_id: accountId, portfolio_id: portfolioId, accruals_created: created }, null);
+    return { trigger_type: 'PRE_TERMINATION', account_id: accountId, portfolio_id: portfolioId, accruals_created: created };
   },
 
   /**
-   * On fund redemption or sale:
-   * Find all OPEN accruals for the portfolio/security and generate immediate invoice.
+   * Trigger fee collection on redemption via sale.
    */
-  async onRedemptionViaSale(saleEvent: RedemptionViaSaleEvent) {
-    const accruals = await findOpenAccruals(saleEvent.portfolio_id, saleEvent.security_id);
-    return triggerInvoicing(accruals, 'REDEMPTION_VIA_SALE');
+  async triggerOnRedemptionViaSale(tradeId: string, portfolioId: string) {
+    const plans = await this.resolveApplicablePlans(portfolioId, 'EVENT');
+    let created = 0;
+
+    for (const plan of plans) {
+      const idempotencyKey = `CT:SALE:${tradeId}:${portfolioId}:${plan.id}`;
+      const existing = await this.checkIdempotency(idempotencyKey);
+      if (existing) continue;
+
+      await this.createTriggerAccrual(plan, portfolioId, idempotencyKey, `Redemption via sale ${tradeId}`);
+      created++;
+    }
+
+    await tfpAuditService.logEvent('COLLECTION_TRIGGER', tradeId, 'REDEMPTION_TRIGGER_FIRED', { trade_id: tradeId, portfolio_id: portfolioId, accruals_created: created }, null);
+    return { trigger_type: 'REDEMPTION_VIA_SALE', trade_id: tradeId, portfolio_id: portfolioId, accruals_created: created };
+  },
+
+  /**
+   * GAP-A10: Compute prorata fraction between CA date and accrual period.
+   */
+  computeProrata(caDate: string, periodStart: string, periodEnd: string): number {
+    const ca = new Date(caDate).getTime();
+    const start = new Date(periodStart).getTime();
+    const end = new Date(periodEnd).getTime();
+    const totalDays = (end - start) / (1000 * 60 * 60 * 24);
+    if (totalDays <= 0) return 1;
+    const elapsedDays = (ca - start) / (1000 * 60 * 60 * 24);
+    return Math.max(0, Math.min(1, elapsedDays / totalDays));
+  },
+
+  /* ---------- Internal Helpers ---------- */
+
+  async resolveApplicablePlans(portfolioId: string, chargeBasis: string, specificPlanId?: number) {
+    const conditions = [
+      eq(schema.feePlans.plan_status, 'ACTIVE'),
+      eq(schema.feePlans.charge_basis, chargeBasis as any),
+    ];
+    if (specificPlanId) {
+      conditions.push(eq(schema.feePlans.id, specificPlanId));
+    }
+    return db.select().from(schema.feePlans).where(and(...conditions));
+  },
+
+  async checkIdempotency(key: string): Promise<boolean> {
+    const [existing] = await db
+      .select({ id: schema.tfpAccruals.id })
+      .from(schema.tfpAccruals)
+      .where(eq(schema.tfpAccruals.idempotency_key, key))
+      .limit(1);
+    return !!existing;
+  },
+
+  async createTriggerAccrual(plan: any, portfolioId: string, idempotencyKey: string, description: string) {
+    const today = new Date().toISOString().split('T')[0];
+
+    // Resolve customer from portfolio
+    const [portfolio] = await db
+      .select({ client_id: schema.portfolios.client_id })
+      .from(schema.portfolios)
+      .where(eq(schema.portfolios.portfolio_id, portfolioId))
+      .limit(1);
+
+    const customerId = portfolio?.client_id ?? 'UNKNOWN';
+
+    // Use min_charge_amount as the event fee amount, or 0
+    const feeAmount = parseFloat(plan.min_charge_amount ?? '0');
+
+    await db.insert(schema.tfpAccruals).values({
+      fee_plan_id: plan.id,
+      customer_id: customerId,
+      portfolio_id: portfolioId,
+      security_id: null,
+      transaction_id: null,
+      base_amount: String(feeAmount),
+      computed_fee: String(feeAmount),
+      applied_fee: String(feeAmount),
+      currency: 'PHP',
+      fx_rate_locked: null,
+      accrual_date: today,
+      accrual_status: 'OPEN',
+      override_id: null,
+      exception_id: null,
+      idempotency_key: idempotencyKey,
+    });
   },
 };

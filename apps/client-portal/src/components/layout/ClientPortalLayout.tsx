@@ -10,7 +10,10 @@
  */
 
 import { useState, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { apiRequest } from "@ui/lib/queryClient";
+import { apiUrl } from "@ui/lib/api-url";
 import { Button } from "@ui/components/ui/button";
 import { ScrollArea } from "@ui/components/ui/scroll-area";
 import {
@@ -25,10 +28,14 @@ import {
   FileText,
   MessageSquare,
   Settings,
+  ClipboardList,
   Bell,
   LogOut,
   Menu,
   X,
+  Megaphone,
+  Compass,
+  FileSpreadsheet,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@ui/lib/utils";
@@ -42,6 +49,10 @@ const iconMap: Record<string, LucideIcon> = {
   FileText,
   MessageSquare,
   Settings,
+  ClipboardList,
+  Megaphone,
+  Compass,
+  FileSpreadsheet,
 };
 
 // ---- Helper: get client name from localStorage ----
@@ -62,6 +73,32 @@ function getClientName(): string {
 // ---- Sidebar Navigation Links ----
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+  let clientUser: { clientId?: string; token?: string } = {};
+  try {
+    const stored = localStorage.getItem("trustoms-client-user");
+    if (stored) clientUser = JSON.parse(stored);
+  } catch {
+    // ignore malformed storage
+  }
+  const clientId = clientUser.clientId || "CLT-001";
+
+  const { data: actionCountData } = useQuery({
+    queryKey: ["sr-action-count", clientId],
+    queryFn: () => fetch(`/api/v1/client-portal/service-requests/action-count/${clientId}`, {
+      headers: { Authorization: `Bearer ${clientUser.token || ""}` },
+    }).then(r => r.json()),
+    refetchInterval: 60000,
+  });
+  const srActionCount = actionCountData?.data?.count || 0;
+
+  const { data: unreadData } = useQuery<{ unread_count: number }>({
+    queryKey: ["client-portal", "messages-unread", clientId],
+    queryFn: () =>
+      apiRequest("GET", apiUrl("/api/v1/client-portal/messages/unread-count")),
+    refetchInterval: 60000,
+  });
+  const messageUnreadCount = unreadData?.unread_count ?? 0;
+
   return (
     <nav className="flex flex-col gap-1 px-3 py-4" aria-label="Portal navigation">
       {clientNavItems.map((item) => {
@@ -91,6 +128,16 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                   )}
                 />
                 <span>{item.label}</span>
+                {item.label === "Service Requests" && srActionCount > 0 && (
+                  <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                    {srActionCount}
+                  </span>
+                )}
+                {item.label === "Messages" && messageUnreadCount > 0 && (
+                  <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-teal-500 text-[10px] font-bold text-white">
+                    {messageUnreadCount > 99 ? "99+" : messageUnreadCount}
+                  </span>
+                )}
               </>
             )}
           </NavLink>
@@ -104,15 +151,15 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
 function DesktopSidebar() {
   return (
-    <aside className="hidden lg:flex lg:w-60 lg:flex-shrink-0 flex-col h-dvh border-r border-border bg-background">
+    <aside className="hidden lg:flex lg:w-60 lg:flex-shrink-0 flex-col h-dvh border-r border-border bg-background dark:bg-gray-900 dark:border-gray-700">
       {/* Logo */}
-      <div className="flex h-16 items-center gap-3 border-b border-border px-5">
+      <div className="flex h-16 items-center gap-3 border-b border-border dark:border-gray-700 px-5">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-600">
           <span className="text-sm font-bold text-white">T</span>
         </div>
         <div className="flex flex-col">
-          <span className="text-sm font-semibold text-foreground">TrustOMS</span>
-          <span className="text-[10px] text-muted-foreground">Client Portal</span>
+          <span className="text-sm font-semibold text-foreground dark:text-gray-100">TrustOMS</span>
+          <span className="text-[10px] text-muted-foreground dark:text-gray-400">Client Portal</span>
         </div>
       </div>
 
@@ -121,8 +168,8 @@ function DesktopSidebar() {
       </ScrollArea>
 
       {/* Footer / branding */}
-      <div className="border-t border-border px-5 py-3">
-        <p className="text-[10px] text-muted-foreground">TrustOMS Philippines v1.0</p>
+      <div className="border-t border-border dark:border-gray-700 px-5 py-3">
+        <p className="text-[10px] text-muted-foreground dark:text-gray-400">TrustOMS Philippines v1.0</p>
       </div>
     </aside>
   );
@@ -132,8 +179,10 @@ function DesktopSidebar() {
 
 function TopHeader({
   onMenuOpen,
+  unreadCount,
 }: {
   onMenuOpen: () => void;
+  unreadCount: number;
 }) {
   const navigate = useNavigate();
   const clientName = getClientName();
@@ -145,7 +194,7 @@ function TopHeader({
   };
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-background/95 backdrop-blur px-4 lg:px-6">
+    <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border dark:border-gray-700 bg-background/95 dark:bg-gray-900/95 backdrop-blur px-3 sm:px-4 lg:px-6">
       <div className="flex items-center gap-3">
         {/* Mobile hamburger */}
         <Button
@@ -175,16 +224,18 @@ function TopHeader({
       </div>
 
       <div className="flex items-center gap-2">
-        {/* Notification bell */}
+        {/* Notification bell — dot only shown when there are unread messages */}
         <Button
           variant="ghost"
           size="icon"
           className="relative h-9 w-9"
-          aria-label="Notifications"
-          onClick={() => navigate("/")}
+          aria-label={unreadCount > 0 ? `Notifications — ${unreadCount} unread` : "Notifications"}
+          onClick={() => navigate("/messages")}
         >
           <Bell className="h-5 w-5 text-muted-foreground" />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-teal-500" />
+          {unreadCount > 0 && (
+            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-teal-500" aria-hidden="true" />
+          )}
         </Button>
 
         {/* Client name (desktop) */}
@@ -216,10 +267,10 @@ function MobileSidebar({
 }) {
   return (
     <Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <SheetContent side="left" className="w-72 p-0 bg-background">
+      <SheetContent side="left" className="w-72 p-0 bg-background dark:bg-gray-900">
         <SheetTitle className="sr-only">Navigation menu</SheetTitle>
 
-        <div className="flex h-16 items-center justify-between border-b border-border px-5">
+        <div className="flex h-16 items-center justify-between border-b border-border dark:border-gray-700 px-5">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-600">
               <span className="text-sm font-bold text-white">T</span>
@@ -247,8 +298,26 @@ export function ClientPortalLayout() {
   const closeMobile = useCallback(() => setMobileOpen(false), []);
   const openMobile = useCallback(() => setMobileOpen(true), []);
 
+  // Fetch unread count at layout level so TopHeader bell badge stays in sync.
+  // SidebarNav uses the same query key — React Query deduplicates the request.
+  let headerClientId = "CLT-001";
+  try {
+    const stored = localStorage.getItem("trustoms-client-user");
+    if (stored) headerClientId = JSON.parse(stored).clientId || "CLT-001";
+  } catch {
+    // ignore malformed storage
+  }
+
+  const { data: layoutUnreadData } = useQuery<{ unread_count: number }>({
+    queryKey: ["client-portal", "messages-unread", headerClientId],
+    queryFn: () =>
+      apiRequest("GET", apiUrl("/api/v1/client-portal/messages/unread-count")),
+    refetchInterval: 60000,
+  });
+  const headerUnreadCount = layoutUnreadData?.unread_count ?? 0;
+
   return (
-    <div className="flex h-dvh overflow-hidden bg-muted">
+    <div className="flex h-dvh overflow-hidden bg-muted dark:bg-gray-950">
       {/* Desktop sidebar */}
       <DesktopSidebar />
 
@@ -257,14 +326,14 @@ export function ClientPortalLayout() {
 
       {/* Main content area */}
       <div className="flex flex-1 flex-col min-w-0">
-        <TopHeader onMenuOpen={openMobile} />
+        <TopHeader onMenuOpen={openMobile} unreadCount={headerUnreadCount} />
 
         <main
           className="flex-1 overflow-y-auto"
           id="main-content"
           tabIndex={-1}
         >
-          <div className="mx-auto max-w-6xl p-4 sm:p-6">
+          <div className="mx-auto max-w-6xl p-2 sm:p-4 lg:p-6">
             <Outlet />
           </div>
         </main>

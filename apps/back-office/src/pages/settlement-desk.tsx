@@ -258,7 +258,7 @@ export default function SettlementDesk() {
   const total = settlementsQuery.data?.total ?? 0;
   const totalPages = Math.ceil(total / pageSize) || 1;
 
-  const heatmapQuery = useQuery<LiquidityRow[]>({
+  const heatmapQuery = useQuery<{ data: LiquidityRow[] }>({
     queryKey: ["liquidity-heatmap"],
     queryFn: () =>
       apiRequest("GET", apiUrl("/api/v1/settlements/cash-ledger/liquidity-heatmap")),
@@ -552,7 +552,7 @@ export default function SettlementDesk() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {heatmapData.map((row) => (
+                  {heatmapData.map((row: LiquidityRow) => (
                     <TableRow key={row.currency}>
                       <TableCell className="font-medium">{row.currency}</TableCell>
                       {[row.t0_balance, row.t1_projected, row.t2_projected].map((val, idx) => (

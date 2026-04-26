@@ -557,11 +557,14 @@ function ConnectorsTab() {
 
   const connectorsQuery = useQuery<Connector[]>({
     queryKey: ["integrations"],
-    queryFn: () => apiRequest("GET", apiUrl("/api/v1/integrations")),
+    queryFn: async () => {
+      const res = await apiRequest("GET", apiUrl("/api/v1/integrations"));
+      return res.data as Connector[];
+    },
     refetchInterval: REFRESH_INTERVAL,
   });
 
-  const connectors = connectorsQuery.data?.data ?? [];
+  const connectors = connectorsQuery.data ?? [];
 
   const testMutation = useMutation<TestConnectionResult, Error, string>({
     mutationFn: (id: string) =>
@@ -725,7 +728,7 @@ function ConnectorsTab() {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {connectors.map((connector) => (
+          {connectors.map((connector: Connector) => (
             <ConnectorCard
               key={connector.id}
               connector={connector}
@@ -765,18 +768,23 @@ function RoutingRulesTab() {
   // Fetch routing rules
   const rulesQuery = useQuery<RoutingRule[]>({
     queryKey: ["routing-rules"],
-    queryFn: () =>
-      apiRequest("GET", apiUrl("/api/v1/integrations/routing-rules")),
+    queryFn: async () => {
+      const res = await apiRequest("GET", apiUrl("/api/v1/integrations/routing-rules"));
+      return res.data as RoutingRule[];
+    },
   });
 
   // Fetch connectors for dropdown
   const connectorsQuery = useQuery<Connector[]>({
     queryKey: ["integrations"],
-    queryFn: () => apiRequest("GET", apiUrl("/api/v1/integrations")),
+    queryFn: async () => {
+      const res = await apiRequest("GET", apiUrl("/api/v1/integrations"));
+      return res.data as Connector[];
+    },
   });
 
-  const rules = rulesQuery.data?.data ?? [];
-  const connectors = connectorsQuery.data?.data ?? [];
+  const rules = rulesQuery.data ?? [];
+  const connectors = connectorsQuery.data ?? [];
 
   // Create rule mutation
   const createRuleMut = useMutation({
@@ -944,7 +952,7 @@ function RoutingRulesTab() {
                 </TableCell>
               </TableRow>
             ) : (
-              rules.map((rule) => (
+              rules.map((rule: RoutingRule) => (
                 <TableRow key={rule.id} className={!rule.is_active ? "opacity-50" : ""}>
                   <TableCell className="font-medium">{rule.security_type}</TableCell>
                   <TableCell>
@@ -1045,7 +1053,7 @@ function RoutingRulesTab() {
                   <SelectValue placeholder="Select primary connector" />
                 </SelectTrigger>
                 <SelectContent>
-                  {connectors.map((c) => (
+                  {connectors.map((c: Connector) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name} ({c.protocol})
                     </SelectItem>
@@ -1066,8 +1074,8 @@ function RoutingRulesTab() {
                 <SelectContent>
                   <SelectItem value="">None</SelectItem>
                   {connectors
-                    .filter((c) => c.id !== ruleForm.primary_connector_id)
-                    .map((c) => (
+                    .filter((c: Connector) => c.id !== ruleForm.primary_connector_id)
+                    .map((c: Connector) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.name} ({c.protocol})
                       </SelectItem>
@@ -1180,22 +1188,27 @@ function ActivityLogTab() {
 
   const logQuery = useQuery<ActivityLogEntry[]>({
     queryKey: ["integration-activity-log"],
-    queryFn: () =>
-      apiRequest("GET", apiUrl("/api/v1/integrations/activity-log")),
+    queryFn: async () => {
+      const res = await apiRequest("GET", apiUrl("/api/v1/integrations/activity-log"));
+      return res.data as ActivityLogEntry[];
+    },
     refetchInterval: REFRESH_INTERVAL,
   });
 
   const connectorsQuery = useQuery<Connector[]>({
     queryKey: ["integrations"],
-    queryFn: () => apiRequest("GET", apiUrl("/api/v1/integrations")),
+    queryFn: async () => {
+      const res = await apiRequest("GET", apiUrl("/api/v1/integrations"));
+      return res.data as Connector[];
+    },
   });
 
-  const entries = logQuery.data?.data ?? [];
-  const connectors = connectorsQuery.data?.data ?? [];
+  const entries = logQuery.data ?? [];
+  const connectors = connectorsQuery.data ?? [];
 
   // Filtered entries
   const filteredEntries = useMemo(() => {
-    return entries.filter((entry) => {
+    return entries.filter((entry: ActivityLogEntry) => {
       if (eventTypeFilter !== "ALL" && entry.event_type !== eventTypeFilter) return false;
       if (statusFilter !== "ALL" && entry.status !== statusFilter) return false;
       if (connectorFilter !== "ALL" && entry.connector_id !== connectorFilter) return false;
@@ -1293,7 +1306,7 @@ function ActivityLogTab() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">All Connectors</SelectItem>
-            {connectors.map((c) => (
+            {connectors.map((c: Connector) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.name}
               </SelectItem>
@@ -1366,7 +1379,7 @@ function ActivityLogTab() {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredEntries.map((entry) => (
+              filteredEntries.map((entry: ActivityLogEntry) => (
                 <TableRow key={entry.id}>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap font-mono">
                     {formatTimestamp(entry.timestamp)}
@@ -1670,19 +1683,22 @@ export default function IntegrationHub() {
 
   const connectorsQuery = useQuery<Connector[]>({
     queryKey: ["integrations"],
-    queryFn: () => apiRequest("GET", apiUrl("/api/v1/integrations")),
+    queryFn: async () => {
+      const res = await apiRequest("GET", apiUrl("/api/v1/integrations"));
+      return res.data as Connector[];
+    },
     refetchInterval: REFRESH_INTERVAL,
   });
 
   // Quick stats for header
-  const connectors = connectorsQuery.data?.data ?? [];
-  const connectedCount = connectors.filter((c) => c.status === "CONNECTED").length;
+  const connectors = connectorsQuery.data ?? [];
+  const connectedCount = connectors.filter((c: Connector) => c.status === "CONNECTED").length;
   const totalCount = connectors.length;
   const avgLatency = connectors.length > 0
-    ? connectors.reduce((sum, c) => sum + c.avg_latency_ms, 0) / connectors.length
+    ? connectors.reduce((sum: number, c: Connector) => sum + c.avg_latency_ms, 0) / connectors.length
     : 0;
   const overallSuccessRate = connectors.length > 0
-    ? connectors.reduce((sum, c) => sum + c.success_rate, 0) / connectors.length
+    ? connectors.reduce((sum: number, c: Connector) => sum + c.success_rate, 0) / connectors.length
     : 0;
 
   return (

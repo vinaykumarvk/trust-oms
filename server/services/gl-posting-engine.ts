@@ -16,6 +16,8 @@
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
+import { glAuthorizationService } from './gl-authorization-service';
+import crypto from 'crypto';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -28,7 +30,7 @@ function generateBatchRef(): string {
     now.getFullYear().toString() +
     String(now.getMonth() + 1).padStart(2, '0') +
     String(now.getDate()).padStart(2, '0');
-  const seq = String(Math.floor(Math.random() * 9999) + 1).padStart(4, '0');
+  const seq = String(crypto.randomInt(1, 10000)).padStart(4, '0');
   return `GLB-${ymd}-${seq}`;
 }
 
@@ -838,6 +840,14 @@ export const glPostingEngine = {
       );
     }
 
+    // AUTH-001: Lookup authorization config from matrix
+    const amount = Math.max(toNum(batch.total_debit), toNum(batch.total_credit));
+    const authConfig = await glAuthorizationService.getAuthorizationConfig(
+      'JOURNAL_BATCH',
+      'CREATE',
+      amount,
+    );
+
     // Trusted interfaces can auto-authorize (no human checker needed)
     const trustedModes = ['ONLINE', 'BATCH', 'EOD', 'SOD', 'MOD', 'NAV_FINALIZATION', 'YEAR_END'];
     const isTrusted = trustedModes.includes(batch.posting_mode);
@@ -852,10 +862,23 @@ export const glPostingEngine = {
         maker_id: batch.maker_id ?? checkerId,
         checker_id: isTrusted ? null : checkerId,
         auth_status: 'APPROVED',
-        reason: isTrusted ? 'Auto-authorized: trusted interface' : 'Checker approved',
+        reason: isTrusted ? 'Auto-authorized: trusted interface' : `Checker approved (level: ${authConfig?.approval_level ?? 'STANDARD'})`,
         checker_timestamp: new Date(),
       })
       .returning();
+
+    // AUTH-005: Log to authorization audit
+    await db.insert(schema.glAuthorizationAuditLog).values({
+      auth_task_id: authTask.id,
+      object_type: 'JOURNAL_BATCH',
+      object_id: batchId,
+      action: 'CREATE',
+      actor_id: checkerId,
+      decision: 'APPROVED',
+      reason: isTrusted ? 'Auto-authorized: trusted interface' : 'Checker approved',
+      amount: String(amount),
+      approval_level: authConfig?.approval_level ?? 'STANDARD',
+    });
 
     // Update batch status to AUTHORIZED
     await db
@@ -1059,6 +1082,14 @@ export const glPostingEngine = {
     if (original.batch_status !== 'POSTED') {
       throw new Error(
         `Only POSTED batches can be cancelled; batch ${batchId} is ${original.batch_status}`,
+      );
+    }
+
+    // BR-008: System journals cannot be cancelled
+    const isSystem = await glAuthorizationService.isSystemJournal(batchId);
+    if (isSystem) {
+      throw new Error(
+        `System-generated journal batch ${batchId} (mode: ${original.posting_mode}) cannot be cancelled`,
       );
     }
 
@@ -1933,5 +1964,510 @@ export const glPostingEngine = {
         duplicate: false,
       };
     }
+  },
+
+  // =========================================================================
+  // POST-008: Inter-entity journal (multiple accounting units)
+  // =========================================================================
+
+  async createInterEntityJournal(params: {
+    entries: Array<{
+      accounting_unit_id: number;
+      gl_head_id: number;
+      dr_cr: 'DR' | 'CR';
+      amount: number;
+      currency?: string;
+      narration?: string;
+      fund_id?: number;
+    }>;
+    businessDate: string;
+    narration: string;
+    userId: number;
+  }): Promise<{
+    batch_ids: number[];
+    inter_unit_groups: Record<number, number[]>;
+    total_debit: number;
+    total_credit: number;
+  }> {
+    // Validate DR = CR across all units
+    let totalDebit = 0;
+    let totalCredit = 0;
+    for (const entry of params.entries) {
+      if (entry.dr_cr === 'DR') totalDebit += entry.amount;
+      else totalCredit += entry.amount;
+    }
+
+    if (Math.abs(totalDebit - totalCredit) > 0.005) {
+      throw new Error(
+        `Inter-entity journal imbalance: total debit ${fmt(totalDebit)} ≠ total credit ${fmt(totalCredit)}`,
+      );
+    }
+
+    // Group by accounting_unit_id
+    const unitGroups = new Map<number, typeof params.entries>();
+    for (const entry of params.entries) {
+      const group = unitGroups.get(entry.accounting_unit_id) ?? [];
+      group.push(entry);
+      unitGroups.set(entry.accounting_unit_id, group);
+    }
+
+    const batchIds: number[] = [];
+    const interUnitGroups: Record<number, number[]> = {};
+
+    // Create a batch per accounting unit
+    for (const [unitId, entries] of unitGroups) {
+      const batchRef = generateBatchRef();
+      let unitDebit = 0;
+      let unitCredit = 0;
+
+      const journalLines: Array<{
+        line_no: number;
+        dr_cr: 'DR' | 'CR';
+        gl_head_id: number;
+        amount: string;
+        currency: string;
+        base_amount: string;
+        narration: string | null;
+        fund_id: number | null;
+      }> = [];
+
+      for (let i = 0; i < entries.length; i++) {
+        const e = entries[i];
+        if (e.dr_cr === 'DR') unitDebit += e.amount;
+        else unitCredit += e.amount;
+
+        journalLines.push({
+          line_no: i + 1,
+          dr_cr: e.dr_cr,
+          gl_head_id: e.gl_head_id,
+          amount: fmt(e.amount),
+          currency: e.currency ?? 'PHP',
+          base_amount: fmt(e.amount),
+          narration: e.narration ?? null,
+          fund_id: e.fund_id ?? null,
+        });
+      }
+
+      const result = await db.transaction(async (tx: any) => {
+        const [batch] = await tx
+          .insert(schema.glJournalBatches)
+          .values({
+            batch_ref: batchRef,
+            source_system: 'INTER_ENTITY',
+            posting_mode: 'MANUAL',
+            accounting_unit_id: unitId,
+            transaction_date: params.businessDate,
+            value_date: params.businessDate,
+            batch_status: 'DRAFT',
+            total_debit: fmt(unitDebit),
+            total_credit: fmt(unitCredit),
+            line_count: journalLines.length,
+            narration: `Inter-entity: ${params.narration}`,
+            maker_id: params.userId,
+            is_interunit: true,
+          })
+          .returning();
+
+        for (const line of journalLines) {
+          await tx.insert(schema.glJournalLines).values({
+            batch_id: batch.id,
+            line_no: line.line_no,
+            dr_cr: line.dr_cr,
+            gl_head_id: line.gl_head_id,
+            amount: line.amount,
+            currency: line.currency,
+            base_currency: 'PHP',
+            base_amount: line.base_amount,
+            narration: line.narration,
+            fund_id: line.fund_id,
+          });
+        }
+
+        return batch;
+      });
+
+      batchIds.push(result.id);
+      interUnitGroups[unitId] = [result.id];
+    }
+
+    return {
+      batch_ids: batchIds,
+      inter_unit_groups: interUnitGroups,
+      total_debit: totalDebit,
+      total_credit: totalCredit,
+    };
+  },
+
+  // =========================================================================
+  // REV-001: Partial reversal (cancel specific lines only)
+  // =========================================================================
+
+  async partialReverseBatch(
+    batchId: number,
+    lineFilter: number[],
+    reason: string,
+    userId: number,
+  ): Promise<{
+    original_batch_id: number;
+    reversal_batch_id: number;
+    lines_reversed: number;
+  }> {
+    const [original] = await db
+      .select()
+      .from(schema.glJournalBatches)
+      .where(eq(schema.glJournalBatches.id, batchId))
+      .limit(1);
+
+    if (!original) throw new Error(`Journal batch not found: ${batchId}`);
+    if (original.batch_status !== 'POSTED') {
+      throw new Error(`Only POSTED batches can be reversed; batch ${batchId} is ${original.batch_status}`);
+    }
+
+    // Get only the filtered lines
+    const allLines = await db
+      .select()
+      .from(schema.glJournalLines)
+      .where(eq(schema.glJournalLines.batch_id, batchId))
+      .orderBy(schema.glJournalLines.line_no);
+
+    const linesToReverse = allLines.filter((l: { line_no: number }) => lineFilter.includes(l.line_no));
+    if (linesToReverse.length === 0) {
+      throw new Error(`No matching lines found for line numbers: ${lineFilter.join(', ')}`);
+    }
+
+    let totalDebit = 0;
+    let totalCredit = 0;
+    for (const line of linesToReverse) {
+      const amt = toNum(line.base_amount);
+      if (line.dr_cr === 'DR') totalCredit += amt;
+      else totalDebit += amt;
+    }
+
+    const reversalRef = generateBatchRef();
+    const postingDate = new Date();
+    const balanceDate = todayStr();
+
+    const result = await db.transaction(async (tx: any) => {
+      const [reversalBatch] = await tx
+        .insert(schema.glJournalBatches)
+        .values({
+          batch_ref: reversalRef,
+          source_system: original.source_system,
+          source_event_id: original.source_event_id,
+          event_code: original.event_code,
+          rule_version: original.rule_version,
+          posting_mode: original.posting_mode,
+          accounting_unit_id: original.accounting_unit_id,
+          transaction_date: todayStr(),
+          value_date: todayStr(),
+          posting_date: postingDate,
+          batch_status: 'POSTED',
+          total_debit: fmt(totalDebit),
+          total_credit: fmt(totalCredit),
+          line_count: linesToReverse.length,
+          narration: `Partial reversal of ${original.batch_ref} (lines ${lineFilter.join(',')}): ${reason}`,
+          fund_id: original.fund_id,
+          maker_id: userId,
+        })
+        .returning();
+
+      for (const line of linesToReverse) {
+        const reversedDrCr: 'DR' | 'CR' = line.dr_cr === 'DR' ? 'CR' : 'DR';
+        await tx.insert(schema.glJournalLines).values({
+          batch_id: reversalBatch.id,
+          line_no: line.line_no,
+          dr_cr: reversedDrCr,
+          gl_head_id: line.gl_head_id,
+          gl_access_code: line.gl_access_code,
+          amount: line.amount,
+          currency: line.currency,
+          base_currency: line.base_currency,
+          base_amount: line.base_amount,
+          fund_id: line.fund_id,
+          portfolio_id: line.portfolio_id,
+          security_id: line.security_id,
+          counterparty_id: line.counterparty_id,
+          narration: `Partial reversal of line ${line.line_no}`,
+        });
+
+        // Update ledger balances
+        const amt = toNum(line.base_amount);
+        const debitDelta = reversedDrCr === 'DR' ? amt : 0;
+        const creditDelta = reversedDrCr === 'CR' ? amt : 0;
+        const netDelta = debitDelta - creditDelta;
+
+        const [existingBalance] = await tx
+          .select()
+          .from(schema.glLedgerBalances)
+          .where(
+            and(
+              eq(schema.glLedgerBalances.gl_head_id, line.gl_head_id),
+              eq(schema.glLedgerBalances.accounting_unit_id, original.accounting_unit_id),
+              eq(schema.glLedgerBalances.currency, line.currency),
+              eq(schema.glLedgerBalances.balance_date, balanceDate),
+            ),
+          )
+          .limit(1);
+
+        if (existingBalance) {
+          await tx
+            .update(schema.glLedgerBalances)
+            .set({
+              debit_turnover: fmt(toNum(existingBalance.debit_turnover) + debitDelta),
+              credit_turnover: fmt(toNum(existingBalance.credit_turnover) + creditDelta),
+              closing_balance: fmt(toNum(existingBalance.closing_balance) + netDelta),
+              last_posting_ref: reversalRef,
+              updated_at: postingDate,
+            })
+            .where(eq(schema.glLedgerBalances.id, existingBalance.id));
+        }
+      }
+
+      // Create reversal link
+      await tx.insert(schema.glReversalLinks).values({
+        original_batch_id: batchId,
+        reversal_batch_id: reversalBatch.id,
+        reversal_type: 'REVERSAL',
+        reversal_reason: `Partial: ${reason}`,
+        approved_by: userId,
+        approved_at: postingDate,
+      });
+
+      return reversalBatch;
+    });
+
+    return {
+      original_batch_id: batchId,
+      reversal_batch_id: result.id,
+      lines_reversed: linesToReverse.length,
+    };
+  },
+
+  // =========================================================================
+  // PORT-003: Transfer classification with gain/loss journal
+  //
+  // BR-017: HTM/HTC→AFS/HFT transfer recognises unrealised gain/loss on date of
+  // reclassification. A balanced journal batch is posted:
+  //   Gain scenario:  DR  AFS-MTM-ASSET   /  CR  AFS-MTM-GAIN
+  //   Loss scenario:  DR  AFS-MTM-LOSS    /  CR  AFS-MTM-ASSET
+  //   No P&L if reclassification is within the same measurement category
+  //   (e.g. HFT→FVPL) — batch_id is null in that case.
+  // =========================================================================
+
+  async transferClassification(params: {
+    portfolioId: number;
+    securityId: number;
+    fromClassification: string;
+    toClassification: string;
+    fairValue: number;
+    carryingValue: number;
+    currency?: string;
+    businessDate: string;
+    userId: number;
+  }): Promise<{ gain_loss: number; batch_id: number | null }> {
+    const gainLoss = params.fairValue - params.carryingValue;
+    const currency = params.currency ?? 'PHP';
+    const absAmount = Math.abs(gainLoss);
+
+    // Audit trail first (always recorded regardless of journal posting)
+    await db.insert(schema.glAuditLog).values({
+      action: 'TRANSFER_CLASSIFICATION',
+      object_type: 'PORTFOLIO_SECURITY',
+      object_id: params.portfolioId,
+      user_id: params.userId,
+      old_values: {
+        classification: params.fromClassification,
+        carrying_value: params.carryingValue,
+      } as Record<string, unknown>,
+      new_values: {
+        classification: params.toClassification,
+        fair_value: params.fairValue,
+        gain_loss: gainLoss,
+      } as Record<string, unknown>,
+    });
+
+    // No journal needed when gain_loss is zero or reclassification stays within
+    // the same measurement basis (both FVPL variants, both HTM/HTC variants).
+    const sameBasis =
+      ([params.fromClassification, params.toClassification].every((c) =>
+        ['FVPL', 'FVTPL'].includes(c),
+      ) ||
+        [params.fromClassification, params.toClassification].every((c) =>
+          ['HTM', 'HTC'].includes(c),
+        ));
+
+    if (absAmount === 0 || sameBasis) {
+      return { gain_loss: gainLoss, batch_id: null };
+    }
+
+    // Post balanced gain/loss journal batch (PORT-003, BR-017)
+    const batchRef = generateBatchRef();
+    const fmtAmt = gainLoss.toFixed(2);
+    const narration =
+      `Reclassification ${params.fromClassification}→${params.toClassification} ` +
+      `portfolio ${params.portfolioId} security ${params.securityId} ` +
+      `fair=${params.fairValue.toFixed(2)} carrying=${params.carryingValue.toFixed(2)}`;
+
+    const result = await db.transaction(async (tx: any) => {
+      const [batch] = await tx
+        .insert(schema.glJournalBatches)
+        .values({
+          batch_ref: batchRef,
+          source_system: 'GL_RECLASSIFICATION',
+          event_code: 'CLASSIFICATION_TRANSFER',
+          posting_mode: 'ONLINE',
+          transaction_date: params.businessDate,
+          value_date: params.businessDate,
+          batch_status: 'POSTED',
+          total_debit: Math.abs(gainLoss).toFixed(2),
+          total_credit: Math.abs(gainLoss).toFixed(2),
+          line_count: 2,
+          narration,
+          posted_by: params.userId,
+          posted_at: new Date(),
+        })
+        .returning();
+
+      if (gainLoss > 0) {
+        // Gain: DR AFS-MTM-ASSET (increase in asset carrying value)
+        await tx.insert(schema.glJournalLines).values({
+          batch_id: batch.id,
+          line_no: 1,
+          dr_cr: 'DR',
+          gl_access_code: 'AFS-MTM-ASSET',
+          amount: fmtAmt,
+          currency,
+          base_currency: 'PHP',
+          base_amount: fmtAmt,
+          portfolio_id: params.portfolioId,
+          security_id: params.securityId,
+          narration: `Reclassification gain — asset side`,
+        });
+        // CR AFS-MTM-GAIN (P&L or OCI depending on classification)
+        await tx.insert(schema.glJournalLines).values({
+          batch_id: batch.id,
+          line_no: 2,
+          dr_cr: 'CR',
+          gl_access_code: 'AFS-MTM-GAIN',
+          amount: fmtAmt,
+          currency,
+          base_currency: 'PHP',
+          base_amount: fmtAmt,
+          portfolio_id: params.portfolioId,
+          security_id: params.securityId,
+          narration: `Reclassification gain — income side`,
+        });
+      } else {
+        // Loss: DR AFS-MTM-LOSS (P&L charge)
+        await tx.insert(schema.glJournalLines).values({
+          batch_id: batch.id,
+          line_no: 1,
+          dr_cr: 'DR',
+          gl_access_code: 'AFS-MTM-LOSS',
+          amount: Math.abs(gainLoss).toFixed(2),
+          currency,
+          base_currency: 'PHP',
+          base_amount: Math.abs(gainLoss).toFixed(2),
+          portfolio_id: params.portfolioId,
+          security_id: params.securityId,
+          narration: `Reclassification loss — P&L charge`,
+        });
+        // CR AFS-MTM-ASSET (reduce carrying value)
+        await tx.insert(schema.glJournalLines).values({
+          batch_id: batch.id,
+          line_no: 2,
+          dr_cr: 'CR',
+          gl_access_code: 'AFS-MTM-ASSET',
+          amount: Math.abs(gainLoss).toFixed(2),
+          currency,
+          base_currency: 'PHP',
+          base_amount: Math.abs(gainLoss).toFixed(2),
+          portfolio_id: params.portfolioId,
+          security_id: params.securityId,
+          narration: `Reclassification loss — asset reduction`,
+        });
+      }
+
+      return batch;
+    });
+
+    return { gain_loss: gainLoss, batch_id: result.id };
+  },
+
+  // =========================================================================
+  // POST-CA-LOSS: Post claim loss journal entry
+  // =========================================================================
+  /**
+   * Post a CA-Loss journal entry for a settled claim.
+   * Debits the CA-Loss P&L account and credits Cash/Receivable.
+   *
+   * @param claimId  - The claim identifier (used as source reference)
+   * @param amount   - The loss amount to post
+   * @param currency - The currency code (e.g. 'PHP')
+   * @returns The posted journal batch with batch_id and batch_ref
+   */
+  async postClaimLoss(
+    claimId: string,
+    amount: number,
+    currency: string,
+  ): Promise<{ batch_id: number; batch_ref: string; line_count: number }> {
+    const batchRef = generateBatchRef();
+    const postingDate = todayStr();
+    const absAmount = Math.abs(amount);
+    const formattedAmount = fmt(absAmount);
+
+    const result = await db.transaction(async (tx: any) => {
+      // Create the journal batch
+      const [batch] = await tx
+        .insert(schema.glJournalBatches)
+        .values({
+          batch_ref: batchRef,
+          source_system: 'CLAIMS',
+          event_code: 'CA_LOSS',
+          posting_mode: 'ONLINE',
+          transaction_date: postingDate,
+          value_date: postingDate,
+          batch_status: 'POSTED',
+          total_debit: formattedAmount,
+          total_credit: formattedAmount,
+          line_count: 2,
+          narration: `Claim loss posting for claim ${claimId}`,
+        })
+        .returning();
+
+      // Line 1: Debit CA-Loss P&L account
+      await tx.insert(schema.glJournalLines).values({
+        batch_id: batch.id,
+        line_no: 1,
+        dr_cr: 'DR',
+        gl_access_code: 'CA-LOSS-PNL',
+        amount: formattedAmount,
+        currency: currency,
+        base_currency: 'PHP',
+        base_amount: formattedAmount,
+        narration: `CA-Loss debit — claim ${claimId}`,
+      });
+
+      // Line 2: Credit Cash/Receivable account
+      await tx.insert(schema.glJournalLines).values({
+        batch_id: batch.id,
+        line_no: 2,
+        dr_cr: 'CR',
+        gl_access_code: 'CASH-RECEIVABLE',
+        amount: formattedAmount,
+        currency: currency,
+        base_currency: 'PHP',
+        base_amount: formattedAmount,
+        narration: `Cash/Receivable credit — claim ${claimId}`,
+      });
+
+      return batch;
+    });
+
+    return {
+      batch_id: result.id,
+      batch_ref: result.batch_ref,
+      line_count: 2,
+    };
   },
 };

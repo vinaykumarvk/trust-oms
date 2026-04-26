@@ -170,13 +170,13 @@ export default function PortfolioModeling() {
   const [stressScenario, setStressScenario] = useState("INTEREST_RATE_SHOCK");
 
   /* ========== Queries ========== */
-  const modelsQ = useQuery<ModelPortfolio[]>({
+  const modelsQ = useQuery<{ data: ModelPortfolio[] }>({
     queryKey: ["models"],
     queryFn: () => apiRequest("GET", apiUrl("/api/v1/rebalancing/models")),
   });
   const models = modelsQ.data?.data ?? [];
 
-  const compareQ = useQuery<Deviation[]>({
+  const compareQ = useQuery<{ data: Deviation[] }>({
     queryKey: ["rebalancing-compare", compareModelId, comparePortfolioId],
     queryFn: () =>
       apiRequest("GET", apiUrl(`/api/v1/rebalancing/models/${compareModelId}/compare/${comparePortfolioId}`)),
@@ -184,7 +184,7 @@ export default function PortfolioModeling() {
   });
   const deviations = compareQ.data?.data ?? [];
 
-  const actionsQ = useQuery<RebalanceAction[]>({
+  const actionsQ = useQuery<{ data: RebalanceAction[] }>({
     queryKey: ["rebalancing-actions", rebalModelId, rebalPortfolioId],
     queryFn: () =>
       apiRequest("GET", apiUrl(`/api/v1/rebalancing/models/${rebalModelId}/actions/${rebalPortfolioId}`)),
@@ -192,7 +192,7 @@ export default function PortfolioModeling() {
   });
   const actions = actionsQ.data?.data ?? [];
 
-  const runsQ = useQuery<RebalancingRun[]>({
+  const runsQ = useQuery<{ data: RebalancingRun[] }>({
     queryKey: ["rebalancing-runs"],
     queryFn: () => apiRequest("GET", apiUrl("/api/v1/rebalancing/runs")),
     refetchInterval: 30_000,

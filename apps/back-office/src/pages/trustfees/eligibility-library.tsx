@@ -540,10 +540,25 @@ function TraceTree({ node, depth = 0 }: { node: TraceNode; depth?: number }) {
   );
 }
 
+/* ========== GAP-C03: Role check for JSON expert mode ========== */
+
+function hasJsonExpertRole(): boolean {
+  try {
+    const raw = localStorage.getItem("trustoms-user");
+    if (!raw) return false;
+    const user = JSON.parse(raw);
+    const roles: string[] = user.roles ?? [];
+    return roles.includes("SYSTEM_ADMIN") || roles.includes("BO_HEAD");
+  } catch {
+    return false;
+  }
+}
+
 /* ========== Main Component ========== */
 
 export default function EligibilityLibrary() {
   const qc = useQueryClient();
+  const canUseJson = hasJsonExpertRole();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
@@ -957,7 +972,7 @@ export default function EligibilityLibrary() {
 
             <Separator />
 
-            {/* Mode Toggle */}
+            {/* Mode Toggle -- GAP-C03: JSON mode only for SYSTEM_ADMIN / BO_HEAD */}
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium">Expression</label>
               <div className="flex items-center gap-1 rounded-lg border p-0.5">
@@ -969,14 +984,16 @@ export default function EligibilityLibrary() {
                 >
                   <Layers className="mr-1 h-3 w-3" /> Form
                 </Button>
-                <Button
-                  variant={editorMode === "json" ? "default" : "ghost"}
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={editorMode === "form" ? switchToJsonMode : undefined}
-                >
-                  <Code2 className="mr-1 h-3 w-3" /> JSON
-                </Button>
+                {canUseJson && (
+                  <Button
+                    variant={editorMode === "json" ? "default" : "ghost"}
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={editorMode === "form" ? switchToJsonMode : undefined}
+                  >
+                    <Code2 className="mr-1 h-3 w-3" /> JSON
+                  </Button>
+                )}
               </div>
             </div>
 

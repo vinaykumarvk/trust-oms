@@ -43,6 +43,90 @@ export const navService = {
   },
 
   /**
+   * FR-NAV-005: Dual-source deviation check.
+   *
+   * For each position, look for a second pricing record from a different source
+   * on the same date. Compute a secondary NAV per unit from those prices and
+   * return deviation_pct = |primary - secondary| / primary * 100.
+   * If deviation_pct > 0.25, set deviation_flagged = true.
+   *
+   * @returns null when no secondary pricing source exists for any position.
+   */
+  async checkDualSourceDeviation(
+    portfolioId: string,
+    navDate: string,
+    primaryNavPerUnit: number,
+    unitsOutstanding: number,
+  ): Promise<{
+    secondary_pricing_source: string;
+    secondary_nav_per_unit: number;
+    deviation_pct: number;
+    deviation_flagged: boolean;
+  } | null> {
+    const positions = await db
+      .select()
+      .from(schema.positions)
+      .where(eq(schema.positions.portfolio_id, portfolioId));
+
+    let secondaryTotalAssets = 0;
+    let hasSecondaryPrice = false;
+    const secondarySources: string[] = [];
+
+    for (const position of positions) {
+      if (!position.security_id) continue;
+      const qty = parseFloat(position.quantity ?? '0');
+
+      // Get ALL pricing records for this security on the NAV date
+      const priceRecords = await db
+        .select()
+        .from(schema.pricingRecords)
+        .where(
+          and(
+            eq(schema.pricingRecords.security_id, position.security_id),
+            eq(schema.pricingRecords.price_date, navDate),
+          ),
+        );
+
+      if (priceRecords.length >= 2) {
+        // Use the second record as the secondary source
+        const secondaryRecord = priceRecords[1];
+        const secondaryPrice = parseFloat(secondaryRecord.close_price ?? '0');
+        secondaryTotalAssets += qty * secondaryPrice;
+        hasSecondaryPrice = true;
+        if (secondaryRecord.source && !secondarySources.includes(secondaryRecord.source)) {
+          secondarySources.push(secondaryRecord.source);
+        }
+      } else {
+        // No secondary source for this security; use primary pricing via
+        // fair-value hierarchy so we can still compute a full secondary NAV.
+        const pricing = await this.applyFairValueHierarchy(
+          position.security_id,
+          navDate,
+        );
+        secondaryTotalAssets += qty * pricing.price;
+      }
+    }
+
+    // If no position had a secondary price, nothing to compare
+    if (!hasSecondaryPrice) return null;
+
+    const secondaryNavPerUnit =
+      unitsOutstanding > 0 ? secondaryTotalAssets / unitsOutstanding : 0;
+
+    const deviationPct =
+      primaryNavPerUnit > 0
+        ? (Math.abs(primaryNavPerUnit - secondaryNavPerUnit) / primaryNavPerUnit) * 100
+        : 0;
+
+    return {
+      secondary_pricing_source: secondarySources.join(',') || 'SECONDARY',
+      secondary_nav_per_unit: secondaryNavPerUnit,
+      deviation_pct: parseFloat(deviationPct.toFixed(6)),
+      deviation_flagged: deviationPct > 0.25,
+    };
+  },
+
+  /**
    * Compute NAV for a portfolio on a given date.
    * NAV = sum(position_qty x price) - liabilities
    * NAVpu = NAV / units_outstanding
@@ -106,6 +190,14 @@ export const navService = {
     const dominantLevel =
       levels.length > 0 ? Math.max(...levels) : 1;
 
+    // FR-NAV-005: Check dual-source deviation before inserting
+    const dualSource = await this.checkDualSourceDeviation(
+      portfolioId,
+      navDate,
+      navPerUnit,
+      unitsOutstanding,
+    );
+
     // Insert into navComputations with status DRAFT
     const [navRecord] = await db
       .insert(schema.navComputations)
@@ -120,6 +212,13 @@ export const navService = {
           : 'NONE',
         fair_value_level: `L${dominantLevel}`,
         nav_status: 'DRAFT',
+        // FR-NAV-005 dual-source fields
+        secondary_pricing_source: dualSource?.secondary_pricing_source ?? null,
+        secondary_nav_per_unit: dualSource
+          ? String(dualSource.secondary_nav_per_unit)
+          : null,
+        deviation_pct: dualSource ? String(dualSource.deviation_pct) : null,
+        deviation_flagged: dualSource?.deviation_flagged ?? false,
       })
       .returning();
 
@@ -128,6 +227,7 @@ export const navService = {
       total_assets: totalAssets,
       total_liabilities: totalLiabilities,
       position_details: positionDetails,
+      dual_source_deviation: dualSource,
     };
   },
 
@@ -190,6 +290,26 @@ export const navService = {
       }
     }
 
+    // FR-NAV-005: Re-run dual-source deviation check at NAV level during validation
+    const unitsOutstanding = parseFloat(navRecord.units_outstanding ?? '1') || 1;
+    const primaryNavPerUnit = parseFloat(navRecord.nav_per_unit ?? '0');
+
+    const dualSource = await this.checkDualSourceDeviation(
+      navRecord.portfolio_id,
+      navDate,
+      primaryNavPerUnit,
+      unitsOutstanding,
+    );
+
+    if (dualSource?.deviation_flagged) {
+      warnings.push(
+        `NAV dual-source deviation ${dualSource.deviation_pct.toFixed(4)}% ` +
+          `exceeds 0.25% threshold (primary NAVpu=${primaryNavPerUnit.toFixed(4)}, ` +
+          `secondary NAVpu=${dualSource.secondary_nav_per_unit.toFixed(4)}, ` +
+          `source=${dualSource.secondary_pricing_source})`,
+      );
+    }
+
     // Update status to VALIDATED if no critical issues
     const newStatus = warnings.length === 0 ? 'VALIDATED' : 'VALIDATED';
     // Even with warnings, we mark as VALIDATED but return the warnings
@@ -198,6 +318,15 @@ export const navService = {
       .set({
         nav_status: newStatus,
         updated_at: new Date(),
+        // FR-NAV-005: persist latest dual-source deviation results
+        ...(dualSource
+          ? {
+              secondary_pricing_source: dualSource.secondary_pricing_source,
+              secondary_nav_per_unit: String(dualSource.secondary_nav_per_unit),
+              deviation_pct: String(dualSource.deviation_pct),
+              deviation_flagged: dualSource.deviation_flagged,
+            }
+          : {}),
       })
       .where(eq(schema.navComputations.id, navId));
 
@@ -205,6 +334,7 @@ export const navService = {
       valid: warnings.length === 0,
       warnings,
       nav_status: newStatus,
+      dual_source_deviation: dualSource,
     };
   },
 

@@ -219,33 +219,33 @@ export default function RequestActionPage() {
   // Success screen
   if (successResult) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6 p-2 sm:p-0">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Request Submitted</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground dark:text-gray-100">Request Submitted</h1>
         </div>
 
-        <Card className="border-border max-w-lg mx-auto">
-          <CardContent className="p-8 text-center">
+        <Card className="border-border dark:border-gray-700 dark:bg-gray-800 max-w-lg mx-auto">
+          <CardContent className="p-6 sm:p-8 text-center">
             <div className="flex justify-center mb-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
-                <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-900/20">
+                <CheckCircle2 className="h-8 w-8 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
               </div>
             </div>
 
-            <h2 className="text-xl font-bold text-foreground mb-2">
+            <h2 className="text-xl font-bold text-foreground dark:text-gray-100 mb-2">
               Request Received
             </h2>
-            <p className="text-sm text-muted-foreground mb-6">
+            <p className="text-sm text-muted-foreground dark:text-gray-400 mb-6">
               Your {successResult.actionType.toLowerCase()} request has been submitted
               for review. Our team will process it within 1-2 business days.
             </p>
 
-            <div className="rounded-lg bg-muted border border-border p-4 mb-6">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-1">
+            <div className="rounded-lg bg-muted dark:bg-gray-700 border border-border dark:border-gray-600 p-4 mb-6">
+              <p className="text-xs text-muted-foreground dark:text-gray-400 uppercase tracking-wider font-medium mb-1">
                 Reference Number
               </p>
               <div className="flex items-center justify-center gap-2">
-                <span className="text-lg font-mono font-bold text-teal-700">
+                <span className="text-lg font-mono font-bold text-teal-700 dark:text-teal-400">
                   {successResult.referenceNumber}
                 </span>
                 <button
@@ -285,7 +285,7 @@ export default function RequestActionPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 p-2 sm:p-0">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Button
@@ -293,14 +293,15 @@ export default function RequestActionPage() {
           size="icon"
           className="h-8 w-8"
           onClick={() => navigate("/")}
+          aria-label="Back to dashboard"
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground dark:text-gray-100">
             Submit a Request
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground dark:text-gray-400 mt-1">
             Request an action on your portfolio. All requests require back-office
             approval.
           </p>
@@ -308,7 +309,7 @@ export default function RequestActionPage() {
       </div>
 
       {/* Action Type Selector */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {ACTION_TYPES.map((at) => (
           <button
             type="button"
@@ -324,31 +325,31 @@ export default function RequestActionPage() {
               setPortfolioId("");
               setUnits("");
             }}
-            className={`p-4 rounded-xl border-2 text-left transition-all ${
+            className={`p-3 sm:p-4 rounded-xl border-2 text-left transition-all ${
               actionType === at.value
-                ? "border-teal-500 bg-teal-50/50 shadow-sm"
-                : "border-border bg-card hover:border-muted-foreground/30"
+                ? "border-teal-500 bg-teal-50/50 dark:bg-teal-900/20 shadow-sm"
+                : "border-border dark:border-gray-600 bg-card dark:bg-gray-800 hover:border-muted-foreground/30 dark:hover:border-gray-500"
             }`}
           >
             <div className={`inline-flex p-2 rounded-lg ${at.color}`}>
-              <at.icon className="h-5 w-5" />
+              <at.icon className="h-5 w-5" aria-hidden="true" />
             </div>
-            <p className="text-sm font-semibold text-foreground mt-3">
+            <p className="text-sm font-semibold text-foreground dark:text-gray-200 mt-3">
               {at.label}
             </p>
-            <p className="text-xs text-muted-foreground mt-0.5">{at.description}</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-400 mt-0.5">{at.description}</p>
           </button>
         ))}
       </div>
 
       {/* Dynamic Form */}
       {actionType && (
-        <Card className="border-border">
+        <Card className="border-border dark:border-gray-700 dark:bg-gray-800">
           <CardHeader>
-            <CardTitle className="text-base text-foreground">
+            <CardTitle className="text-base text-foreground dark:text-gray-100">
               {ACTION_TYPES.find((t) => t.value === actionType)?.label} Details
             </CardTitle>
-            <CardDescription className="text-muted-foreground">
+            <CardDescription className="text-muted-foreground dark:text-gray-400">
               Fill in the details for your request
             </CardDescription>
           </CardHeader>
@@ -596,13 +597,13 @@ export default function RequestActionPage() {
               </div>
 
               {/* Info Banner */}
-              <div className="flex items-start gap-3 p-4 rounded-lg bg-amber-50 border border-amber-200">
-                <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-3 p-3 sm:p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" aria-hidden="true" />
                 <div>
-                  <p className="text-sm font-medium text-amber-900">
+                  <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
                     Review Required
                   </p>
-                  <p className="text-xs text-amber-700 mt-0.5">
+                  <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
                     All requests are subject to back-office review and approval.
                     You will be notified once your request has been processed.
                     Processing typically takes 1-2 business days.
@@ -645,10 +646,10 @@ export default function RequestActionPage() {
 
       {/* Empty state when no type selected */}
       {!actionType && (
-        <Card className="border-border">
+        <Card className="border-border dark:border-gray-700 dark:bg-gray-800">
           <CardContent className="py-12 text-center">
-            <ArrowLeftRight className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">
+            <ArrowLeftRight className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" aria-hidden="true" />
+            <p className="text-sm text-muted-foreground dark:text-gray-400">
               Select an action type above to get started
             </p>
           </CardContent>

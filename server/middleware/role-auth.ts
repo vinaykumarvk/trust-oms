@@ -162,7 +162,7 @@ export const requireFeedOperatorRole = () =>
 
 /** Handover & Assignment Management — RM, BO roles, compliance, and system admin */
 export const requireHandoverRole = () =>
-  requireAnyRole('RM', 'BO_MAKER', 'BO_CHECKER', 'BO_HEAD', 'COMPLIANCE_OFFICER', 'SYSTEM_ADMIN');
+  requireAnyRole('RELATIONSHIP_MANAGER', 'SENIOR_RM', 'BO_MAKER', 'BO_CHECKER', 'BO_HEAD', 'COMPLIANCE_OFFICER', 'SYSTEM_ADMIN');
 
 // ---------------------------------------------------------------------------
 // GAP-C15: Fine-grained permission matrix

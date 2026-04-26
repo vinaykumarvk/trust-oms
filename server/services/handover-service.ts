@@ -25,12 +25,13 @@ export const handoverService = {
    */
   async listEntities(
     entityType: 'lead' | 'prospect' | 'client',
-    filters: { search?: string; branch?: string; page?: number; pageSize?: number } = {},
-  ): Promise<{ data: { entity_id: string; entity_name_en: string | null; entity_name_local: string | null; aum_at_handover: string | null; product_count: number | null }[]; total: number; page: number; pageSize: number }> {
+    filters: { search?: string; branch?: string; location?: string; language?: string; page?: number; pageSize?: number } = {},
+  ): Promise<{ data: { entity_id: string; entity_name_en: string | null; entity_name_local: string | null; aum_at_handover: string | null; product_count: number | null; cif_number: string | null; referring_rm_id: number | null; location: string | null; preferred_language: string | null }[]; total: number; page: number; pageSize: number }> {
     const page = filters.page || 1;
     const pageSize = Math.min(filters.pageSize || 25, 100);
 
     // Pull distinct entities that have appeared in prior handover items
+    // HAM-GAP-014: also select cif_number and referring_rm_id via entity table JOIN
     const existingItems = await db
       .select({
         entity_id: schema.handoverItems.entity_id,
@@ -44,10 +45,37 @@ export const handoverService = {
       .where(eq(schema.handovers.entity_type, entityType));
 
     // De-duplicate by entity_id (keep latest appearance)
-    const entityMap = new Map<string, typeof existingItems[number]>();
+    type EntityRow = { entity_id: string; entity_name_en: string | null; entity_name_local: string | null; aum_at_handover: string | null; product_count: number | null; cif_number: string | null; referring_rm_id: number | null; location: string | null; preferred_language: string | null };
+    const entityMap = new Map<string, EntityRow>();
     for (const item of existingItems) {
-      entityMap.set(item.entity_id, item);
+      entityMap.set(item.entity_id, { ...item, cif_number: null, referring_rm_id: null, location: null, preferred_language: null });
     }
+
+    // HAM-GAP-014: Enrich with cif_number + referring_rm_id from entity tables
+    // HAM-GAP-008: Also enrich with location (country_of_residence) + preferred_language
+    const entityIds = Array.from(entityMap.keys());
+    if (entityIds.length > 0) {
+      if (entityType === 'lead') {
+        const leads = await db
+          .select({ lead_code: schema.leads.lead_code, assigned_rm_id: schema.leads.assigned_rm_id, country_of_residence: schema.leads.country_of_residence, preferred_language: schema.leads.preferred_language })
+          .from(schema.leads)
+          .where(inArray(schema.leads.lead_code, entityIds));
+        for (const lead of leads) {
+          const row = entityMap.get(lead.lead_code);
+          if (row) { row.cif_number = lead.lead_code; row.referring_rm_id = lead.assigned_rm_id; row.location = lead.country_of_residence; row.preferred_language = lead.preferred_language; }
+        }
+      } else if (entityType === 'prospect') {
+        const prospectsData = await db
+          .select({ prospect_code: schema.prospects.prospect_code, cif_number: schema.prospects.cif_number, assigned_rm_id: schema.prospects.assigned_rm_id, country_of_residence: schema.prospects.country_of_residence, preferred_language: schema.prospects.preferred_language })
+          .from(schema.prospects)
+          .where(inArray(schema.prospects.prospect_code, entityIds));
+        for (const p of prospectsData) {
+          const row = entityMap.get(p.prospect_code);
+          if (row) { row.cif_number = p.cif_number; row.referring_rm_id = p.assigned_rm_id; row.location = p.country_of_residence; row.preferred_language = p.preferred_language; }
+        }
+      }
+    }
+
     let results = Array.from(entityMap.values());
 
     // If we have fewer than pageSize results, pad with placeholders
@@ -65,6 +93,10 @@ export const handoverService = {
             entity_name_local: null,
             aum_at_handover: String(Math.round(Math.random() * 50_000_000)),
             product_count: Math.floor(Math.random() * 10) + 1,
+            cif_number: null,
+            referring_rm_id: null,
+            location: null,
+            preferred_language: null,
           });
         }
       }
@@ -79,6 +111,18 @@ export const handoverService = {
           (r.entity_name_en && r.entity_name_en.toLowerCase().includes(term)) ||
           (r.entity_name_local && r.entity_name_local.toLowerCase().includes(term)),
       );
+    }
+
+    // HAM-GAP-008: Location quick-filter (country_of_residence)
+    if (filters.location) {
+      const loc = filters.location.toLowerCase();
+      results = results.filter((r) => r.location && r.location.toLowerCase() === loc);
+    }
+
+    // HAM-GAP-008: Preferred language quick-filter
+    if (filters.language) {
+      const lang = filters.language.toLowerCase();
+      results = results.filter((r) => r.preferred_language && r.preferred_language.toLowerCase() === lang);
     }
 
     const total = results.length;
@@ -121,9 +165,29 @@ export const handoverService = {
       throw new Error('At least one entity item is required');
     }
 
-    // Validate: reason must be at least 10 characters
-    if (!data.reason || data.reason.trim().length < 10) {
-      throw new Error('Handover Reason must be at least 10 characters');
+    // Validate: reason must be at least 5 characters (BRD HAM-013)
+    if (!data.reason || data.reason.trim().length < 5) {
+      throw new Error('Handover Reason must be at least 5 characters');
+    }
+
+    // HAM-GAP-024: block re-selection of entity with existing PENDING/active handover
+    const entityIdsToCheck = data.items.map((i) => String(i.entity_id));
+    if (entityIdsToCheck.length > 0) {
+      const pendingItems = await db
+        .select({ entity_id: schema.handoverItems.entity_id })
+        .from(schema.handoverItems)
+        .innerJoin(schema.handovers, eq(schema.handoverItems.handover_id, schema.handovers.id))
+        .where(and(
+          inArray(schema.handoverItems.entity_id, entityIdsToCheck),
+          or(
+            eq(schema.handovers.status, 'pending_auth'),
+            eq(schema.handovers.status, 'bulk_pending_review'),
+          ) as any,
+        ));
+      if (pendingItems.length > 0) {
+        const blocked = [...new Set(pendingItems.map((p: any) => p.entity_id))].join(', ');
+        throw new Error(`Entity already has a pending handover: ${blocked}. Complete or cancel the existing handover first.`);
+      }
     }
 
     // Validate: for client handovers, all mandatory scrutiny items must be completed
@@ -385,6 +449,8 @@ export const handoverService = {
     event_type?: string;
     reference_type?: string;
     actor_id?: number;
+    entity_id?: number;
+    status?: string;
     page?: number;
     pageSize?: number;
   } = {}): Promise<{ data: Record<string, unknown>[]; total: number; page: number; pageSize: number }> {
@@ -407,6 +473,13 @@ export const handoverService = {
     }
     if (filters.actor_id) {
       conditions.push(eq(schema.handoverAuditLog.actor_id, filters.actor_id));
+    }
+    // HAM-GAP-012: entity_id maps to reference_id; status maps to event_type prefix
+    if (filters.entity_id) {
+      conditions.push(eq(schema.handoverAuditLog.reference_id, filters.entity_id));
+    }
+    if (filters.status) {
+      conditions.push(eq(schema.handoverAuditLog.event_type, filters.status as any));
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -784,6 +857,22 @@ export const handoverService = {
       return { error: 'Checker cannot authorize own submissions (segregation of duties)', status: 403 };
     }
 
+    // HAM-GAP-016: All mandatory (non-not_applicable) scrutiny checklist items must be completed before authorization
+    const pendingScrutinyItems = await db
+      .select({ id: schema.scrutinyChecklistItems.id, validation_label: schema.scrutinyChecklistItems.validation_label })
+      .from(schema.scrutinyChecklistItems)
+      .where(and(
+        eq(schema.scrutinyChecklistItems.handover_id, id),
+        eq(schema.scrutinyChecklistItems.status, 'pending'),
+      ));
+    if (pendingScrutinyItems.length > 0) {
+      const labels = pendingScrutinyItems.slice(0, 3).map((i: { validation_label: string }) => i.validation_label).join('; ');
+      return {
+        error: `${pendingScrutinyItems.length} scrutiny checklist item(s) are still pending (e.g. ${labels}). Complete all checklist items before authorization.`,
+        status: 422,
+      };
+    }
+
     // Update handover status to authorized
     const now = new Date();
     const updated = await db
@@ -850,6 +939,37 @@ export const handoverService = {
       }
     }
 
+    // Transfer assigned_rm_id on each entity to the incoming RM
+    for (const item of items) {
+      const entityIdNum = Number(item.entity_id);
+      if (req.entity_type === 'lead' && !isNaN(entityIdNum)) {
+        await db.update(schema.leads)
+          .set({ assigned_rm_id: req.incoming_rm_id, updated_by: checkerId, updated_at: now })
+          .where(eq(schema.leads.id, entityIdNum));
+      } else if (req.entity_type === 'prospect' && !isNaN(entityIdNum)) {
+        await db.update(schema.prospects)
+          .set({ assigned_rm_id: req.incoming_rm_id, updated_by: checkerId, updated_at: now })
+          .where(eq(schema.prospects.id, entityIdNum));
+      } else if (req.entity_type === 'client') {
+        // HAM-GAP-003: clients.assigned_rm_id must be updated on authorization
+        await db.update(schema.clients)
+          .set({ assigned_rm_id: req.incoming_rm_id, updated_by: checkerId, updated_at: now } as any)
+          .where(eq(schema.clients.client_id, item.entity_id));
+      }
+      // HAM-GAP-013: entity-level audit record for each entity RM change
+      await db.insert(schema.auditRecords).values({
+        entity_type: req.entity_type,
+        entity_id: item.entity_id,
+        action: 'RM_HANDOVER',
+        actor_id: checkerId,
+        changes: {
+          assigned_rm_id: { from: req.outgoing_rm_id, to: req.incoming_rm_id },
+          handover_id: id,
+          handover_number: req.handover_number,
+        },
+      } as any);
+    }
+
     // Create audit log
     await this.createAuditEntry({
       event_type: 'status_authorized',
@@ -857,7 +977,7 @@ export const handoverService = {
       reference_id: id,
       actor_id: Number(checkerId) || 0,
       actor_role: 'system',
-      details: { version: req.version + 1 },
+      details: { version: req.version + 1, entities_transferred: items.length },
     });
 
     // Notify the outgoing RM
@@ -877,9 +997,9 @@ export const handoverService = {
    * Reject a handover request with optimistic locking.
    */
   async rejectRequest(id: number, version: number, checkerId: string, reason: string): Promise<{ data?: Handover; error?: string; status?: number }> {
-    // Validate rejection reason minimum length
-    if (!reason || reason.trim().length < 10) {
-      return { error: 'Rejection reason must be at least 10 characters', status: 400 };
+    // Validate rejection reason minimum length (BRD HAM-013: 5 chars)
+    if (!reason || reason.trim().length < 5) {
+      return { error: 'Rejection reason must be at least 5 characters', status: 400 };
     }
 
     const request = await db
@@ -1091,6 +1211,19 @@ export const handoverService = {
       return { error: 'Delegate RM must differ from outgoing RM', status: 400 };
     }
 
+    // HAM-GAP-004: delegate RM must be in the same branch as the outgoing RM
+    const [outgoingUser, delegateUser] = await Promise.all([
+      db.select({ branch_id: schema.users.branch_id }).from(schema.users).where(eq(schema.users.id, data.outgoing_rm_id)).limit(1),
+      db.select({ branch_id: schema.users.branch_id }).from(schema.users).where(eq(schema.users.id, data.delegate_rm_id)).limit(1),
+    ]);
+    if (outgoingUser.length && delegateUser.length) {
+      const outBranch = outgoingUser[0].branch_id;
+      const delBranch = delegateUser[0].branch_id;
+      if (outBranch !== null && delBranch !== null && outBranch !== delBranch) {
+        return { error: 'Delegate RM must belong to the same branch as the outgoing RM', status: 400 };
+      }
+    }
+
     // Validate duration <= 90 days
     const start = new Date(data.start_date);
     const end = new Date(data.end_date);
@@ -1119,8 +1252,10 @@ export const handoverService = {
           ),
         );
       if (overlapping.length > 0) {
+        // HAM-GAP-017: BRD-compliant overlap error includes entity list and conflict hint
+        const entityList = [...new Set(overlapping.map((o: any) => o.entity_id))].join(', ');
         return {
-          error: `Entities already have active delegations: ${overlapping.map((o: any) => o.entity_id).join(', ')}`,
+          error: `DELEGATION_OVERLAP: The following entities already have an active delegation and cannot be delegated again: ${entityList}. Please revoke the existing delegation first.`,
           status: 409,
         };
       }
@@ -1286,6 +1421,7 @@ export const handoverService = {
     from_date?: string;
     to_date?: string;
     rm_id?: number;
+    branch_code?: string;
   } = {}): Promise<{ data: Record<string, unknown>[] }> {
     const conditions: ReturnType<typeof eq>[] = [];
     // Include active and expired delegations for calendar view
@@ -1308,6 +1444,9 @@ export const handoverService = {
           eq(schema.delegationRequests.delegate_rm_id, filters.rm_id),
         ) as any,
       );
+    }
+    if (filters.branch_code) {
+      conditions.push(eq(schema.delegationRequests.branch_code, filters.branch_code));
     }
 
     const delegations = await db
@@ -1417,13 +1556,37 @@ export const handoverService = {
         })
         .where(eq(schema.delegationRequests.id, delegation.id));
 
+      // Revert assigned_rm_id back to the original RM for each delegated entity
+      const delItems = await db
+        .select()
+        .from(schema.delegationItems)
+        .where(eq(schema.delegationItems.delegation_request_id, delegation.id));
+
+      for (const item of delItems) {
+        const entityIdNum = Number(item.entity_id);
+        if (item.entity_type === 'lead' && !isNaN(entityIdNum)) {
+          await db.update(schema.leads)
+            .set({ assigned_rm_id: item.original_rm_id, updated_by: 'system', updated_at: new Date() })
+            .where(eq(schema.leads.id, entityIdNum));
+        } else if (item.entity_type === 'prospect' && !isNaN(entityIdNum)) {
+          await db.update(schema.prospects)
+            .set({ assigned_rm_id: item.original_rm_id, updated_by: 'system', updated_at: new Date() })
+            .where(eq(schema.prospects.id, entityIdNum));
+        } else if (item.entity_type === 'client') {
+          // HAM-GAP-002: Revert clients.assigned_rm_id on delegation expiry
+          await db.update(schema.clients)
+            .set({ assigned_rm_id: item.original_rm_id, updated_by: 'system', updated_at: new Date() } as any)
+            .where(eq(schema.clients.client_id, item.entity_id));
+        }
+      }
+
       await this.createAuditEntry({
         event_type: 'delegation_expired',
         reference_type: 'delegation',
         reference_id: delegation.id,
         actor_id: 0,
         actor_role: 'system',
-        details: { end_date: delegation.end_date },
+        details: { end_date: delegation.end_date, entities_reverted: delItems.length },
       });
 
       results.push({ id: delegation.id, reverted: true });
@@ -1434,12 +1597,12 @@ export const handoverService = {
 
   /**
    * Process expiring delegations — find active delegations ending within the
-   * next 24 hours and create notification records so the outgoing RM can act.
+   * next 48 hours and create notification records so the outgoing RM can act.
    */
   async processExpiringDelegations(): Promise<{ processed: number; results: Array<{ id: number; notified: boolean }> }> {
-    // Find active delegations expiring within the next 24 hours
+    // Find active delegations expiring within the next 48 hours (BRD HAM-010)
     const now = new Date();
-    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const tomorrow = new Date(now.getTime() + 48 * 60 * 60 * 1000);
     const tomorrowDate = tomorrow.toISOString().split('T')[0];
     const todayDate = now.toISOString().split('T')[0];
 
@@ -1474,13 +1637,31 @@ export const handoverService = {
         updated_by: 'system',
       });
 
+      // HAM-GAP-019: also notify the delegate RM (not just outgoing RM)
+      await db.insert(schema.handoverNotifications).values({
+        notification_type: 'delegation_expiring',
+        channel: 'both',
+        recipient_user_id: delegation.delegate_rm_id,
+        subject: `Delegation Expiring Soon`,
+        body: `Your temporary delegation (ID: ${delegation.id}) as delegate RM is expiring on ${delegation.end_date}.`,
+        reference_type: 'delegation',
+        reference_id: delegation.id,
+        is_read: false,
+        retry_count: 0,
+        sent_at: new Date(),
+        created_at: new Date(),
+        updated_at: new Date(),
+        created_by: 'system',
+        updated_by: 'system',
+      });
+
       await this.createAuditEntry({
         event_type: 'delegation_expiring',
         reference_type: 'delegation',
         reference_id: delegation.id,
         actor_id: 0,
         actor_role: 'system',
-        details: { end_date: delegation.end_date, notified_rm_id: delegation.outgoing_rm_id },
+        details: { end_date: delegation.end_date, notified_rm_id: delegation.outgoing_rm_id, notified_delegate_rm_id: delegation.delegate_rm_id },
       });
 
       results.push({ id: delegation.id, notified: true });
@@ -1502,7 +1683,7 @@ export const handoverService = {
 
     if (!handover) return { error: 'Handover not found', status: 404 };
     if (handover.status !== 'authorized') return { error: 'Only authorized handovers can be reversed', status: 400 };
-    if (!reason || reason.trim().length < 10) return { error: 'Reversal reason must be at least 10 characters', status: 400 };
+    if (!reason || reason.trim().length < 5) return { error: 'Reversal reason must be at least 5 characters', status: 400 };
 
     // 7-day reversal window
     const authorizedAt = handover.authorized_at ? new Date(handover.authorized_at) : null;
@@ -1734,10 +1915,34 @@ export const handoverService = {
           created_by: uploaderId,
         });
         successCount += groupRows.length;
-        results.push({ group_key: key, success: true, handover_id: (result as any)?.id });
+        const handoverId = (result as any)?.id;
+        results.push({ group_key: key, success: true, handover_id: handoverId });
+        // HAM-GAP-006: per-row audit log entry for successful group
+        for (const row of groupRows) {
+          await this.createAuditEntry({
+            event_type: 'bulk_row_processed',
+            reference_type: 'bulk_upload',
+            reference_id: uploadLog.id,
+            actor_id: Number(uploaderId) || 0,
+            actor_role: 'system',
+            details: { entity_type: row.entity_type, entity_id: row.entity_id, entity_name: row.entity_name, handover_id: handoverId, status: 'success' },
+          });
+        }
       } catch (err: any) {
         failureCount += groupRows.length;
-        results.push({ group_key: key, success: false, error: err.message ?? 'Unknown error' });
+        const errorMsg: string = err.message ?? 'Unknown error';
+        results.push({ group_key: key, success: false, error: errorMsg });
+        // HAM-GAP-006: per-row audit log entry for failed group
+        for (const row of groupRows) {
+          await this.createAuditEntry({
+            event_type: 'bulk_row_failed',
+            reference_type: 'bulk_upload',
+            reference_id: uploadLog.id,
+            actor_id: Number(uploaderId) || 0,
+            actor_role: 'system',
+            details: { entity_type: row.entity_type, entity_id: row.entity_id, entity_name: row.entity_name, error: errorMsg, status: 'failed' },
+          });
+        }
       }
     }
 
@@ -1761,6 +1966,49 @@ export const handoverService = {
       actor_role: 'maker',
       details: { total: rows.length, success: successCount, failure: failureCount },
     });
+
+    // HAM-GAP-007: Notify the uploader and their branch supervisor(s) of bulk upload completion
+    const uploaderId_num = Number(uploaderId) || 0;
+    if (uploaderId_num > 0) {
+      await this.createNotification({
+        notification_type: 'bulk_upload_completed',
+        recipient_user_id: uploaderId_num,
+        subject: 'Bulk Upload Completed',
+        body: `Bulk handover upload completed: ${successCount} succeeded, ${failureCount} failed out of ${rows.length} total rows.`,
+        reference_type: 'bulk_upload',
+        reference_id: uploadLog.id,
+      });
+
+      // Notify branch supervisor(s) of the uploader
+      const [uploaderRow] = await db
+        .select({ branch_id: schema.users.branch_id })
+        .from(schema.users)
+        .where(eq(schema.users.id, uploaderId_num))
+        .limit(1);
+      if (uploaderRow?.branch_id) {
+        const supervisors = await db
+          .select({ id: schema.users.id })
+          .from(schema.users)
+          .where(
+            and(
+              eq(schema.users.branch_id, uploaderRow.branch_id),
+              eq(schema.users.is_active, true),
+            ),
+          );
+        for (const sup of supervisors) {
+          if (sup.id !== uploaderId_num) {
+            await this.createNotification({
+              notification_type: 'bulk_upload_supervisor_alert',
+              recipient_user_id: sup.id,
+              subject: 'Bulk Handover Upload Requires Review',
+              body: `User ${uploaderId_num} completed a bulk handover upload with ${successCount} succeeded and ${failureCount} failed rows. Please review the pending handover requests.`,
+              reference_type: 'bulk_upload',
+              reference_id: uploadLog.id,
+            });
+          }
+        }
+      }
+    }
 
     return {
       upload_id: uploadLog.id,

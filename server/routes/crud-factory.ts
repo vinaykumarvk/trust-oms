@@ -419,9 +419,18 @@ export function createCrudRouter(
       dataQuery.limit(pageSize).offset(offset);
 
       const [countResult, rows] = await Promise.all([countQuery, dataQuery]);
-      const total = (countResult[0] as Record<string, unknown>)?.count ?? 0;
+      const total = Number((countResult[0] as Record<string, unknown>)?.count ?? 0);
+      const totalPages = Math.ceil(total / pageSize);
 
-      res.json({ data: rows, total, page, pageSize });
+      res.json({
+        data: rows,
+        total,
+        page,
+        pageSize,
+        total_pages: totalPages,
+        has_next: page < totalPages,
+        has_previous: page > 1,
+      });
     }),
   );
 

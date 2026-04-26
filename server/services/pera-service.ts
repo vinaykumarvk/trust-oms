@@ -390,6 +390,108 @@ export const peraService = {
     return { transaction: txn };
   },
 
+  /**
+   * Check PERA annual contribution cut-off per RA 11505.
+   * Enforces the PHP 100,000 maximum annual contribution limit.
+   * Returns allowance status without modifying any data.
+   */
+  async checkPERAContributionCutoff(
+    accountId: number,
+    amount: number,
+    year: number,
+  ): Promise<{
+    allowed: boolean;
+    currentYTD: number;
+    remainingAllowance: number;
+    message: string;
+  }> {
+    const RA11505_ANNUAL_LIMIT = 100_000;
+
+    if (amount <= 0) {
+      return {
+        allowed: false,
+        currentYTD: 0,
+        remainingAllowance: 0,
+        message: 'Contribution amount must be positive',
+      };
+    }
+
+    // Fetch the PERA account
+    const [account] = await db
+      .select()
+      .from(schema.peraAccounts)
+      .where(eq(schema.peraAccounts.id, accountId))
+      .limit(1);
+
+    if (!account) {
+      return {
+        allowed: false,
+        currentYTD: 0,
+        remainingAllowance: 0,
+        message: `PERA account not found: ${accountId}`,
+      };
+    }
+
+    if (account.pera_status !== 'ACTIVE') {
+      return {
+        allowed: false,
+        currentYTD: 0,
+        remainingAllowance: 0,
+        message: `PERA account ${accountId} is not active (status: ${account.pera_status})`,
+      };
+    }
+
+    // For the requested year, compute YTD contributions.
+    // If the requested year is the current calendar year, use the stored contribution_ytd.
+    // Otherwise, sum completed contribution transactions for that year.
+    const currentYear = new Date().getFullYear();
+    let currentYTD: number;
+
+    if (year === currentYear) {
+      currentYTD = parseFloat(account.contribution_ytd ?? '0');
+    } else {
+      // Sum contributions for the specified year from transactions
+      const yearStart = `${year}-01-01`;
+      const yearEnd = `${year}-12-31`;
+      const [result] = await db
+        .select({ total: sql<string>`coalesce(sum(${schema.peraTransactions.amount}), '0')` })
+        .from(schema.peraTransactions)
+        .where(
+          and(
+            eq(schema.peraTransactions.pera_account_id, accountId),
+            eq(schema.peraTransactions.type, 'CONTRIBUTION'),
+            eq(schema.peraTransactions.pera_txn_status, 'COMPLETED'),
+            sql`${schema.peraTransactions.created_at} >= ${yearStart}::timestamp`,
+            sql`${schema.peraTransactions.created_at} < (${yearEnd}::date + interval '1 day')::timestamp`,
+          ),
+        );
+      currentYTD = parseFloat(result?.total ?? '0');
+    }
+
+    const remainingAllowance = Math.max(0, RA11505_ANNUAL_LIMIT - currentYTD);
+    const projectedTotal = currentYTD + amount;
+
+    if (projectedTotal > RA11505_ANNUAL_LIMIT) {
+      return {
+        allowed: false,
+        currentYTD,
+        remainingAllowance,
+        message:
+          `Contribution of PHP ${amount.toLocaleString()} would exceed the RA 11505 annual limit of PHP ${RA11505_ANNUAL_LIMIT.toLocaleString()}. ` +
+          `Current YTD: PHP ${currentYTD.toLocaleString()}, remaining allowance: PHP ${remainingAllowance.toLocaleString()}.`,
+      };
+    }
+
+    return {
+      allowed: true,
+      currentYTD,
+      remainingAllowance: remainingAllowance - amount,
+      message:
+        `Contribution of PHP ${amount.toLocaleString()} is within the RA 11505 annual limit. ` +
+        `Current YTD: PHP ${currentYTD.toLocaleString()}, post-contribution remaining: PHP ${(remainingAllowance - amount).toLocaleString()}.`,
+    };
+  },
+
   /** List PERA accounts with filters and pagination */
   async getAccounts(filters: {
     contributorId?: string;

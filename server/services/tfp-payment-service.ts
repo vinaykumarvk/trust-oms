@@ -13,6 +13,8 @@
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, and, sql, desc } from 'drizzle-orm';
+import { fxRateService } from './fx-rate-service';
+import { exceptionQueueService } from './exception-queue-service';
 
 /* ---------- Main Service ---------- */
 
@@ -63,8 +65,34 @@ export const tfpPaymentService = {
 
     const alreadyPaid = parseFloat(existingPayments[0]?.total ?? '0');
     const grandTotal = parseFloat(invoice.grand_total);
+
+    // GAP-A09/C10: FX reconciliation if payment currency differs from invoice
+    let effectiveAmount = data.amount;
+    if (data.currency !== invoice.currency) {
+      try {
+        const fxResult = await fxRateService.getFxRate(data.currency, invoice.currency, data.payment_date);
+        const convertedAmount = data.amount * fxResult.mid_rate;
+        const diffPct = Math.abs(convertedAmount - data.amount) / data.amount;
+
+        if (diffPct > 0.01) {
+          await exceptionQueueService.createException({
+            exception_type: 'PAYMENT_AMBIGUITY',
+            severity: 'P2',
+            title: `FX variance >1% on payment for invoice ${invoice.invoice_number}`,
+            description: `Payment ${data.currency} ${data.amount} → ${invoice.currency} ${convertedAmount.toFixed(4)} (${(diffPct * 100).toFixed(2)}% variance)`,
+            customer_id: invoice.customer_id,
+            aggregate_type: 'PAYMENT',
+            aggregate_id: String(data.invoice_id),
+          });
+        }
+        effectiveAmount = convertedAmount;
+      } catch {
+        // FX rate unavailable — use original amount
+      }
+    }
+
     const remaining = grandTotal - alreadyPaid;
-    const paymentAmount = data.amount;
+    const paymentAmount = effectiveAmount;
 
     // 4. Insert payment record
     const [payment] = await db

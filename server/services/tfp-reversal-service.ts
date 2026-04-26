@@ -12,7 +12,8 @@
 
 import { db } from '../db';
 import * as schema from '@shared/schema';
-import { eq, and, sql, desc, inArray } from 'drizzle-orm';
+import { eq, and, sql, desc, inArray, or } from 'drizzle-orm';
+import { notionalAccountingService } from './notional-accounting-service';
 
 /* ---------- Helpers ---------- */
 
@@ -97,6 +98,26 @@ export const tfpReversalService = {
           }
         }
 
+        // GAP-A12: Skip reversal if invoice has an active dispute
+        const activeDisputes = await db
+          .select({ id: schema.disputes.id })
+          .from(schema.disputes)
+          .where(
+            and(
+              eq(schema.disputes.invoice_id, invoice.id),
+              or(
+                eq(schema.disputes.dispute_status, 'OPEN'),
+                eq(schema.disputes.dispute_status, 'INVESTIGATING'),
+              ),
+            ),
+          )
+          .limit(1);
+
+        if (activeDisputes.length > 0) {
+          console.log(`[TFP Reversal] Skipping invoice ${invoice.invoice_number} — active dispute`);
+          continue;
+        }
+
         if (!reversalEnabled) continue;
 
         // Check if invoice has aged beyond reversal_age_days
@@ -143,6 +164,17 @@ export const tfpReversalService = {
             .update(schema.tfpAccruals)
             .set({ accrual_status: 'REVERSED', updated_at: new Date() })
             .where(eq(schema.tfpAccruals.id, accrual.id));
+
+          // GAP-C11: Emit notional accounting event for the reversal
+          try {
+            await notionalAccountingService.emit(
+              'REVERSAL_POSTED',
+              'ACCRUAL',
+              String(accrual.id),
+              { original_idempotency_key: accrual.idempotency_key, reversed_amount: accrual.applied_fee },
+              `REVERSAL:${accrual.id}:${new Date().toISOString().split('T')[0]}`,
+            );
+          } catch { /* best effort */ }
 
           reversalsProcessed++;
         }

@@ -151,19 +151,17 @@ export const contributionService = {
       })
       .returning();
 
-    // Update ledger balance
-    const newBalance = parseFloat(ledger.balance ?? '0') + amount;
-    const newAvailable = parseFloat(ledger.available_balance ?? '0') + amount;
-
-    await db
+    // Atomic ledger balance increment — prevents lost-update race condition
+    const [updatedLedger] = await db
       .update(schema.cashLedger)
       .set({
-        balance: String(newBalance),
-        available_balance: String(newAvailable),
+        balance: sql`(${schema.cashLedger.balance}::numeric + ${amount})::text`,
+        available_balance: sql`(${schema.cashLedger.available_balance}::numeric + ${amount})::text`,
         as_of_date: todayStr,
         updated_at: new Date(),
       })
-      .where(eq(schema.cashLedger.id, ledger.id));
+      .where(eq(schema.cashLedger.id, ledger.id))
+      .returning();
 
     // Mark contribution as POSTED
     const [updated] = await db
@@ -180,7 +178,127 @@ export const contributionService = {
       ledger_id: ledger.id,
       transaction_id: transaction.id,
       amount,
-      new_balance: newBalance,
+      new_balance: parseFloat(updatedLedger.balance ?? '0'),
+    };
+  },
+
+  // ---------------------------------------------------------------------------
+  // FR-CON-006: Unmatched Inventory View
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Query positions for a portfolio that don't have matching settlement
+   * instructions yet. Returns each position with its security, quantity,
+   * cost_basis, and matched / unmatched status.
+   */
+  async getUnmatchedInventory(portfolioId: string) {
+    // Left-join positions to settlement instructions via orders -> trades.
+    // A position is "matched" when there exists at least one settlement
+    // instruction for a trade whose parent order is in the same portfolio
+    // and for the same security.
+    const rows = await db
+      .select({
+        position_id: schema.positions.id,
+        security_id: schema.positions.security_id,
+        security_name: schema.securities.name,
+        quantity: schema.positions.quantity,
+        cost_basis: schema.positions.cost_basis,
+        as_of_date: schema.positions.as_of_date,
+        settlement_count: sql<number>`COUNT(${schema.settlementInstructions.id})::int`,
+      })
+      .from(schema.positions)
+      .leftJoin(
+        schema.securities,
+        eq(schema.positions.security_id, schema.securities.id),
+      )
+      .leftJoin(
+        schema.orders,
+        and(
+          eq(schema.orders.portfolio_id, schema.positions.portfolio_id),
+          eq(schema.orders.security_id, schema.positions.security_id),
+        ),
+      )
+      .leftJoin(
+        schema.trades,
+        eq(schema.trades.order_id, schema.orders.order_id),
+      )
+      .leftJoin(
+        schema.settlementInstructions,
+        eq(schema.settlementInstructions.trade_id, schema.trades.trade_id),
+      )
+      .where(eq(schema.positions.portfolio_id, portfolioId))
+      .groupBy(
+        schema.positions.id,
+        schema.positions.security_id,
+        schema.securities.name,
+        schema.positions.quantity,
+        schema.positions.cost_basis,
+        schema.positions.as_of_date,
+      );
+
+    return rows.map((r: typeof rows[number]) => ({
+      position_id: r.position_id,
+      security_id: r.security_id,
+      security_name: r.security_name,
+      quantity: parseFloat(r.quantity ?? '0'),
+      cost_basis: parseFloat(r.cost_basis ?? '0'),
+      as_of_date: r.as_of_date,
+      status: r.settlement_count > 0 ? 'MATCHED' as const : 'UNMATCHED' as const,
+    }));
+  },
+
+  /**
+   * Live volume decrement — reduce a position's quantity when a settlement
+   * match is posted. Throws if quantity would go negative.
+   */
+  async decrementInventory(positionId: number, quantity: number) {
+    if (quantity <= 0) {
+      throw new Error('Decrement quantity must be positive');
+    }
+
+    // Atomic decrement with WHERE guard — prevents TOCTOU race condition.
+    // The WHERE clause ensures quantity >= requested, so concurrent calls
+    // cannot drive the balance negative.
+    const result = await db
+      .update(schema.positions)
+      .set({
+        quantity: sql`(${schema.positions.quantity}::numeric - ${quantity})::text`,
+        updated_at: new Date(),
+      })
+      .where(
+        and(
+          eq(schema.positions.id, positionId),
+          sql`${schema.positions.quantity}::numeric >= ${quantity}`,
+        ),
+      )
+      .returning();
+
+    if (result.length === 0) {
+      // Distinguish "not found" from "insufficient quantity"
+      const [position] = await db
+        .select()
+        .from(schema.positions)
+        .where(eq(schema.positions.id, positionId))
+        .limit(1);
+
+      if (!position) {
+        throw new Error(`Position not found: ${positionId}`);
+      }
+      const currentQty = parseFloat(position.quantity ?? '0');
+      throw new Error(
+        `Insufficient quantity: requested ${quantity} but position only has ${currentQty}`,
+      );
+    }
+
+    const updated = result[0];
+    const newQty = parseFloat(updated.quantity ?? '0');
+
+    return {
+      position_id: positionId,
+      previous_quantity: newQty + quantity,
+      decremented_by: quantity,
+      new_quantity: newQty,
+      position: updated,
     };
   },
 

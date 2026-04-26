@@ -17,6 +17,7 @@ import * as schema from '@shared/schema';
 import { eq, and, sql, desc, ilike, or } from 'drizzle-orm';
 import { feePlanTemplateService } from './fee-plan-template-service';
 import { pricingDefinitionService } from './pricing-definition-service';
+import { tfpAuditService } from './tfp-audit-service';
 
 export const feePlanService = {
   /**
@@ -88,6 +89,15 @@ export const feePlanService = {
       }
     }
 
+    // min_charge_amount must not exceed max_charge_amount
+    if (mergedData.min_charge_amount && mergedData.max_charge_amount) {
+      const minVal = parseFloat(mergedData.min_charge_amount);
+      const maxVal = parseFloat(mergedData.max_charge_amount);
+      if (!isNaN(minVal) && !isNaN(maxVal) && minVal > maxVal) {
+        throw new Error('min_charge_amount cannot exceed max_charge_amount');
+      }
+    }
+
     // pricing_binding_mode=STRICT captures pricing_binding_version from the referenced PricingDefinition
     let pricingBindingVersion: number | null = null;
     if (
@@ -134,6 +144,15 @@ export const feePlanService = {
       })
       .returning();
 
+    // Emit audit event for fee plan creation
+    await tfpAuditService.logEvent(
+      'FEE_PLAN',
+      String(record.id),
+      'FEE_PLAN_DRAFTED',
+      { fee_plan_code: record.fee_plan_code, fee_type: record.fee_type, charge_basis: record.charge_basis },
+      data.created_by ?? null,
+    );
+
     return record;
   },
 
@@ -178,6 +197,17 @@ export const feePlanService = {
     for (const field of allowedFields) {
       if (data[field] !== undefined) {
         setValues[field] = data[field];
+      }
+    }
+
+    // Validate min ≤ max charge
+    const effectiveMin = (data.min_charge_amount as string) ?? current.min_charge_amount;
+    const effectiveMax = (data.max_charge_amount as string) ?? current.max_charge_amount;
+    if (effectiveMin && effectiveMax) {
+      const minVal = parseFloat(effectiveMin);
+      const maxVal = parseFloat(effectiveMax);
+      if (!isNaN(minVal) && !isNaN(maxVal) && minVal > maxVal) {
+        throw new Error('min_charge_amount cannot exceed max_charge_amount');
       }
     }
 
@@ -408,6 +438,20 @@ export const feePlanService = {
       .where(eq(schema.feePlans.id, id))
       .returning();
 
+    // GAP-A23: Field-level diff for audit trail
+    const changedFields: Record<string, { old: unknown; new: unknown }> = {};
+    const diffKeys = ['plan_status', 'updated_by'] as const;
+    for (const key of diffKeys) {
+      if ((current as any)[key] !== (updated as any)[key]) {
+        changedFields[key] = { old: (current as any)[key], new: (updated as any)[key] };
+      }
+    }
+    await tfpAuditService.logEvent(
+      'FEE_PLAN', String(id), 'FEE_PLAN_APPROVED',
+      { changes: changedFields, approved_by: approverId },
+      approverId,
+    );
+
     return updated;
   },
 
@@ -599,6 +643,8 @@ export const feePlanService = {
       );
     }
 
+    const oldVersion = current.pricing_binding_version;
+
     const [updated] = await db
       .update(schema.feePlans)
       .set({
@@ -607,6 +653,25 @@ export const feePlanService = {
       })
       .where(eq(schema.feePlans.id, id))
       .returning();
+
+    // GAP-A16: Audit event on pricing rebind
+    await tfpAuditService.logEvent(
+      'FEE_PLAN', String(id), 'PRICING_REBOUND',
+      { old_version: oldVersion, new_version: newPricingVersionId, pricing_definition_id: current.pricing_definition_id },
+      null,
+    );
+
+    // Regression preview to detect fee changes
+    try {
+      const preview = await feePlanService.computePreview(id, { aum_value: 10_000_000 });
+      await tfpAuditService.logEvent(
+        'FEE_PLAN', String(id), 'PRICING_REBIND_REGRESSION',
+        { preview_result: preview },
+        null,
+      );
+    } catch {
+      // Preview failed — log but don't block
+    }
 
     return updated;
   },

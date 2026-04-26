@@ -52,11 +52,40 @@ router.get(
   }),
 );
 
-/** GET /kpi -- KPI dashboard */
+/** GET /kpi -- KPI dashboard (GAP-C13: supports userRole filter) */
 router.get(
   '/kpi',
+  asyncHandler(async (req: any, res) => {
+    const userRole = req.query.userRole as string | undefined;
+    const result = await exceptionQueueService.getKpiDashboard(userRole);
+    res.json({ data: result });
+  }),
+);
+
+/** GET /kpi/export -- CSV-exportable KPI data (GAP-C13) */
+router.get(
+  '/kpi/export',
+  asyncHandler(async (req: any, res) => {
+    const userRole = req.query.userRole as string | undefined;
+    const result = await exceptionQueueService.getKpiExportData(userRole);
+    res.json({ data: result });
+  }),
+);
+
+/** GET /resolution-templates -- Resolution templates (GAP-C17) */
+router.get(
+  '/resolution-templates',
   asyncHandler(async (_req, res) => {
-    const result = await exceptionQueueService.getKpiDashboard();
+    const templates = exceptionQueueService.getResolutionTemplates();
+    res.json({ data: templates });
+  }),
+);
+
+/** GET /age-distribution -- Backlog age distribution (GAP-C18) */
+router.get(
+  '/age-distribution',
+  asyncHandler(async (_req, res) => {
+    const result = await exceptionQueueService.getBacklogAgeDistribution();
     res.json({ data: result });
   }),
 );
@@ -313,6 +342,28 @@ router.post(
     }
 
     const result = await exceptionQueueService.bulkResolve(exception_ids, resolution_notes);
+    res.json({ data: result });
+  }),
+);
+
+/** POST /bulk-escalate -- Bulk escalate exceptions (GAP-C17) */
+router.post(
+  '/bulk-escalate',
+  asyncHandler(async (req: any, res: any) => {
+    const { ids, escalated_by } = req.body;
+
+    if (!ids || !Array.isArray(ids) || !ids.length) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'ids array is required' },
+      });
+    }
+    if (!escalated_by) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'escalated_by is required' },
+      });
+    }
+
+    const result = await exceptionQueueService.bulkEscalate(ids, escalated_by);
     res.json({ data: result });
   }),
 );

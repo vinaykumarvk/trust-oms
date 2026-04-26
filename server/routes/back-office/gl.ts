@@ -104,6 +104,11 @@ import { glPostingEngine } from '../../services/gl-posting-engine';
 import { glMasterService } from '../../services/gl-master-service';
 import { glRuleEngine } from '../../services/gl-rule-engine';
 import { glFxRevaluationService } from '../../services/gl-fx-revaluation-service';
+import { glAuthorizationService } from '../../services/gl-authorization-service';
+import { glBatchProcessor } from '../../services/gl-batch-processor';
+import { glAccrualService } from '../../services/gl-accrual-service';
+import { glReportBuilder } from '../../services/gl-report-builder';
+import { glReportScheduler } from '../../services/gl-report-scheduler';
 
 const router = Router();
 router.use(requireBackOfficeRole());
@@ -1854,6 +1859,781 @@ router.put(
         status: 'RESOLVED',
       },
     });
+  }),
+);
+
+// ============================================================================
+// Phase 6: Report Builder, Dimensions, Rule Import, Fund/Portfolio/Valuation
+// ============================================================================
+
+/** GET /report-definitions -- List report definitions (REP-007) */
+router.get(
+  '/report-definitions',
+  asyncHandler(async (req: any, res: any) => {
+    const data = await glReportBuilder.getReportDefinitions();
+    res.json({ data });
+  }),
+);
+
+/** POST /report-definitions -- Create report definition */
+router.post(
+  '/report-definitions',
+  asyncHandler(async (req: any, res: any) => {
+    const { name, columns } = req.body;
+    if (!name || !columns) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'name and columns are required' },
+      });
+    }
+    const record = await glReportBuilder.createReportDefinition({ ...req.body, userId: req.userId ?? 1 });
+    res.status(201).json({ data: record });
+  }),
+);
+
+/** GET /report-definitions/:id -- Get report definition */
+router.get(
+  '/report-definitions/:id',
+  asyncHandler(async (req: any, res: any) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Invalid ID' } });
+    const record = await glReportBuilder.getReportDefinition(id);
+    if (!record) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Report definition not found' } });
+    res.json({ data: record });
+  }),
+);
+
+/** PUT /report-definitions/:id -- Update report definition */
+router.put(
+  '/report-definitions/:id',
+  asyncHandler(async (req: any, res: any) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Invalid ID' } });
+    const updated = await glReportBuilder.updateReportDefinition(id, req.body);
+    if (!updated) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Report definition not found' } });
+    res.json({ data: updated });
+  }),
+);
+
+/** POST /report-definitions/:id/execute -- Execute report */
+router.post(
+  '/report-definitions/:id/execute',
+  asyncHandler(async (req: any, res: any) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Invalid ID' } });
+    const result = await glReportBuilder.executeReport(id, req.body);
+    res.json({ data: result });
+  }),
+);
+
+/** GET /dimensions -- Get dimension definitions (DIM-005) */
+router.get(
+  '/dimensions',
+  asyncHandler(async (req: any, res: any) => {
+    const data = await glMasterService.getDimensionDefinitions();
+    res.json({ data });
+  }),
+);
+
+/** POST /dimensions -- Create dimension definition */
+router.post(
+  '/dimensions',
+  asyncHandler(async (req: any, res: any) => {
+    const { name, code, values } = req.body;
+    if (!name || !code) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'name and code are required' },
+      });
+    }
+    const record = await glMasterService.createDimensionDefinition({
+      name,
+      code,
+      description: req.body.description,
+      values: values ?? [],
+    });
+    res.status(201).json({ data: record });
+  }),
+);
+
+/** GET /accounting/rules/:id/history -- Rule change history (AE-008) */
+router.get(
+  '/accounting/rules/:id/history',
+  asyncHandler(async (req: any, res: any) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Invalid ID' } });
+    const data = await glRuleEngine.getRuleChangeHistory(id);
+    res.json({ data });
+  }),
+);
+
+/** POST /accounting/rules/import -- Import rules from JSON (AE-009) */
+router.post(
+  '/accounting/rules/import',
+  asyncHandler(async (req: any, res: any) => {
+    const { rules } = req.body;
+    if (!rules || !Array.isArray(rules)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'rules (array) is required' },
+      });
+    }
+    const result = await glRuleEngine.importRules(rules);
+    res.json({ data: result });
+  }),
+);
+
+/** POST /snapshots/incremental -- Incremental snapshot (EOD-002) */
+router.post(
+  '/snapshots/incremental',
+  asyncHandler(async (req: any, res: any) => {
+    const { date } = req.body;
+    if (!date) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'date is required' },
+      });
+    }
+    const result = await glFxRevaluationService.createIncrementalSnapshot(date);
+    res.status(201).json({ data: result });
+  }),
+);
+
+/** POST /posting/classification-transfer -- Transfer classification (PORT-003) */
+router.post(
+  '/posting/classification-transfer',
+  asyncHandler(async (req: any, res: any) => {
+    const { portfolioId, securityId, fromClassification, toClassification, fairValue, carryingValue, businessDate } = req.body;
+    if (!portfolioId || !securityId || !fromClassification || !toClassification || !businessDate) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'portfolioId, securityId, fromClassification, toClassification, businessDate are required' },
+      });
+    }
+    const result = await glPostingEngine.transferClassification({
+      portfolioId: parseInt(portfolioId, 10),
+      securityId: parseInt(securityId, 10),
+      fromClassification,
+      toClassification,
+      fairValue: parseFloat(fairValue ?? '0'),
+      carryingValue: parseFloat(carryingValue ?? '0'),
+      businessDate,
+      userId: req.userId ?? 1,
+    });
+    res.json({ data: result });
+  }),
+);
+
+/** GET /report-schedules -- List report schedules (REP-008) */
+router.get(
+  '/report-schedules',
+  asyncHandler(async (req: any, res: any) => {
+    const data = await glReportScheduler.getSchedules();
+    res.json({ data });
+  }),
+);
+
+/** POST /report-schedules -- Create report schedule */
+router.post(
+  '/report-schedules',
+  asyncHandler(async (req: any, res: any) => {
+    const { reportDefinitionId, scheduleName, frequency } = req.body;
+    if (!reportDefinitionId || !scheduleName || !frequency) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'reportDefinitionId, scheduleName, frequency are required' },
+      });
+    }
+    const record = await glReportScheduler.scheduleReport({
+      ...req.body,
+      userId: req.userId ?? 1,
+    });
+    res.status(201).json({ data: record });
+  }),
+);
+
+/** POST /report-schedules/execute -- Execute scheduled reports */
+router.post(
+  '/report-schedules/execute',
+  asyncHandler(async (req: any, res: any) => {
+    const { businessDate } = req.body;
+    if (!businessDate) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'businessDate is required' },
+      });
+    }
+    const result = await glReportScheduler.executeScheduledReports(businessDate);
+    res.json({ data: result });
+  }),
+);
+
+/** POST /auth-matrix/delegate -- Delegate approval (AUTH-004) */
+router.post(
+  '/auth-matrix/delegate',
+  asyncHandler(async (req: any, res: any) => {
+    const { taskId, delegateToId, expiresAt, reason } = req.body;
+    if (!taskId || !delegateToId) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'taskId and delegateToId are required' },
+      });
+    }
+    const result = await glAuthorizationService.delegateApproval({
+      taskId: parseInt(taskId, 10),
+      delegatorId: req.userId ?? 1,
+      delegateToId: parseInt(delegateToId, 10),
+      expiresAt: expiresAt ? new Date(expiresAt) : undefined,
+      reason,
+    });
+    res.json({ data: result });
+  }),
+);
+
+// ============================================================================
+// Reversal, FRPTI, Reporting APIs (Phase 5)
+// ============================================================================
+
+/** REV-003: Valid reversal reason codes */
+const REVERSAL_REASON_CODES = [
+  'ERROR_CORRECTION',
+  'DUPLICATE_ENTRY',
+  'WRONG_ACCOUNT',
+  'WRONG_AMOUNT',
+  'WRONG_PERIOD',
+  'CLIENT_REQUEST',
+  'REGULATORY_ADJUSTMENT',
+  'SYSTEM_ERROR_CORRECTION',
+  'AUDIT_FINDING',
+  'OTHER',
+] as const;
+
+/** POST /frpti/amend/:period -- FRPTI amendment (FRPTI-004) */
+router.post(
+  '/frpti/amend/:period',
+  asyncHandler(async (req: any, res: any) => {
+    const { period } = req.params;
+    const { amendments, reason } = req.body;
+    if (!amendments || !Array.isArray(amendments) || !reason) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'amendments (array) and reason are required' },
+      });
+    }
+    const result = await glFxRevaluationService.submitFrptiAmendment(period, amendments, reason);
+    res.json({ data: result });
+  }),
+);
+
+/** GET /frpti/compare -- Compare FRPTI periods (FRPTI-007) */
+router.get(
+  '/frpti/compare',
+  asyncHandler(async (req: any, res: any) => {
+    const { period1, period2 } = req.query;
+    if (!period1 || !period2) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'period1 and period2 are required' },
+      });
+    }
+    const result = await glFxRevaluationService.compareFrptiPeriods(
+      period1 as string,
+      period2 as string,
+    );
+    res.json({ data: result });
+  }),
+);
+
+/** GET /year-end/comparative -- Comparative year-end report (YE-004) */
+router.get(
+  '/year-end/comparative',
+  asyncHandler(async (req: any, res: any) => {
+    const { currentYear, priorYear } = req.query;
+    if (!currentYear || !priorYear) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'currentYear and priorYear dates are required' },
+      });
+    }
+    const result = await glFxRevaluationService.generateComparativeReport(
+      currentYear as string,
+      priorYear as string,
+    );
+    res.json({ data: result });
+  }),
+);
+
+/** POST /reports/audit-periodic -- Periodic audit report (AUD-006) */
+router.post(
+  '/reports/audit-periodic',
+  asyncHandler(async (req: any, res: any) => {
+    const { fromDate, toDate, reportType } = req.body;
+    if (!fromDate || !toDate) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'fromDate and toDate are required' },
+      });
+    }
+    const result = await glMasterService.generatePeriodicAuditReport({ fromDate, toDate, reportType });
+    res.json({ data: result });
+  }),
+);
+
+/** POST /reports/subsidiary-recon -- Subsidiary reconciliation (REP-006) */
+router.post(
+  '/reports/subsidiary-recon',
+  asyncHandler(async (req: any, res: any) => {
+    const { accountingUnitId, glHeadId, dateFrom, dateTo } = req.body;
+    if (!accountingUnitId || !glHeadId || !dateFrom || !dateTo) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'accountingUnitId, glHeadId, dateFrom, dateTo are required' },
+      });
+    }
+    const result = await glMasterService.runSubsidiaryRecon({
+      accountingUnitId: parseInt(accountingUnitId, 10),
+      glHeadId: parseInt(glHeadId, 10),
+      dateFrom,
+      dateTo,
+    });
+    res.json({ data: result });
+  }),
+);
+
+/** GET /reports/balance-sheet-comparative -- Comparative balance sheet (REP-003) */
+router.get(
+  '/reports/balance-sheet-comparative',
+  asyncHandler(async (req: any, res: any) => {
+    const { currentDate, priorDate, accountingUnitId } = req.query;
+    if (!currentDate || !priorDate) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'currentDate and priorDate are required' },
+      });
+    }
+    const result = await glMasterService.getBalanceSheetComparative({
+      currentDate: currentDate as string,
+      priorDate: priorDate as string,
+      accountingUnitId: accountingUnitId ? parseInt(accountingUnitId as string, 10) : undefined,
+    });
+    res.json({ data: result });
+  }),
+);
+
+// ============================================================================
+// Inter-Entity + Period Management APIs (Phase 4 — POST-008, POST-009, AE-007, BR-011)
+// ============================================================================
+
+/** POST /posting/inter-entity -- Create inter-entity journal */
+router.post(
+  '/posting/inter-entity',
+  asyncHandler(async (req: any, res: any) => {
+    const { entries, businessDate, narration } = req.body;
+    if (!entries || !Array.isArray(entries) || entries.length < 2 || !businessDate || !narration) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'entries (array), businessDate, and narration are required' },
+      });
+    }
+    const result = await glPostingEngine.createInterEntityJournal({
+      entries,
+      businessDate,
+      narration,
+      userId: req.userId ?? 1,
+    });
+    res.status(201).json({ data: result });
+  }),
+);
+
+/** GET /financial-periods -- List financial periods */
+router.get(
+  '/financial-periods',
+  asyncHandler(async (req: any, res: any) => {
+    const yearId = req.query.yearId ? parseInt(req.query.yearId as string, 10) : undefined;
+    const data = await glMasterService.getFinancialPeriods(yearId);
+    res.json({ data });
+  }),
+);
+
+/** POST /financial-periods -- Create financial period */
+router.post(
+  '/financial-periods',
+  asyncHandler(async (req: any, res: any) => {
+    const { year_id, period_code, period_name, start_date, end_date } = req.body;
+    if (!year_id || !period_code || !period_name || !start_date || !end_date) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'year_id, period_code, period_name, start_date, end_date are required' },
+      });
+    }
+    const record = await glMasterService.createFinancialPeriod(req.body);
+    res.status(201).json({ data: record });
+  }),
+);
+
+/** PUT /financial-periods/:id/reopen -- Reopen a closed financial period */
+router.put(
+  '/financial-periods/:id/reopen',
+  asyncHandler(async (req: any, res: any) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Invalid period ID' },
+      });
+    }
+    const { reason } = req.body;
+    if (!reason) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'reason is required to reopen a period' },
+      });
+    }
+    const result = await glMasterService.reopenFinancialPeriod(id, req.userId ?? 1, reason);
+    res.json({ data: result });
+  }),
+);
+
+/** POST /posting/batches/:id/partial-reverse -- Partial reversal (REV-001) */
+router.post(
+  '/posting/batches/:id/partial-reverse',
+  asyncHandler(async (req: any, res: any) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Invalid batch ID' },
+      });
+    }
+    const { lineNumbers, reason } = req.body;
+    if (!lineNumbers || !Array.isArray(lineNumbers) || !reason) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'lineNumbers (array) and reason are required' },
+      });
+    }
+    const result = await glPostingEngine.partialReverseBatch(id, lineNumbers, reason, req.userId ?? 1);
+    res.json({ data: result });
+  }),
+);
+
+/** POST /nav/reconcile -- NAV reconciliation with tolerance (BR-011) */
+router.post(
+  '/nav/reconcile',
+  asyncHandler(async (req: any, res: any) => {
+    const { fundId, navDate, tolerance } = req.body;
+    if (!fundId || !navDate) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'fundId and navDate are required' },
+      });
+    }
+    // NAV reconciliation via the FX reval service
+    const result = await glFxRevaluationService.reconcileNav(
+      parseInt(fundId, 10),
+      navDate,
+      tolerance ? parseFloat(tolerance) : 0.01,
+    );
+    res.json({ data: result });
+  }),
+);
+
+// ============================================================================
+// Accrual + Amortization APIs (Phase 3 — ACCR-001 to ACCR-003, BR-015, FEE-001)
+// ============================================================================
+
+/** POST /accruals/interest/run -- Run daily interest accrual */
+router.post(
+  '/accruals/interest/run',
+  asyncHandler(async (req: any, res: any) => {
+    const { businessDate } = req.body;
+    if (!businessDate) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'businessDate is required' },
+      });
+    }
+    const result = await glAccrualService.runDailyInterestAccrual(businessDate, req.userId ?? 1);
+    res.json({ data: result });
+  }),
+);
+
+/** POST /accruals/amortization/run -- Run daily amortization */
+router.post(
+  '/accruals/amortization/run',
+  asyncHandler(async (req: any, res: any) => {
+    const { businessDate } = req.body;
+    if (!businessDate) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'businessDate is required' },
+      });
+    }
+    const result = await glAccrualService.runDailyAmortization(businessDate, req.userId ?? 1);
+    res.json({ data: result });
+  }),
+);
+
+/** POST /accruals/reverse-on-payment -- Reverse accruals on income payment */
+router.post(
+  '/accruals/reverse-on-payment',
+  asyncHandler(async (req: any, res: any) => {
+    const { portfolioId, securityId, paymentDate, amount } = req.body;
+    if (!paymentDate || !amount) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'paymentDate and amount are required' },
+      });
+    }
+    const result = await glAccrualService.reverseAccrualOnPayment({
+      portfolioId,
+      securityId,
+      paymentDate,
+      amount: parseFloat(amount),
+      userId: req.userId ?? 1,
+    });
+    res.json({ data: result });
+  }),
+);
+
+/** GET /accruals/schedules -- List accrual schedules */
+router.get(
+  '/accruals/schedules',
+  asyncHandler(async (req: any, res: any) => {
+    const fundId = req.query.fundId ? parseInt(req.query.fundId as string, 10) : undefined;
+    const securityId = req.query.securityId ? parseInt(req.query.securityId as string, 10) : undefined;
+    const data = await glAccrualService.getAccrualSchedules({ fund_id: fundId, security_id: securityId });
+    res.json({ data });
+  }),
+);
+
+/** POST /accruals/schedules -- Create accrual schedule */
+router.post(
+  '/accruals/schedules',
+  asyncHandler(async (req: any, res: any) => {
+    const { day_count_convention, coupon_rate, face_value, accrual_gl_dr, accrual_gl_cr, effective_from } = req.body;
+    if (!day_count_convention || !coupon_rate || !face_value || !accrual_gl_dr || !accrual_gl_cr || !effective_from) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'day_count_convention, coupon_rate, face_value, accrual_gl_dr, accrual_gl_cr, effective_from are required' },
+      });
+    }
+    const record = await glAccrualService.createAccrualSchedule(req.body);
+    res.status(201).json({ data: record });
+  }),
+);
+
+/** GET /amortization/schedules -- List amortization schedules */
+router.get(
+  '/amortization/schedules',
+  asyncHandler(async (req: any, res: any) => {
+    const fundId = req.query.fundId ? parseInt(req.query.fundId as string, 10) : undefined;
+    const securityId = req.query.securityId ? parseInt(req.query.securityId as string, 10) : undefined;
+    const data = await glAccrualService.getAmortizationSchedules({ fund_id: fundId, security_id: securityId });
+    res.json({ data });
+  }),
+);
+
+/** POST /amortization/schedules -- Create amortization schedule */
+router.post(
+  '/amortization/schedules',
+  asyncHandler(async (req: any, res: any) => {
+    const { purchase_price, par_value, premium_discount, total_periods, amortization_gl_dr, amortization_gl_cr, maturity_date } = req.body;
+    if (!purchase_price || !par_value || !premium_discount || !total_periods || !amortization_gl_dr || !amortization_gl_cr || !maturity_date) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'purchase_price, par_value, premium_discount, total_periods, amortization_gl_dr, amortization_gl_cr, maturity_date are required' },
+      });
+    }
+    const record = await glAccrualService.createAmortizationSchedule(req.body);
+    res.status(201).json({ data: record });
+  }),
+);
+
+/** POST /fees/post-to-gl -- Post fee to GL (FEE-001) */
+router.post(
+  '/fees/post-to-gl',
+  asyncHandler(async (req: any, res: any) => {
+    const { feeType, amount, fundId, feeGlDr, feeGlCr, businessDate } = req.body;
+    if (!feeType || !amount || !feeGlDr || !feeGlCr || !businessDate) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'feeType, amount, feeGlDr, feeGlCr, businessDate are required' },
+      });
+    }
+    const result = await glAccrualService.postFeeToGl({
+      feeType,
+      amount: parseFloat(amount),
+      fundId: fundId ? parseInt(fundId, 10) : undefined,
+      feeGlDr,
+      feeGlCr,
+      businessDate,
+      userId: req.userId ?? 1,
+      narration: req.body.narration,
+    });
+    res.json({ data: result });
+  }),
+);
+
+/** POST /fees/aggregate-monthly -- Aggregate monthly fees (FEE-003) */
+router.post(
+  '/fees/aggregate-monthly',
+  asyncHandler(async (req: any, res: any) => {
+    const { month, fundId } = req.body;
+    if (!month) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'month (YYYY-MM) is required' },
+      });
+    }
+    const result = await glAccrualService.aggregateMonthlyFees(month, fundId ? parseInt(fundId, 10) : undefined);
+    res.json({ data: result });
+  }),
+);
+
+// ============================================================================
+// Batch Posting + SOD/EOD APIs (Phase 2 — POST-003, SOD-001, EOD-004, EOD-005)
+// ============================================================================
+
+/** POST /posting/batch -- Batch posting mode */
+router.post(
+  '/posting/batch',
+  asyncHandler(async (req: any, res: any) => {
+    const { events, autoAuthorizeUserId } = req.body;
+    if (!events || !Array.isArray(events) || events.length === 0) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'events array is required and must not be empty' },
+      });
+    }
+    const result = await glBatchProcessor.processBatch(
+      events,
+      autoAuthorizeUserId ?? req.userId ?? 1,
+    );
+    res.json({ data: result });
+  }),
+);
+
+/** POST /sod/run -- Run Start of Day */
+router.post(
+  '/sod/run',
+  asyncHandler(async (req: any, res: any) => {
+    const { businessDate } = req.body;
+    if (!businessDate) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'businessDate is required (YYYY-MM-DD)' },
+      });
+    }
+    const result = await glBatchProcessor.runStartOfDay(businessDate, req.userId ?? 1);
+    res.json({ data: result });
+  }),
+);
+
+/** GET /sod/status/:date -- SOD status */
+router.get(
+  '/sod/status/:date',
+  asyncHandler(async (req: any, res: any) => {
+    const result = await glBatchProcessor.getSodStatus(req.params.date);
+    res.json({ data: result });
+  }),
+);
+
+/** POST /eod/rollback/:runId -- Rollback EOD */
+router.post(
+  '/eod/rollback/:runId',
+  asyncHandler(async (req: any, res: any) => {
+    const runId = parseInt(req.params.runId, 10);
+    if (isNaN(runId)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Invalid run ID' },
+      });
+    }
+    const { reason } = req.body;
+    if (!reason) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'reason is required' },
+      });
+    }
+    const result = await glBatchProcessor.rollbackEodRun(runId, req.userId ?? 1, reason);
+    res.json({ data: result });
+  }),
+);
+
+/** GET /eod/status/:runId -- Detailed EOD status */
+router.get(
+  '/eod/status/:runId',
+  asyncHandler(async (req: any, res: any) => {
+    const runId = parseInt(req.params.runId, 10);
+    if (isNaN(runId)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Invalid run ID' },
+      });
+    }
+    const result = await glBatchProcessor.getDetailedEodStatus(runId);
+    res.json({ data: result });
+  }),
+);
+
+// ============================================================================
+// Authorization Matrix APIs (Phase 1 — AUTH-001, AUTH-003, AUTH-005, POST-006)
+// ============================================================================
+
+/** GET /auth-matrix -- List authorization matrix entries */
+router.get(
+  '/auth-matrix',
+  asyncHandler(async (req: any, res: any) => {
+    const entityType = req.query.entityType as string | undefined;
+    const data = await glAuthorizationService.getAuthorizationMatrixEntries(entityType);
+    res.json({ data });
+  }),
+);
+
+/** POST /auth-matrix -- Create authorization matrix entry */
+router.post(
+  '/auth-matrix',
+  asyncHandler(async (req: any, res: any) => {
+    const { entity_type, action, amount_from, amount_to, required_approvers, approval_level, role_required } = req.body;
+    if (!entity_type || !action) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'entity_type and action are required' },
+      });
+    }
+    const record = await glAuthorizationService.createAuthorizationMatrixEntry({
+      entity_type,
+      action,
+      amount_from,
+      amount_to,
+      required_approvers: required_approvers ?? 1,
+      approval_level: approval_level ?? 'STANDARD',
+      role_required,
+    });
+    res.status(201).json({ data: record });
+  }),
+);
+
+/** PUT /auth-matrix/:id -- Update authorization matrix entry */
+router.put(
+  '/auth-matrix/:id',
+  asyncHandler(async (req: any, res: any) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Invalid matrix entry ID' },
+      });
+    }
+    const updated = await glAuthorizationService.updateAuthorizationMatrixEntry(id, req.body);
+    if (!updated) {
+      return res.status(404).json({
+        error: { code: 'NOT_FOUND', message: `Matrix entry ${id} not found` },
+      });
+    }
+    res.json({ data: updated });
+  }),
+);
+
+/** GET /auth-audit/:objectType/:objectId -- Authorization audit trail */
+router.get(
+  '/auth-audit/:objectType/:objectId',
+  asyncHandler(async (req: any, res: any) => {
+    const { objectType, objectId } = req.params;
+    const id = parseInt(objectId, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Invalid object ID' },
+      });
+    }
+    const data = await glAuthorizationService.getApprovalHistory(objectType, id);
+    res.json({ data });
+  }),
+);
+
+/** POST /auth-matrix/evaluate -- Evaluate matrix for given params */
+router.post(
+  '/auth-matrix/evaluate',
+  asyncHandler(async (req: any, res: any) => {
+    const { entityType, action, amount } = req.body;
+    if (!entityType || !action) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'entityType and action are required' },
+      });
+    }
+    const result = await glAuthorizationService.evaluateMatrix({
+      entityType,
+      action,
+      amount: amount ? parseFloat(amount) : undefined,
+    });
+    res.json({ data: result });
   }),
 );
 

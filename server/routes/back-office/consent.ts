@@ -45,4 +45,49 @@ router.get('/erasure-queue', asyncHandler(async (req: any, res: any) => {
   res.json({ data: queue, total: queue.length });
 }));
 
+// ============================================================================
+// Breach Notifications (Phase 8E — Privacy / Data Protection)
+// ============================================================================
+
+/** GET /breach-notifications -- List breach notifications with optional status filter */
+router.get('/breach-notifications', asyncHandler(async (req: any, res: any) => {
+  const { status } = req.query;
+  const data = await consentService.getBreachNotifications(
+    status ? { status: status as string } : undefined,
+  );
+  res.json({ data, total: data.length });
+}));
+
+/** POST /breach-notifications -- Initiate a new breach notification */
+router.post('/breach-notifications', requireAnyRole('BO_HEAD', 'COMPLIANCE_OFFICER'), asyncHandler(async (req: any, res: any) => {
+  const { breach_type, affected_count, containment_log, remediation_plan } = req.body;
+  if (!breach_type || !affected_count || !containment_log || !remediation_plan) {
+    return res.status(400).json({
+      error: { code: 'INVALID_INPUT', message: 'breach_type, affected_count, containment_log, and remediation_plan are required' },
+    });
+  }
+
+  const result = await consentService.initiateBreachNotification({
+    breach_type,
+    affected_count: parseInt(affected_count, 10),
+    containment_log,
+    remediation_plan,
+  });
+  res.status(201).json({ data: result });
+}));
+
+/** POST /breach-notifications/:id/notify-npc -- Notify the NPC for a breach */
+router.post('/breach-notifications/:id/notify-npc', requireAnyRole('BO_HEAD', 'COMPLIANCE_OFFICER'), asyncHandler(async (req: any, res: any) => {
+  const breachId = req.params.id;
+  try {
+    const result = await consentService.notifyNPC(breachId);
+    res.json({ data: result });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'NPC notification failed';
+    return res.status(400).json({
+      error: { code: 'NPC_NOTIFY_FAILED', message },
+    });
+  }
+}));
+
 export default router;

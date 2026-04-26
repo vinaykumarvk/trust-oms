@@ -343,7 +343,7 @@ function RunsTab() {
   const qc = useQueryClient();
   const [reconDialogOpen, setReconDialogOpen] = useState(false);
 
-  const runsQuery = useQuery<ReconRun[]>({
+  const runsQuery = useQuery<{ data: ReconRun[] }>({
     queryKey: ["recon-runs"],
     queryFn: () =>
       apiRequest("GET", apiUrl("/api/v1/reconciliation/runs")),
@@ -454,14 +454,14 @@ function BreaksTab() {
   const [resolveTarget, setResolveTarget] = useState<string | null>(null);
 
   // Aging data
-  const agingQuery = useQuery<BreakAging[]>({
+  const agingQuery = useQuery<{ data: BreakAging[] }>({
     queryKey: ["recon-breaks-aging"],
     queryFn: () =>
       apiRequest("GET", apiUrl("/api/v1/reconciliation/breaks/aging")),
   });
 
   // Breaks list
-  const breaksQuery = useQuery<ReconBreak[]>({
+  const breaksQuery = useQuery<{ data: ReconBreak[] }>({
     queryKey: ["recon-breaks", statusFilter],
     queryFn: () => {
       const params = new URLSearchParams();

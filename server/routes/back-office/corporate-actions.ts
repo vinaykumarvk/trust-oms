@@ -15,7 +15,7 @@
  */
 
 import { Router } from 'express';
-import { requireBackOfficeRole, requireAnyRole } from '../../middleware/role-auth';
+import { requireBackOfficeRole, requireAnyRole, requireCARole, denyBusinessApproval } from '../../middleware/role-auth';
 import { corporateActionsService } from '../../services/corporate-actions-service';
 import { asyncHandler } from '../../middleware/async-handler';
 import { requireApproval } from '../../middleware/maker-checker';
@@ -251,6 +251,135 @@ router.post(
       const message = err instanceof Error ? err.message : 'Simulation failed';
       return res.status(400).json({
         error: { code: 'SIMULATION_FAILED', message },
+      });
+    }
+  }),
+);
+
+// ============================================================================
+// Amendment, Cancellation, Replay & Settlement Override (Phase 3C+)
+// ============================================================================
+
+/** PUT /:id/amend -- Amend a corporate action event */
+router.put(
+  '/:id/amend',
+  denyBusinessApproval(),
+  requireCARole(),
+  requireApproval('corporate_actions'),
+  asyncHandler(async (req, res) => {
+    const caId = parseInt(req.params.id, 10);
+    if (isNaN(caId)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Invalid corporate action ID' },
+      });
+    }
+
+    const { exDate, recordDate, paymentDate, ratio, amountPerShare, electionDeadline, source, type } = req.body;
+    const userId = (req as any).userId ?? 'unknown';
+
+    try {
+      const result = await corporateActionsService.amendEvent(
+        caId,
+        { exDate, recordDate, paymentDate, ratio, amountPerShare, electionDeadline, source, type },
+        userId,
+      );
+      res.json({ data: result });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Amendment failed';
+      return res.status(400).json({
+        error: { code: 'AMEND_FAILED', message },
+      });
+    }
+  }),
+);
+
+/** POST /:id/cancel -- Cancel a corporate action event */
+router.post(
+  '/:id/cancel',
+  denyBusinessApproval(),
+  requireCARole(),
+  requireApproval('corporate_actions'),
+  asyncHandler(async (req, res) => {
+    const caId = parseInt(req.params.id, 10);
+    if (isNaN(caId)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Invalid corporate action ID' },
+      });
+    }
+
+    const { reason } = req.body;
+    if (!reason) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Cancellation reason is required' },
+      });
+    }
+
+    const userId = (req as any).userId ?? 'unknown';
+
+    try {
+      const result = await corporateActionsService.cancelEvent(caId, reason, userId);
+      res.json({ data: result });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Cancellation failed';
+      return res.status(400).json({
+        error: { code: 'CANCEL_FAILED', message },
+      });
+    }
+  }),
+);
+
+/** POST /:id/replay -- Replay entitlement calculation from golden copy */
+router.post(
+  '/:id/replay',
+  requireCARole(),
+  asyncHandler(async (req, res) => {
+    const caId = parseInt(req.params.id, 10);
+    if (isNaN(caId)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Invalid corporate action ID' },
+      });
+    }
+
+    try {
+      const result = await corporateActionsService.replayEvent(caId);
+      res.json({ data: result });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Replay failed';
+      return res.status(400).json({
+        error: { code: 'REPLAY_FAILED', message },
+      });
+    }
+  }),
+);
+
+/** PUT /:id/settlement-date -- Override the settlement/payment date */
+router.put(
+  '/:id/settlement-date',
+  denyBusinessApproval(),
+  requireCARole(),
+  requireApproval('corporate_actions'),
+  asyncHandler(async (req, res) => {
+    const caId = parseInt(req.params.id, 10);
+    if (isNaN(caId)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Invalid corporate action ID' },
+      });
+    }
+
+    const { newDate, reason } = req.body;
+    if (!newDate || !reason) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'newDate and reason are required' },
+      });
+    }
+
+    try {
+      const result = await corporateActionsService.overrideSettlementDate(caId, newDate, reason);
+      res.json({ data: result });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Settlement date override failed';
+      return res.status(400).json({
+        error: { code: 'SETTLEMENT_OVERRIDE_FAILED', message },
       });
     }
   }),

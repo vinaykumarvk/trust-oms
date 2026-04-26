@@ -18,6 +18,12 @@ import { reconciliationService } from './reconciliation-service';
 import { ttraService } from './ttra-service';
 import { settlementService } from './settlement-service';
 import { exceptionQueueService } from './exception-queue-service';
+import { glAccrualService } from './gl-accrual-service';
+import { glBatchProcessor } from './gl-batch-processor';
+import { degradedModeService } from './degraded-mode-service';
+import { notionalAccountingService } from './notional-accounting-service';
+import { orderService } from './order-service';
+import { campaignEodBatch } from './campaign-service';
 
 type EodJob = InferSelectModel<typeof schema.eodJobs>;
 
@@ -46,6 +52,24 @@ const JOB_DEFINITIONS = [
   { name: 'exception_sweep', displayName: 'Exception Sweep', dependsOn: ['reversal_check', 'data_quality_check'] },
   { name: 'regulatory_report_gen', displayName: 'Regulatory Reports', dependsOn: ['exception_sweep'] },
   { name: 'daily_report', displayName: 'Daily Report', dependsOn: ['regulatory_report_gen'] },
+  // Collection triggers (TrustFees Pro Gap C12)
+  { name: 'collection_trigger', displayName: 'Collection Trigger', dependsOn: ['fee_accrual'] },
+  // DSAR deadline check (TrustFees Pro Gap A15)
+  { name: 'dsar_deadline_check', displayName: 'DSAR Deadline Check', dependsOn: [] as string[] },
+  // Regulatory calendar alerts (TrustFees Pro Gap A18)
+  { name: 'regulatory_calendar_alerts', displayName: 'Regulatory Calendar Alerts', dependsOn: [] as string[] },
+  // Cash sweep (Philippines BRD FR-SET-004)
+  { name: 'cash_sweep', displayName: 'Cash Sweep', dependsOn: ['settlement_processing'] },
+  // GL accrual/amortization jobs (Phase 3)
+  { name: 'gl_accrual_reversal', displayName: 'GL Accrual Auto-Reversal', dependsOn: ['fee_accrual'] },
+  { name: 'gl_interest_accrual', displayName: 'GL Interest Accrual', dependsOn: ['gl_accrual_reversal'] },
+  { name: 'gl_amortization', displayName: 'GL Amortization', dependsOn: ['gl_interest_accrual'] },
+  // Feed health check (Phase 5 — degraded-mode integration)
+  { name: 'feed_health_check', displayName: 'Feed Health Check', dependsOn: [] as string[] },
+  // GTD auto-cancel (Philippines BRD FR-ORD-013)
+  { name: 'gtd_auto_cancel', displayName: 'GTD Auto-Cancel Expired Orders', dependsOn: ['nav_validation'] },
+  // Campaign auto-completion & archival (CRM-CAM)
+  { name: 'campaign_eod_batch', displayName: 'Campaign Auto-Completion & Archival', dependsOn: [] as string[] },
 ];
 
 export const eodOrchestrator = {
@@ -246,6 +270,22 @@ export const eodOrchestrator = {
           break;
         }
 
+        // ----- GTD auto-cancel (Philippines BRD FR-ORD-013) -----
+        case 'gtd_auto_cancel': {
+          console.log(`[EOD] GTD auto-cancel for ${runDate}`);
+          const cancelResult = await orderService.autoCancelExpiredGTD();
+          recordsProcessed = cancelResult.cancelledCount;
+          break;
+        }
+
+        // ----- Cash sweep (Philippines BRD FR-SET-004) -----
+        case 'cash_sweep': {
+          console.log(`[EOD] Cash sweep for ${runDate}`);
+          const sweepResult = await settlementService.executeCashSweep();
+          recordsProcessed = sweepResult.sweepsTriggered;
+          break;
+        }
+
         // ----- CA jobs (Phase 9) -----
         case 'ca_entitlement_calc': {
           console.log(`[EOD] CA entitlement calculation for ${runDate}`);
@@ -408,10 +448,9 @@ export const eodOrchestrator = {
         }
 
         case 'notional_accounting': {
-          console.log(`[EOD] Notional accounting stub for ${runDate}`);
-          const delay = 500 + Math.floor(Math.random() * 1000);
-          await new Promise((resolve: (value: unknown) => void) => setTimeout(resolve, delay));
-          recordsProcessed = Math.floor(Math.random() * 30);
+          console.log(`[EOD] Notional accounting for ${runDate}`);
+          const notionalResult = await notionalAccountingService.runNotionalAccounting(runDate);
+          recordsProcessed = notionalResult.entries_created;
           break;
         }
 
@@ -453,6 +492,68 @@ export const eodOrchestrator = {
           break;
         }
 
+        // ----- Collection trigger (TrustFees Pro Gap C12) -----
+        case 'collection_trigger': {
+          console.log(`[EOD] Collection trigger check for ${runDate}`);
+          // Collection triggers are primarily API-driven; EOD job is a no-op sweep
+          recordsProcessed = 0;
+          break;
+        }
+
+        // ----- DSAR deadline check (TrustFees Pro Gap A15) -----
+        case 'dsar_deadline_check': {
+          console.log(`[EOD] DSAR deadline check for ${runDate}`);
+          // Will be wired to dsarService.checkSlaBreaches() once created
+          recordsProcessed = 0;
+          break;
+        }
+
+        // ----- Regulatory calendar alerts (TrustFees Pro Gap A18) -----
+        case 'regulatory_calendar_alerts': {
+          console.log(`[EOD] Regulatory calendar alerts for ${runDate}`);
+          // Will be wired to regulatoryCalendarService.checkNotifications() once created
+          recordsProcessed = 0;
+          break;
+        }
+
+        // ----- Feed health check (Phase 5 — degraded-mode) -----
+        case 'feed_health_check': {
+          console.log(`[EOD] Feed health check for ${runDate}`);
+          const feedReport = await degradedModeService.checkFeedHealth();
+          recordsProcessed = feedReport.feeds.length;
+          break;
+        }
+
+        // ----- GL Accrual/Amortization jobs (Phase 3) -----
+        case 'gl_accrual_reversal': {
+          console.log(`[EOD] GL accrual auto-reversal for ${runDate}`);
+          const reverseResult = await glAccrualService.autoReverseAccruals(runDate, 1);
+          recordsProcessed = reverseResult.reversed_count;
+          break;
+        }
+
+        case 'gl_interest_accrual': {
+          console.log(`[EOD] GL interest accrual for ${runDate}`);
+          const accrualResult = await glAccrualService.runDailyInterestAccrual(runDate, 1);
+          recordsProcessed = accrualResult.journals_posted;
+          break;
+        }
+
+        case 'gl_amortization': {
+          console.log(`[EOD] GL amortization for ${runDate}`);
+          const amortResult = await glAccrualService.runDailyAmortization(runDate, 1);
+          recordsProcessed = amortResult.journals_posted;
+          break;
+        }
+
+        // ----- Campaign auto-completion & archival (CRM-CAM) -----
+        case 'campaign_eod_batch': {
+          console.log(`[EOD] Campaign auto-completion & archival for ${runDate}`);
+          const campaignResult = await campaignEodBatch();
+          recordsProcessed = campaignResult.completedCount + campaignResult.archivedCount + campaignResult.handoversCancelledCount;
+          break;
+        }
+
         default: {
           // Default stub: simulate processing with a 1-3 second delay
           console.log(`[EOD] Unknown job ${job.job_name} stub for ${runDate}`);
@@ -488,6 +589,46 @@ export const eodOrchestrator = {
     } catch (err) {
       const durationMs = Date.now() - startTime;
       const errorMessage = err instanceof Error ? err.message : String(err);
+      const currentRetryCount = (job as any).retry_count ?? 0;
+      const maxRetries = (job as any).max_retries ?? 3;
+
+      // EOD-003: Auto-retry on failure if retry_count < max_retries
+      if (currentRetryCount < maxRetries) {
+        console.log(`[EOD] Job ${job.job_name} failed, auto-retrying (${currentRetryCount + 1}/${maxRetries}): ${errorMessage}`);
+        await db
+          .update(schema.eodJobs)
+          .set({
+            job_status: 'PENDING',
+            retry_count: currentRetryCount + 1,
+            error_message: `Retry ${currentRetryCount + 1}: ${errorMessage}`,
+            started_at: null,
+            completed_at: null,
+            duration_ms: null,
+          })
+          .where(eq(schema.eodJobs.id, jobId));
+
+        // Re-trigger the DAG to pick up the retried job
+        await this.checkAndAdvance(job.run_id);
+        return;
+      }
+
+      // Permanent failure — create posting exception for GL-related jobs
+      const glJobNames = ['gl_interest_accrual', 'gl_amortization', 'gl_accrual_reversal', 'gl_posting', 'gl_balance_snapshot'];
+      if (glJobNames.includes(job.job_name)) {
+        try {
+          await db.insert(schema.glPostingExceptions).values({
+            source_system: 'EOD',
+            exception_category: 'SYSTEM_ERROR',
+            error_message: `EOD job ${job.job_name} permanently failed after ${maxRetries} retries: ${errorMessage}`,
+            business_date: runDate,
+            retry_eligible: false,
+            related_object_type: 'EOD_JOB',
+            related_object_id: jobId,
+          });
+        } catch {
+          console.error(`[EOD] Failed to create posting exception for job ${job.job_name}`);
+        }
+      }
 
       await db
         .update(schema.eodJobs)
@@ -496,6 +637,7 @@ export const eodOrchestrator = {
           completed_at: new Date(),
           duration_ms: durationMs,
           error_message: errorMessage,
+          retry_count: currentRetryCount,
         })
         .where(eq(schema.eodJobs.id, jobId));
 
