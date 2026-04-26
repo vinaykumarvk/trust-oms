@@ -1,0 +1,97 @@
+{
+  "common": {
+    "save": "I-save",
+    "cancel": "Kanselahin",
+    "submit": "Isumite",
+    "approve": "Aprubahan",
+    "reject": "Tanggihan",
+    "delete": "Burahin",
+    "edit": "I-edit",
+    "search": "Maghanap",
+    "filter": "Salain",
+    "export": "I-export",
+    "loading": "Naglo-load...",
+    "noData": "Walang datos",
+    "confirm": "Kumpirmahin",
+    "back": "Bumalik",
+    "next": "Susunod",
+    "previous": "Nakaraan",
+    "close": "Isara",
+    "yes": "Oo",
+    "no": "Hindi",
+    "actions": "Mga Aksyon",
+    "status": "Katayuan",
+    "date": "Petsa",
+    "amount": "Halaga",
+    "total": "Kabuuan",
+    "details": "Mga Detalye"
+  },
+  "auth": {
+    "login": "Mag-login",
+    "logout": "Mag-logout",
+    "username": "Username",
+    "password": "Password",
+    "forgotPassword": "Nakalimutan ang password?",
+    "sessionExpired": "Nag-expire na ang session"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Maligayang pagdating",
+    "overview": "Pangkalahatang-tanaw",
+    "recentActivity": "Kamakailang aktibidad",
+    "pendingApprovals": "Mga naghihintay na pag-apruba"
+  },
+  "corporateActions": {
+    "title": "Mga Corporate Action",
+    "newEvent": "Bagong Kaganapan",
+    "eventType": "Uri ng Kaganapan",
+    "exDate": "Ex-Date",
+    "recordDate": "Record Date",
+    "paymentDate": "Payment Date",
+    "entitlements": "Mga Entitlement",
+    "elections": "Mga Halalan",
+    "settlement": "Pagsasaayos",
+    "amendment": "Pagbabago",
+    "cancellation": "Pagkansela"
+  },
+  "claims": {
+    "title": "Mga Claim",
+    "newClaim": "Bagong Claim",
+    "claimAmount": "Halaga ng Claim",
+    "rootCause": "Ugat na Dahilan",
+    "investigation": "Pagsisiyasat",
+    "approval": "Pag-apruba",
+    "settlement": "Kabayaran",
+    "slaStatus": "Katayuan ng SLA"
+  },
+  "tax": {
+    "title": "Buwis",
+    "wht": "Withholding Tax",
+    "ttra": "Aplikasyon ng TTRA",
+    "birForms": "Mga Form ng BIR",
+    "taxCorrection": "Pagwawasto ng Buwis",
+    "fatca": "Ulat ng FATCA",
+    "crs": "Ulat ng CRS"
+  },
+  "privacy": {
+    "title": "Privacy ng Datos",
+    "consent": "Pahintulot",
+    "erasure": "Pagbura",
+    "breach": "Paglabag sa Datos",
+    "npcNotification": "Abiso sa NPC",
+    "dpiaTitle": "Assessment sa Epekto ng Privacy"
+  },
+  "reports": {
+    "title": "Mga Ulat",
+    "generate": "Gumawa ng Ulat",
+    "schedule": "Iskedyul",
+    "regulatory": "Pang-regulasyon",
+    "internal": "Panloob"
+  },
+  "notifications": {
+    "title": "Mga Abiso",
+    "markRead": "Markahan bilang nabasa",
+    "markAllRead": "Markahan lahat bilang nabasa",
+    "noNotifications": "Walang abiso"
+  }
+}

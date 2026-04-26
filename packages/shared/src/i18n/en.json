@@ -1,0 +1,97 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "submit": "Submit",
+    "approve": "Approve",
+    "reject": "Reject",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "loading": "Loading...",
+    "noData": "No data",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "close": "Close",
+    "yes": "Yes",
+    "no": "No",
+    "actions": "Actions",
+    "status": "Status",
+    "date": "Date",
+    "amount": "Amount",
+    "total": "Total",
+    "details": "Details"
+  },
+  "auth": {
+    "login": "Log In",
+    "logout": "Log Out",
+    "username": "Username",
+    "password": "Password",
+    "forgotPassword": "Forgot password?",
+    "sessionExpired": "Session expired"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome",
+    "overview": "Overview",
+    "recentActivity": "Recent Activity",
+    "pendingApprovals": "Pending Approvals"
+  },
+  "corporateActions": {
+    "title": "Corporate Actions",
+    "newEvent": "New Event",
+    "eventType": "Event Type",
+    "exDate": "Ex-Date",
+    "recordDate": "Record Date",
+    "paymentDate": "Payment Date",
+    "entitlements": "Entitlements",
+    "elections": "Elections",
+    "settlement": "Settlement",
+    "amendment": "Amendment",
+    "cancellation": "Cancellation"
+  },
+  "claims": {
+    "title": "Claims",
+    "newClaim": "New Claim",
+    "claimAmount": "Claim Amount",
+    "rootCause": "Root Cause",
+    "investigation": "Investigation",
+    "approval": "Approval",
+    "settlement": "Settlement",
+    "slaStatus": "SLA Status"
+  },
+  "tax": {
+    "title": "Tax",
+    "wht": "Withholding Tax",
+    "ttra": "TTRA Application",
+    "birForms": "BIR Forms",
+    "taxCorrection": "Tax Correction",
+    "fatca": "FATCA Report",
+    "crs": "CRS Report"
+  },
+  "privacy": {
+    "title": "Data Privacy",
+    "consent": "Consent",
+    "erasure": "Erasure",
+    "breach": "Data Breach",
+    "npcNotification": "NPC Notification",
+    "dpiaTitle": "Privacy Impact Assessment"
+  },
+  "reports": {
+    "title": "Reports",
+    "generate": "Generate Report",
+    "schedule": "Schedule",
+    "regulatory": "Regulatory",
+    "internal": "Internal"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markRead": "Mark as read",
+    "markAllRead": "Mark all as read",
+    "noNotifications": "No notifications"
+  }
+}

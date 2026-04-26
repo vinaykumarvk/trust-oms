@@ -68,6 +68,7 @@ import dsarRouter from './routes/back-office/dsar';
 import regulatoryCalendarRouter from './routes/back-office/regulatory-calendar';
 import campaignRouter from './routes/back-office/campaigns';
 import serviceRequestRouter from './routes/back-office/service-requests';
+import srDocumentsRouter from './routes/back-office/sr-documents';
 import riskProfilingRouter from './routes/back-office/risk-profiling';
 import proposalsRouter from './routes/back-office/proposals';
 import leadMgmtRouter from './routes/back-office/leads';
@@ -291,6 +292,9 @@ export function registerRoutes(app: Express) {
   // Service Request / Task Management routes
   app.use('/api/v1/service-requests', serviceRequestRouter);
 
+  // Service Request Document Storage routes (Phase 3B)
+  app.use('/api/v1/service-requests', srDocumentsRouter);
+
   // Risk Profiling & Proposal Generation routes (RP-PGM Module)
   app.use('/api/v1/risk-profiling', riskProfilingRouter);
   app.use('/api/v1/proposals', proposalsRouter);
@@ -332,7 +336,7 @@ export function registerRoutes(app: Express) {
   app.use('/api/v1', backOfficeRouter);
 }
 
-// HAM delegation auto-expiry scheduler — runs every 60 minutes
+// HAM delegation auto-expiry scheduler — runs daily at midnight (BRD HAM-GAP-011)
 // Initial run is deferred 60 seconds to let the DB warm up
 setTimeout(() => {
   const runDelegationJobs = async () => {
@@ -344,6 +348,559 @@ setTimeout(() => {
       console.error('[HAM-Scheduler] delegation job failed:', err);
     }
   };
-  runDelegationJobs();
-  setInterval(runDelegationJobs, 60 * 60 * 1000); // every hour
+
+  // Schedule at next midnight, then repeat every 24 hours
+  const scheduleAtMidnight = () => {
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0); // next midnight
+    const msUntilMidnight = midnight.getTime() - now.getTime();
+    setTimeout(() => {
+      runDelegationJobs();
+      setInterval(runDelegationJobs, 24 * 60 * 60 * 1000); // every 24 hours
+    }, msUntilMidnight);
+  };
+
+  runDelegationJobs(); // immediate run on startup
+  scheduleAtMidnight();
 }, 60 * 1000); // defer 60s after startup
+
+// Campaign activation/completion scheduler — runs every 15 minutes
+// Activates APPROVED campaigns whose start_date has arrived and completes expired ACTIVE campaigns
+setTimeout(() => {
+  const runCampaignActivationJob = async () => {
+    try {
+      const { runActivationJob } = await import('./services/campaign-activation-job');
+      await runActivationJob();
+    } catch (err) {
+      console.error('[Campaign-Scheduler] activation job failed:', err);
+    }
+  };
+  runCampaignActivationJob();
+  setInterval(runCampaignActivationJob, 15 * 60 * 1000); // every 15 minutes
+}, 90 * 1000); // defer 90s after startup (after delegation job)
+
+// GAP-011: Approval auto-unclaim scheduler — nightly at midnight
+// Resets CLAIMED call-report approvals that have been held > 2 business days without a decision
+setTimeout(() => {
+  const runExpiredClaimsJob = async () => {
+    try {
+      const { approvalWorkflowService } = await import('./services/approval-workflow-service');
+      const released = await approvalWorkflowService.processExpiredClaims();
+      if (released > 0) console.log(`[Approval-Scheduler] Released ${released} expired claim(s)`);
+    } catch (err) {
+      console.error('[Approval-Scheduler] expired-claims job failed:', err);
+    }
+  };
+
+  const scheduleApprovalJobAtMidnight = () => {
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    setTimeout(() => {
+      runExpiredClaimsJob();
+      setInterval(runExpiredClaimsJob, 24 * 60 * 60 * 1000);
+    }, midnight.getTime() - now.getTime());
+  };
+
+  runExpiredClaimsJob();
+  scheduleApprovalJobAtMidnight();
+}, 120 * 1000); // defer 120s after startup
+
+// GAP-013: Overdue call report alert — daily at 9AM
+// Notifies RMs of DRAFT/RETURNED call reports where the meeting was > threshold days ago
+setTimeout(() => {
+  const runOverdueAlertJob = async () => {
+    try {
+      const { db: dbRef } = await import('./db');
+      const { default: schemaRef } = await import('@shared/schema') as any;
+      const { notificationInboxService } = await import('./services/notification-inbox-service');
+      const { and: drAnd, eq: drEq, lte: drLte, or: drOr, sql: drSql } = await import('drizzle-orm');
+
+      const thresholdDays = parseInt(process.env.CRM_LATE_FILING_DAYS ?? '5', 10) || 5;
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - thresholdDays);
+
+      const overdueReports = await dbRef
+        .select({
+          id: schemaRef.callReports.id,
+          report_code: schemaRef.callReports.report_code,
+          filed_by: schemaRef.callReports.filed_by,
+        })
+        .from(schemaRef.callReports)
+        .where(
+          drAnd(
+            drOr(
+              drEq(schemaRef.callReports.report_status, 'DRAFT'),
+              drEq(schemaRef.callReports.report_status, 'RETURNED'),
+            ),
+            drLte(drSql`DATE(${schemaRef.callReports.meeting_date})`, cutoff.toISOString().split('T')[0]),
+            drEq(schemaRef.callReports.is_deleted, false),
+          ),
+        );
+
+      for (const rpt of overdueReports) {
+        if (rpt.filed_by) {
+          await notificationInboxService.notify({
+            recipient_user_id: rpt.filed_by,
+            type: 'OVERDUE_CALL_REPORT',
+            title: 'Overdue Call Report',
+            message: `Call report ${rpt.report_code} is overdue. Please submit it as soon as possible to avoid late-filing escalation.`,
+            channel: 'IN_APP',
+            related_entity_type: 'call_report',
+            related_entity_id: rpt.id,
+          });
+        }
+      }
+
+      if (overdueReports.length > 0) {
+        console.log(`[OverdueAlert] Sent overdue reminders for ${overdueReports.length} call report(s)`);
+      }
+    } catch (err) {
+      console.error('[OverdueAlert] Error running overdue alert job:', err);
+    }
+  };
+
+  const scheduleOverdueAlertAt9AM = () => {
+    const now = new Date();
+    const next9AM = new Date(now);
+    next9AM.setHours(9, 0, 0, 0);
+    if (next9AM <= now) next9AM.setDate(next9AM.getDate() + 1);
+    setTimeout(() => {
+      runOverdueAlertJob();
+      setInterval(runOverdueAlertJob, 24 * 60 * 60 * 1000);
+    }, next9AM.getTime() - now.getTime());
+  };
+
+  scheduleOverdueAlertAt9AM();
+}, 150 * 1000); // defer 150s after startup
+
+// GAP-002: Opportunity auto-expiry — nightly at midnight
+// Sets opportunities with past expected_close_date to EXPIRED if still in active stages
+setTimeout(() => {
+  const runOpportunityExpiryJob = async () => {
+    try {
+      const { db: dbRef } = await import('./db');
+      const { default: schemaRef } = await import('@shared/schema') as any;
+      const { and: drAnd, eq: drEq, lt: drLt, notInArray: drNotInArray, sql: drSql } = await import('drizzle-orm');
+
+      const today = new Date().toISOString().split('T')[0];
+      const expiredOpportunities = await dbRef
+        .select({ id: schemaRef.opportunities.id })
+        .from(schemaRef.opportunities)
+        .where(
+          drAnd(
+            drNotInArray(schemaRef.opportunities.stage, ['WON', 'LOST', 'EXPIRED']),
+            drEq(schemaRef.opportunities.is_deleted, false),
+            drLt(schemaRef.opportunities.expected_close_date, today),
+          ),
+        );
+
+      if (expiredOpportunities.length > 0) {
+        for (const opp of expiredOpportunities) {
+          await dbRef
+            .update(schemaRef.opportunities)
+            .set({ stage: 'EXPIRED', updated_at: new Date(), updated_by: 'system-expiry-job' })
+            .where(drEq(schemaRef.opportunities.id, opp.id));
+        }
+        console.log(`[OpportunityExpiry] Expired ${expiredOpportunities.length} overdue opportunity/ies`);
+      }
+    } catch (err) {
+      console.error('[OpportunityExpiry] Error running opportunity expiry job:', err);
+    }
+  };
+
+  const scheduleOpportunityExpiryAtMidnight = () => {
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    setTimeout(() => {
+      runOpportunityExpiryJob();
+      setInterval(runOpportunityExpiryJob, 24 * 60 * 60 * 1000);
+    }, midnight.getTime() - now.getTime());
+  };
+
+  runOpportunityExpiryJob();
+  scheduleOpportunityExpiryAtMidnight();
+}, 180 * 1000); // defer 180s after startup
+
+// P1-14: Auto-complete past SCHEDULED meetings — nightly at midnight
+// Meetings in SCHEDULED status whose end_time is in the past are transitioned to COMPLETED
+setTimeout(() => {
+  const runMeetingAutoCompleteJob = async () => {
+    try {
+      const { db: dbRef } = await import('./db');
+      const schemaRef = await import('@shared/schema');
+      const { eq: drEq, and: drAnd, lt: drLt } = await import('drizzle-orm');
+
+      const pastMeetings = await dbRef
+        .select({ id: schemaRef.meetings.id, title: schemaRef.meetings.title })
+        .from(schemaRef.meetings)
+        .where(drAnd(
+          drEq(schemaRef.meetings.meeting_status, 'SCHEDULED'),
+          drEq(schemaRef.meetings.is_deleted, false),
+          drLt(schemaRef.meetings.end_time, new Date()),
+        ));
+
+      for (const meeting of pastMeetings) {
+        await dbRef
+          .update(schemaRef.meetings)
+          .set({ meeting_status: 'COMPLETED', updated_at: new Date() } as any)
+          .where(drEq(schemaRef.meetings.id, meeting.id));
+      }
+
+      if (pastMeetings.length > 0) {
+        console.log(`[MeetingAutoComplete] Completed ${pastMeetings.length} past meeting(s)`);
+      }
+    } catch (err) {
+      console.error('[MeetingAutoComplete] Error running auto-complete job:', err);
+    }
+  };
+
+  const scheduleMeetingAutoCompleteAtMidnight = () => {
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    setTimeout(() => {
+      runMeetingAutoCompleteJob();
+      setInterval(runMeetingAutoCompleteJob, 24 * 60 * 60 * 1000);
+    }, midnight.getTime() - now.getTime());
+  };
+
+  runMeetingAutoCompleteJob();
+  scheduleMeetingAutoCompleteAtMidnight();
+}, 210 * 1000); // defer 210s after startup
+
+// BR-032: SLA alert — SUBMITTED call reports >48h without review → notify BO_HEAD
+// Runs nightly at midnight
+setTimeout(() => {
+  const runCallReportSlaAlertJob = async () => {
+    try {
+      const { db: dbRef } = await import('./db');
+      const schemaRef = await import('@shared/schema');
+      const { eq: drEq, and: drAnd, lte: drLte, inArray: drInArray } = await import('drizzle-orm');
+      const { notificationInboxService: notifSvc } = await import('./services/notification-inbox-service');
+
+      const cutoff = new Date();
+      cutoff.setHours(cutoff.getHours() - 48);
+
+      const stalePending = await dbRef
+        .select({ id: schemaRef.callReports.id, report_code: schemaRef.callReports.report_code, branch_id: schemaRef.callReports.branch_id })
+        .from(schemaRef.callReports)
+        .where(drAnd(
+          drEq(schemaRef.callReports.report_status, 'PENDING_APPROVAL'),
+          drLte(schemaRef.callReports.updated_at, cutoff),
+        ));
+
+      for (const report of stalePending) {
+        // Find BO_HEAD users in the same branch
+        const boHeads = await dbRef
+          .select({ id: schemaRef.users.id })
+          .from(schemaRef.users)
+          .where(drEq((schemaRef.users as any).role, 'BO_HEAD'));
+        const recipientIds = boHeads.map((u: { id: number }) => u.id);
+        if (recipientIds.length > 0) {
+          await notifSvc.notifyMultiple(recipientIds, {
+            type: 'CALL_REPORT_SLA_BREACH',
+            title: 'Call Report SLA Breach',
+            message: `Call report ${report.report_code} has been pending approval for more than 48 hours.`,
+            channel: 'IN_APP',
+            related_entity_type: 'call_report',
+            related_entity_id: report.id,
+          });
+        }
+      }
+
+      if (stalePending.length > 0) {
+        console.log(`[CallReportSLA] Alerted BO_HEAD for ${stalePending.length} stale pending report(s)`);
+      }
+    } catch (err) {
+      console.error('[CallReportSLA] Error running SLA alert job:', err);
+    }
+  };
+
+  const scheduleCallReportSlaAtMidnight = () => {
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    setTimeout(() => {
+      runCallReportSlaAlertJob();
+      setInterval(runCallReportSlaAlertJob, 24 * 60 * 60 * 1000);
+    }, midnight.getTime() - now.getTime());
+  };
+
+  runCallReportSlaAlertJob();
+  scheduleCallReportSlaAtMidnight();
+}, 240 * 1000); // defer 240s after startup
+
+// P1-13: Meeting reminder notifications — runs every hour
+// Queries meetings needing reminders and dispatches in-app notifications to organiser
+setTimeout(() => {
+  const runMeetingReminderJob = async () => {
+    try {
+      const { meetingService } = await import('./services/meeting-service');
+      const { notificationInboxService: notifSvc } = await import('./services/notification-inbox-service');
+      const pendingReminders = await meetingService.getPendingReminders();
+      for (const meeting of pendingReminders) {
+        if (meeting.organizer_user_id) {
+          await notifSvc.notify({
+            recipient_user_id: meeting.organizer_user_id,
+            type: 'MEETING_REMINDER',
+            title: 'Meeting Reminder',
+            message: `Reminder: "${meeting.title}" is scheduled for ${new Date(meeting.start_time).toLocaleString()}.`,
+            channel: 'IN_APP',
+            related_entity_type: 'meeting',
+            related_entity_id: meeting.id,
+          });
+        }
+        // Mark reminder_sent so we don't re-notify
+        const { db: dbRef } = await import('./db');
+        const schemaRef = await import('@shared/schema');
+        const { eq: drEq } = await import('drizzle-orm');
+        await dbRef.update(schemaRef.meetings)
+          .set({ reminder_sent: true, updated_at: new Date() } as any)
+          .where(drEq(schemaRef.meetings.id, meeting.id));
+      }
+      if (pendingReminders.length > 0) {
+        console.log(`[MeetingReminder] Sent ${pendingReminders.length} reminder(s)`);
+      }
+    } catch (err) {
+      console.error('[MeetingReminder] Error running reminder job:', err);
+    }
+  };
+  runMeetingReminderJob();
+  setInterval(runMeetingReminderJob, 60 * 60 * 1000); // every hour
+}, 270 * 1000); // defer 270s after startup
+
+// GAP-037: 24-hour advance meeting reminder — runs every hour
+// Notifies organiser 24h ahead of meeting (separate from the 1h reminder above)
+setTimeout(() => {
+  const run24hReminderJob = async () => {
+    try {
+      const { meetingService } = await import('./services/meeting-service');
+      const { notificationInboxService: notifSvc } = await import('./services/notification-inbox-service');
+      const meetings = await meetingService.get24hPendingReminders();
+      for (const meeting of meetings) {
+        if (meeting.organizer_user_id) {
+          await notifSvc.notify({
+            recipient_user_id: meeting.organizer_user_id,
+            type: 'MEETING_REMINDER',
+            title: 'Meeting Tomorrow',
+            message: `Reminder: "${meeting.title}" is scheduled for ${new Date(meeting.start_time).toLocaleString()} — approximately 24 hours from now.`,
+            channel: 'IN_APP',
+            related_entity_type: 'meeting',
+            related_entity_id: meeting.id,
+          });
+        }
+      }
+      if (meetings.length > 0) {
+        console.log(`[Meeting24hReminder] Sent ${meetings.length} 24-hour reminder(s)`);
+      }
+    } catch (err) {
+      console.error('[Meeting24hReminder] Error running 24h reminder job:', err);
+    }
+  };
+  run24hReminderJob();
+  setInterval(run24hReminderJob, 60 * 60 * 1000); // every hour
+}, 300 * 1000); // defer 300s after startup
+
+// BR-053: Task reminder notifications — runs daily at 8AM
+// Notifies assignees of tasks whose reminder_date is today
+setTimeout(() => {
+  const runTaskReminderJob = async () => {
+    try {
+      const { taskManagementService } = await import('./services/task-management-service');
+      const { notificationInboxService: notifSvc } = await import('./services/notification-inbox-service');
+      const tasksDue = await taskManagementService.getTasksNeedingReminder();
+      for (const task of tasksDue) {
+        const recipientId = task.assigned_to ?? (task as any).created_by_user_id;
+        if (recipientId && typeof recipientId === 'number') {
+          await notifSvc.notify({
+            recipient_user_id: recipientId,
+            type: 'TASK_REMINDER',
+            title: 'Task Reminder',
+            message: `Reminder: Task "${task.title}" (${task.task_code}) is due on ${task.due_date}.`,
+            channel: 'IN_APP',
+            related_entity_type: 'crm_task',
+            related_entity_id: task.id,
+          });
+        }
+      }
+      if (tasksDue.length > 0) {
+        console.log(`[TaskReminder] Sent ${tasksDue.length} task reminder(s)`);
+      }
+    } catch (err) {
+      console.error('[TaskReminder] Error running task reminder job:', err);
+    }
+  };
+  const scheduleTaskReminderAt8AM = () => {
+    const now = new Date();
+    const next8AM = new Date(now);
+    next8AM.setHours(8, 0, 0, 0);
+    if (next8AM <= now) next8AM.setDate(next8AM.getDate() + 1);
+    setTimeout(() => {
+      runTaskReminderJob();
+      setInterval(runTaskReminderJob, 24 * 60 * 60 * 1000);
+    }, next8AM.getTime() - now.getTime());
+  };
+  runTaskReminderJob();
+  scheduleTaskReminderAt8AM();
+}, 300 * 1000); // defer 300s after startup
+
+// P2-20: Completed action items archival — runs nightly at midnight
+// Action items COMPLETED more than 90 days ago are soft-deleted (archived)
+setTimeout(() => {
+  const runActionItemArchivalJob = async () => {
+    try {
+      const { db: dbRef } = await import('./db');
+      const schemaRef = await import('@shared/schema');
+      const { and: drAnd, eq: drEq, lte: drLte } = await import('drizzle-orm');
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 90);
+      const archived = await dbRef
+        .update(schemaRef.actionItems)
+        .set({ is_deleted: true, updated_at: new Date() } as any)
+        .where(drAnd(
+          drEq(schemaRef.actionItems.status, 'COMPLETED'),
+          drLte(schemaRef.actionItems.completed_at, cutoff),
+          drEq(schemaRef.actionItems.is_deleted, false),
+        ))
+        .returning({ id: schemaRef.actionItems.id });
+      if (archived.length > 0) {
+        console.log(`[ActionItemArchival] Archived ${archived.length} completed action item(s) older than 90 days`);
+      }
+    } catch (err) {
+      console.error('[ActionItemArchival] Error running archival job:', err);
+    }
+  };
+  const scheduleArchivalAtMidnight = () => {
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    setTimeout(() => {
+      runActionItemArchivalJob();
+      setInterval(runActionItemArchivalJob, 24 * 60 * 60 * 1000);
+    }, midnight.getTime() - now.getTime());
+  };
+  runActionItemArchivalJob();
+  scheduleArchivalAtMidnight();
+}, 330 * 1000); // defer 330s after startup
+
+// G-091: Proposal auto-expiry — nightly at midnight
+// SENT_TO_CLIENT proposals whose expires_at has passed are transitioned to EXPIRED
+setTimeout(() => {
+  const runProposalExpiryJob = async () => {
+    try {
+      const { db: dbRef } = await import('./db');
+      const schemaRef = await import('@shared/schema');
+      const { and: drAnd, eq: drEq, lte: drLte } = await import('drizzle-orm');
+      const now = new Date();
+      const expired = await dbRef
+        .update(schemaRef.investmentProposals)
+        .set({ proposal_status: 'EXPIRED', updated_at: new Date(), updated_by: 'system-expiry-job' } as any)
+        .where(drAnd(
+          drEq(schemaRef.investmentProposals.proposal_status, 'SENT_TO_CLIENT'),
+          drLte(schemaRef.investmentProposals.expires_at, now),
+          drEq(schemaRef.investmentProposals.is_deleted, false),
+        ))
+        .returning({ id: schemaRef.investmentProposals.id });
+      if (expired.length > 0) {
+        console.log(`[ProposalExpiry] Expired ${expired.length} proposal(s)`);
+      }
+    } catch (err) {
+      console.error('[ProposalExpiry] Error running proposal expiry job:', err);
+    }
+  };
+  const scheduleProposalExpiryAtMidnight = () => {
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    setTimeout(() => {
+      runProposalExpiryJob();
+      setInterval(runProposalExpiryJob, 24 * 60 * 60 * 1000);
+    }, midnight.getTime() - now.getTime());
+  };
+  runProposalExpiryJob();
+  scheduleProposalExpiryAtMidnight();
+}, 360 * 1000); // defer 360s after startup
+
+// CCR-GAP-011: Auto-unclaim stale call-report approvals (claimed > 2 business days without action)
+// Runs nightly at midnight
+setTimeout(() => {
+  const runAutoUnclaimJob = async () => {
+    try {
+      const { db: dbRef } = await import('./db');
+      const schemaRef = await import('@shared/schema');
+      const { eq: drEq, and: drAnd, lte: drLte } = await import('drizzle-orm');
+
+      // 2 business days ≈ 48h for simplicity (no calendar needed)
+      const cutoff = new Date();
+      cutoff.setHours(cutoff.getHours() - 48);
+
+      const stale = await dbRef
+        .select({ id: schemaRef.callReportApprovals.id })
+        .from(schemaRef.callReportApprovals)
+        .where(drAnd(
+          drEq(schemaRef.callReportApprovals.action, 'CLAIMED'),
+          drLte(schemaRef.callReportApprovals.claimed_at, cutoff),
+        ));
+
+      if (stale.length > 0) {
+        for (const item of stale) {
+          await dbRef
+            .update(schemaRef.callReportApprovals)
+            .set({ action: 'PENDING', claimed_at: null, updated_at: new Date() } as any)
+            .where(drEq(schemaRef.callReportApprovals.id, item.id));
+        }
+        console.log(`[AutoUnclaim] Released ${stale.length} stale claimed approval(s) back to PENDING`);
+      }
+    } catch (err) {
+      console.error('[AutoUnclaim] Error running auto-unclaim job:', err);
+    }
+  };
+
+  const scheduleAutoUnclaimAtMidnight = () => {
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    setTimeout(() => {
+      runAutoUnclaimJob();
+      setInterval(runAutoUnclaimJob, 24 * 60 * 60 * 1000);
+    }, midnight.getTime() - now.getTime());
+  };
+  runAutoUnclaimJob();
+  scheduleAutoUnclaimAtMidnight();
+}, 390 * 1000); // defer 390s after startup
+
+// HAM-GAP-008: Handover SLA alert — runs every hour
+// Notifies the requesting_rm + checker supervisor when a handover breaches its sla_deadline
+setTimeout(() => {
+  const runHandoverSlaAlertJob = async () => {
+    try {
+      const { handoverService } = await import('./services/handover-service');
+      const { notificationInboxService: notifSvc } = await import('./services/notification-inbox-service');
+      const breached = await handoverService.getSlaBreachedHandovers();
+      for (const h of breached) {
+        const recipients = [h.outgoing_rm_id, h.incoming_rm_id].filter(Boolean) as number[];
+        for (const recipientId of recipients) {
+          await notifSvc.notify({
+            recipient_user_id: recipientId,
+            type: 'HANDOVER_SLA_BREACH',
+            title: 'Handover SLA Breached',
+            message: `Handover request (ID: ${h.id}) has exceeded its SLA deadline and is awaiting authorization.`,
+            channel: 'IN_APP',
+            related_entity_type: 'handover',
+            related_entity_id: h.id,
+          });
+        }
+      }
+      if (breached.length > 0) {
+        console.log(`[HandoverSLA] Alerted for ${breached.length} SLA-breached handover(s)`);
+      }
+    } catch (err) {
+      console.error('[HandoverSLA] Error running SLA alert job:', err);
+    }
+  };
+  runHandoverSlaAlertJob();
+  setInterval(runHandoverSlaAlertJob, 60 * 60 * 1000); // every hour
+}, 420 * 1000); // defer 420s after startup

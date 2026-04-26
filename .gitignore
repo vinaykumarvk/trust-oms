@@ -17,6 +17,10 @@ dist
 # Test coverage
 coverage
 
+# Local file storage (document uploads, statement files)
+uploads/
+.storage/
+
 # Vite
 .vite
 
