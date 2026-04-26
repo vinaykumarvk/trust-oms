@@ -10,7 +10,10 @@ export const pool = connectionString
       max: process.env.NODE_ENV === 'production' ? 10 : 20,
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 10_000,
-      ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false },
+      // Disable SSL for unix sockets (Cloud SQL proxy) and localhost; enable for remote TCP
+      ssl: (connectionString.includes('localhost') || connectionString.includes('/cloudsql/') || connectionString.includes('sslmode=disable'))
+        ? false
+        : { rejectUnauthorized: false },
     })
   : ({ query: () => { throw new Error('DATABASE_URL not set'); }, end: async () => {} } as any);
 
