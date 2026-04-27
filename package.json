@@ -18,6 +18,8 @@
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
     "check": "tsc",
+    "smoke:platform": "tsx server/scripts/smoke-platform-services.ts",
+    "compute:features": "tsx server/jobs/compute-features.ts",
     "test": "vitest",
     "test:run": "vitest run"
   },

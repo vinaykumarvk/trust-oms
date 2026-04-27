@@ -757,32 +757,56 @@ export const leadListService = {
           case 'EQUAL':
             if (cond.field === 'client_category') conditions.push(eq(sql`${schema.clients.type}`, val));
             if (cond.field === 'risk_profile') conditions.push(eq(schema.clients.risk_profile, val as any));
+            // G-001: additional field mappings
+            if (cond.field === 'country') conditions.push(eq(sql`${schema.clients.contact}->>'country'`, val));
+            if (cond.field === 'branch') conditions.push(eq(sql`CAST(${schema.clients.assigned_rm_id} AS text)`, val));
+            if (cond.field === 'asset_class') conditions.push(eq(sql`(SELECT asset_class FROM portfolios p WHERE p.client_id = ${schema.clients.client_id} LIMIT 1)`, val));
+            if (cond.field === 'product_subscription') conditions.push(sql`EXISTS (SELECT 1 FROM portfolios p WHERE p.client_id = ${schema.clients.client_id} AND p.type::text = ${val})`);
             break;
           case 'GT':
           case 'GREATER_THAN':
             if (cond.field === 'total_aum') conditions.push(gt(sql`CAST(${schema.portfolios.aum} AS numeric)`, Number(val)));
+            // G-001: trv (total relationship value) maps to leads.trv via existing_client_id
+            if (cond.field === 'trv') conditions.push(sql`EXISTS (SELECT 1 FROM leads l WHERE l.existing_client_id = ${schema.clients.client_id} AND CAST(l.trv AS numeric) > ${Number(val)})`);
             break;
           case 'LT':
           case 'LESS_THAN':
             if (cond.field === 'total_aum') conditions.push(lt(sql`CAST(${schema.portfolios.aum} AS numeric)`, Number(val)));
+            if (cond.field === 'trv') conditions.push(sql`EXISTS (SELECT 1 FROM leads l WHERE l.existing_client_id = ${schema.clients.client_id} AND CAST(l.trv AS numeric) < ${Number(val)})`);
             break;
           case 'GTE':
             if (cond.field === 'total_aum') conditions.push(gte(sql`CAST(${schema.portfolios.aum} AS numeric)`, Number(val)));
+            if (cond.field === 'trv') conditions.push(sql`EXISTS (SELECT 1 FROM leads l WHERE l.existing_client_id = ${schema.clients.client_id} AND CAST(l.trv AS numeric) >= ${Number(val)})`);
             break;
           case 'LTE':
             if (cond.field === 'total_aum') conditions.push(lte(sql`CAST(${schema.portfolios.aum} AS numeric)`, Number(val)));
+            if (cond.field === 'trv') conditions.push(sql`EXISTS (SELECT 1 FROM leads l WHERE l.existing_client_id = ${schema.clients.client_id} AND CAST(l.trv AS numeric) <= ${Number(val)})`);
             break;
           case 'NEQ':
           case 'NOT_EQUAL':
             if (cond.field === 'client_category') conditions.push(ne(sql`${schema.clients.type}`, val));
             if (cond.field === 'risk_profile') conditions.push(ne(schema.clients.risk_profile, val as any));
+            // G-002: NEQ field mappings
+            if (cond.field === 'country') conditions.push(sql`${schema.clients.contact}->>'country' != ${val}`);
+            if (cond.field === 'product_subscription') conditions.push(sql`NOT EXISTS (SELECT 1 FROM portfolios p WHERE p.client_id = ${schema.clients.client_id} AND p.type::text = ${val})`);
             break;
-          case 'IN':
-            if (cond.field === 'risk_profile') conditions.push(inArray(schema.clients.risk_profile, val.split(',').map((v) => v.trim()) as any[]));
+          case 'IN': {
+            const inVals = val.split(',').map((v) => v.trim());
+            if (cond.field === 'risk_profile') conditions.push(inArray(schema.clients.risk_profile, inVals as any[]));
+            // G-002: IN operator for additional fields
+            if (cond.field === 'client_category') conditions.push(sql`${schema.clients.type} = ANY(ARRAY[${sql.join(inVals.map((v) => sql`${v}`), sql`, `)}])`);
+            if (cond.field === 'country') conditions.push(sql`${schema.clients.contact}->>'country' = ANY(ARRAY[${sql.join(inVals.map((v) => sql`${v}`), sql`, `)}])`);
+            if (cond.field === 'asset_class') conditions.push(sql`EXISTS (SELECT 1 FROM portfolios p WHERE p.client_id = ${schema.clients.client_id} AND p.type::text = ANY(ARRAY[${sql.join(inVals.map((v) => sql`${v}`), sql`, `)}]))`);
             break;
-          case 'NOT_IN':
-            if (cond.field === 'risk_profile') conditions.push(notInArray(schema.clients.risk_profile, val.split(',').map((v) => v.trim()) as any[]));
+          }
+          case 'NOT_IN': {
+            const notInVals = val.split(',').map((v) => v.trim());
+            if (cond.field === 'risk_profile') conditions.push(notInArray(schema.clients.risk_profile, notInVals as any[]));
+            // G-002: NOT_IN operator for additional fields
+            if (cond.field === 'client_category') conditions.push(sql`${schema.clients.type} != ALL(ARRAY[${sql.join(notInVals.map((v) => sql`${v}`), sql`, `)}])`);
+            if (cond.field === 'country') conditions.push(sql`${schema.clients.contact}->>'country' != ALL(ARRAY[${sql.join(notInVals.map((v) => sql`${v}`), sql`, `)}])`);
             break;
+          }
         }
       }
 

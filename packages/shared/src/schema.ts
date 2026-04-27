@@ -4377,7 +4377,13 @@ export const campaignResponses = pgTable('campaign_responses', {
   list_member_id: integer('list_member_id').references(() => leadListMembers.id),
   follow_up_action: text('follow_up_action'),
   ...auditFields,
-});
+}, (t) => ({
+  // G-024: one active response per lead per campaign; soft-deleted rows are excluded so
+  // a re-opened campaign or re-targeting doesn't violate the constraint.
+  campaignLeadResponseUnique: uniqueIndex('campaign_lead_response_unique')
+    .on(t.campaign_id, t.lead_id)
+    .where(sql`is_deleted = false`),
+}));
 
 // 7. campaign_communications
 export const campaignCommunications = pgTable('campaign_communications', {
@@ -4504,6 +4510,9 @@ export const meetings = pgTable('meetings', {
   reminder_1h_sent: boolean('reminder_1h_sent').default(false).notNull(),
   notes: text('notes'),
   cancel_reason: text('cancel_reason'),
+  // AC-029: Reschedule creates a new meeting; old meeting is marked RESCHEDULED
+  parent_meeting_id: integer('parent_meeting_id'),  // ID of the original meeting this was rescheduled from
+  rescheduled_to_id: integer('rescheduled_to_id'),  // ID of the new meeting this was rescheduled into
   ...auditFields,
 });
 
@@ -4547,6 +4556,7 @@ export const callReports = pgTable('call_reports', {
   follow_up_date: date('follow_up_date'),
   follow_up_report_id: integer('follow_up_report_id'),
   parent_report_id: integer('parent_report_id'),
+  linked_call_report_id: integer('linked_call_report_id'),  // AC-058: link to a related call report for cross-reference (self-ref; no FK to avoid circular type)
   attachment_urls: jsonb('attachment_urls').default('[]'),
   report_status: callReportStatusEnum('report_status').notNull().default('DRAFT'),
   requires_supervisor_approval: boolean('requires_supervisor_approval').default(false).notNull(),
@@ -4571,6 +4581,9 @@ export const callReports = pgTable('call_reports', {
   from_location: text('from_location'),
   to_location: text('to_location'),
   expense_notes: text('expense_notes'),
+  // AI auto-tagging — populated asynchronously after report submission
+  // via the Platform Intelligence Service (platform-intelligence-client.ts)
+  ai_tags: jsonb('ai_tags'),  // { topics: string[], sentiment: string, action_items: string[], keywords: string[] }
   ...auditFields,
 },
 (table) => [

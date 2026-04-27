@@ -38,6 +38,18 @@ export const MEETING_REASONS = [
   { value: 'OTHER', label: 'Other' },
 ] as const;
 
+/** AC-007: Calendar block colors keyed by meeting_reason (used in preference to status colors) */
+export const meetingReasonBlockColors: Record<string, string> = {
+  INITIAL_MEETING: 'bg-teal-200 dark:bg-teal-800 border-teal-400 dark:border-teal-600',
+  PORTFOLIO_REVIEW: 'bg-blue-200 dark:bg-blue-800 border-blue-400 dark:border-blue-600',
+  PRODUCT_PRESENTATION: 'bg-purple-200 dark:bg-purple-800 border-purple-400 dark:border-purple-600',
+  RELATIONSHIP_CHECK_IN: 'bg-green-200 dark:bg-green-800 border-green-400 dark:border-green-600',
+  COMPLAINT_RESOLUTION: 'bg-rose-200 dark:bg-rose-800 border-rose-400 dark:border-rose-600',
+  ONBOARDING: 'bg-orange-200 dark:bg-orange-800 border-orange-400 dark:border-orange-600',
+  REGULATORY: 'bg-yellow-200 dark:bg-yellow-800 border-yellow-400 dark:border-yellow-600',
+  OTHER: 'bg-gray-200 dark:bg-gray-700 border-gray-400 dark:border-gray-600',
+};
+
 export const meetingStatusColors: Record<string, string> = {
   SCHEDULED: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
   COMPLETED: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',

@@ -148,6 +148,21 @@ router.get('/campaign-dashboard/stats', async (_req, res) => {
   }
 });
 
+/** G-003: Dry-run preview for lead list rule — returns estimated audience count without writing to DB */
+router.post('/lead-lists/preview', async (req, res) => {
+  try {
+    const { rules } = req.body;
+    if (!rules || typeof rules !== 'object' || Array.isArray(rules)) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'rules must be a CriteriaNode object' } });
+    }
+    // Reuse the existing rule preview engine via leadRuleService
+    const result = await leadRuleService.previewMatchCount(rules);
+    res.json({ data: { estimated_count: result.count } });
+  } catch (e: unknown) {
+    res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: errMsg(e) } });
+  }
+});
+
 /** Rule dry-run / preview — BRD CAMP-002 */
 router.post('/lead-rules/preview', async (req, res) => {
   try {
@@ -687,7 +702,9 @@ router.get('/conversion-history/funnel', async (_req, res) => {
 router.post('/communications/:id/retry', async (req, res) => {
   try {
     const commId = parseId(req.params.id);
-    const userId = String((req as any).user?.id ?? 0);
+    const rawUserId = (req as any).user?.id ?? (req as any).userId;
+    const userId = rawUserId ? String(rawUserId) : '';
+    if (!userId) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
     const result = await campaignDispatchService.retryDispatch(commId, userId);
     res.json(result);
   } catch (e: unknown) {

@@ -21,8 +21,12 @@ const router = Router();
 // Submit call report for approval (now requires userId for approval routing)
 router.post('/:id/submit', requireCRMRole(), async (req, res) => {
   try {
-    const userId = (req as any).user?.id ?? parseInt((req as any).userId);
-    const data = await callReportService.submit(parseId(req.params.id), userId);
+    const userId = (req as any).user?.id ?? parseInt((req as any).userId, 10);
+    if (!userId || isNaN(userId)) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    const callerRole = (req as any).user?.role as string | undefined;
+    const data = await callReportService.submit(parseId(req.params.id), userId, callerRole);
     res.json(data);
   } catch (err: unknown) {
     const status = httpStatusFromError(err);

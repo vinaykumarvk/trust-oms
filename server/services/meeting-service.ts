@@ -454,37 +454,93 @@ export const meetingService = {
       );
     }
 
-    const rescheduled = await db.transaction(async (tx: typeof db) => {
-      const [updated] = await tx.update(schema.meetings)
+    // CRIT-2: Generate code before the transaction to avoid using pool inside tx.
+    // The DB unique constraint on meeting_code remains the authoritative collision guard.
+    const newMeetingCode = await generateMeetingCode();
+
+    // AC-029: Reschedule creates a NEW meeting and marks old as RESCHEDULED
+    const newMeeting = await db.transaction(async (tx: typeof db) => {
+      // 1. Read existing invitees BEFORE making any changes (HIGH-5: avoid reading stale state)
+      const existingInvitees = await tx.select().from(schema.meetingInvitees)
+        .where(eq(schema.meetingInvitees.meeting_id, id));
+
+      // 2. Create the new meeting with all the same fields but new times and parent_meeting_id set
+      const [created] = await tx.insert(schema.meetings).values({
+        meeting_code: newMeetingCode,
+        title: meeting.title,
+        meeting_type: meeting.meeting_type,
+        mode: meeting.mode ?? undefined,
+        purpose: meeting.purpose ?? undefined,
+        meeting_reason: meeting.meeting_reason ?? undefined,
+        meeting_reason_other: meeting.meeting_reason_other ?? undefined,
+        is_all_day: meeting.is_all_day,
+        campaign_id: meeting.campaign_id ?? undefined,
+        lead_id: meeting.lead_id ?? undefined,
+        prospect_id: meeting.prospect_id ?? undefined,
+        client_id: meeting.client_id ?? undefined,
+        related_entity_type: meeting.related_entity_type ?? undefined,
+        related_entity_id: meeting.related_entity_id ?? undefined,
+        organizer_user_id: meeting.organizer_user_id,
+        start_time: startTime,
+        end_time: endTime,
+        location: meeting.location ?? undefined,
+        reminder_minutes: meeting.reminder_minutes ?? 30,
+        notes: meeting.notes ?? undefined,
+        relationship_name: meeting.relationship_name ?? undefined,
+        contact_phone: meeting.contact_phone ?? undefined,
+        contact_email: meeting.contact_email ?? undefined,
+        branch_id: meeting.branch_id ?? undefined,
+        meeting_status: 'SCHEDULED',
+        reminder_sent: false,
+        parent_meeting_id: id,   // AC-029: link back to original meeting
+        created_by: userId ? String(userId) : undefined,
+      }).returning();
+
+      // 3. Mark the old meeting as RESCHEDULED and store the reference to the new meeting
+      await tx.update(schema.meetings)
         .set({
-          start_time: startTime,
-          end_time: endTime,
-          meeting_status: 'SCHEDULED',
+          meeting_status: 'RESCHEDULED',
+          rescheduled_to_id: created.id,
           updated_at: new Date(),
           updated_by: userId ? String(userId) : null,
         })
-        .where(eq(schema.meetings.id, id))
-        .returning();
+        .where(eq(schema.meetings.id, id));
+
+      // 4. Copy existing invitees to the new meeting (read before tx started — see HIGH-5 fix)
+      if (existingInvitees.length > 0) {
+        await tx.insert(schema.meetingInvitees).values(
+          existingInvitees.map((inv: MeetingInvitee) => ({
+            meeting_id: created.id,
+            user_id: inv.user_id ?? undefined,
+            lead_id: inv.lead_id ?? undefined,
+            prospect_id: inv.prospect_id ?? undefined,
+            client_id: inv.client_id ?? undefined,
+            is_required: inv.is_required,
+            rsvp_status: 'PENDING' as const,
+            attended: false,
+          })),
+        );
+      }
 
       await insertConversationHistory({
         lead_id: meeting.lead_id,
         prospect_id: meeting.prospect_id,
         client_id: meeting.client_id,
         interaction_type: 'MEETING_RESCHEDULED',
-        summary: `Meeting "${meeting.title}" rescheduled from ${meeting.start_time?.toLocaleDateString()} to ${startTime.toLocaleDateString()}`,
+        summary: `Meeting "${meeting.title}" rescheduled from ${meeting.start_time?.toLocaleDateString()} to ${startTime.toLocaleDateString()} (new meeting #${created.id})`,
         reference_type: 'MEETING',
-        reference_id: id,
+        reference_id: created.id,
         created_by: userId ? String(userId) : null,
       }, tx);
 
-      return updated;
+      return created;
     });
 
     // AC-030: Notify all attendees of reschedule
     try {
       const invitees = await db.select({ user_id: schema.meetingInvitees.user_id })
         .from(schema.meetingInvitees)
-        .where(eq(schema.meetingInvitees.meeting_id, id));
+        .where(eq(schema.meetingInvitees.meeting_id, newMeeting.id));
       const recipientIds = invitees
         .map((i: { user_id: number | null }) => i.user_id)
         .filter((uid: number | null): uid is number => uid !== null && uid !== userId);
@@ -495,14 +551,14 @@ export const meetingService = {
           message: `Meeting "${meeting.title}" has been rescheduled from ${meeting.start_time?.toLocaleDateString()} to ${startTime.toLocaleDateString()}.`,
           channel: 'IN_APP',
           related_entity_type: 'meeting',
-          related_entity_id: id,
+          related_entity_id: newMeeting.id,
         });
       }
     } catch (notifErr) {
       console.error('[Meeting] Failed to notify attendees of reschedule:', notifErr);
     }
 
-    return rescheduled;
+    return newMeeting;
   },
 
   async getCalendarData(userId: number, startDate: string, endDate: string): Promise<MeetingRow[]> {
@@ -590,6 +646,38 @@ export const meetingService = {
   },
 
   /**
+   * BR-008: Auto-transition past meetings to COMPLETED.
+   *
+   * Queries for SCHEDULED meetings whose end_time is more than 1 hour in the
+   * past and batch-updates them to COMPLETED. Run as a fire-and-forget
+   * side-effect when listing meetings so the calendar always reflects reality.
+   */
+  async autoCompletePastMeetings(): Promise<void> {
+    // Only auto-complete meetings older than 1 hour (to allow for running meetings)
+    const cutoff = new Date(Date.now() - 60 * 60 * 1000);
+    try {
+      await db
+        .update(schema.meetings)
+        .set({
+          meeting_status: 'COMPLETED',
+          completed_at: new Date(),
+          call_report_status: 'PENDING',
+          updated_at: new Date(),
+          updated_by: 'SYSTEM',   // HIGH-4: mark system-driven completions for audit trail
+        })
+        .where(
+          and(
+            eq(schema.meetings.meeting_status, 'SCHEDULED'),
+            lte(schema.meetings.end_time, cutoff),
+          ),
+        );
+    } catch (err) {
+      // Non-fatal — log and move on
+      console.error('[Meeting] BR-008 autoCompletePastMeetings failed:', err);
+    }
+  },
+
+  /**
    * Enhanced calendar data endpoint with filters and pagination.
    */
   async getFilteredCalendarData(filters: {
@@ -603,6 +691,9 @@ export const meetingService = {
     page?: number;
     pageSize?: number;
   }): Promise<{ data: MeetingRow[]; total: number; page: number; pageSize: number }> {
+    // BR-008: Fire-and-forget auto-completion of past SCHEDULED meetings
+    void this.autoCompletePastMeetings();
+
     const page = filters.page ?? 1;
     const pageSize = Math.min(filters.pageSize ?? 100, 200);
     const offset = (page - 1) * pageSize;

@@ -50,6 +50,7 @@ import {
   type NavSection,
   type NavItem,
 } from "@/config/navigation";
+import { AICopilot } from "@/components/ai/AICopilot";
 
 const SIDEBAR_COLLAPSED_KEY = "trustoms-sidebar-collapsed";
 
@@ -568,6 +569,9 @@ export function BackOfficeLayout() {
               <Outlet />
             </div>
           </main>
+
+          {/* AI Copilot floating panel — available on all back-office pages */}
+          <AICopilot />
         </div>
       </div>
     </TooltipProvider>

@@ -15,6 +15,7 @@ import { NotFoundError, ForbiddenError, ConflictError, ValidationError } from '.
 import { notificationInboxService } from './notification-inbox-service';
 import { taskManagementService } from './task-management-service';
 import { marketCalendarService } from './market-calendar-service';
+import { tagCallReport } from './platform-intelligence-client';
 
 type CallReport = typeof schema.callReports.$inferSelect;
 type ActionItem = typeof schema.actionItems.$inferSelect;
@@ -404,6 +405,26 @@ export const callReportService = {
   },
 
   /**
+   * Fire-and-forget AI tagging via Platform Intelligence Service.
+   * Stores the returned tags (topics, sentiment, action_items, keywords)
+   * back onto the call report. Does NOT block the submit response.
+   */
+  _backgroundTag(reportId: number, summary: string, clientId?: string | null): void {
+    tagCallReport(reportId, summary, clientId ?? undefined)
+      .then(async (tags) => {
+        if (!tags) return; // platform not configured or unavailable
+        await db
+          .update(schema.callReports)
+          .set({ ai_tags: tags as any, updated_at: new Date() })
+          .where(eq(schema.callReports.id, reportId));
+      })
+      .catch((err: unknown) => {
+        // Non-fatal — log and move on
+        console.warn('[call-report-service] AI tagging failed:', err instanceof Error ? err.message : err);
+      });
+  },
+
+  /**
    * Submit a call report for approval or auto-approve.
    *
    * - Calculates business days since meeting
@@ -413,7 +434,7 @@ export const callReportService = {
    * - Logs to conversation history
    * - Auto-creates next meeting if dates provided
    */
-  async submit(id: number, userId: number): Promise<CallReport> {
+  async submit(id: number, userId: number, callerRole?: string): Promise<CallReport> {
     const [report] = await db
       .select()
       .from(schema.callReports)
@@ -428,6 +449,11 @@ export const callReportService = {
       throw new ForbiddenError('Not authorized to modify this call report');
     }
 
+    // BR-028: BRANCH_ASSOCIATE can only file standalone call reports
+    if (callerRole === 'BRANCH_ASSOCIATE' && report.report_type !== 'STANDALONE') {
+      throw new ForbiddenError('BRANCH_ASSOCIATE role can only file standalone call reports.');
+    }
+
     if (report.report_status !== 'DRAFT' && report.report_status !== 'RETURNED') {
       throw new ValidationError(
         `Cannot submit call report in status "${report.report_status}". Only DRAFT or RETURNED reports can be submitted.`,
@@ -438,7 +464,7 @@ export const callReportService = {
 
     // Standalone reports always auto-approve — skip the threshold check
     if (report.report_type === 'STANDALONE') {
-      return await db.transaction(async (tx: typeof db) => {
+      const result = await db.transaction(async (tx: typeof db) => {
         const [updated] = await tx
           .update(schema.callReports)
           // Drizzle .set() requires exact column types; dynamic field map needs cast
@@ -498,6 +524,11 @@ export const callReportService = {
 
         return updated;
       });
+
+      // Fire-and-forget AI tagging (non-blocking)
+      this._backgroundTag(id, report.summary, report.client_id);
+
+      return result;
     }
 
     const [daysSinceMeeting, lateFilingThreshold] = await Promise.all([
@@ -506,7 +537,7 @@ export const callReportService = {
     ]);
     const requiresApproval = daysSinceMeeting > lateFilingThreshold;
 
-    return await db.transaction(async (tx: typeof db) => {
+    const submitted = await db.transaction(async (tx: typeof db) => {
       let updatePayload: Record<string, unknown>;
 
       if (requiresApproval) {
@@ -638,6 +669,11 @@ export const callReportService = {
 
       return updated;
     });
+
+    // Fire-and-forget AI tagging (non-blocking)
+    this._backgroundTag(id, report.summary, report.client_id);
+
+    return submitted;
   },
 
   /**

@@ -34,8 +34,9 @@ import { toast } from 'sonner';
 import {
   Calendar, Clock, Plus, FileText, AlertTriangle,
   Video, Phone, Users, CheckCircle,
-  Eye, ClipboardList, ChevronLeft, ChevronRight,
+  Eye, EyeOff, ClipboardList, ChevronLeft, ChevronRight,
   MapPin, Link as LinkIcon, LayoutGrid, LayoutList, Columns, CalendarDays,
+  Sparkles, Loader2,
 } from 'lucide-react';
 import { fetcher, mutationFn } from '@/lib/api';
 import {
@@ -44,6 +45,7 @@ import {
   MEETING_PURPOSES,
   MEETING_REASONS,
   meetingStatusColors,
+  meetingReasonBlockColors,
   callReportStatusColors,
   actionPriorityColors,
   actionStatusColors,
@@ -264,6 +266,8 @@ export default function MeetingsCalendar() {
   const [listPage, setListPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [newMeeting, setNewMeeting] = useState<NewMeetingForm>({ ...emptyMeetingForm });
+  // BR-011: toggle cancelled visibility in calendar views
+  const [showCancelled, setShowCancelled] = useState(true);
 
   // --- Date range computation based on view ---
   const dateRange = useMemo(() => {
@@ -363,6 +367,25 @@ export default function MeetingsCalendar() {
     (m) => new Date(m.scheduled_start) < now || m.meeting_status === 'CANCELLED',
   );
 
+  // BR-011: filter cancelled from calendar blocks when toggle is off
+  const visibleCalendarMeetings = useMemo(() => {
+    if (showCancelled) return calendarMeetings;
+    return calendarMeetings.filter((m) => m.meeting_status !== 'CANCELLED');
+  }, [calendarMeetings, showCancelled]);
+
+  // BR-014: subject auto-suggest from existing meeting titles
+  const meetingTitleSuggestions = useMemo(() => {
+    const seen = new Set<string>();
+    const titles: string[] = [];
+    for (const m of allMeetings) {
+      if (m.title && !seen.has(m.title)) {
+        seen.add(m.title);
+        titles.push(m.title);
+      }
+    }
+    return titles.slice(0, 30);
+  }, [allMeetings]);
+
   // --- KPI Calculations ---
   const kpiStartOfWeek = new Date();
   kpiStartOfWeek.setDate(kpiStartOfWeek.getDate() - kpiStartOfWeek.getDay());
@@ -437,13 +460,13 @@ export default function MeetingsCalendar() {
   // --- Group meetings by date for calendar views ---
   const meetingsByDate = useMemo(() => {
     const map = new Map<string, MeetingRecord[]>();
-    for (const m of calendarMeetings) {
+    for (const m of visibleCalendarMeetings) {
       const key = formatDateISO(new Date(m.scheduled_start));
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(m);
     }
     return map;
-  }, [calendarMeetings]);
+  }, [visibleCalendarMeetings]);
 
   // --- Month grid cells ---
   const monthGridCells = useMemo(() => {
@@ -497,6 +520,67 @@ export default function MeetingsCalendar() {
     return d.getHours() * 60 + d.getMinutes();
   }
 
+  // --- Meeting Prep dialog ---
+  const [prepMeeting, setPrepMeeting]   = useState<MeetingRecord | null>(null);
+  const [prepLoading, setPrepLoading]   = useState(false);
+  const [prepContent, setPrepContent]   = useState<{
+    brief: string;
+    talking_points: string[];
+    compliance_notes: string[];
+  } | null>(null);
+  const [prepError, setPrepError]       = useState<string | null>(null);
+
+  async function openMeetingPrep(meeting: MeetingRecord) {
+    setPrepMeeting(meeting);
+    setPrepContent(null);
+    setPrepError(null);
+    setPrepLoading(true);
+    try {
+      const clientParam = meeting.client_id ? `&client_id=${meeting.client_id}` : '';
+      const res = await fetch(
+        `/api/v1/intelligence/meeting-prep/${meeting.id}?${clientParam}`,
+        { credentials: 'include' },
+      );
+      if (res.ok) {
+        setPrepContent(await res.json());
+      } else if (res.status === 503) {
+        setPrepError('Platform intelligence service is not yet configured.');
+      } else {
+        setPrepError('Failed to load meeting prep brief.');
+      }
+    } catch {
+      setPrepError('Connection error. Please try again.');
+    } finally {
+      setPrepLoading(false);
+    }
+  }
+
+  // --- AC-007: Calendar block color (reason takes precedence over status) ---
+  function getMeetingBlockColor(m: MeetingRecord): string {
+    if (m.meeting_reason && meetingReasonBlockColors[m.meeting_reason]) {
+      return meetingReasonBlockColors[m.meeting_reason];
+    }
+    return getMeetingBlockColor(m);
+  }
+
+  // --- BR-015: Warn if new meeting time overlaps an existing one ---
+  function warnIfOverlapping(start: string, end: string) {
+    if (!start || !end || start >= end) return;
+    const newStart = new Date(start).getTime();
+    const newEnd = new Date(end).getTime();
+    const overlap = allMeetings.find((m) => {
+      if (m.meeting_status === 'CANCELLED' || m.meeting_status === 'RESCHEDULED') return false;
+      const mStart = new Date(m.scheduled_start).getTime();
+      const mEnd = new Date(m.scheduled_end).getTime();
+      return newStart < mEnd && newEnd > mStart;
+    });
+    if (overlap) {
+      toast.warning(
+        `Overlaps with "${overlap.title}" (${formatTime(overlap.scheduled_start)} – ${formatTime(overlap.scheduled_end)})`,
+      );
+    }
+  }
+
   // --- Pulsing indicator for pending call reports ---
   function PulsingDot() {
     return (
@@ -509,51 +593,102 @@ export default function MeetingsCalendar() {
 
   // --- Complete button / File Call Report link ---
   function MeetingActions({ meeting }: { meeting: MeetingRecord }) {
-    if (meeting.meeting_status === 'SCHEDULED' && new Date(meeting.scheduled_end) < new Date()) {
+    const isPast      = new Date(meeting.scheduled_end) < new Date();
+    const hasClient   = !!meeting.client_id;
+
+    if (meeting.meeting_status === 'SCHEDULED' && isPast) {
+      return (
+        <div className="flex items-center gap-1">
+          {hasClient && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-purple-600 hover:text-purple-700 h-7 px-2"
+              onClick={(e) => { e.stopPropagation(); openMeetingPrep(meeting); }}
+              title="AI meeting prep brief"
+            >
+              <Sparkles className="h-4 w-4 mr-1" />
+              Prepare
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-green-600 hover:text-green-700 h-7 px-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              completeMutation.mutate(meeting.id);
+            }}
+            disabled={completeMutation.isPending}
+            title="Mark as completed"
+          >
+            <CheckCircle className="h-4 w-4 mr-1" />
+            Complete
+          </Button>
+        </div>
+      );
+    }
+    if (meeting.meeting_status === 'SCHEDULED' && !isPast && hasClient) {
       return (
         <Button
           size="sm"
           variant="ghost"
-          className="text-green-600 hover:text-green-700 h-7 px-2"
-          onClick={(e) => {
-            e.stopPropagation();
-            completeMutation.mutate(meeting.id);
-          }}
-          disabled={completeMutation.isPending}
-          title="Mark as completed"
+          className="text-purple-600 hover:text-purple-700 h-7 px-2"
+          onClick={(e) => { e.stopPropagation(); openMeetingPrep(meeting); }}
+          title="AI meeting prep brief"
         >
-          <CheckCircle className="h-4 w-4 mr-1" />
-          Complete
+          <Sparkles className="h-4 w-4 mr-1" />
+          Prepare
         </Button>
       );
     }
     if (meeting.meeting_status === 'COMPLETED') {
       return (
-        <Button
-          size="sm"
-          variant="ghost"
-          className="text-blue-600 hover:text-blue-700 h-7 px-2"
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/crm/call-reports/new?meetingId=${meeting.id}`);
-          }}
-          title="File call report"
-        >
-          <FileText className="h-4 w-4 mr-1" />
-          File Call Report
-        </Button>
+        <div className="flex items-center gap-1">
+          {hasClient && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-purple-600 hover:text-purple-700 h-7 px-2"
+              onClick={(e) => { e.stopPropagation(); openMeetingPrep(meeting); }}
+              title="AI meeting prep brief"
+            >
+              <Sparkles className="h-4 w-4 mr-1" />
+              Prepare
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-blue-600 hover:text-blue-700 h-7 px-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/crm/call-reports/new?meetingId=${meeting.id}`);
+            }}
+            title="File call report"
+          >
+            <FileText className="h-4 w-4 mr-1" />
+            File Call Report
+          </Button>
+        </div>
       );
     }
     return null;
   }
 
-  // --- Meeting title with pulsing indicator ---
+  // --- Meeting title with pulsing indicator and BR-007 strikethrough for cancelled ---
   function MeetingTitle({ meeting, truncate = false }: { meeting: MeetingRecord; truncate?: boolean }) {
     const showPulse = meeting.meeting_status === 'COMPLETED' && meeting.call_report_status === 'PENDING';
+    const isCancelled = meeting.meeting_status === 'CANCELLED';
     return (
       <span className={`flex items-center gap-1 ${truncate ? 'truncate' : ''}`}>
         {showPulse && <PulsingDot />}
-        <span className={truncate ? 'truncate' : ''}>{meeting.title}</span>
+        <span className={[
+          truncate ? 'truncate' : '',
+          isCancelled ? 'line-through opacity-60' : '',
+        ].filter(Boolean).join(' ')}>
+          {meeting.title}
+        </span>
       </span>
     );
   }
@@ -608,7 +743,7 @@ export default function MeetingsCalendar() {
                       key={m.id}
                       className={[
                         'text-[10px] leading-tight px-1 py-0.5 rounded truncate border-l-2',
-                        statusBlockColors[m.meeting_status] || 'bg-gray-100 dark:bg-gray-800',
+                        getMeetingBlockColor(m),
                       ].join(' ')}
                       title={`${m.title} (${formatTime(m.scheduled_start)})`}
                     >
@@ -651,7 +786,7 @@ export default function MeetingsCalendar() {
                         key={m.id}
                         className={[
                           'flex items-start justify-between p-3 rounded-lg border-l-4',
-                          statusBlockColors[m.meeting_status] || 'bg-muted',
+                          getMeetingBlockColor(m),
                         ].join(' ')}
                       >
                         <div className="flex-1 min-w-0 space-y-1">
@@ -799,7 +934,7 @@ export default function MeetingsCalendar() {
                       key={m.id}
                       className={[
                         'absolute left-0.5 right-0.5 rounded px-1 py-0.5 border-l-2 overflow-hidden cursor-pointer hover:opacity-90 transition-opacity',
-                        statusBlockColors[m.meeting_status] || 'bg-muted',
+                        getMeetingBlockColor(m),
                       ].join(' ')}
                       style={{ top: topPx, height: heightPx }}
                       title={`${m.title} (${formatTime(m.scheduled_start)} - ${formatTime(m.scheduled_end)})`}
@@ -887,7 +1022,7 @@ export default function MeetingsCalendar() {
                   key={m.id}
                   className={[
                     'absolute left-2 right-2 rounded-lg p-3 border-l-4 overflow-hidden shadow-sm',
-                    statusBlockColors[m.meeting_status] || 'bg-muted',
+                    getMeetingBlockColor(m),
                   ].join(' ')}
                   style={{ top: topPx, height: heightPx }}
                 >
@@ -1324,16 +1459,22 @@ export default function MeetingsCalendar() {
             <DialogTitle>Schedule New Meeting</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {/* Title */}
+            {/* Title — BR-014: auto-suggest from prior meeting subjects */}
             <div>
               <label className="text-sm font-medium">Title *</label>
               <Input
+                list="meeting-title-suggestions"
                 placeholder="e.g. Q2 Portfolio Review"
                 value={newMeeting.title}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   setNewMeeting({ ...newMeeting, title: e.target.value })
                 }
               />
+              <datalist id="meeting-title-suggestions">
+                {meetingTitleSuggestions.map((t, i) => (
+                  <option key={i} value={t} />
+                ))}
+              </datalist>
             </div>
 
             {/* Meeting Type + Purpose */}
@@ -1457,9 +1598,12 @@ export default function MeetingsCalendar() {
                 <Input
                   type={newMeeting.is_all_day ? 'date' : 'datetime-local'}
                   value={newMeeting.scheduled_end}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setNewMeeting({ ...newMeeting, scheduled_end: e.target.value })
-                  }
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    const newEnd = e.target.value;
+                    setNewMeeting({ ...newMeeting, scheduled_end: newEnd });
+                    // BR-015: warn (non-blocking) if times overlap an existing meeting
+                    if (!newMeeting.is_all_day) warnIfOverlapping(newMeeting.scheduled_start, newEnd);
+                  }}
                 />
               </div>
             </div>
@@ -1581,22 +1725,37 @@ export default function MeetingsCalendar() {
       {/* View Switcher Toolbar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-muted/30 border rounded-lg p-3">
         {/* View toggle buttons */}
-        <div className="flex items-center gap-1 rounded-md border bg-background p-1">
-          {viewButtons.map(({ view, label, icon: Icon }) => (
-            <Button
-              key={view}
-              size="sm"
-              variant={calendarView === view ? 'default' : 'ghost'}
-              className="h-8 px-3 text-xs"
-              onClick={() => {
-                setCalendarView(view);
-                setSelectedDay(null);
-              }}
-            >
-              <Icon className="h-3.5 w-3.5 mr-1.5" />
-              {label}
-            </Button>
-          ))}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 rounded-md border bg-background p-1">
+            {viewButtons.map(({ view, label, icon: Icon }) => (
+              <Button
+                key={view}
+                size="sm"
+                variant={calendarView === view ? 'default' : 'ghost'}
+                className="h-8 px-3 text-xs"
+                onClick={() => {
+                  setCalendarView(view);
+                  setSelectedDay(null);
+                }}
+              >
+                <Icon className="h-3.5 w-3.5 mr-1.5" />
+                {label}
+              </Button>
+            ))}
+          </div>
+          {/* BR-011: show/hide cancelled meetings in calendar views */}
+          <Button
+            size="sm"
+            variant={showCancelled ? 'secondary' : 'outline'}
+            className="h-8 px-3 text-xs"
+            onClick={() => setShowCancelled((v) => !v)}
+            title={showCancelled ? 'Hide cancelled meetings' : 'Show cancelled meetings'}
+          >
+            {showCancelled
+              ? <Eye className="h-3.5 w-3.5 mr-1.5" />
+              : <EyeOff className="h-3.5 w-3.5 mr-1.5" />}
+            Cancelled
+          </Button>
         </div>
 
         {/* Date label */}
@@ -1635,6 +1794,71 @@ export default function MeetingsCalendar() {
       {!calendarPending && calendarView === 'week' && renderWeekView()}
       {!calendarPending && calendarView === 'day' && renderDayView()}
       {calendarView === 'list' && renderListView()}
+
+      {/* Meeting Prep Dialog */}
+      <Dialog open={!!prepMeeting} onOpenChange={(open) => { if (!open) { setPrepMeeting(null); setPrepContent(null); setPrepError(null); } }}>
+        <DialogContent className="max-w-xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-purple-600" />
+              Meeting Prep — {prepMeeting?.title}
+            </DialogTitle>
+          </DialogHeader>
+
+          {prepLoading && (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Generating brief…</span>
+            </div>
+          )}
+
+          {prepError && (
+            <div className="rounded-md border border-orange-200 bg-orange-50 p-4 text-sm text-orange-800">
+              {prepError}
+            </div>
+          )}
+
+          {prepContent && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold mb-1">Brief</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{prepContent.brief}</p>
+              </div>
+
+              {prepContent.talking_points.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold mb-1">Talking Points</h3>
+                  <ul className="list-disc pl-4 space-y-1">
+                    {prepContent.talking_points.map((pt, i) => (
+                      <li key={i} className="text-sm text-muted-foreground">{pt}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {prepContent.compliance_notes.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold mb-1 flex items-center gap-1">
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                    Compliance Notes
+                  </h3>
+                  <ul className="list-disc pl-4 space-y-1">
+                    {prepContent.compliance_notes.map((note, i) => (
+                      <li key={i} className="text-sm text-amber-700">{note}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setPrepMeeting(null); setPrepContent(null); setPrepError(null); }}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

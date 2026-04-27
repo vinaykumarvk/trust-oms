@@ -26,6 +26,8 @@ import opportunityRoutes from './opportunities';
 import systemConfigRoutes from './system-config';
 import clientMessageRoutes from './client-messages';
 import boStatementRoutes from './statements';
+import featureRoutes from './features';
+import intelligenceRoutes from './intelligence';
 
 const router = Router();
 
@@ -821,5 +823,10 @@ router.use(
     entityKey: 'campaign-translations',
   }),
 );
+
+// ─── Platform Services ────────────────────────────────────────────────────────
+
+router.use('/features',      featureRoutes);
+router.use('/intelligence',  intelligenceRoutes);
 
 export default router;
