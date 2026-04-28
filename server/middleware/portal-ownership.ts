@@ -27,6 +27,7 @@ interface ViolationState {
   count: number;
   windowStart: number;
   alerted: boolean; // true once a security alert has been fired in this window
+  totalCount: number; // cumulative count across all windows — never resets
 }
 
 const violationTracker = new Map<string, ViolationState>();
@@ -34,12 +35,11 @@ const VIOLATION_THRESHOLD = 3;
 const VIOLATION_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
 // Prune stale entries every 30 minutes to prevent unbounded memory growth.
-// Entries whose window has expired are safe to evict — a fresh window will be
-// started the next time that session triggers a violation.
+// Only evict entries with low total counts; persistent violators are retained.
 setInterval(() => {
   const now = Date.now();
   for (const [key, state] of violationTracker.entries()) {
-    if (now - state.windowStart > VIOLATION_WINDOW_MS) {
+    if (now - state.windowStart > VIOLATION_WINDOW_MS && state.totalCount < VIOLATION_THRESHOLD * 2) {
       violationTracker.delete(key);
     }
   }
@@ -83,11 +83,14 @@ export function validatePortalOwnership(req: Request, res: Response, next: NextF
   const now = Date.now();
   let state = violationTracker.get(sessionKey);
 
-  if (!state || now - state.windowStart > VIOLATION_WINDOW_MS) {
-    // Start a fresh window
-    state = { count: 1, windowStart: now, alerted: false };
+  if (!state) {
+    state = { count: 1, windowStart: now, alerted: false, totalCount: 1 };
+  } else if (now - state.windowStart > VIOLATION_WINDOW_MS) {
+    // Start a fresh window but preserve totalCount and alerted if threshold reached
+    state = { count: 1, windowStart: now, alerted: state.alerted, totalCount: state.totalCount + 1 };
   } else {
     state.count += 1;
+    state.totalCount += 1;
   }
   violationTracker.set(sessionKey, state);
 

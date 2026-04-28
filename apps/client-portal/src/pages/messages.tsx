@@ -346,6 +346,7 @@ export default function MessagesPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
+                <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="space-y-4">
                 <div>
                   <label className="text-sm font-medium text-foreground dark:text-gray-200 mb-1 block">
                     To
@@ -391,6 +392,7 @@ export default function MessagesPage() {
                 </div>
                 <div className="flex justify-end gap-3">
                   <Button
+                    type="button"
                     variant="outline"
                     onClick={() => setComposeMode(false)}
                     className="border-border"
@@ -399,8 +401,8 @@ export default function MessagesPage() {
                     Cancel
                   </Button>
                   <Button
+                    type="submit"
                     className="bg-teal-600 hover:bg-teal-700 text-white"
-                    onClick={handleSend}
                     disabled={sendMutation.isPending}
                   >
                     {sendMutation.isPending ? (
@@ -411,6 +413,7 @@ export default function MessagesPage() {
                     Send Message
                   </Button>
                 </div>
+                </form>
               </CardContent>
             </>
           ) : selectedMessage ? (
@@ -463,7 +466,7 @@ export default function MessagesPage() {
 
                 {/* Quick Reply — only for messages not sent by the client */}
                 {fromType(selectedMessage) !== "client" && (
-                  <div className="mt-6 pt-4 border-t border-border dark:border-gray-700">
+                  <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="mt-6 pt-4 border-t border-border dark:border-gray-700">
                     <p
                       id="quick-reply-label"
                       className="text-sm font-medium text-foreground dark:text-gray-200 mb-2"
@@ -484,9 +487,9 @@ export default function MessagesPage() {
                     </div>
                     <div className="flex justify-end mt-2">
                       <Button
+                        type="submit"
                         className="bg-teal-600 hover:bg-teal-700 text-white"
                         size="sm"
-                        onClick={handleSend}
                         disabled={sendMutation.isPending || !body.trim()}
                       >
                         {sendMutation.isPending ? (
@@ -497,7 +500,7 @@ export default function MessagesPage() {
                         Reply
                       </Button>
                     </div>
-                  </div>
+                  </form>
                 )}
               </CardContent>
             </>

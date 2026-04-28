@@ -54,6 +54,21 @@ export function httpStatusFromError(err: unknown): number {
 }
 
 /**
+ * RFC 5987 safe Content-Disposition header value.
+ * Prevents HTTP header injection via filenames containing newlines, quotes,
+ * or non-ASCII characters.
+ */
+export function safeContentDisposition(filename: string): string {
+  // Strip any control characters (CR, LF, null)
+  const safe = filename.replace(/[\x00-\x1f]/g, '');
+  // ASCII-safe fallback: replace non-ASCII with underscore
+  const asciiFallback = safe.replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '\\"');
+  // RFC 5987 encoded UTF-8 version
+  const utf8Encoded = encodeURIComponent(safe).replace(/'/g, '%27');
+  return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${utf8Encoded}`;
+}
+
+/**
  * SEC-08: Returns err.message only for typed, user-facing errors.
  * Unknown/internal errors return a generic message to prevent state leakage.
  */

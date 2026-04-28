@@ -43,9 +43,16 @@ class LocalStorageProvider implements StorageProvider {
   }
 
   private resolve(reference: string): string {
-    // Prevent path traversal
-    const safe = path.normalize(reference).replace(/^(\.\.(\/|\\|$))+/, '');
-    return path.join(this.basePath, safe);
+    // Prevent path traversal: decode percent-encoding, normalize unicode (NFC),
+    // strip null bytes, then normalize the path and reject any remaining ../ segments.
+    const decoded = decodeURIComponent(reference).normalize('NFC').replace(/\0/g, '');
+    const safe = path.normalize(decoded).replace(/^(\.\.(\/|\\|$))+/, '');
+    const resolved = path.join(this.basePath, safe);
+    // Final check: resolved path must be within basePath
+    if (!resolved.startsWith(this.basePath + path.sep) && resolved !== this.basePath) {
+      throw new Error('Path traversal detected');
+    }
+    return resolved;
   }
 
   async read(reference: string): Promise<Buffer> {

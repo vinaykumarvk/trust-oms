@@ -121,6 +121,7 @@ class StatementService {
         updated_at: now,
       })
       .where(eq(schema.clientStatements.id, statementId))
+      .execute()
       .catch((err: unknown) =>
         console.error('[StatementService] Failed to update download tracking:', err),
       );

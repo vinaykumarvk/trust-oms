@@ -10,7 +10,7 @@ import { Router } from 'express';
 import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { asyncHandler } from '../../middleware/async-handler';
 import { srDocumentService } from '../../services/sr-document-service';
-import { httpStatusFromError, safeErrorMessage } from '../../services/service-errors';
+import { httpStatusFromError, safeErrorMessage, safeContentDisposition } from '../../services/service-errors';
 
 const router = Router();
 
@@ -48,10 +48,7 @@ router.get(
       }
 
       res.setHeader('Content-Type', 'application/octet-stream');
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="${document.document_name}"`,
-      );
+      res.setHeader('Content-Disposition', safeContentDisposition(document.document_name));
       res.send(buffer);
     } catch (err: unknown) {
       const status = httpStatusFromError(err);

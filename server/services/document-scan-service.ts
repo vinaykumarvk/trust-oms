@@ -17,6 +17,16 @@ import { eq } from 'drizzle-orm';
 
 const BLOCKED_EXTENSION_RE = /\.(exe|bat|sh|cmd|ps1)$/i;
 
+// Startup warning when scan provider is a stub
+const SCAN_PROVIDER = process.env.SCAN_PROVIDER ?? 'SIMULATED';
+if (SCAN_PROVIDER === 'SIMULATED') {
+  console.warn('[DocumentScan] WARNING: Using SIMULATED scan provider — no real virus scanning is active');
+} else if (SCAN_PROVIDER === 'CLAMAV') {
+  console.warn('[DocumentScan] WARNING: CLAMAV provider is a stub — documents will be marked SKIPPED');
+} else if (SCAN_PROVIDER === 'EXTERNAL_WEBHOOK') {
+  console.warn('[DocumentScan] WARNING: EXTERNAL_WEBHOOK provider is a stub — documents will be marked SKIPPED');
+}
+
 async function markScanResult(
   docId: number,
   status: 'CLEAN' | 'QUARANTINED' | 'SKIPPED',
@@ -35,7 +45,7 @@ export async function scanDocument(
   buffer: Buffer,
   filename: string,
 ): Promise<void> {
-  const provider = process.env.SCAN_PROVIDER ?? 'SIMULATED';
+  const provider = SCAN_PROVIDER;
 
   try {
     if (provider === 'SIMULATED') {

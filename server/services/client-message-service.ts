@@ -287,16 +287,25 @@ export const clientMessageService = {
       .returning();
 
     // Notify the client that they have a new message reply — fire-and-forget
-    notificationInboxService.notify({
-      recipient_client_id: parent.recipient_client_id,
-      type: 'MESSAGE',
-      title: 'New Message from Your Relationship Manager',
-      message: `You have received a reply to your message (ID: ${parentMessageId}).`,
-      related_entity_type: 'CLIENT_MESSAGE',
-      related_entity_id: reply.id,
-    } as any).catch(() => {
-      // Non-critical — swallow notification errors
-    });
+    // Look up the portal user for this client to send notification
+    const [portalUser] = await db
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(eq(schema.users.client_id, parent.recipient_client_id))
+      .limit(1);
+
+    if (portalUser) {
+      notificationInboxService.notify({
+        recipient_user_id: portalUser.id,
+        type: 'MESSAGE',
+        title: 'New Message from Your Relationship Manager',
+        message: `You have received a reply to your message (ID: ${parentMessageId}).`,
+        related_entity_type: 'CLIENT_MESSAGE',
+        related_entity_id: reply.id,
+      }).catch(() => {
+        // Non-critical — swallow notification errors
+      });
+    }
 
     return reply;
   },

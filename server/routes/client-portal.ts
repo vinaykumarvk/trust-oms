@@ -23,7 +23,7 @@ import { clientMessageService } from '../services/client-message-service';
 import { statementService } from '../services/statement-service';
 import { asyncHandler } from '../middleware/async-handler';
 import { validatePortalOwnership } from '../middleware/portal-ownership';
-import { ForbiddenError, ValidationError, httpStatusFromError, safeErrorMessage } from '../services/service-errors';
+import { ForbiddenError, ValidationError, httpStatusFromError, safeErrorMessage, safeContentDisposition } from '../services/service-errors';
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
@@ -163,7 +163,7 @@ router.get(
     const rawPage = parseInt(req.query.page as string, 10);
     const rawPageSize = parseInt(req.query.pageSize as string, 10);
     const page = isNaN(rawPage) || rawPage < 1 ? 1 : rawPage;
-    const pageSize = isNaN(rawPageSize) || rawPageSize < 1 ? 20 : rawPageSize;
+    const pageSize = isNaN(rawPageSize) || rawPageSize < 1 ? 20 : Math.min(rawPageSize, 100);
 
     const result = await statementService.getForClient(clientId, { page, pageSize });
     res.json(result);
@@ -506,7 +506,7 @@ router.get(
     try {
       const { buffer, document } = await srDocumentService.download(docId, requesterClientId);
       res.setHeader('Content-Type', 'application/octet-stream');
-      res.setHeader('Content-Disposition', `attachment; filename="${document.document_name}"`);
+      res.setHeader('Content-Disposition', safeContentDisposition(document.document_name));
       res.send(buffer);
     } catch (err: unknown) {
       const status = httpStatusFromError(err);
@@ -1006,7 +1006,7 @@ router.post(
     try {
       const message = await clientMessageService.create({
         sender_type: 'CLIENT',
-        sender_id: Number(userId) || 0,
+        sender_id: Number(userId) || 1,
         recipient_client_id: clientId,
         subject,
         body,

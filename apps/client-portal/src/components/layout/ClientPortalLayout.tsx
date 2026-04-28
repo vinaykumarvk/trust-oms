@@ -84,9 +84,8 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
   const { data: actionCountData } = useQuery({
     queryKey: ["sr-action-count", clientId],
-    queryFn: () => fetch(`/api/v1/client-portal/service-requests/action-count/${clientId}`, {
-      headers: { Authorization: `Bearer ${clientUser.token || ""}` },
-    }).then(r => r.json()),
+    queryFn: () =>
+      apiRequest("GET", apiUrl(`/api/v1/client-portal/service-requests/action-count/${clientId}`)),
     refetchInterval: 60000,
   });
   const srActionCount = actionCountData?.data?.count || 0;

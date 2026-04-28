@@ -88,7 +88,9 @@ export const srDocumentService = {
     const storageProvider = getStorageProvider();
     const reference = await storageProvider.write(relativePath, file.buffer);
 
-    const resolvedClass = documentClass ?? 'OTHER';
+    type DocClass = 'TRUST_ACCOUNT_OPENING' | 'KYC' | 'TRANSACTION' | 'OTHER';
+    type SenderType = 'RM' | 'CLIENT' | 'SYSTEM';
+    const resolvedClass = (documentClass ?? 'OTHER') as DocClass;
     const retentionDays = RETENTION_DAYS[resolvedClass] ?? 2555;
     const expiresAt = computeExpiresAt(resolvedClass);
 
@@ -103,8 +105,8 @@ export const srDocumentService = {
         storage_reference: reference,
         file_size_bytes: file.size,
         mime_type: file.mimetype,
-        document_class: resolvedClass as any,
-        uploaded_by_type: uploadedByType as any,
+        document_class: resolvedClass,
+        uploaded_by_type: uploadedByType as SenderType,
         uploaded_by_id: uploadedById,
         scan_status: initialScanStatus,
         retention_days: retentionDays,
