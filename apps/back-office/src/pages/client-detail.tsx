@@ -40,6 +40,7 @@ import {
 } from '@ui/components/ui/table';
 import { Badge } from '@ui/components/ui/badge';
 import { ArrowLeft, Users, AlertTriangle } from 'lucide-react';
+import { EntityFeaturePanel } from '@/components/features/EntityFeaturePanel';
 
 // ---------------------------------------------------------------------------
 // Sub-entity list component
@@ -219,6 +220,21 @@ export default function ClientDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      <EntityFeaturePanel
+        entityType="client"
+        entityId={clientId}
+        title="Client Feature Signals"
+        description="Computed wealth, risk, service, and engagement features"
+        featureIds={[
+          'client.aum_php',
+          'client.risk_score',
+          'client.kyc_days_to_expiry',
+          'client.open_service_requests',
+          'client.last_contact_age_days',
+          'client.next_best_action_score',
+        ]}
+      />
 
       {/* Tabbed Sub-Entity Views */}
       <Tabs defaultValue="profile">

@@ -47,6 +47,7 @@ import {
 } from '@ui/components/ui/table';
 import { Badge } from '@ui/components/ui/badge';
 import { Briefcase, AlertTriangle } from 'lucide-react';
+import { EntityFeaturePanel } from '@/components/features/EntityFeaturePanel';
 
 type FormMode = 'create' | 'edit' | 'view';
 
@@ -456,6 +457,21 @@ export default function PortfoliosPage() {
                   </div>
                 </CardContent>
               </Card>
+
+              <EntityFeaturePanel
+                entityType="portfolio"
+                entityId={detailPortfolioId}
+                title="Portfolio Feature Signals"
+                description="Computed performance, risk, and compliance features"
+                featureIds={[
+                  'portfolio.market_value_php',
+                  'portfolio.return_ytd',
+                  'portfolio.risk_score',
+                  'portfolio.cash_pct',
+                  'portfolio.compliance_breach_count',
+                  'portfolio.last_nav_age_days',
+                ]}
+              />
 
               {/* Tabbed Sub-Entities */}
               <Tabs defaultValue="mandates">

@@ -412,6 +412,81 @@ export default function CallReportForm() {
         </div>
       )}
 
+      {/* AI Tags panel — shown when the intelligence service has tagged this report */}
+      {isEditMode && existingReport && (existingReport as any).ai_tags && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <svg className="h-4 w-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.001 3.001 0 01-2.121.879H9.375a3 3 0 01-2.121-.879l-.347-.347z" />
+              </svg>
+              AI Analysis
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {(() => {
+              const tags = (existingReport as any).ai_tags as {
+                topics?: string[];
+                sentiment?: string;
+                action_items?: string[];
+                keywords?: string[];
+              };
+              const sentimentColor =
+                tags.sentiment === 'POSITIVE' ? 'text-green-600 bg-green-50 border-green-200' :
+                tags.sentiment === 'NEGATIVE' ? 'text-red-600 bg-red-50 border-red-200' :
+                'text-gray-600 bg-gray-50 border-gray-200';
+              return (
+                <div className="space-y-3">
+                  {tags.sentiment && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Sentiment:</span>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded border ${sentimentColor}`}>
+                        {tags.sentiment}
+                      </span>
+                    </div>
+                  )}
+                  {tags.topics && tags.topics.length > 0 && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Topics</p>
+                      <div className="flex flex-wrap gap-1">
+                        {tags.topics.map((t: string) => (
+                          <span key={t} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                            {t.replace(/_/g, ' ')}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {tags.action_items && tags.action_items.length > 0 && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Extracted Action Items</p>
+                      <ul className="list-disc pl-4 space-y-0.5">
+                        {tags.action_items.map((ai: string, i: number) => (
+                          <li key={i} className="text-xs text-foreground">{ai}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {tags.keywords && tags.keywords.length > 0 && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Keywords</p>
+                      <div className="flex flex-wrap gap-1">
+                        {tags.keywords.map((k: string) => (
+                          <span key={k} className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground">
+                            {k}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Section 1: Meeting Info */}
       <Card>
         <CardHeader>

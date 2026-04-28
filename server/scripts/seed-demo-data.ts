@@ -92,6 +92,11 @@ async function seedUsers() {
   console.log('\n[1] Seeding users...');
 
   const users = [
+    // System admin & bootstrap roles
+    { username: 'admin', password_hash: PASSWORD_HASH, full_name: 'System Administrator', email: 'admin@trustoms.local', role: 'bo_admin', department: 'IT', office: 'Manila HQ' },
+    { username: 'bo_head', password_hash: PASSWORD_HASH, full_name: 'Operations Head', email: 'bohead@trustoms.local', role: 'bo_head', department: 'Trust Operations', office: 'Manila HQ' },
+    { username: 'bo_maker', password_hash: PASSWORD_HASH, full_name: 'Operations Maker', email: 'bomaker@trustoms.local', role: 'bo_maker', department: 'Trust Operations', office: 'Manila HQ' },
+    { username: 'bo_checker', password_hash: PASSWORD_HASH, full_name: 'Operations Checker', email: 'bochecker@trustoms.local', role: 'bo_checker', department: 'Trust Operations', office: 'Manila HQ' },
     // Trust Officers (licensed, BSP-regulated)
     { username: 'trust_officer_1', password_hash: PASSWORD_HASH, full_name: 'Maria Santos-Reyes', email: 'msantos@trustoms.local', role: 'bo_maker', department: 'Trust Operations', office: 'Manila HQ' },
     { username: 'trust_officer_2', password_hash: PASSWORD_HASH, full_name: 'Jose dela Cruz', email: 'jdelacruz@trustoms.local', role: 'bo_maker', department: 'Trust Operations', office: 'BGC Branch' },
@@ -115,11 +120,7 @@ async function seedUsers() {
   for (const u of users) {
     ids[u.username] = await upsertUser(u);
   }
-  // keep admin/bo_head/bo_maker/bo_checker from bootstrap — just add IDs
-  const admin = await db.select().from(schema.users).where(eq(schema.users.username, 'admin')).limit(1);
-  ids['admin'] = admin[0]?.id ?? 1;
-  const boHead = await db.select().from(schema.users).where(eq(schema.users.username, 'bo_head')).limit(1);
-  ids['bo_head'] = boHead[0]?.id ?? 2;
+  // admin/bo_head/bo_maker/bo_checker already upserted above — ids already populated
 
   console.log(`  → ${Object.keys(ids).length} users ready`);
   return ids;

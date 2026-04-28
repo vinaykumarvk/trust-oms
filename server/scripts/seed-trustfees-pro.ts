@@ -714,14 +714,10 @@ export async function seedTrustFeesProData() {
 // Standalone execution
 // ---------------------------------------------------------------------------
 
-if (require.main === module) {
+// ESM-compatible main module check
+import { fileURLToPath } from 'url';
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   seedTrustFeesProData()
-    .then(() => {
-      console.log('Done.');
-      process.exit(0);
-    })
-    .catch((err) => {
-      console.error('TrustFees Pro seed failed:', err);
-      process.exit(1);
-    });
+    .then(() => { console.log('Done.'); process.exit(0); })
+    .catch((err) => { console.error('TrustFees Pro seed failed:', err); process.exit(1); });
 }
