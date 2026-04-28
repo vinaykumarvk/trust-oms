@@ -52,6 +52,7 @@ interface AuthUser {
   role: string;
   department: string | null;
   office: string | null;
+  clientId: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -67,13 +68,17 @@ function generateRefreshToken(): string {
 }
 
 async function signAccessToken(user: AuthUser): Promise<string> {
-  return new jose.SignJWT({
+  const claims: Record<string, string> = {
     sub: String(user.id),
     role: user.role,
     email: user.email || '',
     name: user.fullName || '',
     office: user.office || '',
-  })
+  };
+  if (user.clientId) {
+    claims.clientId = user.clientId;
+  }
+  return new jose.SignJWT(claims)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(ACCESS_TOKEN_TTL)
@@ -140,6 +145,7 @@ export const authService = {
       role: user.role || 'rm',
       department: user.department,
       office: user.office,
+      clientId: user.client_id,
     };
 
     // Generate tokens
@@ -221,6 +227,7 @@ export const authService = {
       role: user.role || 'rm',
       department: user.department,
       office: user.office,
+      clientId: user.client_id,
     };
 
     // Issue new tokens
@@ -318,6 +325,7 @@ export const authService = {
       role: user.role || 'rm',
       department: user.department,
       office: user.office,
+      clientId: user.client_id,
     };
   },
 };

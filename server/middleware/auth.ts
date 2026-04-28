@@ -10,6 +10,8 @@ declare global {
       userId?: string;
       userRole?: string;
       userEmail?: string;
+      /** Client ID from JWT — populated for CLIENT_PORTAL users. */
+      clientId?: string;
     }
   }
 }
@@ -67,6 +69,9 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
       req.userId = (payload.sub as string) || 'unknown';
       req.userRole = (payload.role as string) || 'rm';
       req.userEmail = (payload.email as string) || '';
+      if (payload.clientId) {
+        req.clientId = payload.clientId as string;
+      }
       next();
     })
     .catch(() => {

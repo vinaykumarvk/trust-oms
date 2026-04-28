@@ -50,7 +50,7 @@ setInterval(() => {
 // ---------------------------------------------------------------------------
 
 export function validatePortalOwnership(req: Request, res: Response, next: NextFunction): void {
-  const sessionClientId = (req as any).user?.clientId as string | undefined;
+  const sessionClientId = req.clientId as string | undefined;
   const routeClientId = req.params.clientId;
 
   // No :clientId param on this route — nothing to enforce
@@ -77,9 +77,8 @@ export function validatePortalOwnership(req: Request, res: Response, next: NextF
   // Ownership mismatch path
   // -------------------------------------------------------------------------
 
-  // Resolve a stable session key: prefer the JWT sub claim, fall back to userId
-  const sessionKey: string =
-    (req as any).user?.sub ?? (req as any).userId ?? 'unknown';
+  // Resolve a stable session key: prefer userId (JWT sub), fall back to 'unknown'
+  const sessionKey: string = req.userId ?? 'unknown';
 
   const now = Date.now();
   let state = violationTracker.get(sessionKey);

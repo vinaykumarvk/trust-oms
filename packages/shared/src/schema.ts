@@ -405,6 +405,7 @@ export const users = pgTable('users', {
   department: text('department'),
   office: text('office'),
   branch_id: integer('branch_id'),
+  client_id: text('client_id'),
   is_active: boolean('is_active').default(true),
   mfa_enabled: boolean('mfa_enabled').default(false),
   last_login: timestamp('last_login', { withTimezone: true }),

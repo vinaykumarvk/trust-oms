@@ -186,7 +186,7 @@ router.get(
 
     // QUAL-06: always use session-derived clientId for the IDOR guard; never fall back
     // to the URL parameter — validatePortalOwnership above already confirmed they match.
-    const sessionClientId = (req as any).user?.clientId as string | undefined;
+    const sessionClientId = req.clientId as string | undefined;
     if (!sessionClientId) {
       return res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required' } });
     }
@@ -302,7 +302,7 @@ router.post(
   '/service-requests',
   asyncHandler(async (req, res) => {
     // SEC-03: always use session-derived clientId; never accept client_id from body
-    const clientId = (req as any).user?.clientId as string | undefined;
+    const clientId = req.clientId as string | undefined;
     if (!clientId) {
       return res.status(401).json({
         error: { code: 'UNAUTHENTICATED', message: 'Authentication required' },
@@ -314,7 +314,7 @@ router.post(
         error: { code: 'INVALID_INPUT', message: 'sr_type is required' },
       });
     }
-    const userId = String((req as any).user?.id || clientId);
+    const userId = String(req.userId || clientId);
     const result = await serviceRequestService.createServiceRequest({
       client_id: clientId,
       sr_type,
@@ -351,7 +351,7 @@ async function assertSROwnership(
   res: any,
   id: number,
 ): Promise<{ id: number; client_id: string; [key: string]: unknown } | null> {
-  const sessionClientId = req.user?.clientId as string | undefined;
+  const sessionClientId = req.clientId as string | undefined;
   if (!sessionClientId) {
     res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required' } });
     return null;
@@ -379,7 +379,7 @@ router.put(
     // SEC-04: ownership check before mutation
     const sr = await assertSROwnership(req, res, id);
     if (!sr) return;
-    const userId = String((req as any).user?.id || (req as any).user?.clientId || 'unknown');
+    const userId = String(req.userId || req.clientId || 'unknown');
     const result = await serviceRequestService.updateServiceRequest(id, req.body, userId);
     res.json({ data: result });
   }),
@@ -400,7 +400,7 @@ router.put(
     // SEC-05: ownership check before mutation
     const sr = await assertSROwnership(req, res, id);
     if (!sr) return;
-    const userId = String((req as any).user?.id || (req as any).user?.clientId || 'unknown');
+    const userId = String(req.userId || req.clientId || 'unknown');
     const result = await serviceRequestService.closeRequest(id, reason, userId);
     res.json({ data: result });
   }),
@@ -417,7 +417,7 @@ router.put(
     // SEC-06: ownership check before mutation
     const sr = await assertSROwnership(req, res, id);
     if (!sr) return;
-    const userId = String((req as any).user?.id || (req as any).user?.clientId || 'unknown');
+    const userId = String(req.userId || req.clientId || 'unknown');
     const result = await serviceRequestService.resubmitForVerification(id, req.body, userId);
     res.json({ data: result });
   }),
@@ -465,8 +465,8 @@ router.post(
     if (!req.file) {
       return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'file is required (multipart field: file)' } });
     }
-    const uploadedById = parseInt(String((req as any).user?.id ?? '0'), 10) || 0;
-    const uploadedByType = (req as any).user?.clientId ? 'CLIENT' : 'RM';
+    const uploadedById = parseInt(String(req.userId ?? '0'), 10) || 0;
+    const uploadedByType = req.clientId ? 'CLIENT' : 'RM';
     const { document_class } = req.body;
     try {
       const doc = await srDocumentService.upload(srId, req.file, uploadedByType, uploadedById, document_class);
@@ -502,7 +502,7 @@ router.get(
     if (isNaN(docId)) {
       return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Invalid document ID' } });
     }
-    const requesterClientId = (req as any).user?.clientId as string | undefined;
+    const requesterClientId = req.clientId as string | undefined;
     try {
       const { buffer, document } = await srDocumentService.download(docId, requesterClientId);
       res.setHeader('Content-Type', 'application/octet-stream');
@@ -558,10 +558,10 @@ router.get(
 router.get(
   '/proposals',
   asyncHandler(async (req, res) => {
-    const clientId = req.userId;
+    const clientId = req.clientId;
     if (!clientId) {
       return res.status(401).json({
-        error: { code: 'UNAUTHORIZED', message: 'Not authenticated' },
+        error: { code: 'UNAUTHENTICATED', message: 'Client identity required' },
       });
     }
 
@@ -576,10 +576,10 @@ router.get(
 router.get(
   '/proposals/detail/:id',
   asyncHandler(async (req, res) => {
-    const clientId = req.userId;
+    const clientId = req.clientId;
     if (!clientId) {
       return res.status(401).json({
-        error: { code: 'UNAUTHORIZED', message: 'Not authenticated' },
+        error: { code: 'UNAUTHENTICATED', message: 'Client identity required' },
       });
     }
     const id = parseInt(req.params.id, 10);
@@ -609,10 +609,10 @@ router.get(
 router.post(
   '/proposals/:id/accept',
   asyncHandler(async (req, res) => {
-    const clientId = req.userId;
+    const clientId = req.clientId;
     if (!clientId) {
       return res.status(401).json({
-        error: { code: 'UNAUTHORIZED', message: 'Not authenticated' },
+        error: { code: 'UNAUTHENTICATED', message: 'Client identity required' },
       });
     }
     const id = parseInt(req.params.id, 10);
@@ -639,10 +639,10 @@ router.post(
 router.post(
   '/proposals/:id/reject',
   asyncHandler(async (req, res) => {
-    const clientId = req.userId;
+    const clientId = req.clientId;
     if (!clientId) {
       return res.status(401).json({
-        error: { code: 'UNAUTHORIZED', message: 'Not authenticated' },
+        error: { code: 'UNAUTHENTICATED', message: 'Client identity required' },
       });
     }
     const id = parseInt(req.params.id, 10);
@@ -674,7 +674,7 @@ router.post(
 router.get(
   '/campaign-inbox',
   asyncHandler(async (req: any, res: any) => {
-    const clientId = req.user?.clientId;
+    const clientId = req.clientId;
     if (!clientId) {
       return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Client identity required' } });
     }
@@ -720,7 +720,7 @@ router.post(
   asyncHandler(async (req: any, res: any) => {
     const commId = parseInt(req.params.commId, 10);
     const { rsvp_status, note } = req.body;
-    const clientId = req.user?.clientId;
+    const clientId = req.clientId;
     if (!clientId) {
       return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Client identity required' } });
     }
@@ -830,7 +830,7 @@ router.post(
 router.get(
   '/meetings',
   asyncHandler(async (req: any, res: any) => {
-    const clientId = req.user?.clientId;
+    const clientId = req.clientId;
     if (!clientId) {
       return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Client identity required' } });
     }
@@ -861,7 +861,7 @@ const VALID_CONSENT_STATUSES = ['OPTED_IN', 'OPTED_OUT', 'PENDING'];
 router.get(
   '/consent/preferences',
   asyncHandler(async (req: any, res: any) => {
-    const clientId = req.user?.clientId;
+    const clientId = req.clientId;
     if (!clientId) {
       return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Client identity required' } });
     }
@@ -880,7 +880,7 @@ router.get(
 router.patch(
   '/consent/preferences',
   asyncHandler(async (req: any, res: any) => {
-    const clientId = req.user?.clientId;
+    const clientId = req.clientId;
     const { consent_type, consent_status } = req.body;
 
     if (!clientId || !consent_type || !consent_status) {
@@ -919,7 +919,7 @@ router.patch(
 router.post(
   '/consent/opt-out',
   asyncHandler(async (req: any, res: any) => {
-    const clientId = req.user?.clientId;
+    const clientId = req.clientId;
     const { consent_type } = req.body;
 
     if (!clientId || !consent_type) {
@@ -957,7 +957,7 @@ router.post(
 router.get(
   '/messages',
   asyncHandler(async (req: any, res: any) => {
-    const clientId = req.user?.clientId;
+    const clientId = req.clientId;
     if (!clientId) {
       return res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required' } });
     }
@@ -976,7 +976,7 @@ router.get(
 router.get(
   '/messages/unread-count',
   asyncHandler(async (req: any, res: any) => {
-    const clientId = req.user?.clientId;
+    const clientId = req.clientId;
     if (!clientId) {
       return res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required' } });
     }
@@ -995,12 +995,12 @@ router.get(
 router.post(
   '/messages',
   asyncHandler(async (req: any, res: any) => {
-    const clientId = req.user?.clientId;
+    const clientId = req.clientId;
     if (!clientId) {
       return res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required' } });
     }
 
-    const userId = req.user?.id ?? req.userId;
+    const userId = req.userId;
     const { subject, body, thread_id, parent_message_id, related_sr_id } = req.body;
 
     try {
@@ -1027,7 +1027,7 @@ router.post(
 router.patch(
   '/messages/:id/read',
   asyncHandler(async (req: any, res: any) => {
-    const clientId = req.user?.clientId;
+    const clientId = req.clientId;
     if (!clientId) {
       return res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required' } });
     }
