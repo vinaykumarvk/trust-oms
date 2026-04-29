@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/c
 import { Button } from '@ui/components/ui/button';
 import { Input } from '@ui/components/ui/input';
 import { Badge } from '@ui/components/ui/badge';
-import { useToast } from '@ui/hooks/use-toast';
+import { useToast } from '@ui/components/ui/toast';
 import { Shield, ShieldCheck, ShieldOff, Copy, RefreshCw } from 'lucide-react';
 
 export default function MFASettings() {
