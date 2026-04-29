@@ -12,6 +12,7 @@
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, desc, and, sql, isNull } from 'drizzle-orm';
+import { mfaService } from './mfa-service';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -120,26 +121,16 @@ const FIX_SESSION_REGISTRY: FIXSession[] = [
 
 export const killSwitchService = {
   /**
-   * FR-KSW-001: Verify a TOTP (Time-based One-Time Password) code.
-   * In production, this would look up the user's registered TOTP secret
-   * from a secure store and validate the 6-digit code using RFC 6238.
-   * Current implementation uses a time-window validation pattern that
-   * accepts codes matching the expected TOTP algorithm structure.
+   * FR-KSW-001: Verify a TOTP code against the user's enrolled secret.
+   * Uses mfaService for real RFC 6238 TOTP validation.
    */
-  verifyTOTP(userId: number, token: string): boolean {
-    // Validate token format: must be 6 digits
-    if (!/^\d{6}$/.test(token)) {
+  async verifyTOTP(userId: number, token: string): Promise<boolean> {
+    try {
+      return await mfaService.verifyUserTOTP(userId, token);
+    } catch {
+      // If MFA not enrolled, verification fails
       return false;
     }
-
-    // TOTP verification: In production, retrieve the user's TOTP secret
-    // from the MFA enrollment table and validate using HMAC-SHA1 with
-    // 30-second time steps per RFC 6238.
-    // For now, accept any valid 6-digit code (MFA enrollment not yet wired).
-    // TODO: Replace with actual TOTP library (e.g., otpauth) when MFA
-    // enrollment is implemented.
-    console.warn(`[KillSwitch] TOTP verification for user ${userId}: using permissive mode (MFA enrollment pending)`);
-    return true;
   },
 
   /**
@@ -166,7 +157,7 @@ export const killSwitchService = {
       // Check if an MFA token was provided for inline verification
       const mfaToken = (invokedBy as any).mfaToken as string | undefined;
       if (mfaToken) {
-        const isValid = this.verifyTOTP(invokedBy.userId, mfaToken);
+        const isValid = await this.verifyTOTP(invokedBy.userId, mfaToken);
         if (!isValid) {
           throw new Error(
             'MFA verification failed: invalid or expired TOTP code.',

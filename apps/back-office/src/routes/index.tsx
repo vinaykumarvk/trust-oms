@@ -54,6 +54,7 @@ const DataQuality = React.lazy(() => import("@/pages/data-quality"));
 const ExecutiveDashboard = React.lazy(() => import("@/pages/executive-dashboard"));
 const OperationsControlTower = React.lazy(() => import("@/pages/operations-control-tower"));
 const AdminConsole = React.lazy(() => import("@/pages/admin-console"));
+const MFASettings = React.lazy(() => import("@/pages/mfa-settings"));
 const IntegrationHub = React.lazy(() => import("@/pages/integration-hub"));
 const AiShadowMode = React.lazy(() => import("@/pages/ai-shadow-mode"));
 const AiCosts = React.lazy(() => import("@/pages/ai-costs"));
@@ -1393,6 +1394,16 @@ export const router = createBrowserRouter([
             element: (
               <Suspense fallback={<PageLoader />}>
                 <AdminConsole />
+              </Suspense>
+            ),
+          },
+
+          // Tools — MFA Settings (TOTP enrollment)
+          {
+            path: "/tools/mfa-settings",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <MFASettings />
               </Suspense>
             ),
           },

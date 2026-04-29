@@ -412,6 +412,15 @@ export const users = pgTable('users', {
   ...auditFields,
 });
 
+export const mfaEnrollments = pgTable('mfa_enrollments', {
+  id: serial('id').primaryKey(),
+  user_id: integer('user_id').notNull().references(() => users.id),
+  totp_secret: text('totp_secret').notNull(),  // base32-encoded TOTP secret
+  backup_codes: text('backup_codes'),           // JSON array of hashed backup codes
+  verified_at: timestamp('verified_at', { withTimezone: true }),  // null until first successful verify
+  ...auditFields,
+});
+
 export const roles = pgTable('roles', {
   id: serial('id').primaryKey(),
   name: text('name').unique(),

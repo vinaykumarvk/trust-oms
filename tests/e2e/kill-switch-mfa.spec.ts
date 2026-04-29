@@ -163,6 +163,20 @@ vi.mock('@shared/schema', () => {
   return mod;
 });
 
+// Mock the mfa-service so kill-switch-service's verifyTOTP delegates work
+let mockMfaVerifyResult = true;
+vi.mock('../../server/services/mfa-service', () => ({
+  mfaService: {
+    verifyUserTOTP: async (_userId: number, token: string) => {
+      // Reject non-6-digit tokens (format check)
+      if (!/^\d{6}$/.test(token)) {
+        throw new Error('MFA is not enrolled for this user. Enroll MFA first.');
+      }
+      return mockMfaVerifyResult;
+    },
+  },
+}));
+
 vi.mock('drizzle-orm', () => {
   const identity = (...args: any[]) => args;
   const sqlTag: any = (...args: any[]) => args;
@@ -190,6 +204,7 @@ beforeAll(async () => {
 beforeEach(() => {
   mockHaltRow = null;
   mockUpdateReturns = [];
+  mockMfaVerifyResult = true;
 });
 
 // ===========================================================================
@@ -239,43 +254,43 @@ describe('Kill Switch MFA — Philippines BRD (FR-KSW-001, FR-KSW-003)', () => {
   // 2. TOTP Verification (FR-KSW-001)
   // -------------------------------------------------------------------------
   describe('2. TOTP Verification (FR-KSW-001)', () => {
-    it('should reject non-6-digit token (too short)', () => {
-      const result = killSwitchService.verifyTOTP(1, '12345');
+    it('should reject non-6-digit token (too short)', async () => {
+      const result = await killSwitchService.verifyTOTP(1, '12345');
       expect(result).toBe(false);
     });
 
-    it('should reject non-6-digit token (too long)', () => {
-      const result = killSwitchService.verifyTOTP(1, '1234567');
+    it('should reject non-6-digit token (too long)', async () => {
+      const result = await killSwitchService.verifyTOTP(1, '1234567');
       expect(result).toBe(false);
     });
 
-    it('should reject token with letters', () => {
-      const result = killSwitchService.verifyTOTP(1, '12345a');
+    it('should reject token with letters', async () => {
+      const result = await killSwitchService.verifyTOTP(1, '12345a');
       expect(result).toBe(false);
     });
 
-    it('should reject empty token', () => {
-      const result = killSwitchService.verifyTOTP(1, '');
+    it('should reject empty token', async () => {
+      const result = await killSwitchService.verifyTOTP(1, '');
       expect(result).toBe(false);
     });
 
-    it('should reject token with special characters', () => {
-      const result = killSwitchService.verifyTOTP(1, '123-56');
+    it('should reject token with special characters', async () => {
+      const result = await killSwitchService.verifyTOTP(1, '123-56');
       expect(result).toBe(false);
     });
 
-    it('should accept valid 6-digit token', () => {
-      const result = killSwitchService.verifyTOTP(1, '123456');
+    it('should accept valid 6-digit token', async () => {
+      const result = await killSwitchService.verifyTOTP(1, '123456');
       expect(result).toBe(true);
     });
 
-    it('should accept another valid 6-digit token', () => {
-      const result = killSwitchService.verifyTOTP(1, '000000');
+    it('should accept another valid 6-digit token', async () => {
+      const result = await killSwitchService.verifyTOTP(1, '000000');
       expect(result).toBe(true);
     });
 
-    it('should accept token 999999', () => {
-      const result = killSwitchService.verifyTOTP(1, '999999');
+    it('should accept token 999999', async () => {
+      const result = await killSwitchService.verifyTOTP(1, '999999');
       expect(result).toBe(true);
     });
   });

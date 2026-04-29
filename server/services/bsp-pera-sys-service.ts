@@ -12,7 +12,22 @@
  *
  * When BSP_PERA_SYS_URL is not set, the service operates in simulated mode
  * and returns stub responses (suitable for development/testing).
+ *
+ * Production hardening:
+ *   - ResilientHttpClient with 60s timeout (BSP is slow)
+ *   - 3 retries with exponential backoff (1s/2s/4s)
+ *   - Circuit breaker: 3 failures in 10 min -> open for 120s
+ *   - X-Request-ID tracking on every request
+ *   - X-BSP-Signature verification (certificate pinning placeholder)
+ *   - Response format validation before parsing
  */
+
+import { randomUUID } from 'crypto';
+import {
+  ResilientHttpClient,
+  CircuitOpenError,
+  HttpRequestError,
+} from './http-client';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -33,7 +48,36 @@ if (isSimulatedMode) {
 }
 
 // ---------------------------------------------------------------------------
-// HTTP helper
+// ResilientHttpClient instance (only created when not in simulated mode)
+// ---------------------------------------------------------------------------
+
+let _bspClient: ResilientHttpClient | null = null;
+
+function getBspClient(): ResilientHttpClient {
+  if (!_bspClient) {
+    _bspClient = new ResilientHttpClient({
+      name: 'BSP-PERA-Sys',
+      baseUrl: BSP_PERA_SYS_URL,
+      timeout: 60_000,           // 60s — BSP is slow
+      retries: 3,
+      retryDelayMs: 1_000,       // 1s, 2s, 4s exponential backoff
+      circuitBreaker: {
+        failureThreshold: 3,
+        windowMs: 10 * 60_000,   // 10 minutes
+        openDurationMs: 120_000, // open for 2 minutes
+      },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': BSP_PERA_SYS_API_KEY,
+      },
+      rateLimitPerMinute: undefined, // BSP has no documented rate limit
+    });
+  }
+  return _bspClient;
+}
+
+// ---------------------------------------------------------------------------
+// Response types
 // ---------------------------------------------------------------------------
 
 interface BSPApiResponse<T> {
@@ -43,41 +87,6 @@ interface BSPApiResponse<T> {
   requestId: string;
   timestamp: string;
 }
-
-async function bspPost<T>(
-  endpoint: string,
-  body: Record<string, unknown>,
-): Promise<BSPApiResponse<T>> {
-  const url = `${BSP_PERA_SYS_URL}${endpoint}`;
-  const requestId = `REQ-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-
-  console.log(`[BSP-PERA-Sys] POST ${url} requestId=${requestId}`);
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-API-Key': BSP_PERA_SYS_API_KEY,
-      'X-Request-Id': requestId,
-    },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(30_000), // 30s timeout
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => 'No response body');
-    throw new Error(
-      `BSP PERA-Sys API error: ${response.status} ${response.statusText} — ${errorText}`,
-    );
-  }
-
-  const data = (await response.json()) as BSPApiResponse<T>;
-  return { ...data, requestId, timestamp: new Date().toISOString() };
-}
-
-// ---------------------------------------------------------------------------
-// Response types
-// ---------------------------------------------------------------------------
 
 interface TINVerificationResult {
   exists: boolean;
@@ -124,6 +133,88 @@ interface TransactionFileResult {
 }
 
 // ---------------------------------------------------------------------------
+// BSP Response Validation
+// ---------------------------------------------------------------------------
+
+/**
+ * Validate that a BSP API response has the expected envelope format.
+ * Throws if the response doesn't match the expected BSP structure.
+ */
+function validateBspResponseFormat(
+  data: unknown,
+  requestId: string,
+): asserts data is BSPApiResponse<unknown> {
+  if (data === null || data === undefined || typeof data !== 'object') {
+    throw new Error(
+      `[BSP-PERA-Sys] Invalid response format (requestId=${requestId}): ` +
+      `expected object, got ${typeof data}`,
+    );
+  }
+
+  const obj = data as Record<string, unknown>;
+  if (typeof obj.success !== 'boolean') {
+    throw new Error(
+      `[BSP-PERA-Sys] Invalid response format (requestId=${requestId}): ` +
+      `missing or invalid 'success' field`,
+    );
+  }
+}
+
+/**
+ * Certificate pinning placeholder: validate BSP response signature.
+ * In production, BSP responses include an X-BSP-Signature header that
+ * should be verified against the BSP public key to ensure authenticity.
+ *
+ * This is a placeholder that logs a warning if the header is present
+ * but not yet verified. Replace with actual HMAC/RSA verification when
+ * BSP provides the signing key specification.
+ */
+function validateBspSignature(
+  _requestId: string,
+  bspSignature: string | null,
+): void {
+  if (bspSignature) {
+    // TODO: Implement actual signature verification against BSP public key
+    // For now, log that a signature was received
+    console.log(
+      `[BSP-PERA-Sys] X-BSP-Signature header present (requestId=${_requestId}). ` +
+      'Certificate pinning verification is a placeholder — implement HMAC/RSA check.',
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Hardened HTTP helper using ResilientHttpClient
+// ---------------------------------------------------------------------------
+
+async function bspPost<T>(
+  endpoint: string,
+  body: Record<string, unknown>,
+): Promise<BSPApiResponse<T>> {
+  const requestId = randomUUID();
+  const client = getBspClient();
+
+  console.log(`[BSP-PERA-Sys] POST ${BSP_PERA_SYS_URL}${endpoint} requestId=${requestId}`);
+
+  // Use the resilient client with request-specific headers
+  const raw = await client.post<unknown>(endpoint, body, {
+    'X-Request-ID': requestId,
+  });
+
+  // Validate response format before parsing
+  validateBspResponseFormat(raw, requestId);
+
+  const response = raw as BSPApiResponse<T>;
+
+  // Certificate pinning placeholder — verify signature if present
+  // Note: In a real implementation, the signature would come from response headers.
+  // With ResilientHttpClient we don't get raw headers, so this is a structural placeholder.
+  validateBspSignature(requestId, null);
+
+  return { ...response, requestId, timestamp: new Date().toISOString() };
+}
+
+// ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
 
@@ -140,7 +231,7 @@ export const bspPeraSysService = {
       throw new Error('TIN is required for verification');
     }
 
-    const requestId = `TIN-${Date.now()}`;
+    const requestId = randomUUID();
 
     // Simulated mode fallback
     if (isSimulatedMode) {
@@ -155,7 +246,7 @@ export const bspPeraSysService = {
       };
     }
 
-    // Live API call
+    // Live API call via resilient HTTP client
     const response = await bspPost<{
       tin_exists: boolean;
       registered_name?: string;
@@ -192,7 +283,7 @@ export const bspPeraSysService = {
       throw new Error('Contributor ID is required for duplicate check');
     }
 
-    const requestId = `DUP-${Date.now()}`;
+    const requestId = randomUUID();
 
     // Simulated mode fallback
     if (isSimulatedMode) {
@@ -206,7 +297,7 @@ export const bspPeraSysService = {
       };
     }
 
-    // Live API call
+    // Live API call via resilient HTTP client
     const response = await bspPost<{
       is_duplicate: boolean;
       existing_accounts?: Array<{
@@ -254,7 +345,7 @@ export const bspPeraSysService = {
     administrator: string;
     productId: string;
   }): Promise<ContributorRegistrationResult> {
-    const requestId = `REG-${Date.now()}`;
+    const requestId = randomUUID();
 
     // Simulated mode fallback
     if (isSimulatedMode) {
@@ -268,7 +359,7 @@ export const bspPeraSysService = {
       };
     }
 
-    // Live API call
+    // Live API call via resilient HTTP client
     const response = await bspPost<{
       bsp_reference_id: string;
       status: 'ACCEPTED' | 'REJECTED' | 'PENDING_REVIEW';
@@ -320,7 +411,7 @@ export const bspPeraSysService = {
       throw new Error('At least one transaction is required');
     }
 
-    const requestId = `TXN-${Date.now()}`;
+    const requestId = randomUUID();
 
     // Simulated mode fallback
     if (isSimulatedMode) {
@@ -337,7 +428,7 @@ export const bspPeraSysService = {
       };
     }
 
-    // Live API call
+    // Live API call via resilient HTTP client
     const response = await bspPost<{
       bsp_batch_id: string;
       record_count: number;
@@ -378,5 +469,14 @@ export const bspPeraSysService = {
       submittedAt: new Date().toISOString(),
       requestId: response.requestId,
     };
+  },
+
+  /**
+   * Get the current circuit breaker state for the BSP client.
+   * Useful for operational dashboards and health checks.
+   */
+  getCircuitState(): { isOpen: boolean; state: string; failures: number } | null {
+    if (isSimulatedMode) return null;
+    return getBspClient().getCircuitState();
   },
 };

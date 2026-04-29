@@ -14,11 +14,23 @@
  *   - HistoricalSimulationModel using surveillance & ORE data patterns
  *   - extractOrderFeatures() for real-time feature extraction
  *   - scoreOrder(orderId) for real-time order-capture scoring
+ *
+ * Production hardening (RemoteMLModelProvider):
+ *   - ResilientHttpClient with 5s timeout (ML inference should be fast)
+ *   - 1 retry only (latency-sensitive)
+ *   - Fallback to HistoricalSimulationModel when remote model is unavailable
+ *   - Health check: checkModelHealth() pings the model endpoint
+ *   - Circuit breaker: 10 failures in 1 min -> open for 30s, fall back to local
  */
 
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, and, sql, desc } from 'drizzle-orm';
+import {
+  ResilientHttpClient,
+  CircuitOpenError,
+  HttpTimeoutError,
+} from './http-client';
 
 // ---------------------------------------------------------------------------
 // ML Model Provider Interface
@@ -147,36 +159,119 @@ export class HistoricalSimulationModel implements MLModelProvider {
 }
 
 // ---------------------------------------------------------------------------
-// Remote ML Model Provider (calls external API)
+// Remote ML Model Provider (production-hardened, calls external API)
 // ---------------------------------------------------------------------------
 
+/**
+ * Production-hardened remote ML model provider with:
+ *   - 5s timeout (ML inference should be fast)
+ *   - 1 retry (latency-sensitive — we don't want to add >10s to order flow)
+ *   - Circuit breaker: 10 failures in 1 min -> open for 30s
+ *   - Automatic fallback to HistoricalSimulationModel when unavailable
+ *   - Health check endpoint for operational monitoring
+ */
 class RemoteMLModelProvider implements MLModelProvider {
-  constructor(private url: string) {}
+  private httpClient: ResilientHttpClient;
+  private fallbackModel: HistoricalSimulationModel;
+  private url: string;
+
+  constructor(url: string) {
+    this.url = url;
+
+    this.httpClient = new ResilientHttpClient({
+      name: 'FraudML',
+      baseUrl: url,
+      timeout: 5_000,            // 5s — ML inference should be fast
+      retries: 1,                // 1 retry only — latency-sensitive
+      retryDelayMs: 500,         // 500ms delay before retry
+      circuitBreaker: {
+        failureThreshold: 10,
+        windowMs: 60_000,        // 1 minute window
+        openDurationMs: 30_000,  // open for 30 seconds
+      },
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // Local fallback model used when remote is unavailable
+    this.fallbackModel = new HistoricalSimulationModel();
+  }
 
   async score(features: Record<string, number>): Promise<MLModelScore> {
-    try {
-      const response = await fetch(this.url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ features }),
-        signal: AbortSignal.timeout(5000), // 5s timeout
-      });
+    // Check circuit breaker — if open, immediately fall back to local model
+    const circuitState = this.httpClient.getCircuitState();
+    if (circuitState.isOpen) {
+      console.warn(
+        `[FraudDetection] Remote ML model circuit OPEN (${circuitState.failures} failures) — using HistoricalSimulationModel fallback`,
+      );
+      return this.fallbackModel.score(features);
+    }
 
-      if (!response.ok) {
-        console.warn(`[FraudDetection] Remote ML model returned ${response.status}, falling back`);
-        return { score: 0, label: 'UNKNOWN', confidence: 0 };
+    try {
+      const data = await this.httpClient.post<unknown>('', { features });
+
+      // Validate response shape
+      if (data === null || data === undefined || typeof data !== 'object') {
+        console.warn('[FraudDetection] Remote ML model returned invalid response, falling back');
+        return this.fallbackModel.score(features);
       }
 
-      const data = await response.json() as MLModelScore;
+      const result = data as Record<string, unknown>;
       return {
-        score: typeof data.score === 'number' ? data.score : 0,
-        label: typeof data.label === 'string' ? data.label : 'UNKNOWN',
-        confidence: typeof data.confidence === 'number' ? data.confidence : 0,
+        score: typeof result.score === 'number' ? result.score : 0,
+        label: typeof result.label === 'string' ? result.label : 'UNKNOWN',
+        confidence: typeof result.confidence === 'number' ? result.confidence : 0,
       };
     } catch (err) {
-      console.error('[FraudDetection] Remote ML model call failed:', err);
-      return { score: 0, label: 'UNKNOWN', confidence: 0 };
+      if (err instanceof CircuitOpenError) {
+        console.warn('[FraudDetection] Circuit breaker tripped — falling back to HistoricalSimulationModel');
+        return this.fallbackModel.score(features);
+      }
+
+      if (err instanceof HttpTimeoutError) {
+        console.warn('[FraudDetection] Remote ML model timed out — falling back to local model');
+        return this.fallbackModel.score(features);
+      }
+
+      console.error('[FraudDetection] Remote ML model call failed, falling back:', err);
+      return this.fallbackModel.score(features);
     }
+  }
+
+  /**
+   * Health check: pings the remote ML model endpoint.
+   * Returns health status and latency for operational dashboards.
+   */
+  async checkHealth(): Promise<{
+    healthy: boolean;
+    latencyMs: number;
+    circuitState: string;
+    error?: string;
+  }> {
+    const circuitState = this.httpClient.getCircuitState();
+    const startMs = Date.now();
+
+    try {
+      // Most ML endpoints support a GET / or GET /health for health check
+      await this.httpClient.get<unknown>('/health');
+      return {
+        healthy: true,
+        latencyMs: Date.now() - startMs,
+        circuitState: circuitState.state,
+      };
+    } catch (err) {
+      return {
+        healthy: false,
+        latencyMs: Date.now() - startMs,
+        circuitState: circuitState.state,
+        error: err instanceof Error ? err.message : 'Unknown error',
+      };
+    }
+  }
+
+  getCircuitState() {
+    return this.httpClient.getCircuitState();
   }
 }
 
@@ -484,6 +579,23 @@ export const fraudDetectionService = {
       mlModelConfigured: !!_remoteProvider,
       mlModelUrl: _remoteProvider ? process.env.ML_FRAUD_MODEL_URL : null,
       fallbackModel: 'HistoricalSimulationModel',
+      circuitState: _remoteProvider
+        ? (_remoteProvider as RemoteMLModelProvider).getCircuitState()
+        : null,
     };
+  },
+
+  /**
+   * Check health of the remote ML model endpoint.
+   * Returns null if no remote model is configured.
+   */
+  async checkModelHealth(): Promise<{
+    healthy: boolean;
+    latencyMs: number;
+    circuitState: string;
+    error?: string;
+  } | null> {
+    if (!_remoteProvider) return null;
+    return (_remoteProvider as RemoteMLModelProvider).checkHealth();
   },
 };

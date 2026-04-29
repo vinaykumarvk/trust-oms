@@ -4,14 +4,27 @@
  * Equity Investment Plan lifecycle management.
  * Handles enrollment, modification, unsubscription, and auto-debit processing
  * for scheduled EIP plans (BDO RFI Gap #9 Critical).
+ *
+ * Production hardening (Finacle core banking integration):
+ *   - ResilientHttpClient with 45s timeout
+ *   - 2 retries only (financial transactions are sensitive)
+ *   - X-Idempotency-Key header using order/debit reference
+ *   - Response validation for Finacle-specific response codes
+ *   - Circuit breaker: 3 failures -> open for 300s (5 minutes)
  */
 
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, desc, and, sql } from 'drizzle-orm';
+import {
+  ResilientHttpClient,
+  CircuitOpenError,
+  HttpRequestError,
+  HttpTimeoutError,
+} from './http-client';
 
 // ---------------------------------------------------------------------------
-// FR-EIP-005: Finacle Core-System Transmission
+// FR-EIP-005: Finacle Core-System Transmission (production-hardened)
 // ---------------------------------------------------------------------------
 
 export interface FinacleTransmitResult {
@@ -21,12 +34,99 @@ export interface FinacleTransmitResult {
   message?: string;
 }
 
+// Finacle response codes that indicate success
+const FINACLE_SUCCESS_CODES = new Set([
+  'OO', 'OK', 'SUCCESS', '000', '00', 'ACCEPTED',
+]);
+
+// Finacle response codes that indicate the request should NOT be retried
+// (business-level rejections, not infrastructure errors)
+const FINACLE_NON_RETRYABLE_CODES = new Set([
+  'INSUFFICIENT_FUNDS', 'ACCOUNT_CLOSED', 'ACCOUNT_BLOCKED',
+  'INVALID_ACCOUNT', 'DUPLICATE_REFERENCE',
+]);
+
+/**
+ * Finacle-specific response validation.
+ * Checks that the response contains the expected Finacle envelope fields.
+ */
+interface FinacleApiResponse {
+  referenceNumber?: string;
+  responseCode?: string;
+  status?: string;
+  errorDescription?: string;
+}
+
+function validateFinacleResponse(data: unknown): FinacleApiResponse {
+  if (data === null || data === undefined || typeof data !== 'object') {
+    throw new Error(
+      `[EIP-Finacle] Invalid Finacle response format: expected object, got ${typeof data}`,
+    );
+  }
+
+  const obj = data as Record<string, unknown>;
+
+  // Finacle must return at least a responseCode or status field
+  if (
+    typeof obj.responseCode !== 'string' &&
+    typeof obj.status !== 'string' &&
+    typeof obj.referenceNumber !== 'string'
+  ) {
+    throw new Error(
+      '[EIP-Finacle] Invalid Finacle response: missing responseCode, status, and referenceNumber',
+    );
+  }
+
+  return {
+    referenceNumber: typeof obj.referenceNumber === 'string' ? obj.referenceNumber : undefined,
+    responseCode: typeof obj.responseCode === 'string' ? obj.responseCode : undefined,
+    status: typeof obj.status === 'string' ? obj.status : undefined,
+    errorDescription: typeof obj.errorDescription === 'string' ? obj.errorDescription : undefined,
+  };
+}
+
+// Lazy-initialized Finacle HTTP client
+let _finacleClient: ResilientHttpClient | null = null;
+
+function getFinacleClient(): ResilientHttpClient | null {
+  const finacleUrl = process.env.FINACLE_API_URL;
+  if (!finacleUrl) return null;
+
+  if (!_finacleClient) {
+    _finacleClient = new ResilientHttpClient({
+      name: 'Finacle',
+      baseUrl: finacleUrl,
+      timeout: 45_000,           // 45s timeout for banking calls
+      retries: 2,                // 2 retries only — financial transactions are sensitive
+      retryDelayMs: 1_000,       // 1s, 2s exponential backoff
+      circuitBreaker: {
+        failureThreshold: 3,
+        windowMs: 5 * 60_000,    // 5 minutes
+        openDurationMs: 300_000, // open for 5 minutes — financial system outage is serious
+      },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(process.env.FINACLE_API_KEY
+          ? { 'Authorization': `Bearer ${process.env.FINACLE_API_KEY}` }
+          : {}),
+      },
+    });
+  }
+  return _finacleClient;
+}
+
 /**
  * Transmit an auto-debit instruction to Finacle core banking system.
  *
- * When FINACLE_API_URL is set, makes a REST POST to the Finacle endpoint
- * with the debit instruction payload. Otherwise runs in stub mode (logs
- * the payload and returns a synthetic reference).
+ * Production hardening:
+ *   - 45s timeout (banking systems can be slow)
+ *   - 2 retries with exponential backoff (1s, 2s)
+ *   - Idempotency: X-Idempotency-Key header using debit reference
+ *   - Response validation: checks for Finacle-specific response codes
+ *   - Circuit breaker: 3 failures -> open for 5 minutes
+ *
+ * When FINACLE_API_URL is not set, runs in stub mode (logs payload, returns
+ * a synthetic reference).
  */
 async function transmitToCoreBanking(params: {
   accountNumber: string;
@@ -35,7 +135,7 @@ async function transmitToCoreBanking(params: {
   debitReference: string;
   valueDate: string;
 }): Promise<FinacleTransmitResult> {
-  const finacleUrl = process.env.FINACLE_API_URL;
+  const client = getFinacleClient();
 
   const payload = {
     header: {
@@ -58,7 +158,7 @@ async function transmitToCoreBanking(params: {
     },
   };
 
-  if (!finacleUrl) {
+  if (!client) {
     // Stub mode — no Finacle endpoint configured
     console.warn(
       `[EIP-Finacle] FINACLE_API_URL not set — running in stub mode. Payload: ${JSON.stringify(payload.body)}`,
@@ -73,43 +173,85 @@ async function transmitToCoreBanking(params: {
   }
 
   try {
-    const response = await fetch(finacleUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(process.env.FINACLE_API_KEY
-          ? { Authorization: `Bearer ${process.env.FINACLE_API_KEY}` }
-          : {}),
-      },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(15000), // 15s timeout for banking call
+    // POST with idempotency key using debit reference
+    const rawData = await client.post<unknown>('', payload, {
+      'X-Idempotency-Key': params.debitReference,
     });
 
-    if (!response.ok) {
-      const errorBody = await response.text().catch(() => 'No response body');
-      console.error(
-        `[EIP-Finacle] Finacle returned HTTP ${response.status}: ${errorBody}`,
-      );
+    // Validate Finacle-specific response format
+    const data = validateFinacleResponse(rawData);
+
+    const responseCode = data.responseCode ?? data.status ?? 'UNKNOWN';
+
+    // Check for Finacle success codes
+    if (FINACLE_SUCCESS_CODES.has(responseCode.toUpperCase())) {
       return {
-        finacleRef: null,
-        status: 'FAILED',
-        responseCode: `HTTP_${response.status}`,
-        message: `Finacle API returned status ${response.status}`,
+        finacleRef: data.referenceNumber ?? null,
+        status: 'SUCCESS',
+        responseCode,
       };
     }
 
-    const data = (await response.json()) as {
-      referenceNumber?: string;
-      responseCode?: string;
-      status?: string;
-    };
+    // Check for non-retryable business-level rejections
+    if (FINACLE_NON_RETRYABLE_CODES.has(responseCode.toUpperCase())) {
+      console.warn(
+        `[EIP-Finacle] Finacle business rejection: ${responseCode} — ${data.errorDescription ?? 'no description'}`,
+      );
+      return {
+        finacleRef: data.referenceNumber ?? null,
+        status: 'FAILED',
+        responseCode,
+        message: data.errorDescription ?? `Finacle rejected: ${responseCode}`,
+      };
+    }
 
+    // Unknown response code — treat as success if referenceNumber present
+    if (data.referenceNumber) {
+      return {
+        finacleRef: data.referenceNumber,
+        status: 'SUCCESS',
+        responseCode,
+      };
+    }
+
+    // Unknown response without reference — treat as failure
     return {
-      finacleRef: data.referenceNumber ?? null,
-      status: 'SUCCESS',
-      responseCode: data.responseCode ?? 'OK',
+      finacleRef: null,
+      status: 'FAILED',
+      responseCode,
+      message: data.errorDescription ?? `Unexpected Finacle response code: ${responseCode}`,
     };
   } catch (err) {
+    if (err instanceof CircuitOpenError) {
+      console.error('[EIP-Finacle] Circuit breaker OPEN — Finacle unavailable');
+      return {
+        finacleRef: null,
+        status: 'FAILED',
+        responseCode: 'CIRCUIT_OPEN',
+        message: 'Finacle circuit breaker is open — system may be experiencing an outage',
+      };
+    }
+
+    if (err instanceof HttpTimeoutError) {
+      console.error('[EIP-Finacle] Request timed out after 45s');
+      return {
+        finacleRef: null,
+        status: 'FAILED',
+        responseCode: 'TIMEOUT',
+        message: err.message,
+      };
+    }
+
+    if (err instanceof HttpRequestError) {
+      console.error(`[EIP-Finacle] HTTP error ${err.statusCode}: ${err.responseBody}`);
+      return {
+        finacleRef: null,
+        status: 'FAILED',
+        responseCode: `HTTP_${err.statusCode}`,
+        message: `Finacle API returned status ${err.statusCode}`,
+      };
+    }
+
     console.error('[EIP-Finacle] Transmission failed:', err);
     return {
       finacleRef: null,

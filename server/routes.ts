@@ -82,6 +82,7 @@ import crmTasksRouter from './routes/back-office/tasks';
 import crmNotificationsRouter from './routes/back-office/notifications';
 import crmHandoversRouter from './routes/back-office/crm-handovers';
 import eclRouter from './routes/back-office/ecl';
+import mfaRouter from './routes/back-office/mfa';
 
 export function registerRoutes(app: Express) {
   // API v1 routes
@@ -332,6 +333,9 @@ export function registerRoutes(app: Express) {
 
   // HAM Handover & Assignment Management routes
   app.use('/api/v1/handovers', hamRouter);
+
+  // MFA enrollment & TOTP verification routes
+  app.use('/api/v1/mfa', mfaRouter);
 
   // ECL (Expected Credit Loss) computation routes (FR-MNT-006)
   app.use('/api/v1/ecl', eclRouter);

@@ -315,6 +315,7 @@ export const navSections: NavSection[] = [
       { label: "AI Shadow Mode", path: "/tools/ai-shadow-mode", icon: Brain },
       { label: "AI & Routing", path: "/tools/ai-costs", icon: Zap },
       { label: "Admin Console", path: "/tools/admin", icon: UserX },
+      { label: "MFA Settings", path: "/tools/mfa-settings", icon: ShieldCheck },
       { label: "Test Data", path: "/tools/test-data", icon: TestTube },
       { label: "Automation", path: "/tools/automation", icon: Cpu },
     ],
