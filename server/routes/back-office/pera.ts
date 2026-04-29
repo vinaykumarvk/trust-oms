@@ -20,6 +20,7 @@ import { Router } from 'express';
 import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { asyncHandler } from '../../middleware/async-handler';
 import { peraService } from '../../services/pera-service';
+import { bspPeraSysService } from '../../services/bsp-pera-sys-service';
 
 const router = Router();
 router.use(requireBackOfficeRole());
@@ -241,6 +242,89 @@ router.get(
   asyncHandler(async (_req, res) => {
     const result = await peraService.generateBSPTransactionFile();
     res.json({ data: result });
+  }),
+);
+
+// =============================================================================
+// FR-PERA-012: BSP PERA-Sys API Integration
+// =============================================================================
+
+/** POST /bsp/tin/verify -- Verify TIN existence via BSP PERA-Sys */
+router.post(
+  '/bsp/tin/verify',
+  asyncHandler(async (req, res) => {
+    const { tin } = req.body;
+    if (!tin) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'tin is required' },
+      });
+    }
+
+    const result = await bspPeraSysService.checkTINExistence(tin);
+    res.json(result);
+  }),
+);
+
+/** POST /bsp/duplicate-check -- Check for duplicate PERA registrations via BSP */
+router.post(
+  '/bsp/duplicate-check',
+  asyncHandler(async (req, res) => {
+    const { contributorId } = req.body;
+    if (!contributorId) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'contributorId is required' },
+      });
+    }
+
+    const result = await bspPeraSysService.checkDuplicatePERA(contributorId);
+    res.json(result);
+  }),
+);
+
+/** POST /bsp/contributor/register -- Submit contributor registration to BSP */
+router.post(
+  '/bsp/contributor/register',
+  asyncHandler(async (req, res) => {
+    const { contributorId, tin, firstName, lastName, dateOfBirth, nationality, administrator, productId } = req.body;
+    if (!contributorId || !tin || !firstName || !lastName) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'contributorId, tin, firstName, and lastName are required',
+        },
+      });
+    }
+
+    const result = await bspPeraSysService.submitContributorRegistration({
+      contributorId,
+      tin,
+      firstName,
+      lastName,
+      dateOfBirth: dateOfBirth ?? '',
+      nationality: nationality ?? 'PH',
+      administrator: administrator ?? 'TRUSTOMS',
+      productId: productId ?? '',
+    });
+    res.json(result);
+  }),
+);
+
+/** POST /bsp/transactions/submit -- Submit transaction batch to BSP */
+router.post(
+  '/bsp/transactions/submit',
+  asyncHandler(async (req, res) => {
+    const { transactions } = req.body;
+    if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'transactions array is required and must not be empty',
+        },
+      });
+    }
+
+    const result = await bspPeraSysService.submitTransactionFile(transactions);
+    res.json(result);
   }),
 );
 

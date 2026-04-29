@@ -8,6 +8,7 @@
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, desc, and, sql } from 'drizzle-orm';
+import crypto from 'crypto';
 
 // In-memory error reports (keyed by batchId). In production this would
 // be persisted to object storage or a dedicated table.
@@ -286,9 +287,13 @@ export const bulkUploadService = {
   },
 
   // -------------------------------------------------------------------------
-  // FR-UPL-003: Fan-out upload into individual batch items
+  // FR-UPL-003 + FR-UPL-004: Fan-out upload into orders pipeline
+  //
+  // Parses each row's data and creates actual orders in the orders table
+  // with order_status='PENDING_AUTH', linking each order to a batch item
+  // via entity_type='ORDER' and entity_id=order.order_id.
   // -------------------------------------------------------------------------
-  async fanOutUpload(batchId: number) {
+  async fanOutUpload(batchId: number, rows?: Array<Record<string, string>>) {
     // Fetch the batch — must be in VALIDATED or later status
     const [batch] = await db
       .select()
@@ -306,7 +311,10 @@ export const bulkUploadService = {
       );
     }
 
-    const rowCount = batch.row_count ?? 0;
+    // Use provided rows or fall back to row_count-based stub processing
+    const rowData = rows ?? [];
+    const rowCount = rowData.length > 0 ? rowData.length : (batch.row_count ?? 0);
+
     if (rowCount === 0) {
       return { total: 0, succeeded: 0, failed: 0, errors: [] };
     }
@@ -315,32 +323,122 @@ export const bulkUploadService = {
     let failed = 0;
     const errors: Array<{ rowNumber: number; message: string }> = [];
 
-    // Split into individual items — one row per uploadBatchItem
-    for (let rowNum = 1; rowNum <= rowCount; rowNum++) {
+    for (let rowIdx = 0; rowIdx < rowCount; rowIdx++) {
+      const rowNum = rowIdx + 1;
+      const row = rowData[rowIdx] ?? null;
+
       try {
-        // Insert individual item as PROCESSING
+        // Insert batch item as PROCESSING
         const [item] = await db
           .insert(schema.uploadBatchItems)
           .values({
             batch_id: batchId,
             row_number: rowNum,
-            entity_type: 'UPLOAD_ROW',
+            entity_type: 'ORDER',
             entity_id: null,
             item_status: 'PROCESSING',
           })
           .returning();
 
-        // Simulate per-item processing.
-        // In production this would apply the row data (create transaction, etc.)
-        // For now, mark as SUCCEEDED.
-        await db
-          .update(schema.uploadBatchItems)
-          .set({
-            item_status: 'SUCCEEDED',
-            processed_at: new Date(),
-            updated_at: new Date(),
-          })
-          .where(eq(schema.uploadBatchItems.id, item.id));
+        if (row) {
+          // ---- FR-UPL-004: Create actual order from parsed row data ----
+
+          // Parse and validate row fields
+          const portfolioId = row['portfolio_id'] ?? row['account_id'];
+          if (!portfolioId) {
+            throw new Error('Missing required field: portfolio_id');
+          }
+
+          const sideRaw = (row['side'] ?? 'BUY').toUpperCase();
+          if (sideRaw !== 'BUY' && sideRaw !== 'SELL') {
+            throw new Error(`Invalid side: ${sideRaw}; must be BUY or SELL`);
+          }
+          const side = sideRaw as 'BUY' | 'SELL';
+
+          // Resolve security_id: use explicit security_id, or look up by ISIN
+          let securityId: number | null = null;
+          if (row['security_id']) {
+            securityId = parseInt(row['security_id'], 10);
+            if (isNaN(securityId)) {
+              throw new Error(`Invalid security_id: ${row['security_id']}`);
+            }
+          } else if (row['isin']) {
+            const [sec] = await db
+              .select({ id: schema.securities.id })
+              .from(schema.securities)
+              .where(eq(schema.securities.isin, row['isin']))
+              .limit(1);
+            if (!sec) {
+              throw new Error(`Security not found for ISIN: ${row['isin']}`);
+            }
+            securityId = sec.id;
+          } else {
+            throw new Error('Missing required field: security_id or isin');
+          }
+
+          const quantity = row['quantity'] ? String(parseFloat(row['quantity'])) : null;
+          if (!quantity || isNaN(parseFloat(quantity))) {
+            throw new Error(`Invalid quantity: ${row['quantity']}`);
+          }
+
+          const price = row['price'] ? String(parseFloat(row['price'])) : null;
+          const currency = row['currency'] ?? 'PHP';
+          const valueDate = row['value_date'] ?? null;
+
+          // Generate order ID and TRN
+          const orderId = `ORD-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+          const orderNo = `ON-${Date.now()}-${rowNum}`;
+          const now = new Date();
+          const pad = (n: number, len: number = 2) => String(n).padStart(len, '0');
+          const datePart = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+          const timePart = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+          const seq = String(crypto.randomInt(99999)).padStart(5, '0');
+          const trn = `TRN-${datePart}-${timePart}-${seq}`;
+
+          // Create the order with PENDING_AUTH status
+          const [order] = await db
+            .insert(schema.orders)
+            .values({
+              order_id: orderId,
+              order_no: orderNo,
+              transaction_ref_no: trn,
+              portfolio_id: portfolioId,
+              type: (row['order_type'] as any) ?? 'LIMIT',
+              side,
+              security_id: securityId,
+              quantity,
+              limit_price: price,
+              currency,
+              value_date: valueDate,
+              order_status: 'PENDING_AUTH',
+              time_in_force: 'DAY',
+              created_by: String(batch.uploaded_by ?? 0),
+              created_by_role: 'BULK_UPLOAD',
+            })
+            .returning();
+
+          // Link the batch item to the created order
+          await db
+            .update(schema.uploadBatchItems)
+            .set({
+              entity_type: 'ORDER',
+              entity_id: order.order_id,
+              item_status: 'SUCCEEDED',
+              processed_at: new Date(),
+              updated_at: new Date(),
+            })
+            .where(eq(schema.uploadBatchItems.id, item.id));
+        } else {
+          // No row data available — mark as SUCCEEDED (stub)
+          await db
+            .update(schema.uploadBatchItems)
+            .set({
+              item_status: 'SUCCEEDED',
+              processed_at: new Date(),
+              updated_at: new Date(),
+            })
+            .where(eq(schema.uploadBatchItems.id, item.id));
+        }
 
         succeeded++;
       } catch (err) {
@@ -355,7 +453,7 @@ export const bulkUploadService = {
             .values({
               batch_id: batchId,
               row_number: rowNum,
-              entity_type: 'UPLOAD_ROW',
+              entity_type: 'ORDER',
               entity_id: null,
               item_status: 'FAILED',
               error_message: message,

@@ -72,7 +72,11 @@ export const withdrawalService = {
     return withdrawal;
   },
 
-  /** Calculate withholding tax for a withdrawal (stub: 0% for most, 25% for early) */
+  /**
+   * FR-WDL-006: Configurable penalty schedule for withdrawals.
+   * Penalty rates are configurable per withdrawal type and product.
+   * Falls back to system defaults when no schedule is found.
+   */
   async calculateWithholdingTax(withdrawalId: number) {
     const [withdrawal] = await db
       .select()
@@ -85,16 +89,66 @@ export const withdrawalService = {
     }
 
     const amount = parseFloat(withdrawal.amount ?? '0');
+    const withdrawalType = withdrawal.type ?? 'STANDARD';
 
-    // Stub logic: 25% WHT for early withdrawal type, 0% for all others
-    const isEarly = withdrawal.type === 'EARLY_WITHDRAWAL';
-    const whtRate = isEarly ? 0.25 : 0;
+    // Look up configurable penalty schedule from system_config
+    let penaltyRate = 0;
+    let whtRate = 0;
+
+    try {
+      const [penaltyConfig] = await db
+        .select()
+        .from(schema.systemConfig)
+        .where(eq(schema.systemConfig.config_key, `PENALTY_RATE_${withdrawalType}`))
+        .limit(1);
+
+      if (penaltyConfig?.config_value) {
+        penaltyRate = parseFloat(penaltyConfig.config_value);
+      }
+
+      const [whtConfig] = await db
+        .select()
+        .from(schema.systemConfig)
+        .where(eq(schema.systemConfig.config_key, `WHT_RATE_${withdrawalType}`))
+        .limit(1);
+
+      if (whtConfig?.config_value) {
+        whtRate = parseFloat(whtConfig.config_value);
+      }
+    } catch {
+      // Fall back to defaults if system_config query fails
+    }
+
+    // Default penalty schedule when no config exists
+    if (penaltyRate === 0 && whtRate === 0) {
+      switch (withdrawalType) {
+        case 'EARLY_WITHDRAWAL':
+          penaltyRate = 0.05;  // 5% early withdrawal penalty
+          whtRate = 0.25;      // 25% WHT on early withdrawals
+          break;
+        case 'PRE_TERMINATION':
+          penaltyRate = 0.02;  // 2% pre-termination penalty
+          whtRate = 0.20;      // 20% WHT
+          break;
+        case 'PERA_UNQUALIFIED':
+          penaltyRate = 0;     // No penalty (tax handles it)
+          whtRate = 0.25;      // Income tax per PERA rules
+          break;
+        default:
+          penaltyRate = 0;
+          whtRate = 0;
+          break;
+      }
+    }
+
+    const penaltyAmount = amount * penaltyRate;
     const whtAmount = amount * whtRate;
+    const totalDeductions = penaltyAmount + whtAmount;
 
     const [updated] = await db
       .update(schema.withdrawals)
       .set({
-        tax_withholding: String(whtAmount),
+        tax_withholding: String(totalDeductions),
         updated_at: new Date(),
       })
       .where(eq(schema.withdrawals.id, withdrawalId))
@@ -102,9 +156,12 @@ export const withdrawalService = {
 
     return {
       withdrawal: updated,
+      penalty_rate: penaltyRate,
+      penalty_amount: penaltyAmount,
       wht_rate: whtRate,
       wht_amount: whtAmount,
-      net_amount: amount - whtAmount,
+      total_deductions: totalDeductions,
+      net_amount: amount - totalDeductions,
     };
   },
 

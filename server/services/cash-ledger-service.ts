@@ -10,6 +10,7 @@
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, and, sql, desc, gte, lte } from 'drizzle-orm';
+import { fxRateService } from './fx-rate-service';
 
 export const cashLedgerService = {
   /** Get balance for a portfolio in a currency */
@@ -189,6 +190,106 @@ export const cashLedgerService = {
     const total = Number(countResult[0]?.count ?? 0);
 
     return { data, total, page, pageSize };
+  },
+
+  /**
+   * FR-CSH-005: Post a cash entry with automatic FX conversion
+   *
+   * If the entry currency differs from the baseCurrency, this method:
+   * 1. Posts the original-currency entry via postEntry()
+   * 2. Converts the amount using the provided fxRate or looks up the rate
+   *    from fxRateService
+   * 3. Posts a second converted entry in the base currency
+   * 4. Returns both entries
+   *
+   * If currencies match, falls through to a single postEntry() call.
+   */
+  async postEntryWithFxConversion(data: {
+    portfolioId: string;
+    type: string;
+    amount: number;
+    currency: string;
+    reference: string;
+    baseCurrency?: string;
+    fxRate?: number;
+  }): Promise<{
+    original_entry: {
+      transaction_id: number;
+      ledger_id: number;
+      amount: number;
+      new_balance: number;
+    };
+    converted_entry: {
+      transaction_id: number;
+      ledger_id: number;
+      amount: number;
+      new_balance: number;
+      fx_rate_used: number;
+    } | null;
+    fx_rate_used: number | null;
+  }> {
+    const baseCurrency = data.baseCurrency ?? 'PHP';
+    const entryCurrency = data.currency || 'PHP';
+
+    // If same currency, no conversion needed
+    if (entryCurrency === baseCurrency) {
+      const entry = await this.postEntry({
+        portfolioId: data.portfolioId,
+        type: data.type,
+        amount: data.amount,
+        currency: entryCurrency,
+        reference: data.reference,
+      });
+
+      return {
+        original_entry: entry,
+        converted_entry: null,
+        fx_rate_used: null,
+      };
+    }
+
+    // Post the original-currency entry first
+    const originalEntry = await this.postEntry({
+      portfolioId: data.portfolioId,
+      type: data.type,
+      amount: data.amount,
+      currency: entryCurrency,
+      reference: data.reference,
+    });
+
+    // Determine the FX rate: use provided rate or look up from fxRateService
+    let fxRate = data.fxRate ?? null;
+
+    if (fxRate === null || fxRate <= 0) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const rateResult = await fxRateService.getFxRate(
+        entryCurrency,
+        baseCurrency,
+        todayStr,
+      );
+      fxRate = rateResult.mid_rate;
+    }
+
+    // Convert amount: multiply original amount by the FX rate
+    const convertedAmount = data.amount * fxRate;
+
+    // Post the converted entry in the base currency
+    const convertedEntry = await this.postEntry({
+      portfolioId: data.portfolioId,
+      type: data.type,
+      amount: convertedAmount,
+      currency: baseCurrency,
+      reference: `${data.reference}-FX-${entryCurrency}${baseCurrency}@${fxRate.toFixed(6)}`,
+    });
+
+    return {
+      original_entry: originalEntry,
+      converted_entry: {
+        ...convertedEntry,
+        fx_rate_used: fxRate,
+      },
+      fx_rate_used: fxRate,
+    };
   },
 
   /** Get liquidity heat-map: T/T+1/T+2 cash positions by currency (BRD FR-CSH-004) */

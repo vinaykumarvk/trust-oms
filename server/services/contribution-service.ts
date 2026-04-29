@@ -163,6 +163,27 @@ export const contributionService = {
       .where(eq(schema.cashLedger.id, ledger.id))
       .returning();
 
+    // FR-CON-006: Generate a tax event for the contribution.
+    // In-kind contributions may trigger capital gains recognition;
+    // cash contributions record the inflow for Documentary Stamp Tax (DST)
+    // tracking where applicable under Philippine tax regulations.
+    await db
+      .insert(schema.taxEvents)
+      .values({
+        portfolio_id: portfolioId,
+        tax_type: 'WHT',
+        gross_amount: String(amount),
+        tax_rate: '0',
+        tax_amount: '0',
+        source: 'CONTRIBUTION',
+        filing_status: 'PENDING',
+        certificate_ref: `CONTRIB-${contributionId}`,
+      })
+      .catch((err: unknown) => {
+        // Non-blocking: tax event failure should not prevent contribution posting
+        console.error('[ContributionService] Failed to create tax event:', err instanceof Error ? err.message : err);
+      });
+
     // Mark contribution as POSTED
     const [updated] = await db
       .update(schema.contributions)
@@ -179,6 +200,7 @@ export const contributionService = {
       transaction_id: transaction.id,
       amount,
       new_balance: parseFloat(updatedLedger.balance ?? '0'),
+      tax_event_type: 'WHT',
     };
   },
 

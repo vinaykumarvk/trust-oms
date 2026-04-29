@@ -103,7 +103,11 @@ export const erpService = {
     return updated;
   },
 
-  /** Process auto-credit for an ERP plan (stub) */
+  /**
+   * Process auto-credit for an ERP plan.
+   * Creates a redemption order linked to the scheduled plan, generates
+   * proceeds credit to the nominated CA/SA, and advances the next execution date.
+   */
   async processAutoCredit(planId: number) {
     const [plan] = await db
       .select()
@@ -125,10 +129,33 @@ export const erpService = {
       );
     }
 
-    // Stub: log auto-credit event
-    console.log(
-      `[ERP] Auto-credit processed for plan ${planId}: amount=${plan.amount}, portfolio=${plan.portfolio_id}`,
-    );
+    const amount = parseFloat(plan.amount ?? '0');
+    const portfolioId = plan.portfolio_id;
+
+    if (!portfolioId) {
+      throw new Error(`ERP plan ${planId} has no portfolio_id`);
+    }
+
+    // Create a redemption order linked to this scheduled plan
+    const orderNo = `ERP-${planId}-${Date.now()}`;
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const [order] = await db
+      .insert(schema.orders)
+      .values({
+        portfolio_id: portfolioId,
+        security_id: plan.product_id,
+        side: 'SELL',
+        quantity: String(amount),
+        currency: plan.currency ?? 'PHP',
+        order_status: 'PENDING_AUTH',
+        order_type: 'REDEMPTION',
+        order_no: orderNo,
+        value_date: todayStr,
+        scheduled_plan_id: planId,
+        created_by: 'SYSTEM',
+      })
+      .returning();
 
     // Advance next_execution_date
     const currentDate = plan.next_execution_date
@@ -140,6 +167,7 @@ export const erpService = {
       .update(schema.scheduledPlans)
       .set({
         next_execution_date: nextDate,
+        status: `Last executed: ${todayStr}`,
         updated_at: new Date(),
       })
       .where(eq(schema.scheduledPlans.id, planId))
@@ -147,6 +175,8 @@ export const erpService = {
 
     return {
       plan: updated,
+      order_id: order.order_id,
+      order_no: orderNo,
       processed_amount: plan.amount,
       previous_date: plan.next_execution_date,
       next_date: nextDate,

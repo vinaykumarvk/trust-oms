@@ -87,4 +87,63 @@ router.post(
   }),
 );
 
+// =============================================================================
+// FR-TRF-008: External Trustee Bank Transfers (SWIFT)
+// =============================================================================
+
+/** POST /external — Initiate an external inter-custodian transfer */
+router.post(
+  '/external',
+  asyncHandler(async (req, res) => {
+    const { fromPortfolioId, externalCustodian, securityId, quantity } = req.body;
+
+    if (!fromPortfolioId || !externalCustodian || !securityId || !quantity) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_INPUT',
+          message:
+            'fromPortfolioId, externalCustodian (bic, account), securityId, and quantity are required',
+        },
+      });
+    }
+
+    if (!externalCustodian.bic || !externalCustodian.account) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'externalCustodian must include bic and account fields',
+        },
+      });
+    }
+
+    const result = await transferService.initiateExternalTransfer({
+      fromPortfolioId,
+      externalCustodian,
+      securityId: parseInt(securityId),
+      quantity: parseFloat(quantity),
+    });
+    res.status(201).json(result);
+  }),
+);
+
+/** POST /:id/confirm-external — Confirm external transfer on custodian settlement */
+router.post(
+  '/:id/confirm-external',
+  asyncHandler(async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Invalid transfer ID' },
+      });
+    }
+
+    const { custodianRef, confirmedBy } = req.body;
+    const result = await transferService.confirmExternalTransfer(id, {
+      custodianRef,
+      confirmedBy: confirmedBy ? parseInt(confirmedBy) : undefined,
+    });
+    res.json(result);
+  }),
+);
+
 export default router;

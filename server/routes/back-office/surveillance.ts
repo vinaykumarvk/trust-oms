@@ -16,6 +16,7 @@ import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { asyncHandler } from '../../middleware/async-handler';
 import { requireRole } from '../../middleware/auth';
 import { surveillanceService } from '../../services/surveillance-service';
+import { fraudDetectionService } from '../../services/fraud-detection-service';
 
 const router = Router();
 router.use(requireBackOfficeRole());
@@ -160,6 +161,55 @@ router.post(
 
     const result = await surveillanceService.scoreAnomaly(parseInt(rmId, 10));
     res.json({ data: result });
+  }),
+);
+
+// =============================================================================
+// FR-AID-001/002: ML-Ready Fraud Detection
+// =============================================================================
+
+/** POST /fraud/score -- Score an order for fraud risk (ensemble: heuristic + ML) */
+router.post(
+  '/fraud/score',
+  requireRole('COMPLIANCE_OFFICER', 'SURVEILLANCE_OFFICER'),
+  asyncHandler(async (req, res) => {
+    const { orderId } = req.body;
+
+    if (!orderId) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'orderId is required' },
+      });
+    }
+
+    const result = await fraudDetectionService.scoreOrder(orderId);
+    res.json({ data: result });
+  }),
+);
+
+/** POST /fraud/features -- Extract fraud features for an order (explainability) */
+router.post(
+  '/fraud/features',
+  requireRole('COMPLIANCE_OFFICER', 'SURVEILLANCE_OFFICER'),
+  asyncHandler(async (req, res) => {
+    const { orderId } = req.body;
+
+    if (!orderId) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'orderId is required' },
+      });
+    }
+
+    const features = await fraudDetectionService.extractFeatures(orderId);
+    res.json({ data: features });
+  }),
+);
+
+/** GET /fraud/config -- Get current fraud detection ensemble configuration */
+router.get(
+  '/fraud/config',
+  asyncHandler(async (_req, res) => {
+    const config = fraudDetectionService.getConfig();
+    res.json({ data: config });
   }),
 );
 

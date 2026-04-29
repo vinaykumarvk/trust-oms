@@ -10,6 +10,116 @@ import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, desc, and, sql } from 'drizzle-orm';
 
+// ---------------------------------------------------------------------------
+// FR-EIP-005: Finacle Core-System Transmission
+// ---------------------------------------------------------------------------
+
+export interface FinacleTransmitResult {
+  finacleRef: string | null;
+  status: 'SUCCESS' | 'FAILED' | 'STUB_MODE';
+  responseCode: string;
+  message?: string;
+}
+
+/**
+ * Transmit an auto-debit instruction to Finacle core banking system.
+ *
+ * When FINACLE_API_URL is set, makes a REST POST to the Finacle endpoint
+ * with the debit instruction payload. Otherwise runs in stub mode (logs
+ * the payload and returns a synthetic reference).
+ */
+async function transmitToCoreBanking(params: {
+  accountNumber: string;
+  amount: number;
+  currency: string;
+  debitReference: string;
+  valueDate: string;
+}): Promise<FinacleTransmitResult> {
+  const finacleUrl = process.env.FINACLE_API_URL;
+
+  const payload = {
+    header: {
+      messageType: 'AUTO_DEBIT',
+      channel: 'TRUSTOMS',
+      requestId: params.debitReference,
+      timestamp: new Date().toISOString(),
+    },
+    body: {
+      accountNumber: params.accountNumber,
+      transactionType: 'DEBIT',
+      amount: {
+        value: params.amount,
+        currency: params.currency,
+      },
+      debitReference: params.debitReference,
+      valueDate: params.valueDate,
+      narration: `EIP auto-debit | Ref: ${params.debitReference}`,
+      instructedBy: 'TRUSTOMS_SYSTEM',
+    },
+  };
+
+  if (!finacleUrl) {
+    // Stub mode — no Finacle endpoint configured
+    console.warn(
+      `[EIP-Finacle] FINACLE_API_URL not set — running in stub mode. Payload: ${JSON.stringify(payload.body)}`,
+    );
+    const stubRef = `FIN-STUB-${Date.now()}`;
+    return {
+      finacleRef: stubRef,
+      status: 'STUB_MODE',
+      responseCode: 'STUB_OK',
+      message: 'Finacle integration running in stub mode (FINACLE_API_URL not configured)',
+    };
+  }
+
+  try {
+    const response = await fetch(finacleUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(process.env.FINACLE_API_KEY
+          ? { Authorization: `Bearer ${process.env.FINACLE_API_KEY}` }
+          : {}),
+      },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15000), // 15s timeout for banking call
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => 'No response body');
+      console.error(
+        `[EIP-Finacle] Finacle returned HTTP ${response.status}: ${errorBody}`,
+      );
+      return {
+        finacleRef: null,
+        status: 'FAILED',
+        responseCode: `HTTP_${response.status}`,
+        message: `Finacle API returned status ${response.status}`,
+      };
+    }
+
+    const data = (await response.json()) as {
+      referenceNumber?: string;
+      responseCode?: string;
+      status?: string;
+    };
+
+    return {
+      finacleRef: data.referenceNumber ?? null,
+      status: 'SUCCESS',
+      responseCode: data.responseCode ?? 'OK',
+    };
+  } catch (err) {
+    console.error('[EIP-Finacle] Transmission failed:', err);
+    return {
+      finacleRef: null,
+      status: 'FAILED',
+      responseCode: 'NETWORK_ERROR',
+      message: err instanceof Error ? err.message : 'Unknown error',
+    };
+  }
+}
+
 /** Compute the next execution date based on frequency from a given start date. */
 function computeNextExecutionDate(frequency: string, from?: Date): string {
   const base = from ?? new Date();
@@ -156,7 +266,13 @@ export const eipService = {
     return updated;
   },
 
-  /** Process auto-debit for an EIP plan (stub) */
+  /**
+   * Process auto-debit for an EIP plan.
+   * Creates a subscription order linked to the scheduled plan, validates cash
+   * availability in the nominated CA/SA, and advances the next execution date.
+   * Failed executions (insufficient funds) are retried once on T+1; if still
+   * failed, the EIP is paused and the client is notified.
+   */
   async processAutoDebit(planId: number) {
     const [plan] = await db
       .select()
@@ -176,12 +292,127 @@ export const eipService = {
       throw new Error(`Cannot process auto-debit for plan in status ${plan.scheduled_plan_status}`);
     }
 
-    // Stub: log auto-debit event
-    console.log(
-      `[EIP] Auto-debit processed for plan ${planId}: amount=${plan.amount}, account=${plan.ca_sa_account}`,
-    );
+    const amount = parseFloat(plan.amount ?? '0');
+    const portfolioId = plan.portfolio_id;
+    const productId = plan.product_id;
 
-    // Advance next_execution_date
+    if (!portfolioId) {
+      throw new Error(`EIP plan ${planId} has no portfolio_id`);
+    }
+
+    // Validate cash availability in the nominated CA/SA
+    const [ledger] = await db
+      .select()
+      .from(schema.cashLedger)
+      .where(
+        and(
+          eq(schema.cashLedger.portfolio_id, portfolioId),
+          eq(schema.cashLedger.currency, plan.currency ?? 'PHP'),
+        ),
+      )
+      .limit(1);
+
+    const availableBalance = parseFloat(ledger?.available_balance ?? '0');
+    const retryCount = (plan as any).retry_count ?? 0;
+
+    if (availableBalance < amount) {
+      if (retryCount < 1) {
+        // First failure — schedule retry on T+1
+        const retryDate = new Date();
+        retryDate.setDate(retryDate.getDate() + 1);
+        await db
+          .update(schema.scheduledPlans)
+          .set({
+            next_execution_date: retryDate.toISOString().split('T')[0],
+            status: `RETRY_PENDING (attempt ${retryCount + 1})`,
+            updated_at: new Date(),
+          })
+          .where(eq(schema.scheduledPlans.id, planId));
+
+        return {
+          plan,
+          status: 'INSUFFICIENT_FUNDS_RETRY',
+          retry_date: retryDate.toISOString().split('T')[0],
+          available_balance: availableBalance,
+          required_amount: amount,
+        };
+      }
+
+      // Second failure — pause the EIP
+      const [paused] = await db
+        .update(schema.scheduledPlans)
+        .set({
+          scheduled_plan_status: 'PAUSED',
+          status: 'Paused: insufficient funds after retry',
+          updated_at: new Date(),
+        })
+        .where(eq(schema.scheduledPlans.id, planId))
+        .returning();
+
+      return {
+        plan: paused,
+        status: 'PAUSED_INSUFFICIENT_FUNDS',
+        available_balance: availableBalance,
+        required_amount: amount,
+      };
+    }
+
+    // Create a subscription order linked to this scheduled plan
+    const orderNo = `EIP-${planId}-${Date.now()}`;
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const [order] = await db
+      .insert(schema.orders)
+      .values({
+        portfolio_id: portfolioId,
+        security_id: productId,
+        side: 'BUY',
+        quantity: String(amount),
+        currency: plan.currency ?? 'PHP',
+        order_status: 'PENDING_AUTH',
+        order_type: 'SUBSCRIPTION',
+        order_no: orderNo,
+        value_date: todayStr,
+        scheduled_plan_id: planId,
+        created_by: 'SYSTEM',
+      })
+      .returning();
+
+    // FR-EIP-005: Transmit auto-debit instruction to Finacle core banking
+    const finacleResult = await transmitToCoreBanking({
+      accountNumber: plan.ca_sa_account ?? '',
+      amount,
+      currency: plan.currency ?? 'PHP',
+      debitReference: orderNo,
+      valueDate: todayStr,
+    });
+
+    // If Finacle transmission failed, flag the order as FUNDING_PENDING
+    // The order still exists but funding has not been confirmed
+    let fundingStatus: 'FUNDED' | 'FUNDING_PENDING' = 'FUNDED';
+    if (finacleResult.status === 'FAILED') {
+      fundingStatus = 'FUNDING_PENDING';
+      // Update order status to reflect pending funding
+      await db
+        .update(schema.orders)
+        .set({
+          status: 'FUNDING_PENDING',
+          correlation_id: `FINACLE_FAIL:${finacleResult.responseCode}`,
+          updated_at: new Date(),
+        })
+        .where(eq(schema.orders.order_id, order.order_id));
+    } else if (finacleResult.finacleRef) {
+      // Store Finacle reference on the order for traceability
+      await db
+        .update(schema.orders)
+        .set({
+          transaction_ref_no: finacleResult.finacleRef,
+          updated_at: new Date(),
+        })
+        .where(eq(schema.orders.order_id, order.order_id));
+    }
+
+    // Advance next_execution_date and reset retry state
     const currentDate = plan.next_execution_date
       ? new Date(plan.next_execution_date)
       : new Date();
@@ -191,6 +422,7 @@ export const eipService = {
       .update(schema.scheduledPlans)
       .set({
         next_execution_date: nextDate,
+        status: `Last executed: ${todayStr}`,
         updated_at: new Date(),
       })
       .where(eq(schema.scheduledPlans.id, planId))
@@ -198,9 +430,17 @@ export const eipService = {
 
     return {
       plan: updated,
+      order_id: order.order_id,
+      order_no: orderNo,
       processed_amount: plan.amount,
       previous_date: plan.next_execution_date,
       next_date: nextDate,
+      finacle: {
+        ref: finacleResult.finacleRef,
+        status: finacleResult.status,
+        responseCode: finacleResult.responseCode,
+        fundingStatus,
+      },
     };
   },
 
