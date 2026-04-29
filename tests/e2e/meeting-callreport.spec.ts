@@ -100,12 +100,24 @@ vi.mock('../../server/services/audit-logger', () => ({
   logAuditEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock('../../server/services/market-calendar-service', () => ({
+  marketCalendarService: {
+    isBusinessDay: vi.fn().mockResolvedValue(true),
+  },
+}));
+
+vi.mock('../../server/services/platform-intelligence-client', () => ({
+  tagCallReport: vi.fn().mockResolvedValue(undefined),
+}));
+
 // ---------------------------------------------------------------------------
 // Import services under test — AFTER mocks are set up
 // ---------------------------------------------------------------------------
 
 import { meetingService } from '../../server/services/meeting-service';
 import { callReportService } from '../../server/services/call-report-service';
+import { tagCallReport } from '../../server/services/platform-intelligence-client';
+import { marketCalendarService } from '../../server/services/market-calendar-service';
 
 // ===========================================================================
 // Test Suite
@@ -129,6 +141,10 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
     mockDelete.mockReturnValue(deleteChain);
     mockValues.mockReturnValue({ returning: mockReturning });
     mockSet.mockReturnValue({ where: vi.fn().mockReturnValue({ returning: mockReturning }) });
+
+    // Re-establish service mocks that resetAllMocks clears
+    (tagCallReport as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+    (marketCalendarService.isBusinessDay as ReturnType<typeof vi.fn>).mockResolvedValue(true);
   });
 
   // =========================================================================
@@ -167,6 +183,7 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
         organizer_user_id: 10,
         start_time: '2026-05-01T09:00:00Z',
         end_time: '2026-05-01T10:00:00Z',
+        invitees: [{ user_id: 20, is_required: true }],
       });
 
       expect(result).toBeDefined();
@@ -201,6 +218,7 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
         organizer_user_id: 10,
         start_time: '2026-05-01T14:00:00Z',
         end_time: '2026-05-01T15:00:00Z',
+        invitees: [{ user_id: 20, is_required: true }],
       });
 
       expect(result).toBeDefined();
@@ -524,7 +542,7 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
       it('should throw when meeting not found for cancel', async () => {
         mockWhere.mockResolvedValueOnce([]);
 
-        await expect(meetingService.cancel(999, 'Reason', 10)).rejects.toThrow(
+        await expect(meetingService.cancel(999, 'Meeting no longer needed', 10)).rejects.toThrow(
           'Meeting not found',
         );
       });
@@ -532,30 +550,63 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
 
     describe('Reschedule', () => {
       it('should reschedule a SCHEDULED meeting to new times', async () => {
-        // Mock select: select().from().where().limit(1)
+        // Mock select: select().from().where().limit(1) — fetch existing meeting
         mockLimit.mockResolvedValueOnce([{
           id: 1,
           meeting_status: 'SCHEDULED',
           organizer_user_id: 10,
           title: 'Team Sync',
+          meeting_type: 'IN_PERSON',
           start_time: new Date('2026-05-01T09:00:00Z'),
+          end_time: new Date('2026-05-01T10:00:00Z'),
           lead_id: null,
           prospect_id: null,
           client_id: null,
+          mode: null,
+          purpose: null,
+          meeting_reason: null,
+          meeting_reason_other: null,
+          is_all_day: false,
+          campaign_id: null,
+          related_entity_type: null,
+          related_entity_id: null,
+          location: null,
+          reminder_minutes: 30,
+          notes: null,
+          relationship_name: null,
+          contact_phone: null,
+          contact_email: null,
+          branch_id: null,
         }]);
 
-        // Mock update: update().set().where().returning()
-        const mockUpdateWhere = vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValueOnce([{
-            id: 1,
-            meeting_status: 'SCHEDULED',
-            start_time: new Date('2026-05-05T09:00:00Z'),
-            end_time: new Date('2026-05-05T10:00:00Z'),
-          }]),
-        });
+        // Mock generateMeetingCode — db.execute for new meeting code
+        mockExecute.mockResolvedValueOnce({ rows: [] });
+
+        // Mock existing invitees select (inside tx): select().from().where() resolves to []
+        // First where() call is the meeting lookup (returns chain, limit is terminal).
+        // Second where() call is the invitees lookup (terminal, resolves to []).
+        mockWhere
+          .mockReturnValueOnce(selectChain)   // 1st: meeting lookup → chain (limit is terminal)
+          .mockResolvedValueOnce([]);          // 2nd: invitees lookup → resolves to []
+
+        // Mock new meeting insert returning (inside tx)
+        mockReturning.mockResolvedValueOnce([{
+          id: 2,
+          meeting_code: 'MTG-20260505-0001',
+          meeting_status: 'SCHEDULED',
+          start_time: new Date('2026-05-05T09:00:00Z'),
+          end_time: new Date('2026-05-05T10:00:00Z'),
+          parent_meeting_id: 1,
+        }]);
+
+        // Mock old meeting update (RESCHEDULED status) — update().set().where()
+        const mockUpdateWhere = vi.fn().mockResolvedValueOnce(undefined);
         mockSet.mockReturnValueOnce({ where: mockUpdateWhere });
 
         // conversationHistory insert — default chain is fine
+
+        // Mock notification invitee lookup (outside tx): select().from().where() resolves to []
+        mockWhere.mockResolvedValueOnce([]);
 
         const result = await meetingService.reschedule(
           1,
@@ -727,23 +778,26 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
       // Mock generateReportCode() → db.execute()
       mockExecute.mockResolvedValueOnce({ rows: [] });
 
+      const now = new Date();
+      const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+
       mockReturning.mockResolvedValueOnce([{
         id: 1,
-        report_code: 'CR-202605-0001',
+        report_code: `CR-${ym}-0001`,
         report_type: 'STANDALONE',
         report_status: 'DRAFT',
-        subject: 'Quarterly Review',
-        summary: 'Discussed portfolio performance',
+        subject: 'Quarterly Review Discussion',
+        summary: 'Discussed portfolio performance with client in detail',
         filed_by: 10,
-        meeting_date: '2026-05-01',
+        meeting_date: '2026-04-28',
       }]);
 
       const result = await callReportService.create({
         filed_by: 10,
-        meeting_date: '2026-05-01',
+        meeting_date: '2026-04-28',
         meeting_type: 'IN_PERSON',
-        subject: 'Quarterly Review',
-        summary: 'Discussed portfolio performance',
+        subject: 'Quarterly Review Discussion',
+        summary: 'Discussed portfolio performance with client in detail',
       });
 
       expect(result).toBeDefined();
@@ -758,12 +812,18 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
         meeting_status: 'COMPLETED',
       }]);
 
+      // Mock duplicate check — no existing reports
+      mockLimit.mockResolvedValueOnce([]);
+
       // Mock generateReportCode() → db.execute()
       mockExecute.mockResolvedValueOnce({ rows: [] });
 
+      const now = new Date();
+      const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+
       mockReturning.mockResolvedValueOnce([{
         id: 2,
-        report_code: 'CR-202605-0002',
+        report_code: `CR-${ym}-0002`,
         report_type: 'SCHEDULED',
         report_status: 'DRAFT',
         meeting_id: 5,
@@ -773,10 +833,10 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
         report_type: 'SCHEDULED',
         meeting_id: 5,
         filed_by: 10,
-        meeting_date: '2026-05-01',
+        meeting_date: '2026-04-28',
         meeting_type: 'IN_PERSON',
         subject: 'Post-Meeting Report',
-        summary: 'Meeting follow-up notes',
+        summary: 'Detailed meeting follow-up notes and next steps',
       });
 
       expect(result).toBeDefined();
@@ -789,10 +849,10 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
         callReportService.create({
           report_type: 'SCHEDULED',
           filed_by: 10,
-          meeting_date: '2026-05-01',
+          meeting_date: '2026-04-28',
           meeting_type: 'IN_PERSON',
-          subject: 'Missing meeting',
-          summary: 'No meeting',
+          subject: 'Missing meeting reference',
+          summary: 'This call report has no meeting linked to it',
         }),
       ).rejects.toThrow('meeting_id is required for SCHEDULED call reports');
     });
@@ -808,10 +868,10 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
           report_type: 'SCHEDULED',
           meeting_id: 5,
           filed_by: 10,
-          meeting_date: '2026-05-01',
+          meeting_date: '2026-04-28',
           meeting_type: 'IN_PERSON',
-          subject: 'Bad Report',
-          summary: 'Not completed',
+          subject: 'Bad Report for Non-Completed',
+          summary: 'This meeting has not been completed yet',
         }),
       ).rejects.toThrow('Meeting 5 must be COMPLETED before filing a call report');
     });
@@ -824,10 +884,10 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
           report_type: 'SCHEDULED',
           meeting_id: 999,
           filed_by: 10,
-          meeting_date: '2026-05-01',
+          meeting_date: '2026-04-28',
           meeting_type: 'IN_PERSON',
-          subject: 'Missing',
-          summary: 'Missing',
+          subject: 'Missing meeting report',
+          summary: 'The referenced meeting does not exist',
         }),
       ).rejects.toThrow('Meeting 999 not found');
     });
@@ -838,7 +898,7 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
 
       mockReturning.mockResolvedValueOnce([{
         id: 3,
-        report_code: 'CR-202605-0003',
+        report_code: 'CR-202604-0003',
         report_status: 'DRAFT',
       }]);
 
@@ -847,10 +907,10 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
 
       const result = await callReportService.create({
         filed_by: 10,
-        meeting_date: '2026-05-01',
+        meeting_date: '2026-04-28',
         meeting_type: 'IN_PERSON',
-        subject: 'With Actions',
-        summary: 'Report with action items',
+        subject: 'Report With Action Items',
+        summary: 'Report with detailed action items for follow-up',
         action_items: [
           { description: 'Follow up on proposal', assigned_to: 20, due_date: '2026-05-15' },
           { description: 'Send documents', assigned_to: 10, due_date: '2026-05-10', priority: 'HIGH' },
@@ -1015,14 +1075,19 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
 
       mockWhere.mockResolvedValueOnce([{
         id: 1,
-        report_code: 'CR-202605-0001',
+        report_code: 'CR-202604-0001',
+        report_type: 'SCHEDULED',
         report_status: 'DRAFT',
         filed_by: 10,
         meeting_date: meetingDate,
-        meeting_id: null,
+        meeting_id: 5,
+        meeting_type: 'IN_PERSON',
+        subject: 'Test Report',
+        summary: 'Detailed summary for auto-approve test',
         lead_id: null,
         prospect_id: null,
         client_id: null,
+        branch_id: null,
         next_meeting_start: null,
         next_meeting_end: null,
       }]);
@@ -1037,6 +1102,10 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
       });
       mockSet.mockReturnValueOnce({ where: mockUpdateWhere });
 
+      // Mock meeting call_report_status update
+      const mockMeetingUpdateWhere = vi.fn().mockResolvedValueOnce(undefined);
+      mockSet.mockReturnValueOnce({ where: mockMeetingUpdateWhere });
+
       // Mock conversationHistory insert
       mockValues.mockReturnValueOnce({ returning: vi.fn().mockResolvedValueOnce([{}]) });
 
@@ -1048,37 +1117,53 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
     });
 
     it('should route to supervisor approval when filed > 5 business days late', async () => {
-      // Meeting was 10 business days ago
+      // Meeting was 10+ business days ago (with all days being business days per mock)
       const pastDate = new Date();
-      pastDate.setDate(pastDate.getDate() - 14); // ~10 business days
+      pastDate.setDate(pastDate.getDate() - 8); // > 5 business days with all-days-are-business-days mock
       const meetingDate = pastDate.toISOString().split('T')[0];
 
       mockWhere.mockResolvedValueOnce([{
         id: 2,
-        report_code: 'CR-202605-0002',
+        report_code: 'CR-202604-0002',
+        report_type: 'SCHEDULED',
         report_status: 'DRAFT',
         filed_by: 10,
         meeting_date: meetingDate,
-        meeting_id: null,
+        meeting_id: 5,
+        meeting_type: 'IN_PERSON',
+        subject: 'Late Filing Report',
+        summary: 'Detailed summary for late filing test',
         lead_id: null,
         prospect_id: null,
         client_id: null,
+        branch_id: null,
         next_meeting_start: null,
         next_meeting_end: null,
       }]);
 
-      // Mock approval insert
+      // Mock approval record insert
       mockValues.mockReturnValueOnce({ returning: vi.fn().mockResolvedValueOnce([{}]) });
+
+      // Mock notification insert (notify RM of pending approval)
+      mockReturning.mockResolvedValueOnce([{ id: 100, recipient_user_id: 10 }]);
+
+      // Mock task creation: generateTaskCode db.execute + task insert
+      mockExecute.mockResolvedValueOnce({ rows: [] });
+      mockReturning.mockResolvedValueOnce([{ id: 200, task_code: 'TSK-000001' }]);
 
       const mockUpdateWhere = vi.fn().mockReturnValue({
         returning: vi.fn().mockResolvedValueOnce([{
           id: 2,
           report_status: 'PENDING_APPROVAL',
           requires_supervisor_approval: true,
-          days_since_meeting: 10,
+          days_since_meeting: 8,
         }]),
       });
       mockSet.mockReturnValueOnce({ where: mockUpdateWhere });
+
+      // Mock meeting call_report_status update
+      const mockMeetingUpdateWhere = vi.fn().mockResolvedValueOnce(undefined);
+      mockSet.mockReturnValueOnce({ where: mockMeetingUpdateWhere });
 
       // Mock conversationHistory insert
       mockValues.mockReturnValueOnce({ returning: vi.fn().mockResolvedValueOnce([{}]) });
@@ -1123,14 +1208,19 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
 
       mockWhere.mockResolvedValueOnce([{
         id: 3,
-        report_code: 'CR-202605-0003',
+        report_code: 'CR-202604-0003',
+        report_type: 'SCHEDULED',
         report_status: 'RETURNED',
         filed_by: 10,
         meeting_date: meetingDate,
-        meeting_id: null,
+        meeting_id: 5,
+        meeting_type: 'IN_PERSON',
+        subject: 'Returned Report',
+        summary: 'Previously returned report being resubmitted',
         lead_id: null,
         prospect_id: null,
         client_id: null,
+        branch_id: null,
         next_meeting_start: null,
         next_meeting_end: null,
       }]);
@@ -1143,6 +1233,10 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
         }]),
       });
       mockSet.mockReturnValueOnce({ where: mockUpdateWhere });
+
+      // Mock meeting call_report_status update
+      const mockMeetingUpdateWhere = vi.fn().mockResolvedValueOnce(undefined);
+      mockSet.mockReturnValueOnce({ where: mockMeetingUpdateWhere });
 
       // Mock conversationHistory insert
       mockValues.mockReturnValueOnce({ returning: vi.fn().mockResolvedValueOnce([{}]) });
@@ -1168,14 +1262,19 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
 
       mockWhere.mockResolvedValueOnce([{
         id: 1,
-        report_code: 'CR-202605-0001',
+        report_code: 'CR-202604-0001',
+        report_type: 'SCHEDULED',
         report_status: 'DRAFT',
         filed_by: 10,
         meeting_date: meetingDate,
         meeting_id: 5,
+        meeting_type: 'IN_PERSON',
+        subject: 'Linked Report',
+        summary: 'Report linked to meeting for call_report_status test',
         lead_id: null,
         prospect_id: null,
         client_id: null,
+        branch_id: null,
         next_meeting_start: null,
         next_meeting_end: null,
       }]);

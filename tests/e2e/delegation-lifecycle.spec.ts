@@ -49,6 +49,7 @@ vi.mock('@shared/schema', () => {
     'scrutinyChecklistItems', 'handoverAuditLog', 'complianceGates',
     'delegationRequests', 'delegationItems', 'bulkUploadLogs',
     'handoverNotifications', 'clients', 'portfolios', 'orders',
+    'leads', 'prospects',
   ];
   const makeTable = (name: string): any =>
     new Proxy({}, {

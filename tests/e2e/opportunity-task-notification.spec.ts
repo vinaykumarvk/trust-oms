@@ -105,9 +105,9 @@ import { notificationInboxService } from '../../server/services/notification-inb
 
 describe('Opportunity, Task & Notification — CRM Phases 7 & 8', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
 
-    // Re-establish default chain returns after clearAllMocks
+    // Re-establish default chain returns after resetAllMocks
     mockFrom.mockReturnValue(selectChain);
     mockWhere.mockReturnValue(selectChain);
     mockGroupBy.mockReturnValue(selectChain);
@@ -211,6 +211,17 @@ describe('Opportunity, Task & Notification — CRM Phases 7 & 8', () => {
     });
 
     it('should update opportunity fields', async () => {
+      // Mock the initial select to fetch existing opportunity (service reads before update)
+      mockWhere.mockResolvedValueOnce([{
+        id: 1,
+        name: 'Old Opportunity',
+        opportunity_code: 'OPP-000001',
+        pipeline_value: '5000000',
+        lead_id: null,
+        prospect_id: null,
+        client_id: null,
+      }]);
+
       const mockUpdateWhere = vi.fn().mockReturnValue({
         returning: vi.fn().mockResolvedValueOnce([{
           id: 1,
@@ -220,6 +231,9 @@ describe('Opportunity, Task & Notification — CRM Phases 7 & 8', () => {
         }]),
       });
       mockSet.mockReturnValueOnce({ where: mockUpdateWhere });
+
+      // Mock conversationHistory insert (service logs field updates)
+      mockValues.mockReturnValueOnce({ returning: vi.fn().mockResolvedValueOnce([{}]) });
 
       const result = await opportunityService.update(1, {
         name: 'Updated Opportunity',
@@ -296,6 +310,11 @@ describe('Opportunity, Task & Notification — CRM Phases 7 & 8', () => {
       mockWhere.mockResolvedValueOnce([{
         id: 1,
         stage: 'NEGOTIATION',
+        name: 'Test Opp',
+        opportunity_code: 'OPP-000001',
+        lead_id: null,
+        prospect_id: null,
+        client_id: null,
       }]);
 
       const mockUpdateWhere = vi.fn().mockReturnValue({
@@ -307,6 +326,9 @@ describe('Opportunity, Task & Notification — CRM Phases 7 & 8', () => {
       });
       mockSet.mockReturnValueOnce({ where: mockUpdateWhere });
 
+      // Mock conversationHistory insert for WON stage
+      mockValues.mockReturnValueOnce({ returning: vi.fn().mockResolvedValueOnce([{}]) });
+
       const result = await opportunityService.updateStage(1, 'WON');
       expect(result.stage).toBe('WON');
       expect(result.won_date).toBeDefined();
@@ -316,6 +338,11 @@ describe('Opportunity, Task & Notification — CRM Phases 7 & 8', () => {
       mockWhere.mockResolvedValueOnce([{
         id: 1,
         stage: 'PROPOSAL',
+        name: 'Test Opp',
+        opportunity_code: 'OPP-000001',
+        lead_id: null,
+        prospect_id: null,
+        client_id: null,
       }]);
 
       const mockUpdateWhere = vi.fn().mockReturnValue({
@@ -326,6 +353,9 @@ describe('Opportunity, Task & Notification — CRM Phases 7 & 8', () => {
         }]),
       });
       mockSet.mockReturnValueOnce({ where: mockUpdateWhere });
+
+      // Mock conversationHistory insert for LOST stage
+      mockValues.mockReturnValueOnce({ returning: vi.fn().mockResolvedValueOnce([{}]) });
 
       const result = await opportunityService.updateStage(1, 'LOST', 'Competitor offered better terms');
       expect(result.stage).toBe('LOST');
@@ -564,6 +594,14 @@ describe('Opportunity, Task & Notification — CRM Phases 7 & 8', () => {
         task_status: 'PENDING',
       }]);
 
+      // Mock the notification insert for task assignment (P1-09)
+      mockReturning.mockResolvedValueOnce([{
+        id: 100,
+        recipient_user_id: 20,
+        type: 'TASK_ASSIGNED',
+        title: 'New Task Assigned',
+      }]);
+
       const result = await taskManagementService.create({
         title: 'Detailed Task',
         description: 'Full description here',
@@ -573,6 +611,7 @@ describe('Opportunity, Task & Notification — CRM Phases 7 & 8', () => {
         reminder_date: '2026-05-14',
         assigned_to: 20,
         assigned_by: 10,
+        assigned_by_role: 'BO_HEAD', // Exempt from branch check
         related_entity_type: 'OPPORTUNITY',
         related_entity_id: 5,
       });

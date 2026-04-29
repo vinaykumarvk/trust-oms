@@ -224,21 +224,21 @@ describe('Lead & Prospect Lifecycle — CRM Phase 2', () => {
       expect(prospectService.getClassificationTier(4_999_999)).toBe('Silver');
     });
 
-    it('should classify AUM 5M-20M as Gold', () => {
+    it('should classify AUM 5M-25M as Gold', () => {
       expect(prospectService.getClassificationTier(5_000_000)).toBe('Gold');
       expect(prospectService.getClassificationTier(10_000_000)).toBe('Gold');
-      expect(prospectService.getClassificationTier(19_999_999)).toBe('Gold');
+      expect(prospectService.getClassificationTier(24_999_999)).toBe('Gold');
     });
 
-    it('should classify AUM 20M-50M as Platinum', () => {
-      expect(prospectService.getClassificationTier(20_000_000)).toBe('Platinum');
-      expect(prospectService.getClassificationTier(35_000_000)).toBe('Platinum');
-      expect(prospectService.getClassificationTier(49_999_999)).toBe('Platinum');
+    it('should classify AUM 25M-100M as Platinum', () => {
+      expect(prospectService.getClassificationTier(25_000_000)).toBe('Platinum');
+      expect(prospectService.getClassificationTier(50_000_000)).toBe('Platinum');
+      expect(prospectService.getClassificationTier(99_999_999)).toBe('Platinum');
     });
 
-    it('should classify AUM 50M+ as Titanium', () => {
-      expect(prospectService.getClassificationTier(50_000_000)).toBe('Titanium');
+    it('should classify AUM 100M+ as Titanium', () => {
       expect(prospectService.getClassificationTier(100_000_000)).toBe('Titanium');
+      expect(prospectService.getClassificationTier(500_000_000)).toBe('Titanium');
       expect(prospectService.getClassificationTier(999_999_999)).toBe('Titanium');
     });
   });
@@ -256,21 +256,21 @@ describe('Lead & Prospect Lifecycle — CRM Phase 2', () => {
       expect(result.days).toBeLessThan(30);
     });
 
-    it('should return yellow for prospect created 30-60 days ago', () => {
+    it('should return yellow for prospect created 30-90 days ago', () => {
       const created = new Date();
       created.setDate(created.getDate() - 45);
       const result = prospectService.getAgeingIndicator(created);
       expect(result.color).toBe('yellow');
       expect(result.days).toBeGreaterThanOrEqual(30);
-      expect(result.days).toBeLessThanOrEqual(60);
+      expect(result.days).toBeLessThanOrEqual(90);
     });
 
-    it('should return red for prospect created > 60 days ago', () => {
+    it('should return red for prospect created > 90 days ago', () => {
       const created = new Date();
-      created.setDate(created.getDate() - 90);
+      created.setDate(created.getDate() - 100);
       const result = prospectService.getAgeingIndicator(created);
       expect(result.color).toBe('red');
-      expect(result.days).toBeGreaterThan(60);
+      expect(result.days).toBeGreaterThan(90);
     });
 
     it('should return green for prospect created today (0 days)', () => {
@@ -286,16 +286,16 @@ describe('Lead & Prospect Lifecycle — CRM Phase 2', () => {
       expect(result.color).toBe('yellow');
     });
 
-    it('should return yellow for prospect created exactly 60 days ago', () => {
+    it('should return yellow for prospect created exactly 90 days ago', () => {
       const created = new Date();
-      created.setDate(created.getDate() - 60);
+      created.setDate(created.getDate() - 90);
       const result = prospectService.getAgeingIndicator(created);
       expect(result.color).toBe('yellow');
     });
 
-    it('should return red for prospect created 61 days ago', () => {
+    it('should return red for prospect created 91 days ago', () => {
       const created = new Date();
-      created.setDate(created.getDate() - 61);
+      created.setDate(created.getDate() - 91);
       const result = prospectService.getAgeingIndicator(created);
       expect(result.color).toBe('red');
     });
