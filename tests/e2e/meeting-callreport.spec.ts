@@ -1371,6 +1371,22 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
       );
       expect(result).toBe(0);
     });
+
+    it('should calculate the end date in the RM timezone', () => {
+      const utcResult = callReportService.calculateBusinessDays(
+        '2026-05-04',
+        new Date('2026-05-04T16:30:00.000Z'),
+        'UTC',
+      );
+      const manilaResult = callReportService.calculateBusinessDays(
+        '2026-05-04',
+        new Date('2026-05-04T16:30:00.000Z'),
+        'Asia/Manila',
+      );
+
+      expect(utcResult).toBe(0);
+      expect(manilaResult).toBe(1);
+    });
   });
 
   // =========================================================================

@@ -159,6 +159,7 @@ Per the `feature-life-cycle` skill, execution pauses after this plan unless the 
 | Phase 3 | WS-05 / WS-09 Call report approval notification channels | Added persisted multi-channel CRM inbox notification helpers and wired late-submission plus approval-decision notifications to create both in-app and email-channel records, including call-report notification enum values. |
 | Phase 3 | WS-08 Campaign event validation | Enforced `EVENT_INVITATION` conditional required fields (`event_name`, `event_date`, `event_venue`) on campaign create and update using merged current values. |
 | Phase 3 | WS-08 / WS-14 Prospect recommendation status alignment | Added an additive `RECOMMENDED_FOR_CLIENT` prospect-status migration, made it the canonical recommendation status, and kept conversion/reporting compatible with legacy `RECOMMENDED` rows. |
+| Phase 3 | WS-09 Call report timezone business-day calculation | Added RM timezone storage with an `Asia/Manila` fallback and changed late-filing business-day calculation to use the filing RM's timezone-local date. |
 
 ### Validation
 
@@ -216,6 +217,8 @@ Per the `feature-life-cycle` skill, execution pauses after this plan unless the 
 | `npm run test:run` | PASS — 85 files, 2365 tests |
 | `npm run test:run -- tests/e2e/prospect-recommended-status-migration.spec.ts tests/e2e/prospect-ownership-audit.spec.ts tests/e2e/lead-prospect-lifecycle.spec.ts tests/e2e/prospect-create-screening-consent.spec.ts` | PASS — 4 files, 60 tests |
 | `npm run test:run` | PASS — 86 files, 2368 tests |
+| `npm run test:run -- tests/e2e/call-report-timezone-business-days.spec.ts tests/e2e/meeting-callreport.spec.ts tests/e2e/scheduler-wiring.spec.ts` | PASS — 3 files, 69 tests |
+| `npm run test:run` | PASS — 87 files, 2371 tests |
 | `npm run check` | PASS |
 
 ### Remaining Scope

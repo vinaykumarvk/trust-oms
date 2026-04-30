@@ -58,6 +58,7 @@ export async function getLateFilingDays(): Promise<number> {
 // GAP-008: Late-filing threshold — kept as env-based fallback for non-async contexts.
 const MAX_PAGE_SIZE = 200;
 const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_RM_TIMEZONE = 'Asia/Manila';
 
 // ============================================================================
 // Helpers
@@ -77,28 +78,60 @@ async function generateReportCode(): Promise<string> {
   return `CR-${ym}-${String(nextSeq).padStart(4, '0')}`;
 }
 
+function isoDateInTimezone(date: Date, timezone = DEFAULT_RM_TIMEZONE): string {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(date);
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${values.year}-${values.month}-${values.day}`;
+  } catch {
+    return date.toISOString().split('T')[0];
+  }
+}
+
+function addDaysToIsoDate(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().split('T')[0];
+}
+
+function isoWeekday(date: string): number {
+  return new Date(`${date}T00:00:00.000Z`).getUTCDay();
+}
+
+async function getRmTimezone(userId: number): Promise<string> {
+  try {
+    const [user] = await db
+      .select({ timezone: schema.users.timezone })
+      .from(schema.users)
+      .where(eq(schema.users.id, userId))
+      .limit(1);
+    return user?.timezone || DEFAULT_RM_TIMEZONE;
+  } catch {
+    return DEFAULT_RM_TIMEZONE;
+  }
+}
+
 /**
  * Count business days (weekdays only, skipping Sat/Sun) between two dates.
  * startDate is inclusive, endDate is exclusive.
  */
-function calculateBusinessDays(startDate: string, endDate: Date): number {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-
-  // Normalize to midnight
-  start.setHours(0, 0, 0, 0);
-  end.setHours(0, 0, 0, 0);
-
-  if (end <= start) return 0;
+function calculateBusinessDays(startDate: string, endDate: Date, timezone = DEFAULT_RM_TIMEZONE): number {
+  const endLocalDate = isoDateInTimezone(endDate, timezone);
+  if (endLocalDate <= startDate) return 0;
 
   let count = 0;
-  const current = new Date(start);
-  while (current < end) {
-    const day = current.getDay();
+  let current = startDate;
+  while (current < endLocalDate) {
+    const day = isoWeekday(current);
     if (day !== 0 && day !== 6) {
       count++;
     }
-    current.setDate(current.getDate() + 1);
+    current = addDaysToIsoDate(current, 1);
   }
   return count;
 }
@@ -108,24 +141,18 @@ function calculateBusinessDays(startDate: string, endDate: Date): number {
  * Falls back to the weekday-only calculation if the calendar lookup fails.
  * startDate is inclusive, endDate is exclusive.
  */
-async function calculateBusinessDaysPSE(startDate: string, endDate: Date): Promise<number> {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-
-  start.setHours(0, 0, 0, 0);
-  end.setHours(0, 0, 0, 0);
-
-  if (end <= start) return 0;
+async function calculateBusinessDaysPSE(startDate: string, endDate: Date, timezone = DEFAULT_RM_TIMEZONE): Promise<number> {
+  const endLocalDate = isoDateInTimezone(endDate, timezone);
+  if (endLocalDate <= startDate) return 0;
 
   let count = 0;
-  const current = new Date(start);
-  while (current < end) {
-    const dateStr = current.toISOString().split('T')[0];
-    const isBD = await marketCalendarService.isBusinessDay('PSE', dateStr);
+  let current = startDate;
+  while (current < endLocalDate) {
+    const isBD = await marketCalendarService.isBusinessDay('PSE', current);
     if (isBD) {
       count++;
     }
-    current.setDate(current.getDate() + 1);
+    current = addDaysToIsoDate(current, 1);
   }
   return count;
 }
@@ -546,10 +573,11 @@ export const callReportService = {
       return result;
     }
 
-    const [daysSinceMeeting, lateFilingThreshold] = await Promise.all([
-      calculateBusinessDaysPSE(report.meeting_date, now),
+    const [rmTimezone, lateFilingThreshold] = await Promise.all([
+      getRmTimezone(userId),
       getLateFilingDays(),
     ]);
+    const daysSinceMeeting = await calculateBusinessDaysPSE(report.meeting_date, now, rmTimezone);
     const requiresApproval = daysSinceMeeting > lateFilingThreshold;
 
     const submitted = await db.transaction(async (tx: typeof db) => {
