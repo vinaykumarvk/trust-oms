@@ -29,6 +29,7 @@ import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { asyncHandler } from '../../middleware/async-handler';
 import { complianceService } from '../../services/compliance-service';
 import { complianceRulesService } from '../../services/compliance-rules-service';
+import { safeErrorMessage, httpStatusFromError } from '../../services/service-errors';
 
 const router = Router();
 router.use(requireBackOfficeRole());
@@ -72,7 +73,7 @@ router.get(
       const result = await complianceService.getBreach(id);
       res.json({ data: result });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },
@@ -106,7 +107,7 @@ router.post(
       const result = await complianceService.resolveBreach(id, resolution);
       res.json({ data: result });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },
@@ -255,7 +256,7 @@ router.post(
       const allPassed = results.every((r) => r.passed);
       res.json({ data: { orderId, allPassed, results } });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },
@@ -284,7 +285,7 @@ router.post(
       const allPassed = results.every((r) => r.passed);
       res.json({ data: { portfolioId, allPassed, results } });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },
@@ -313,7 +314,7 @@ router.get(
       const result = await complianceRulesService.getRule(id);
       res.json({ data: result });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },
@@ -348,7 +349,7 @@ router.put(
       });
       res.json({ data: result });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },
@@ -373,7 +374,7 @@ router.delete(
       const result = await complianceRulesService.deleteRule(id);
       res.json({ data: result });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },

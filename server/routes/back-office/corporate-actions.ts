@@ -22,6 +22,7 @@ import { requireApproval } from '../../middleware/maker-checker';
 import { db } from '../../db';
 import * as schema from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import { safeErrorMessage, httpStatusFromError } from '../../services/service-errors';
 
 const router = Router();
 router.use(requireBackOfficeRole());
@@ -194,9 +195,8 @@ router.put(
       const result = await corporateActionsService.scrubEvent(caId);
       res.json({ data: result });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Scrub failed';
-      return res.status(400).json({
-        error: { code: 'SCRUB_FAILED', message },
+      return res.status(httpStatusFromError(err)).json({
+        error: { code: 'SCRUB_FAILED', message: safeErrorMessage(err) },
       });
     }
   }),
@@ -218,9 +218,8 @@ router.put(
       const result = await corporateActionsService.goldenCopy(caId);
       res.json({ data: result });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Golden copy promotion failed';
-      return res.status(400).json({
-        error: { code: 'GOLDEN_COPY_FAILED', message },
+      return res.status(httpStatusFromError(err)).json({
+        error: { code: 'GOLDEN_COPY_FAILED', message: safeErrorMessage(err) },
       });
     }
   }),
@@ -248,9 +247,8 @@ router.post(
       const result = await corporateActionsService.simulateEntitlement(caId, portfolioId);
       res.json({ data: result });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Simulation failed';
-      return res.status(400).json({
-        error: { code: 'SIMULATION_FAILED', message },
+      return res.status(httpStatusFromError(err)).json({
+        error: { code: 'SIMULATION_FAILED', message: safeErrorMessage(err) },
       });
     }
   }),
@@ -285,9 +283,8 @@ router.put(
       );
       res.json({ data: result });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Amendment failed';
-      return res.status(400).json({
-        error: { code: 'AMEND_FAILED', message },
+      return res.status(httpStatusFromError(err)).json({
+        error: { code: 'AMEND_FAILED', message: safeErrorMessage(err) },
       });
     }
   }),
@@ -320,9 +317,8 @@ router.post(
       const result = await corporateActionsService.cancelEvent(caId, reason, userId);
       res.json({ data: result });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Cancellation failed';
-      return res.status(400).json({
-        error: { code: 'CANCEL_FAILED', message },
+      return res.status(httpStatusFromError(err)).json({
+        error: { code: 'CANCEL_FAILED', message: safeErrorMessage(err) },
       });
     }
   }),
@@ -344,9 +340,8 @@ router.post(
       const result = await corporateActionsService.replayEvent(caId);
       res.json({ data: result });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Replay failed';
-      return res.status(400).json({
-        error: { code: 'REPLAY_FAILED', message },
+      return res.status(httpStatusFromError(err)).json({
+        error: { code: 'REPLAY_FAILED', message: safeErrorMessage(err) },
       });
     }
   }),
@@ -377,9 +372,8 @@ router.put(
       const result = await corporateActionsService.overrideSettlementDate(caId, newDate, reason);
       res.json({ data: result });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Settlement date override failed';
-      return res.status(400).json({
-        error: { code: 'SETTLEMENT_OVERRIDE_FAILED', message },
+      return res.status(httpStatusFromError(err)).json({
+        error: { code: 'SETTLEMENT_OVERRIDE_FAILED', message: safeErrorMessage(err) },
       });
     }
   }),
@@ -454,7 +448,7 @@ router.post(
       } catch (err) {
         errors.push({
           portfolioId: pos.portfolio_id,
-          error: err instanceof Error ? err.message : String(err),
+          error: safeErrorMessage(err),
         });
       }
     }

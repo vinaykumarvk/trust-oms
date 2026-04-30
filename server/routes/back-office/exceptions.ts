@@ -21,6 +21,7 @@ import { asyncHandler } from '../../middleware/async-handler';
 import { db } from '../../db';
 import * as schema from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import { safeErrorMessage, httpStatusFromError } from '../../services/service-errors';
 
 const router = Router();
 router.use(requireBackOfficeRole());
@@ -175,7 +176,7 @@ router.post(
       const record = await exceptionQueueService.assignException(id, user_id);
       res.json({ data: record });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },
@@ -213,7 +214,7 @@ router.post(
       const record = await exceptionQueueService.resolveException(id, resolution_notes);
       res.json({ data: record });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },
@@ -244,7 +245,7 @@ router.post(
       const record = await exceptionQueueService.escalateException(id, req.body.reason);
       res.json({ data: record });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },
@@ -282,7 +283,7 @@ router.post(
       const record = await exceptionQueueService.markWontFix(id, reason);
       res.json({ data: record });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },

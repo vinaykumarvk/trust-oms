@@ -5,6 +5,7 @@
 import { Router } from 'express';
 import { notificationInboxService } from '../../services/notification-inbox-service';
 import { requireCRMRole } from '../../middleware/role-auth';
+import { safeErrorMessage, httpStatusFromError } from '../../services/service-errors';
 
 const router = Router();
 
@@ -39,7 +40,7 @@ router.post('/:id/read', requireCRMRole(), async (req, res) => {
     const data = await notificationInboxService.markAsRead(parseInt(req.params.id), userId);
     res.json(data);
   } catch (err: unknown) {
-    res.status(400).json({ error: err instanceof Error ? err.message : 'An error occurred' });
+    res.status(httpStatusFromError(err)).json({ error: safeErrorMessage(err) });
   }
 });
 

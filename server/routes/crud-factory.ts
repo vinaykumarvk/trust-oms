@@ -65,6 +65,8 @@ export interface CrudRouterOptions {
   maxPageSize?: number;
   /** Columns to omit from auto-generated insert schema. */
   omitFromInsert?: string[];
+  /** Columns to strip from all response payloads (e.g. password_hash). */
+  omitFromResponse?: string[];
   /** Custom Zod insert schema (overrides auto-generated). */
   insertSchema?: z.ZodObject<any>;
   /** Lifecycle hooks */
@@ -299,9 +301,20 @@ export function createCrudRouter(
     afterDelete,
     maxPageSize = 100,
     omitFromInsert = [],
+    omitFromResponse = [],
     makerChecker,
     entityKey,
   } = options;
+
+  /** Strip sensitive columns from response rows */
+  const stripSensitive = <T extends Record<string, unknown>>(row: T): T => {
+    if (omitFromResponse.length === 0) return row;
+    const clean = { ...row };
+    for (const col of omitFromResponse) delete clean[col];
+    return clean as T;
+  };
+  const stripRows = <T extends Record<string, unknown>>(rows: T[]): T[] =>
+    omitFromResponse.length === 0 ? rows : rows.map(stripSensitive);
 
   // Register table in maker-checker entity map
   if (entityKey) {
@@ -423,7 +436,7 @@ export function createCrudRouter(
       const totalPages = Math.ceil(total / pageSize);
 
       res.json({
-        data: rows,
+        data: stripRows(rows as Record<string, unknown>[]),
         total,
         page,
         pageSize,
@@ -625,7 +638,7 @@ export function createCrudRouter(
         });
       }
 
-      res.json(rows[0]);
+      res.json(stripSensitive(rows[0] as Record<string, unknown>));
     }),
   );
 
@@ -711,7 +724,7 @@ export function createCrudRouter(
         await afterCreate(created, req);
       }
 
-      const responseBody = created;
+      const responseBody = stripSensitive(created as Record<string, unknown>);
       if (idempotencyKey) {
         setIdempotency(idempotencyKey, 201, responseBody);
       }
@@ -873,11 +886,12 @@ export function createCrudRouter(
         await afterUpdate(updated, req);
       }
 
+      const strippedUpdate = stripSensitive(updated as Record<string, unknown>);
       if (idempotencyKey) {
-        setIdempotency(idempotencyKey, 200, updated);
+        setIdempotency(idempotencyKey, 200, strippedUpdate);
       }
 
-      res.json(updated);
+      res.json(strippedUpdate);
     }),
   );
 

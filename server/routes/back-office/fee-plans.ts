@@ -22,6 +22,7 @@ import { Router } from 'express';
 import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { feePlanService } from '../../services/fee-plan-service';
 import { asyncHandler } from '../../middleware/async-handler';
+import { safeErrorMessage, httpStatusFromError } from '../../services/service-errors';
 
 const router = Router();
 router.use(requireBackOfficeRole());
@@ -83,7 +84,7 @@ router.get(
       const record = await feePlanService.getById(id);
       res.json({ data: record });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },
@@ -139,7 +140,7 @@ router.post(
 
       res.status(201).json({ data: record });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       const code = (err as { code?: string })?.code;
       if (msg.includes('duplicate') || code === '23505') {
         return res.status(409).json({
@@ -182,7 +183,7 @@ router.put(
       });
       res.json({ data: record });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },
@@ -217,7 +218,7 @@ router.post(
       const record = await feePlanService.submit(id);
       res.json({ data: record });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },
@@ -258,7 +259,7 @@ router.post(
       const record = await feePlanService.approve(id, approverId);
       res.json({ data: record });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },
@@ -316,7 +317,7 @@ router.post(
       const record = await feePlanService.reject(id, approverId, comment);
       res.json({ data: record });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },
@@ -347,7 +348,7 @@ router.post(
       const record = await feePlanService.suspend(id);
       res.json({ data: record });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },
@@ -378,7 +379,7 @@ router.post(
       const result = await feePlanService.supersede(id);
       res.json({ data: result });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },
@@ -419,7 +420,7 @@ router.post(
       const record = await feePlanService.rebindPricing(id, pricing_version_id);
       res.json({ data: record });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },
@@ -457,7 +458,7 @@ router.post(
       });
       res.json({ data: result });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },

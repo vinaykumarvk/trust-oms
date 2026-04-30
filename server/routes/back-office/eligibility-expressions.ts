@@ -18,6 +18,7 @@ import { Router } from 'express';
 import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { eligibilityExpressionService } from '../../services/eligibility-expression-service';
 import { asyncHandler } from '../../middleware/async-handler';
+import { safeErrorMessage, httpStatusFromError } from '../../services/service-errors';
 
 const router = Router();
 router.use(requireBackOfficeRole());
@@ -58,7 +59,7 @@ router.get(
       const record = await eligibilityExpressionService.getById(id);
       res.json({ data: record });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res
           .status(404)
@@ -97,7 +98,7 @@ router.post(
       });
       res.status(201).json({ data: record });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('Invalid expression')) {
         return res.status(400).json({
           error: { code: 'INVALID_EXPRESSION', message: msg },
@@ -129,7 +130,7 @@ router.put(
       });
       res.json({ data: record });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res
           .status(404)
@@ -170,7 +171,7 @@ router.post(
       );
       res.json({ data: record });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res
           .status(404)
@@ -204,7 +205,7 @@ router.post(
       );
       res.json({ data: record });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res
           .status(404)
@@ -241,7 +242,7 @@ router.post(
       );
       res.json({ data: record });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res
           .status(404)
@@ -275,7 +276,7 @@ router.post(
       );
       res.json({ data: record });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res
           .status(404)
@@ -323,7 +324,7 @@ router.post(
       const result = await eligibilityExpressionService.testExpression(id, context);
       res.json({ data: result });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res
           .status(404)

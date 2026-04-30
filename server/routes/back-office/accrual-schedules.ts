@@ -17,6 +17,7 @@ import { Router } from 'express';
 import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { accrualScheduleService } from '../../services/accrual-schedule-service';
 import { asyncHandler } from '../../middleware/async-handler';
+import { safeErrorMessage, httpStatusFromError } from '../../services/service-errors';
 
 const router = Router();
 router.use(requireBackOfficeRole());
@@ -59,7 +60,7 @@ router.get(
       const schedule = await accrualScheduleService.getById(id);
       res.json({ data: schedule });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },
@@ -93,7 +94,7 @@ router.post(
       const schedule = await accrualScheduleService.create(req.body);
       res.status(201).json({ data: schedule });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       const code = (err as { code?: string })?.code;
       if (msg.includes('Validation failed')) {
         return res.status(400).json({
@@ -129,7 +130,7 @@ router.put(
       const updated = await accrualScheduleService.update(id, req.body);
       res.json({ data: updated });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({ error: { code: 'NOT_FOUND', message: msg } });
       }
@@ -160,7 +161,7 @@ router.post(
       const updated = await accrualScheduleService.submit(id);
       res.json({ data: updated });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({ error: { code: 'NOT_FOUND', message: msg } });
       }
@@ -187,7 +188,7 @@ router.post(
       const updated = await accrualScheduleService.approve(id);
       res.json({ data: updated });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({ error: { code: 'NOT_FOUND', message: msg } });
       }
@@ -214,7 +215,7 @@ router.post(
       const updated = await accrualScheduleService.reject(id);
       res.json({ data: updated });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({ error: { code: 'NOT_FOUND', message: msg } });
       }
@@ -241,7 +242,7 @@ router.post(
       const updated = await accrualScheduleService.retire(id);
       res.json({ data: updated });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({ error: { code: 'NOT_FOUND', message: msg } });
       }

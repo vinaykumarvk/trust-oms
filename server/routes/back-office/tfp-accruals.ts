@@ -12,6 +12,7 @@ import { Router } from 'express';
 import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { tfpAccrualEngine } from '../../services/tfp-accrual-engine';
 import { asyncHandler } from '../../middleware/async-handler';
+import { safeErrorMessage, httpStatusFromError } from '../../services/service-errors';
 
 const router = Router();
 router.use(requireBackOfficeRole());
@@ -67,7 +68,7 @@ router.get(
       const record = await tfpAccrualEngine.getAccrualById(id);
       res.json({ data: record });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },

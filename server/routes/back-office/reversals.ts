@@ -17,6 +17,7 @@ import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { reversalService } from '../../services/reversal-service';
 import { asyncHandler } from '../../middleware/async-handler';
 import { requireRole } from '../../middleware/auth';
+import { safeErrorMessage, httpStatusFromError } from '../../services/service-errors';
 
 const router = Router();
 router.use(requireBackOfficeRole());
@@ -92,7 +93,7 @@ router.get(
       const result = await reversalService.getReversalCase(id);
       res.json({ data: result });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },
@@ -127,7 +128,7 @@ router.post(
       );
       res.json({ data: result });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('Self-approval')) {
         return res.status(403).json({
           error: { code: 'FORBIDDEN', message: msg },
@@ -168,7 +169,7 @@ router.post(
       );
       res.json({ data: result });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },
@@ -194,7 +195,7 @@ router.post(
       const result = await reversalService.executeReversal(id);
       res.json({ data: result });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },

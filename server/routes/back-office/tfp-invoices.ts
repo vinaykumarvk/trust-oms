@@ -16,6 +16,7 @@ import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { tfpInvoiceService } from '../../services/tfp-invoice-service';
 import { pdfInvoiceService } from '../../services/pdf-invoice-service';
 import { asyncHandler } from '../../middleware/async-handler';
+import { safeErrorMessage, httpStatusFromError } from '../../services/service-errors';
 
 const router = Router();
 router.use(requireBackOfficeRole());
@@ -79,7 +80,7 @@ router.get(
       const result = await tfpInvoiceService.getInvoiceDetail(id);
       res.json({ data: result });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },
@@ -139,7 +140,7 @@ router.post(
       const result = await tfpInvoiceService.issueInvoice(id);
       res.json({ data: result });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: msg },
@@ -178,7 +179,7 @@ router.get(
       res.setHeader('Content-Disposition', `attachment; filename=invoice-${id}.pdf`);
       res.send(pdfBuffer);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) {
         return res.status(404).json({ error: { code: 'NOT_FOUND', message: msg } });
       }

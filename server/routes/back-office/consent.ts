@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireBackOfficeRole, requireAnyRole } from '../../middleware/role-auth';
 import { asyncHandler } from '../../middleware/async-handler';
 import { consentService } from '../../services/consent-service';
+import { safeErrorMessage, httpStatusFromError } from '../../services/service-errors';
 
 const router = Router();
 router.use(requireBackOfficeRole());
@@ -83,9 +84,8 @@ router.post('/breach-notifications/:id/notify-npc', requireAnyRole('BO_HEAD', 'C
     const result = await consentService.notifyNPC(breachId);
     res.json({ data: result });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'NPC notification failed';
-    return res.status(400).json({
-      error: { code: 'NPC_NOTIFY_FAILED', message },
+    return res.status(httpStatusFromError(err)).json({
+      error: { code: 'NPC_NOTIFY_FAILED', message: safeErrorMessage(err) },
     });
   }
 }));

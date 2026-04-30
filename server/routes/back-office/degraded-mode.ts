@@ -118,9 +118,8 @@ router.post(
         return res.status(httpStatusFromError(err)).json({ error: safeErrorMessage(err) });
       }
       // Map plain Error from applyOverride (feed not found)
-      const message = err instanceof Error ? err.message : 'Internal server error';
-      const isFeedNotFound = message.includes('not found in registry');
-      return res.status(isFeedNotFound ? 404 : 500).json({ error: isFeedNotFound ? message : 'Internal server error' });
+      const message = safeErrorMessage(err);
+      return res.status(httpStatusFromError(err)).json({ error: message });
     }
   }),
 );
@@ -148,9 +147,8 @@ router.post(
 
       return res.status(200).json({ feed: feedName, overrideCleared: true });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Internal server error';
-      const isFeedNotFound = message.includes('not found in registry');
-      return res.status(isFeedNotFound ? 404 : 500).json({ error: isFeedNotFound ? message : 'Internal server error' });
+      const message = safeErrorMessage(err);
+      return res.status(httpStatusFromError(err)).json({ error: message });
     }
   }),
 );

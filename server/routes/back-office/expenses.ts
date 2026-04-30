@@ -14,6 +14,7 @@ import { Router } from 'express';
 import { requireCRMRole } from '../../middleware/role-auth';
 import { expenseService } from '../../services/expense-service';
 import { asyncHandler } from '../../middleware/async-handler';
+import { safeErrorMessage, httpStatusFromError } from '../../services/service-errors';
 
 function parseId(raw: string): number {
   const id = parseInt(raw, 10);
@@ -79,7 +80,7 @@ router.post(
       });
       res.status(201).json({ data: expense });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: msg } });
     }
   }),
@@ -94,7 +95,7 @@ router.get(
       const expense = await expenseService.getById(parseId(req.params.id));
       res.json({ data: expense });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) return res.status(404).json({ error: { code: 'NOT_FOUND', message: msg } });
       throw err;
     }
@@ -111,7 +112,7 @@ router.patch(
       const expense = await expenseService.update(parseId(req.params.id), userId, req.body);
       res.json({ data: expense });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) return res.status(404).json({ error: { code: 'NOT_FOUND', message: msg } });
       if (msg.includes('Forbidden') || msg.includes('Cannot edit')) {
         return res.status(409).json({ error: { code: 'WORKFLOW_VIOLATION', message: msg } });
@@ -131,7 +132,7 @@ router.post(
       const expense = await expenseService.submit(parseId(req.params.id), userId);
       res.json({ data: expense });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) return res.status(404).json({ error: { code: 'NOT_FOUND', message: msg } });
       if (msg.includes('Forbidden') || msg.includes('Cannot submit')) {
         return res.status(409).json({ error: { code: 'WORKFLOW_VIOLATION', message: msg } });
@@ -151,7 +152,7 @@ router.post(
       const expense = await expenseService.approve(parseId(req.params.id), userId);
       res.json({ data: expense });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) return res.status(404).json({ error: { code: 'NOT_FOUND', message: msg } });
       if (msg.includes('Cannot approve')) {
         return res.status(409).json({ error: { code: 'WORKFLOW_VIOLATION', message: msg } });
@@ -177,7 +178,7 @@ router.post(
       const expense = await expenseService.reject(parseId(req.params.id), userId, String(reason));
       res.json({ data: expense });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = safeErrorMessage(err);
       if (msg.includes('not found')) return res.status(404).json({ error: { code: 'NOT_FOUND', message: msg } });
       if (msg.includes('Cannot reject')) {
         return res.status(409).json({ error: { code: 'WORKFLOW_VIOLATION', message: msg } });

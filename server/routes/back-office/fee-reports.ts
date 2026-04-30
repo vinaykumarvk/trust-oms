@@ -11,6 +11,7 @@ import { asyncHandler } from '../../middleware/async-handler';
 import { db } from '../../db';
 import * as schema from '@shared/schema';
 import { eq, and, gte, lte, sql, like, or, desc } from 'drizzle-orm';
+import { safeErrorMessage } from '../../services/service-errors';
 
 const router = Router();
 router.use(requireBackOfficeRole());
@@ -687,7 +688,7 @@ router.post(
       return res.status(500).json({
         error: {
           code: 'REPORT_GENERATION_ERROR',
-          message: err instanceof Error ? err.message : 'Failed to generate report',
+          message: safeErrorMessage(err),
         },
       });
     }
@@ -824,7 +825,7 @@ router.post(
         results.push({
           report_type: reportType,
           status: 'ERROR',
-          error: err instanceof Error ? err.message : 'Unknown error',
+          error: safeErrorMessage(err),
         });
       }
     }

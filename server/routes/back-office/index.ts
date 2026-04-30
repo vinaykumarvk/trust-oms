@@ -222,6 +222,7 @@ router.use(
     entityKey: 'users',
     makerChecker: 'users',
     omitFromInsert: ['password_hash', 'last_login'],
+    omitFromResponse: ['password_hash'],
   }),
 );
 

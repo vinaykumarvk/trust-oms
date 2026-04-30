@@ -11,6 +11,7 @@ import { requireCRMRole } from '../../middleware/role-auth';
 import { db } from '../../db';
 import * as schema from '@shared/schema';
 import { eq, and, sql, desc, lte } from 'drizzle-orm';
+import { safeErrorMessage, httpStatusFromError } from '../../services/service-errors';
 
 const router = Router();
 
@@ -56,7 +57,7 @@ router.post('/', requireCRMRole(), async (req, res) => {
 
     res.status(201).json(handover);
   } catch (err: unknown) {
-    res.status(400).json({ error: err instanceof Error ? err.message : 'An error occurred' });
+    res.status(httpStatusFromError(err)).json({ error: safeErrorMessage(err) });
   }
 });
 
@@ -134,7 +135,7 @@ router.post('/:id/authorize', requireCRMRole(), async (req, res) => {
 
     res.json({ status: 'APPROVED', entities_transferred: entities.length });
   } catch (err: unknown) {
-    res.status(400).json({ error: err instanceof Error ? err.message : 'An error occurred' });
+    res.status(httpStatusFromError(err)).json({ error: safeErrorMessage(err) });
   }
 });
 
