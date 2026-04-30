@@ -18,6 +18,7 @@ import { db } from '../../db';
 import { conversionHistory, leads, prospects, opportunities } from '@shared/schema';
 import { eq, and, gte, lte, count, desc } from 'drizzle-orm';
 import {
+  campaignConsentService,
   campaignService,
   leadListService,
   campaignDispatchService,
@@ -45,7 +46,81 @@ function httpStatus(err: unknown): number {
 }
 
 const router = Router();
+
+/** Public unsubscribe / SMS STOP callback — BRD FR-039 */
+router.post('/unsubscribe', async (req, res) => {
+  try {
+    const { channel = 'EMAIL', lead_id, client_id, prospect_id, reason, message } = req.body;
+    const normalizedChannel = String(channel).toUpperCase();
+    if (normalizedChannel !== 'EMAIL' && normalizedChannel !== 'SMS') {
+      return res.status(400).json({
+        error: { code: 'VALIDATION_ERROR', message: 'channel must be EMAIL or SMS' },
+      });
+    }
+    const optOutReason = normalizedChannel === 'SMS' && message
+      ? String(message).trim().toUpperCase()
+      : reason;
+    const result = await campaignConsentService.recordMarketingOptOut({
+      channel: normalizedChannel,
+      lead_id: lead_id ? parseId(String(lead_id)) : undefined,
+      client_id: client_id ? String(client_id) : undefined,
+      prospect_id: prospect_id ? parseId(String(prospect_id)) : undefined,
+      reason: optOutReason,
+      ip_address: req.ip,
+    });
+    res.status(201).json({ data: { id: result.id, consent_status: result.consent_status } });
+  } catch (e: unknown) {
+    res.status(httpStatus(e)).json({ error: { code: 'VALIDATION_ERROR', message: errMsg(e) } });
+  }
+});
+
+/** Public delivery-status webhook for email/SMS gateways — BRD FR-012 */
+router.post('/communications/webhook', async (req, res) => {
+  try {
+    const {
+      communication_id,
+      dispatch_id,
+      provider,
+      status,
+      delivered_count,
+      bounced_count,
+      failure_reason,
+    } = req.body;
+    const communicationId = communication_id ?? dispatch_id;
+    if (!communicationId || !status) {
+      return res.status(400).json({
+        error: { code: 'VALIDATION_ERROR', message: 'communication_id and status are required' },
+      });
+    }
+    const result = await campaignDispatchService.recordDeliveryWebhook({
+      communication_id: parseId(String(communicationId)),
+      provider: provider ? String(provider) : undefined,
+      status: String(status),
+      delivered_count: delivered_count !== undefined ? Number(delivered_count) : undefined,
+      bounced_count: bounced_count !== undefined ? Number(bounced_count) : undefined,
+      failure_reason: failure_reason ? String(failure_reason) : undefined,
+    });
+    res.json({ data: { id: result.id, dispatch_status: result.dispatch_status, delivered_count: result.delivered_count, bounced_count: result.bounced_count } });
+  } catch (e: unknown) {
+    res.status(httpStatus(e)).json({ error: { code: 'VALIDATION_ERROR', message: errMsg(e) } });
+  }
+});
+
 router.use(requireCRMRole());
+
+const ALLOWED_LEAD_UPLOAD_EXTENSIONS = ['.csv', '.xlsx'];
+const MAX_LEAD_UPLOAD_BYTES = 10 * 1024 * 1024;
+
+function validateLeadUploadFile(fileName: string, fileSizeBytes?: unknown): void {
+  const normalizedFileName = fileName.trim().toLowerCase();
+  const hasAllowedExtension = ALLOWED_LEAD_UPLOAD_EXTENSIONS.some((extension) => normalizedFileName.endsWith(extension));
+  if (!hasAllowedExtension) {
+    throw new Error('Lead upload file must be a .csv or .xlsx file');
+  }
+  if (fileSizeBytes !== undefined && Number(fileSizeBytes) > MAX_LEAD_UPLOAD_BYTES) {
+    throw new Error('Lead upload file must not exceed 10MB');
+  }
+}
 
 // ============================================================================
 // Campaign Lifecycle
@@ -344,6 +419,9 @@ router.post('/interactions', async (req, res) => {
     if (!response) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'response is required' } });
     }
+    if (!campaign_id) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'campaign_id is required when logging a campaign response' } });
+    }
     const result = await interactionService.logInteraction(
       { lead_id, campaign_id, response, action_item, meeting },
       req.userId ?? '' ?? '',
@@ -489,12 +567,13 @@ router.delete('/lead-lists/:id/members/:leadId', async (req, res) => {
 /** Upload CSV/Excel leads */
 router.post('/leads/upload', bulkUploadLimiter, async (req, res) => {
   try {
-    const { file_name, file_url, target_list_id, rows } = req.body;
+    const { file_name, file_url, file_size_bytes, target_list_id, rows } = req.body;
     if (!file_name || !target_list_id || !rows) {
       return res.status(400).json({
         error: { code: 'VALIDATION_ERROR', message: 'file_name, target_list_id, and rows are required' },
       });
     }
+    validateLeadUploadFile(file_name, file_size_bytes);
     if (!Array.isArray(rows) || rows.length === 0) {
       return res.status(400).json({
         error: { code: 'VALIDATION_ERROR', message: 'rows must be a non-empty array' },

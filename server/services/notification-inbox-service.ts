@@ -10,6 +10,7 @@ import * as schema from '@shared/schema';
 import { eq, and, sql, desc } from 'drizzle-orm';
 
 type CrmNotification = typeof schema.crmNotifications.$inferSelect;
+type InboxChannel = 'IN_APP' | 'EMAIL' | 'SMS' | 'PUSH' | 'PAGER_DUTY';
 
 export const notificationInboxService = {
   async notify(data: {
@@ -32,6 +33,33 @@ export const notificationInboxService = {
     }).returning();
 
     return notification;
+  },
+
+  async notifyChannels(data: {
+    recipient_user_id: number;
+    type: string;
+    title: string;
+    message?: string;
+    channels: InboxChannel[];
+    related_entity_type?: string;
+    related_entity_id?: number;
+  }): Promise<CrmNotification[]> {
+    const channels = [...new Set(data.channels)];
+    if (channels.length === 0) return [];
+
+    const values = channels.map((channel) => ({
+      recipient_user_id: data.recipient_user_id,
+      type: data.type as any,
+      title: data.title,
+      message: data.message,
+      channel: channel as any,
+      related_entity_type: data.related_entity_type,
+      related_entity_id: data.related_entity_id,
+    }));
+
+    return await db.insert(schema.crmNotifications)
+      .values(values)
+      .returning();
   },
 
   async notifyMultiple(userIds: number[], data: {
@@ -59,6 +87,32 @@ export const notificationInboxService = {
       .returning();
 
     return notifications;
+  },
+
+  async notifyMultipleChannels(userIds: number[], data: {
+    type: string;
+    title: string;
+    message?: string;
+    channels: InboxChannel[];
+    related_entity_type?: string;
+    related_entity_id?: number;
+  }): Promise<CrmNotification[]> {
+    const channels = [...new Set(data.channels)];
+    if (userIds.length === 0 || channels.length === 0) return [];
+
+    const values = userIds.flatMap((userId) => channels.map((channel) => ({
+      recipient_user_id: userId,
+      type: data.type as any,
+      title: data.title,
+      message: data.message,
+      channel: channel as any,
+      related_entity_type: data.related_entity_type,
+      related_entity_id: data.related_entity_id,
+    })));
+
+    return await db.insert(schema.crmNotifications)
+      .values(values)
+      .returning();
   },
 
   async listForUser(userId: number, page = 1, rawPageSize = 20): Promise<{ data: CrmNotification[]; total: number; page: number; pageSize: number }> {

@@ -611,7 +611,7 @@ export const meetingService = {
     const meetings = await db.select().from(schema.meetings)
       .where(and(
         eq(schema.meetings.meeting_status, 'SCHEDULED'),
-        eq(schema.meetings.reminder_sent, false),
+        eq(schema.meetings.reminder_1h_sent, false),
         lte(schema.meetings.start_time, new Date(now.getTime() + 24 * 60 * 60 * 1000)),
         gte(schema.meetings.start_time, now),
       ));
@@ -633,15 +633,25 @@ export const meetingService = {
     return db.select().from(schema.meetings)
       .where(and(
         eq(schema.meetings.meeting_status, 'SCHEDULED'),
-        eq(schema.meetings.reminder_sent, false),
+        eq(schema.meetings.reminder_24h_sent, false),
         gte(schema.meetings.start_time, windowStart),
         lte(schema.meetings.start_time, windowEnd),
       ));
   },
 
-  async markReminderSent(meetingId: number): Promise<void> {
+  async markReminderSent(meetingId: number, reminderType: '1h' | '24h' | 'custom' = 'custom'): Promise<void> {
+    const updates: Record<string, unknown> = { updated_at: new Date() };
+    if (reminderType === '24h') {
+      updates.reminder_24h_sent = true;
+    } else if (reminderType === '1h') {
+      updates.reminder_1h_sent = true;
+      updates.reminder_sent = true;
+    } else {
+      updates.reminder_sent = true;
+    }
+
     await db.update(schema.meetings)
-      .set({ reminder_sent: true })
+      .set(updates as any)
       .where(eq(schema.meetings.id, meetingId));
   },
 
@@ -678,6 +688,66 @@ export const meetingService = {
   },
 
   /**
+   * BRD FR-019: Auto-transition stale scheduled meetings to NO_SHOW.
+   *
+   * Manual completion remains explicit through complete(). The batch path marks
+   * unattended meetings past the grace period as no-show and records conversation
+   * history so supervisors can audit why no call report may be filed.
+   */
+  async processNoShowMeetings(graceMinutes = 60): Promise<number> {
+    const cutoff = new Date(Date.now() - graceMinutes * 60 * 1000);
+
+    const staleMeetings = await db
+      .select()
+      .from(schema.meetings)
+      .where(
+        and(
+          eq(schema.meetings.meeting_status, 'SCHEDULED'),
+          eq(schema.meetings.is_deleted, false),
+          lte(schema.meetings.end_time, cutoff),
+        ),
+      );
+
+    for (const meeting of staleMeetings) {
+      await db.transaction(async (tx: typeof db) => {
+        await tx.update(schema.meetings)
+          .set({
+            meeting_status: 'NO_SHOW',
+            call_report_status: 'NO_SHOW',
+            updated_at: new Date(),
+            updated_by: 'SYSTEM_NO_SHOW_JOB',
+          } as any)
+          .where(eq(schema.meetings.id, meeting.id));
+
+        await insertConversationHistory({
+          lead_id: meeting.lead_id,
+          prospect_id: meeting.prospect_id,
+          client_id: meeting.client_id,
+          interaction_type: 'MEETING_NO_SHOW',
+          summary: `Meeting "${meeting.title}" marked as no-show by scheduler`,
+          reference_type: 'MEETING',
+          reference_id: meeting.id,
+          created_by: 'SYSTEM_NO_SHOW_JOB',
+        }, tx);
+      });
+
+      if (meeting.organizer_user_id) {
+        await notificationInboxService.notify({
+          recipient_user_id: meeting.organizer_user_id,
+          type: 'MEETING_NO_SHOW',
+          title: 'Meeting Marked No-Show',
+          message: `Meeting "${meeting.title}" was marked as no-show after the configured grace period.`,
+          channel: 'IN_APP',
+          related_entity_type: 'meeting',
+          related_entity_id: meeting.id,
+        });
+      }
+    }
+
+    return staleMeetings.length;
+  },
+
+  /**
    * Enhanced calendar data endpoint with filters and pagination.
    */
   async getFilteredCalendarData(filters: {
@@ -691,8 +761,8 @@ export const meetingService = {
     page?: number;
     pageSize?: number;
   }): Promise<{ data: MeetingRow[]; total: number; page: number; pageSize: number }> {
-    // BR-008: Fire-and-forget auto-completion of past SCHEDULED meetings
-    void this.autoCompletePastMeetings();
+    // FR-019: Fire-and-forget no-show transition for stale scheduled meetings.
+    void this.processNoShowMeetings();
 
     const page = filters.page ?? 1;
     const pageSize = Math.min(filters.pageSize ?? 100, 200);

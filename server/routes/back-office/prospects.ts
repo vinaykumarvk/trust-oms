@@ -90,7 +90,7 @@ router.post('/prospects/:id/drop', async (req, res) => {
       parseInt(req.params.id),
       drop_reason,
       req.userId || 'unknown',
-      (req as any).user?.role,
+      req.userRole || (req as any).user?.role,
     );
     res.json({ data: result });
   } catch (e: unknown) {
@@ -104,7 +104,7 @@ router.post('/prospects/:id/reactivate', async (req, res) => {
     const result = await prospectService.reactivate(
       parseInt(req.params.id),
       req.userId || 'unknown',
-      (req as any).user?.role,
+      req.userRole || (req as any).user?.role,
     );
     res.json({ data: result });
   } catch (e: unknown) {

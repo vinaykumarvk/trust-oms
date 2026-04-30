@@ -168,6 +168,44 @@ function computeDedupHash(firstName: string, lastName: string, email?: string, p
   return crypto.createHash('sha256').update(normalized).digest('hex');
 }
 
+const LOCKED_CAMPAIGN_LIST_STATUSES = ['ACTIVE', 'APPROVED', 'PENDING_APPROVAL'] as const;
+
+type LeadUploadValidatedData = {
+  valid?: Array<{ first_name: string; last_name: string; email?: string; mobile_phone?: string; entity_type?: string; source?: string }>;
+  errors?: Array<{ row_number: number; data: Record<string, unknown>; error: string }>;
+};
+
+function parseLeadUploadValidatedData(raw: unknown): LeadUploadValidatedData | unknown[] {
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw) as LeadUploadValidatedData | unknown[];
+    } catch {
+      return [];
+    }
+  }
+  return (raw ?? []) as LeadUploadValidatedData | unknown[];
+}
+
+async function assertLeadListAudienceEditable(listId: number): Promise<void> {
+  const [assignment] = await db
+    .select({
+      campaign_id: schema.campaigns.id,
+      campaign_status: schema.campaigns.campaign_status,
+    })
+    .from(schema.campaignLists)
+    .innerJoin(schema.campaigns, eq(schema.campaignLists.campaign_id, schema.campaigns.id))
+    .where(and(
+      eq(schema.campaignLists.lead_list_id, listId),
+      inArray(schema.campaigns.campaign_status, [...LOCKED_CAMPAIGN_LIST_STATUSES]),
+      eq(schema.campaigns.is_deleted, false),
+    ))
+    .limit(1);
+
+  if (assignment) {
+    throw new Error(`Cannot modify a lead list assigned to a ${assignment.campaign_status} campaign`);
+  }
+}
+
 // ============================================================================
 // Campaign Lifecycle
 // ============================================================================
@@ -733,6 +771,7 @@ export const leadListService = {
     if (!list) throw new Error('Lead list not found');
     if (list.source_type !== 'RULE_BASED') throw new Error('Not a rule-based list');
     if (!list.rule_definition) throw new Error('No rule definition');
+    await assertLeadListAudienceEditable(listId);
 
     // Create generation job
     const [job] = await db
@@ -987,6 +1026,7 @@ export const leadListService = {
   async addMembers(listId: number, leadIds: number[], userId: string): Promise<{ added: number; skipped: number; total_count: number }> {
     const [list] = await db.select().from(schema.leadLists).where(eq(schema.leadLists.id, listId));
     if (!list) throw new Error('Lead list not found');
+    await assertLeadListAudienceEditable(listId);
 
     let added = 0;
     let skipped = 0;
@@ -1025,6 +1065,8 @@ export const leadListService = {
   },
 
   async removeMember(listId: number, leadId: number): Promise<{ removed: boolean; total_count: number }> {
+    await assertLeadListAudienceEditable(listId);
+
     const existing = await db
       .select({ id: schema.leadListMembers.id })
       .from(schema.leadListMembers)
@@ -1064,6 +1106,8 @@ export const leadListService = {
     rows: Array<{ first_name: string; last_name: string; email?: string; mobile_phone?: string; entity_type?: string; source?: string }>,
     userId: string,
   ): Promise<{ batch_id: number; batch_code: string; total_rows: number; valid_rows: number; error_rows: number; duplicate_rows: number }> {
+    await assertLeadListAudienceEditable(targetListId);
+
     const now = new Date();
     const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
 
@@ -1084,13 +1128,17 @@ export const leadListService = {
     const errorRows: Array<{ row_number: number; data: Record<string, unknown>; error: string }> = [];
 
     // Pre-filter invalid rows and compute all dedup hashes
-    const rowsWithHashes = rows.map((row, index) => ({
-      row,
-      rowNumber: index + 1,
-      hash: row.first_name && row.last_name
-        ? computeDedupHash(row.first_name, row.last_name, row.email, row.mobile_phone)
-        : null,
-    }));
+    const rowsWithHashes = rows.map((row, index) => {
+      const hasRequiredIdentity = Boolean(row.first_name && row.last_name && row.entity_type);
+      const hasContact = Boolean(row.email || row.mobile_phone);
+      return {
+        row,
+        rowNumber: index + 1,
+        hash: hasRequiredIdentity && hasContact
+          ? computeDedupHash(row.first_name, row.last_name, row.email, row.mobile_phone)
+          : null,
+      };
+    });
 
     for (const r of rowsWithHashes) {
       if (r.hash === null) {
@@ -1098,6 +1146,8 @@ export const leadListService = {
         const missing: string[] = [];
         if (!r.row.first_name) missing.push('first_name');
         if (!r.row.last_name) missing.push('last_name');
+        if (!r.row.entity_type) missing.push('entity_type');
+        if (!r.row.email && !r.row.mobile_phone) missing.push('email_or_mobile_phone');
         errorRows.push({ row_number: r.rowNumber, data: r.row as Record<string, unknown>, error: `Missing required fields: ${missing.join(', ')}` });
         errorCount++;
       }
@@ -1166,7 +1216,7 @@ export const leadListService = {
     const batch = await this.getUploadBatch(batchId);
     if (!batch) throw new Error('Batch not found');
 
-    const rawData = batch.validated_data as { errors?: Array<{ row_number: number; data: Record<string, unknown>; error: string }> } | unknown[];
+    const rawData = parseLeadUploadValidatedData(batch.validated_data);
     const errors = (!Array.isArray(rawData) && rawData?.errors) ? rawData.errors : [];
 
     if (errors.length === 0) {
@@ -1196,10 +1246,11 @@ export const leadListService = {
     if (batch.upload_status !== 'VALIDATED') {
       throw new Error('Batch must be in VALIDATED status to confirm');
     }
+    await assertLeadListAudienceEditable(batch.target_list_id);
 
     // Insert validated leads into the database
     // CM G-005: validated_data may be structured as {valid: [...], errors: [...]} or legacy []
-    const rawData = batch.validated_data as { valid?: Array<{ first_name: string; last_name: string; email?: string; mobile_phone?: string; entity_type?: string; source?: string }> } | Array<{ first_name: string; last_name: string; email?: string; mobile_phone?: string; entity_type?: string; source?: string }>;
+    const rawData = parseLeadUploadValidatedData(batch.validated_data) as LeadUploadValidatedData | Array<{ first_name: string; last_name: string; email?: string; mobile_phone?: string; entity_type?: string; source?: string }>;
     const validRows = Array.isArray(rawData) ? rawData : (rawData?.valid ?? []);
     let importedCount = 0;
 
@@ -1322,6 +1373,42 @@ export const leadListService = {
 // ============================================================================
 // Campaign Dispatch
 // ============================================================================
+
+export const campaignConsentService = {
+  async recordMarketingOptOut(data: {
+    channel: 'EMAIL' | 'SMS';
+    lead_id?: number;
+    client_id?: string;
+    prospect_id?: number;
+    reason?: string;
+    ip_address?: string;
+  }): Promise<typeof schema.campaignConsentLog.$inferSelect> {
+    if (!data.lead_id && !data.client_id && !data.prospect_id) {
+      throw new Error('lead_id, client_id, or prospect_id is required for unsubscribe');
+    }
+
+    const consentType = data.channel === 'SMS' ? 'MARKETING_SMS' : 'MARKETING_EMAIL';
+    const [record] = await db
+      .insert(schema.campaignConsentLog)
+      .values({
+        lead_id: data.lead_id ?? null,
+        client_id: data.client_id ?? null,
+        prospect_id: data.prospect_id ?? null,
+        consent_type: consentType,
+        consent_status: 'OPTED_OUT',
+        consent_source: 'UNSUBSCRIBE_LINK',
+        consent_text: data.channel === 'SMS' ? 'Reply STOP opt-out' : 'Unsubscribe link opt-out',
+        revoked_at: new Date(),
+        revocation_reason: data.reason || (data.channel === 'SMS' ? 'STOP' : 'UNSUBSCRIBE'),
+        ip_address: data.ip_address ?? null,
+        created_by: 'campaign-unsubscribe',
+        updated_by: 'campaign-unsubscribe',
+      })
+      .returning();
+
+    return record;
+  },
+};
 
 export const campaignDispatchService = {
   async dispatch(
@@ -1576,6 +1663,48 @@ export const campaignDispatchService = {
       message: `Retry #${retryCount + 1} successful — ${comm.total_recipients} messages re-dispatched.`,
     };
   },
+
+  async recordDeliveryWebhook(data: {
+    communication_id: number;
+    provider?: string;
+    status: string;
+    delivered_count?: number;
+    bounced_count?: number;
+    failure_reason?: string;
+  }): Promise<typeof schema.campaignCommunications.$inferSelect> {
+    const [comm] = await db
+      .select()
+      .from(schema.campaignCommunications)
+      .where(eq(schema.campaignCommunications.id, data.communication_id))
+      .limit(1);
+    if (!comm) throw new Error('Communication record not found');
+
+    const normalizedStatus = data.status.trim().toUpperCase();
+    const deliveredCount = data.delivered_count ?? comm.delivered_count ?? 0;
+    const bouncedCount = data.bounced_count ?? comm.bounced_count ?? 0;
+    const hasFailures = normalizedStatus === 'BOUNCED' || normalizedStatus === 'FAILED' || bouncedCount > 0;
+    const allRecipientsAccountedFor = deliveredCount + bouncedCount >= comm.total_recipients;
+    const dispatchStatus = hasFailures && deliveredCount === 0
+      ? 'FAILED'
+      : allRecipientsAccountedFor
+        ? 'COMPLETED'
+        : 'DISPATCHING';
+
+    const [updated] = await db
+      .update(schema.campaignCommunications)
+      .set({
+        dispatch_status: dispatchStatus,
+        delivered_count: deliveredCount,
+        bounced_count: bouncedCount,
+        last_failure_reason: data.failure_reason || (hasFailures ? `${data.provider || 'gateway'} reported ${normalizedStatus}` : null),
+        updated_by: `${data.provider || 'gateway'}-webhook`,
+        updated_at: new Date(),
+      } as any)
+      .where(eq(schema.campaignCommunications.id, data.communication_id))
+      .returning();
+
+    return updated;
+  },
 };
 
 // ============================================================================
@@ -1608,6 +1737,9 @@ export const interactionService = {
     if (data.campaign_id) {
       const [camp] = await db.select({ campaign_status: schema.campaigns.campaign_status, end_date: schema.campaigns.end_date })
         .from(schema.campaigns).where(eq(schema.campaigns.id, data.campaign_id)).limit(1);
+      if (!camp) {
+        throw new Error('Campaign not found');
+      }
       if (camp) {
         if (camp.campaign_status !== 'ACTIVE' && camp.campaign_status !== 'COMPLETED') {
           throw new Error('Cannot log interaction: campaign is not ACTIVE or COMPLETED');
@@ -1865,6 +1997,28 @@ export async function validateResponseModification(
 
   if (!response) {
     throw new Error('Campaign response not found');
+  }
+
+  if (response.campaign_id) {
+    const [campaign] = await db
+      .select({ campaign_status: schema.campaigns.campaign_status, end_date: schema.campaigns.end_date })
+      .from(schema.campaigns)
+      .where(eq(schema.campaigns.id, response.campaign_id))
+      .limit(1);
+
+    if (!campaign) {
+      throw new Error('Campaign not found for response');
+    }
+    if (campaign.campaign_status === 'ARCHIVED') {
+      throw new Error('Cannot modify responses for ARCHIVED campaigns');
+    }
+    if (campaign.campaign_status === 'COMPLETED' && campaign.end_date) {
+      const graceDeadline = new Date(campaign.end_date);
+      graceDeadline.setDate(graceDeadline.getDate() + 7);
+      if (new Date() > graceDeadline) {
+        throw new Error('Response modification window has closed (7-day grace period after campaign completion has passed)');
+      }
+    }
   }
 
   const elapsed = Date.now() - new Date(response.created_at).getTime();

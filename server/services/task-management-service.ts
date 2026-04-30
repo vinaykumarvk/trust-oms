@@ -25,6 +25,38 @@ async function generateTaskCode(): Promise<string> {
 
 const VALID_STATUSES = ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as const;
 
+async function assertTaskAssigneeAllowed(data: {
+  assigned_to?: number;
+  assigned_by?: number;
+  assigned_by_role?: string;
+  assigned_by_branch_id?: number;
+}): Promise<void> {
+  // CIM BR-054: Supervisors can only assign tasks to users in their branch/team hierarchy.
+  // BO_HEAD and SYSTEM_ADMIN are exempt.
+  if (!data.assigned_to || !data.assigned_by || data.assigned_to === data.assigned_by) return;
+
+  const isExempt = data.assigned_by_role && ['BO_HEAD', 'SYSTEM_ADMIN'].includes(data.assigned_by_role);
+  if (isExempt) return;
+
+  const [assignee] = await db
+    .select({ branch_id: schema.users.branch_id })
+    .from(schema.users)
+    .where(eq(schema.users.id, data.assigned_to))
+    .limit(1);
+
+  if (!assignee) {
+    throw new Error('Task assignee not found');
+  }
+
+  if (
+    data.assigned_by_branch_id !== undefined &&
+    assignee.branch_id !== null &&
+    assignee.branch_id !== data.assigned_by_branch_id
+  ) {
+    throw new Error('Tasks can only be assigned to users in the same branch');
+  }
+}
+
 export const taskManagementService = {
   async create(data: {
     title: string;
@@ -42,26 +74,7 @@ export const taskManagementService = {
   }): Promise<CrmTask> {
     const task_code = await generateTaskCode();
 
-    // CIM BR-054: Supervisors can only assign tasks to users in their branch/team hierarchy.
-    // BO_HEAD and SYSTEM_ADMIN are exempt.
-    if (data.assigned_to && data.assigned_by && data.assigned_to !== data.assigned_by) {
-      const isExempt = data.assigned_by_role && ['BO_HEAD', 'SYSTEM_ADMIN'].includes(data.assigned_by_role);
-      if (!isExempt) {
-        const [assignee] = await db
-          .select({ branch_id: schema.users.branch_id })
-          .from(schema.users)
-          .where(eq(schema.users.id, data.assigned_to))
-          .limit(1);
-        if (
-          assignee &&
-          data.assigned_by_branch_id !== undefined &&
-          assignee.branch_id !== null &&
-          assignee.branch_id !== data.assigned_by_branch_id
-        ) {
-          throw new Error('Tasks can only be assigned to users in the same branch');
-        }
-      }
-    }
+    await assertTaskAssigneeAllowed(data);
 
     const [task] = await db.insert(schema.crmTasks).values({
       task_code,
@@ -108,7 +121,19 @@ export const taskManagementService = {
     due_date: string;
     reminder_date: string;
     assigned_to: number;
+    assigned_by: number;
+    assigned_by_role: string;
+    assigned_by_branch_id: number;
   }>): Promise<CrmTask> {
+    if (data.assigned_to !== undefined) {
+      await assertTaskAssigneeAllowed({
+        assigned_to: data.assigned_to,
+        assigned_by: data.assigned_by,
+        assigned_by_role: data.assigned_by_role,
+        assigned_by_branch_id: data.assigned_by_branch_id,
+      });
+    }
+
     type TaskUpdate = Partial<typeof schema.crmTasks.$inferInsert>;
     const allowedFields: TaskUpdate = {};
     if (data.title !== undefined) allowedFields.title = data.title;

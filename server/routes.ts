@@ -374,12 +374,14 @@ setTimeout(() => {
 }, 60 * 1000); // defer 60s after startup
 
 // Campaign activation/completion scheduler — runs every 15 minutes
-// Activates APPROVED campaigns whose start_date has arrived and completes expired ACTIVE campaigns
+// Activates APPROVED campaigns, completes expired ACTIVE campaigns, archives stale COMPLETED campaigns, and cancels expired handovers
 setTimeout(() => {
   const runCampaignActivationJob = async () => {
     try {
       const { runActivationJob } = await import('./services/campaign-activation-job');
+      const { campaignEodBatch } = await import('./services/campaign-service');
       await runActivationJob();
+      await campaignEodBatch();
     } catch (err) {
       console.error('[Campaign-Scheduler] activation job failed:', err);
     }
@@ -387,6 +389,40 @@ setTimeout(() => {
   runCampaignActivationJob();
   setInterval(runCampaignActivationJob, 15 * 60 * 1000); // every 15 minutes
 }, 90 * 1000); // defer 90s after startup (after delegation job)
+
+// Lead/prospect retention scheduler — runs nightly at midnight
+// Soft-deletes stale dropped / not-interested CRM records after retention period
+setTimeout(() => {
+  const runLeadProspectRetentionJob = async () => {
+    try {
+      const { leadService } = await import('./services/lead-service');
+      const { prospectService } = await import('./services/prospect-service');
+      const retentionDays = parseInt(process.env.CRM_LEAD_PROSPECT_RETENTION_DAYS ?? '365', 10) || 365;
+      const [leadsPurged, prospectsPurged] = await Promise.all([
+        leadService.processRetentionPurge(retentionDays),
+        prospectService.processRetentionPurge(retentionDays),
+      ]);
+      if (leadsPurged > 0 || prospectsPurged > 0) {
+        console.log(`[LeadProspectRetention] Soft-deleted ${leadsPurged} lead(s) and ${prospectsPurged} prospect(s)`);
+      }
+    } catch (err) {
+      console.error('[LeadProspectRetention] retention job failed:', err);
+    }
+  };
+
+  const scheduleRetentionAtMidnight = () => {
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    setTimeout(() => {
+      runLeadProspectRetentionJob();
+      setInterval(runLeadProspectRetentionJob, 24 * 60 * 60 * 1000);
+    }, midnight.getTime() - now.getTime());
+  };
+
+  runLeadProspectRetentionJob();
+  scheduleRetentionAtMidnight();
+}, 105 * 1000); // defer 105s after startup
 
 // GAP-011: Approval auto-unclaim scheduler — nightly at midnight
 // Resets CLAIMED call-report approvals that have been held > 2 business days without a decision
@@ -421,11 +457,12 @@ setTimeout(() => {
   const runOverdueAlertJob = async () => {
     try {
       const { db: dbRef } = await import('./db');
-      const { default: schemaRef } = await import('@shared/schema') as any;
+      const schemaRef = await import('@shared/schema');
       const { notificationInboxService } = await import('./services/notification-inbox-service');
+      const { getLateFilingDays } = await import('./services/call-report-service');
       const { and: drAnd, eq: drEq, lte: drLte, or: drOr, sql: drSql } = await import('drizzle-orm');
 
-      const thresholdDays = parseInt(process.env.CRM_LATE_FILING_DAYS ?? '5', 10) || 5;
+      const thresholdDays = await getLateFilingDays();
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - thresholdDays);
 
@@ -488,30 +525,10 @@ setTimeout(() => {
 setTimeout(() => {
   const runOpportunityExpiryJob = async () => {
     try {
-      const { db: dbRef } = await import('./db');
-      const { default: schemaRef } = await import('@shared/schema') as any;
-      const { and: drAnd, eq: drEq, lt: drLt, notInArray: drNotInArray, sql: drSql } = await import('drizzle-orm');
-
-      const today = new Date().toISOString().split('T')[0];
-      const expiredOpportunities = await dbRef
-        .select({ id: schemaRef.opportunities.id })
-        .from(schemaRef.opportunities)
-        .where(
-          drAnd(
-            drNotInArray(schemaRef.opportunities.stage, ['WON', 'LOST', 'EXPIRED']),
-            drEq(schemaRef.opportunities.is_deleted, false),
-            drLt(schemaRef.opportunities.expected_close_date, today),
-          ),
-        );
-
-      if (expiredOpportunities.length > 0) {
-        for (const opp of expiredOpportunities) {
-          await dbRef
-            .update(schemaRef.opportunities)
-            .set({ stage: 'EXPIRED', updated_at: new Date(), updated_by: 'system-expiry-job' })
-            .where(drEq(schemaRef.opportunities.id, opp.id));
-        }
-        console.log(`[OpportunityExpiry] Expired ${expiredOpportunities.length} overdue opportunity/ies`);
+      const { opportunityService } = await import('./services/opportunity-service');
+      const expiredCount = await opportunityService.processExpiredOpportunities();
+      if (expiredCount > 0) {
+        console.log(`[OpportunityExpiry] Expired ${expiredCount} overdue opportunity/ies`);
       }
     } catch (err) {
       console.error('[OpportunityExpiry] Error running opportunity expiry job:', err);
@@ -532,51 +549,32 @@ setTimeout(() => {
   scheduleOpportunityExpiryAtMidnight();
 }, 180 * 1000); // defer 180s after startup
 
-// P1-14: Auto-complete past SCHEDULED meetings — nightly at midnight
-// Meetings in SCHEDULED status whose end_time is in the past are transitioned to COMPLETED
+// FR-019: Auto-transition stale SCHEDULED meetings to NO_SHOW — nightly at midnight
 setTimeout(() => {
-  const runMeetingAutoCompleteJob = async () => {
+  const runMeetingNoShowJob = async () => {
     try {
-      const { db: dbRef } = await import('./db');
-      const schemaRef = await import('@shared/schema');
-      const { eq: drEq, and: drAnd, lt: drLt } = await import('drizzle-orm');
-
-      const pastMeetings = await dbRef
-        .select({ id: schemaRef.meetings.id, title: schemaRef.meetings.title })
-        .from(schemaRef.meetings)
-        .where(drAnd(
-          drEq(schemaRef.meetings.meeting_status, 'SCHEDULED'),
-          drEq(schemaRef.meetings.is_deleted, false),
-          drLt(schemaRef.meetings.end_time, new Date()),
-        ));
-
-      for (const meeting of pastMeetings) {
-        await dbRef
-          .update(schemaRef.meetings)
-          .set({ meeting_status: 'COMPLETED', updated_at: new Date() } as any)
-          .where(drEq(schemaRef.meetings.id, meeting.id));
-      }
-
-      if (pastMeetings.length > 0) {
-        console.log(`[MeetingAutoComplete] Completed ${pastMeetings.length} past meeting(s)`);
+      const { meetingService } = await import('./services/meeting-service');
+      const noShowCount = await meetingService.processNoShowMeetings();
+      if (noShowCount > 0) {
+        console.log(`[MeetingNoShow] Marked ${noShowCount} meeting(s) as no-show`);
       }
     } catch (err) {
-      console.error('[MeetingAutoComplete] Error running auto-complete job:', err);
+      console.error('[MeetingNoShow] Error running no-show job:', err);
     }
   };
 
-  const scheduleMeetingAutoCompleteAtMidnight = () => {
+  const scheduleMeetingNoShowAtMidnight = () => {
     const now = new Date();
     const midnight = new Date(now);
     midnight.setHours(24, 0, 0, 0);
     setTimeout(() => {
-      runMeetingAutoCompleteJob();
-      setInterval(runMeetingAutoCompleteJob, 24 * 60 * 60 * 1000);
+      runMeetingNoShowJob();
+      setInterval(runMeetingNoShowJob, 24 * 60 * 60 * 1000);
     }, midnight.getTime() - now.getTime());
   };
 
-  runMeetingAutoCompleteJob();
-  scheduleMeetingAutoCompleteAtMidnight();
+  runMeetingNoShowJob();
+  scheduleMeetingNoShowAtMidnight();
 }, 210 * 1000); // defer 210s after startup
 
 // BR-032: SLA alert — SUBMITTED call reports >48h without review → notify BO_HEAD
@@ -661,13 +659,7 @@ setTimeout(() => {
             related_entity_id: meeting.id,
           });
         }
-        // Mark reminder_sent so we don't re-notify
-        const { db: dbRef } = await import('./db');
-        const schemaRef = await import('@shared/schema');
-        const { eq: drEq } = await import('drizzle-orm');
-        await dbRef.update(schemaRef.meetings)
-          .set({ reminder_sent: true, updated_at: new Date() } as any)
-          .where(drEq(schemaRef.meetings.id, meeting.id));
+        await meetingService.markReminderSent(meeting.id, '1h');
       }
       if (pendingReminders.length > 0) {
         console.log(`[MeetingReminder] Sent ${pendingReminders.length} reminder(s)`);
@@ -700,6 +692,7 @@ setTimeout(() => {
             related_entity_id: meeting.id,
           });
         }
+        await meetingService.markReminderSent(meeting.id, '24h');
       }
       if (meetings.length > 0) {
         console.log(`[Meeting24hReminder] Sent ${meetings.length} 24-hour reminder(s)`);
@@ -831,54 +824,6 @@ setTimeout(() => {
   runProposalExpiryJob();
   scheduleProposalExpiryAtMidnight();
 }, 360 * 1000); // defer 360s after startup
-
-// CCR-GAP-011: Auto-unclaim stale call-report approvals (claimed > 2 business days without action)
-// Runs nightly at midnight
-setTimeout(() => {
-  const runAutoUnclaimJob = async () => {
-    try {
-      const { db: dbRef } = await import('./db');
-      const schemaRef = await import('@shared/schema');
-      const { eq: drEq, and: drAnd, lte: drLte } = await import('drizzle-orm');
-
-      // 2 business days ≈ 48h for simplicity (no calendar needed)
-      const cutoff = new Date();
-      cutoff.setHours(cutoff.getHours() - 48);
-
-      const stale = await dbRef
-        .select({ id: schemaRef.callReportApprovals.id })
-        .from(schemaRef.callReportApprovals)
-        .where(drAnd(
-          drEq(schemaRef.callReportApprovals.action, 'CLAIMED'),
-          drLte(schemaRef.callReportApprovals.claimed_at, cutoff),
-        ));
-
-      if (stale.length > 0) {
-        for (const item of stale) {
-          await dbRef
-            .update(schemaRef.callReportApprovals)
-            .set({ action: 'PENDING', claimed_at: null, updated_at: new Date() } as any)
-            .where(drEq(schemaRef.callReportApprovals.id, item.id));
-        }
-        console.log(`[AutoUnclaim] Released ${stale.length} stale claimed approval(s) back to PENDING`);
-      }
-    } catch (err) {
-      console.error('[AutoUnclaim] Error running auto-unclaim job:', err);
-    }
-  };
-
-  const scheduleAutoUnclaimAtMidnight = () => {
-    const now = new Date();
-    const midnight = new Date(now);
-    midnight.setHours(24, 0, 0, 0);
-    setTimeout(() => {
-      runAutoUnclaimJob();
-      setInterval(runAutoUnclaimJob, 24 * 60 * 60 * 1000);
-    }, midnight.getTime() - now.getTime());
-  };
-  runAutoUnclaimJob();
-  scheduleAutoUnclaimAtMidnight();
-}, 390 * 1000); // defer 390s after startup
 
 // HAM-GAP-008: Handover SLA alert — runs every hour
 // Notifies the requesting_rm + checker supervisor when a handover breaches its sla_deadline

@@ -19,6 +19,13 @@ function parseId(raw: string): number {
   return id;
 }
 
+function parseAuthenticatedUserId(req: any): number | null {
+  const raw = req.user?.id ?? req.userId;
+  if (raw === undefined || raw === null || raw === '') return null;
+  const id = parseInt(String(raw), 10);
+  return isNaN(id) ? null : id;
+}
+
 const asyncHandler = (fn: Function) =>
   (req: any, res: any, next: any) =>
     Promise.resolve(fn(req, res, next)).catch(next);
@@ -53,7 +60,7 @@ router.patch(
   asyncHandler(async (req: any, res: any) => {
     const id = parseId(req.params.id);
 
-    const supervisorId = (req as any).user?.id ?? (req as any).userId;
+    const supervisorId = parseAuthenticatedUserId(req);
     if (!supervisorId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -78,7 +85,7 @@ router.patch(
   asyncHandler(async (req: any, res: any) => {
     const id = parseId(req.params.id);
 
-    const supervisorId = (req as any).user?.id ?? (req as any).userId;
+    const supervisorId = parseAuthenticatedUserId(req);
     if (!supervisorId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -105,7 +112,7 @@ router.patch(
   asyncHandler(async (req: any, res: any) => {
     const id = parseId(req.params.id);
 
-    const supervisorId = (req as any).user?.id ?? (req as any).userId;
+    const supervisorId = parseAuthenticatedUserId(req);
     if (!supervisorId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }

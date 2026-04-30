@@ -15,6 +15,27 @@ import * as schema from '@shared/schema';
 import { eq, desc, and, sql } from 'drizzle-orm';
 
 export const clientPortalService = {
+  /**
+   * Verify that a portfolio belongs to the authenticated client.
+   * Client portal portfolio routes must call this before exposing holdings,
+   * performance, allocation, or transaction data keyed only by portfolioId.
+   */
+  async portfolioBelongsToClient(portfolioId: string, clientId: string): Promise<boolean> {
+    const [portfolio] = await db
+      .select({ portfolio_id: schema.portfolios.portfolio_id })
+      .from(schema.portfolios)
+      .where(
+        and(
+          eq(schema.portfolios.portfolio_id, portfolioId),
+          eq(schema.portfolios.client_id, clientId),
+          eq(schema.portfolios.is_deleted, false),
+        ),
+      )
+      .limit(1);
+
+    return Boolean(portfolio);
+  },
+
   // ---------------------------------------------------------------------------
   // Portfolio Summary
   // ---------------------------------------------------------------------------

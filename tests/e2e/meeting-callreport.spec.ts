@@ -893,6 +893,11 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
     });
 
     it('should create call report with action items', async () => {
+      mockLimit
+        .mockResolvedValueOnce([{ branch_id: 1 }])
+        .mockResolvedValueOnce([{ branch_id: 1 }])
+        .mockResolvedValueOnce([{ branch_id: 1 }]);
+
       // Mock generateReportCode() → db.execute()
       mockExecute.mockResolvedValueOnce({ rows: [] });
 

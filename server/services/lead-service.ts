@@ -880,4 +880,31 @@ export const leadService = {
       status_breakdown: statusCounts,
     };
   },
+
+  /**
+   * BRD retention job: soft-delete stale non-converting leads after the configured
+   * retention period. Uses updated_at as the ageing anchor because lead drops and
+   * not-interested transitions update that timestamp.
+   */
+  async processRetentionPurge(retentionDays = 365): Promise<number> {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - retentionDays);
+
+    const purged = await db
+      .update(schema.leads)
+      .set({
+        is_deleted: true,
+        deleted_at: new Date(),
+        updated_by: 'SYSTEM_RETENTION_JOB',
+        updated_at: new Date(),
+      } as any)
+      .where(and(
+        eq(schema.leads.is_deleted, false),
+        inArray(schema.leads.lead_status, ['DROPPED', 'NOT_INTERESTED']),
+        lte(schema.leads.updated_at, cutoff),
+      ))
+      .returning({ id: schema.leads.id });
+
+    return purged.length;
+  },
 };

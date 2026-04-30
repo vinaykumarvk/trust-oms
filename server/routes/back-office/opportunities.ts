@@ -62,7 +62,8 @@ router.get('/:id', requireCRMRole(), async (req, res) => {
 // Create opportunity
 router.post('/', requireCRMRole(), async (req, res) => {
   try {
-    const data = await opportunityService.create(req.body);
+    const actorId = (req as any).user?.id ?? (req as any).userId;
+    const data = await opportunityService.create({ ...req.body, created_by: actorId });
     res.status(201).json(data);
   } catch (err: unknown) {
     res.status(400).json({ error: errMsg(err) });

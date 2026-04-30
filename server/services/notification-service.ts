@@ -118,7 +118,7 @@ export const notificationService = {
    */
   async dispatch(data: DispatchInput) {
     // --- Consent gate ---
-    const allowed = this.checkConsent(data.recipientId, data.channel, data.eventType);
+    const allowed = await this.checkConsentAsync(data.recipientId, data.channel, data.eventType);
     if (!allowed) {
       return { skipped: true, reason: 'consent_denied', channel: data.channel };
     }
@@ -382,6 +382,80 @@ export const notificationService = {
     return merged;
   },
 
+  /**
+   * Get a persisted channel preference for one event.
+   * Missing rows default to enabled and non-critical, matching legacy behavior.
+   */
+  async getChannelPreference(userId: string, eventType: string, channel: NotificationChannel) {
+    const [row] = await db.select()
+      .from(schema.notificationPreferences)
+      .where(and(
+        eq(schema.notificationPreferences.user_id, userId),
+        eq(schema.notificationPreferences.event_type, eventType),
+        eq(schema.notificationPreferences.channel, channel),
+      ))
+      .limit(1);
+
+    return row ?? {
+      user_id: userId,
+      event_type: eventType,
+      channel,
+      enabled: true,
+      is_critical: REGULATORY_EVENTS.includes(eventType),
+    };
+  },
+
+  /**
+   * Persist a single event/channel preference. Critical notifications cannot
+   * be disabled, which enforces the BRD requirement at the service layer.
+   */
+  async updateChannelPreference(
+    userId: string,
+    eventType: string,
+    channel: NotificationChannel,
+    enabled: boolean,
+    options: { isCritical?: boolean } = {},
+  ) {
+    const existing = await this.getChannelPreference(userId, eventType, channel);
+    const isCritical = Boolean(options.isCritical ?? existing.is_critical ?? REGULATORY_EVENTS.includes(eventType));
+
+    if (isCritical && !enabled) {
+      throw new Error('Critical notifications cannot be disabled');
+    }
+
+    const [current] = await db.select()
+      .from(schema.notificationPreferences)
+      .where(and(
+        eq(schema.notificationPreferences.user_id, userId),
+        eq(schema.notificationPreferences.event_type, eventType),
+        eq(schema.notificationPreferences.channel, channel),
+      ))
+      .limit(1);
+
+    if (current) {
+      const [updated] = await db.update(schema.notificationPreferences)
+        .set({
+          enabled,
+          is_critical: isCritical,
+          updated_at: new Date(),
+        })
+        .where(eq(schema.notificationPreferences.id, current.id))
+        .returning();
+      return updated;
+    }
+
+    const [created] = await db.insert(schema.notificationPreferences)
+      .values({
+        user_id: userId,
+        event_type: eventType,
+        channel,
+        enabled,
+        is_critical: isCritical,
+      })
+      .returning();
+    return created;
+  },
+
   // ==========================================================================
   // Consent check
   // ==========================================================================
@@ -409,6 +483,24 @@ export const notificationService = {
       case 'PUSH': return prefs.push;
       case 'IN_APP': return prefs.inApp;
       default: return true;
+    }
+  },
+
+  /**
+   * Async consent check backed by notification_preferences. Dispatch uses this
+   * path; the synchronous checkConsent remains for legacy callers and tests.
+   */
+  async checkConsentAsync(recipientId: string, channel: NotificationChannel, eventType: string): Promise<boolean> {
+    if (REGULATORY_EVENTS.includes(eventType)) {
+      return true;
+    }
+
+    try {
+      const pref = await this.getChannelPreference(recipientId, eventType, channel);
+      if (pref.is_critical) return true;
+      return pref.enabled !== false;
+    } catch {
+      return this.checkConsent(recipientId, channel, eventType);
     }
   },
 };

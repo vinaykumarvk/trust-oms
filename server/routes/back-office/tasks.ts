@@ -69,7 +69,13 @@ router.post('/', requireCRMRole(), async (req, res) => {
 // Update task
 router.patch('/:id', requireCRMRole(), async (req, res) => {
   try {
-    const data = await taskManagementService.update(parseInt(req.params.id), req.body);
+    const user = (req as any).user;
+    const data = await taskManagementService.update(parseInt(req.params.id), {
+      ...req.body,
+      assigned_by: user?.id,
+      assigned_by_role: user?.role ?? (req as any).userRole,
+      assigned_by_branch_id: user?.branch_id ?? (req as any).userBranchId,
+    });
     res.json(data);
   } catch (err: unknown) {
     res.status(400).json({ error: errMsg(err) });

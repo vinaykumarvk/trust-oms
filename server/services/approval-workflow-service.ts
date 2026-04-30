@@ -231,14 +231,14 @@ export const approvalWorkflowService = {
         });
       }
 
-      // GAP-012: Notify the filing RM of the approval decision
+      // GAP-014: Notify the filing RM of the approval decision via in-app and email channels
       if (report?.filed_by) {
-        await notificationInboxService.notify({
+        await notificationInboxService.notifyChannels({
           recipient_user_id: report.filed_by,
           type: 'CALL_REPORT_APPROVED',
           title: 'Call Report Approved',
           message: `Your call report ${report.report_code} has been approved.${comments ? ` Reviewer note: ${comments}` : ''}`,
-          channel: 'IN_APP',
+          channels: ['IN_APP', 'EMAIL'],
           related_entity_type: 'call_report',
           related_entity_id: approval.call_report_id,
         });
@@ -326,14 +326,14 @@ export const approvalWorkflowService = {
         });
       }
 
-      // GAP-012: Notify the filing RM of the rejection decision
+      // GAP-014: Notify the filing RM of the rejection decision via in-app and email channels
       if (report?.filed_by) {
-        await notificationInboxService.notify({
+        await notificationInboxService.notifyChannels({
           recipient_user_id: report.filed_by,
           type: 'CALL_REPORT_REJECTED',
           title: 'Call Report Returned for Revision',
           message: `Your call report ${report.report_code} has been returned. Reason: ${comments.trim()}`,
-          channel: 'IN_APP',
+          channels: ['IN_APP', 'EMAIL'],
           related_entity_type: 'call_report',
           related_entity_id: approval.call_report_id,
         });

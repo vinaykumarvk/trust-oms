@@ -33,7 +33,7 @@ export function invalidateLateFilingCache(): void {
   _lateFilingCacheExpiry = 0;
 }
 
-async function getLateFilingDays(): Promise<number> {
+export async function getLateFilingDays(): Promise<number> {
   if (_lateFilingCacheExpiry > Date.now() && _lateFilingDaysCache !== null) {
     return _lateFilingDaysCache;
   }
@@ -170,7 +170,7 @@ export const callReportService = {
     branch_id?: number;
     action_items?: Array<{
       description: string;
-      assigned_to: number;
+      assigned_to?: number;
       due_date: string;
       priority?: string;
     }>;
@@ -248,6 +248,17 @@ export const callReportService = {
       }
     }
 
+    const hasActionItems = Boolean(data.action_items && data.action_items.length > 0);
+    let effectiveBranchId = data.branch_id ?? null;
+    if (effectiveBranchId === null && hasActionItems) {
+      const [filer] = await db
+        .select({ branch_id: schema.users.branch_id })
+        .from(schema.users)
+        .where(eq(schema.users.id, data.filed_by))
+        .limit(1);
+      effectiveBranchId = filer?.branch_id ?? null;
+    }
+
     const report_code = await generateReportCode();
 
     return await db.transaction(async (tx: typeof db) => {
@@ -291,22 +302,26 @@ export const callReportService = {
           next_meeting_end: data.next_meeting_end
             ? new Date(data.next_meeting_end)
             : null,
-          branch_id: data.branch_id ?? null,
+          branch_id: effectiveBranchId,
         })
         .returning();
 
       // Create action items if provided
       if (data.action_items && data.action_items.length > 0) {
-        // GAP-025: validate each assignee is in the same branch as the report filer
-        if (data.branch_id) {
+        // GAP-025: validate each final assignee is in the same branch as the report filer
+        if (effectiveBranchId !== null) {
           for (const item of data.action_items) {
+            const assigneeId = item.assigned_to ?? data.filed_by;
             const [assignee] = await tx
               .select({ branch_id: schema.users.branch_id })
               .from(schema.users)
-              .where(eq(schema.users.id, item.assigned_to))
+              .where(eq(schema.users.id, assigneeId))
               .limit(1);
-            if (assignee && assignee.branch_id !== null && assignee.branch_id !== data.branch_id) {
-              throw new ValidationError(`Action item assignee (user ${item.assigned_to}) is not in the same branch as the report filer`);
+            if (!assignee) {
+              throw new ValidationError(`Action item assignee (user ${assigneeId}) does not exist`);
+            }
+            if (assignee.branch_id !== null && assignee.branch_id !== effectiveBranchId) {
+              throw new ValidationError(`Action item assignee (user ${assigneeId}) is not in the same branch as the report filer`);
             }
           }
         }
@@ -559,12 +574,12 @@ export const callReportService = {
         });
 
         // GAP-014: Notify the filing RM that their late report is pending supervisor approval
-        await notificationInboxService.notify({
+        await notificationInboxService.notifyChannels({
           recipient_user_id: userId,
           type: 'CALL_REPORT_PENDING_APPROVAL',
           title: 'Call Report Submitted for Approval',
           message: `Your call report ${report.report_code} was filed ${daysSinceMeeting} business days after the meeting and requires supervisor approval.`,
-          channel: 'IN_APP',
+          channels: ['IN_APP', 'EMAIL'],
           related_entity_type: 'call_report',
           related_entity_id: id,
         });
@@ -584,11 +599,11 @@ export const callReportService = {
             .map((u: { id: number }) => u.id)
             .filter((id: number) => id !== userId);
           if (supervisorIds.length > 0) {
-            await notificationInboxService.notifyMultiple(supervisorIds, {
+            await notificationInboxService.notifyMultipleChannels(supervisorIds, {
               type: 'CALL_REPORT_PENDING_APPROVAL',
               title: 'New Call Report Pending Approval',
               message: `Call report ${report.report_code} has been submitted for approval review.`,
-              channel: 'IN_APP',
+              channels: ['IN_APP', 'EMAIL'],
               related_entity_type: 'call_report',
               related_entity_id: id,
             });
@@ -682,6 +697,7 @@ export const callReportService = {
   async getAll(filters: {
     reportStatus?: string;
     reportType?: string;
+    meetingReason?: string;
     filedBy?: number;
     branchId?: number;
     search?: string;
@@ -703,6 +719,9 @@ export const callReportService = {
     if (filters.reportType) {
       // Drizzle enum types require cast when filter value comes from untyped input
       conditions.push(eq(schema.callReports.report_type, filters.reportType as typeof schema.callReportTypeEnum.enumValues[number]));
+    }
+    if (filters.meetingReason) {
+      conditions.push(eq(schema.callReports.meeting_reason, filters.meetingReason as typeof schema.meetingReasonEnum.enumValues[number]));
     }
     if (filters.filedBy) {
       conditions.push(eq(schema.callReports.filed_by, filters.filedBy));
@@ -1100,9 +1119,14 @@ export const callReportService = {
     completion_notes?: string;
     due_date?: string;
     priority?: string;
+    actor_user_id?: number;
   }): Promise<ActionItem> {
     const [item] = await db.select().from(schema.actionItems).where(eq(schema.actionItems.id, id)).limit(1);
     if (!item) throw new NotFoundError(`Action item ${id} not found`);
+
+    if (data.actor_user_id && item.assigned_to !== data.actor_user_id && item.created_by_user_id !== data.actor_user_id) {
+      throw new ForbiddenError('Only the action item assignee or creator can update this action item');
+    }
 
     // GAP-026: Cannot re-open COMPLETED or CANCELLED items
     if ((item.action_status === 'COMPLETED' || item.action_status === 'CANCELLED') && data.action_status) {

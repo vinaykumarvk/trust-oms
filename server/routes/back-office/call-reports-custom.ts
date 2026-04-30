@@ -17,6 +17,13 @@ function parseId(raw: string): number {
   return id;
 }
 
+function parseAuthenticatedUserId(req: any): number | null {
+  const raw = req.user?.id ?? req.userId;
+  if (raw === undefined || raw === null || raw === '') return null;
+  const id = parseInt(String(raw), 10);
+  return isNaN(id) ? null : id;
+}
+
 const asyncHandler = (fn: Function) =>
   (req: any, res: any, next: any) =>
     Promise.resolve(fn(req, res, next)).catch(next);
@@ -31,7 +38,7 @@ router.use(requireCRMRole());
 router.get(
   '/search',
   asyncHandler(async (req: any, res: any) => {
-    const userId: number | undefined = req.user?.id ?? (req.userId ? parseInt(req.userId) : undefined);
+    const userId = parseAuthenticatedUserId(req) ?? undefined;
     const userRole: string = req.userRole ?? req.user?.role ?? '';
     const userBranchId: number | undefined = req.userBranchId ?? req.user?.branch_id;
 
@@ -56,6 +63,7 @@ router.get(
     const filters = {
       reportStatus: req.query.reportStatus as string | undefined,
       reportType: req.query.reportType as string | undefined,
+      meetingReason: req.query.meetingReason as string | undefined,
       filedBy: scopedFiledBy,
       branchId: scopedBranchId,
       search: req.query.search as string | undefined,
@@ -79,7 +87,7 @@ router.patch(
   asyncHandler(async (req: any, res: any) => {
     const id = parseId(req.params.id);
 
-    const userId = (req as any).user?.id ?? (req as any).userId;
+    const userId = parseAuthenticatedUserId(req);
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }

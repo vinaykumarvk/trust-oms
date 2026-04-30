@@ -459,6 +459,14 @@ router.use(
 // CRM Campaign Management
 // ============================================================================
 
+function assertEventCampaignFields(data: Record<string, unknown>, campaignType = data.campaign_type): void {
+  if (campaignType === 'EVENT_INVITATION') {
+    if (!data.event_name) throw new Error('event_name is required for EVENT_INVITATION campaigns');
+    if (!data.event_date) throw new Error('event_date is required for EVENT_INVITATION campaigns');
+    if (!data.event_venue) throw new Error('event_venue is required for EVENT_INVITATION campaigns');
+  }
+}
+
 router.use(
   '/campaigns',
   createCrudRouter(schema.campaigns, {
@@ -478,11 +486,8 @@ router.use(
         if (d.budget_amount !== undefined && Number(d.budget_amount) < 0) {
           throw new Error('budget_amount must be zero or positive');
         }
-        // BRD CAMP-009: EVENT_INVITATION requires event_date and event_venue
-        if (d.campaign_type === 'EVENT_INVITATION') {
-          if (!d.event_date) throw new Error('event_date is required for EVENT_INVITATION campaigns');
-          if (!d.event_venue) throw new Error('event_venue is required for EVENT_INVITATION campaigns');
-        }
+        // BRD CAMP-009: EVENT_INVITATION requires event_name, event_date, and event_venue
+        assertEventCampaignFields(d);
         // BRD G-011: campaign name must be unique
         if (d.name) {
           const [dup] = await db
@@ -498,7 +503,13 @@ router.use(
       const id = parseInt(req.params.id ?? '', 10);
       if (!isNaN(id) && data && typeof data === 'object') {
         const [current] = await db
-          .select({ campaign_status: schema.campaigns.campaign_status })
+          .select({
+            campaign_status: schema.campaigns.campaign_status,
+            campaign_type: schema.campaigns.campaign_type,
+            event_name: schema.campaigns.event_name,
+            event_date: schema.campaigns.event_date,
+            event_venue: schema.campaigns.event_venue,
+          })
           .from(schema.campaigns)
           .where(eq(schema.campaigns.id, id));
         // BRD CAMP-014: block mutations on COMPLETED/ARCHIVED campaigns
@@ -517,6 +528,12 @@ router.use(
         if (d.budget_amount !== undefined && Number(d.budget_amount) < 0) {
           throw new Error('budget_amount must be zero or positive');
         }
+        assertEventCampaignFields({
+          campaign_type: d.campaign_type ?? current?.campaign_type,
+          event_name: d.event_name ?? current?.event_name,
+          event_date: d.event_date ?? current?.event_date,
+          event_venue: d.event_venue ?? current?.event_venue,
+        }, d.campaign_type ?? current?.campaign_type);
         // G-016: Budget increase on APPROVED/PENDING_APPROVAL campaign triggers re-approval
         if (d.budget_amount !== undefined && (current?.campaign_status === 'APPROVED' || current?.campaign_status === 'PENDING_APPROVAL')) {
           const [full] = await db.select({ budget_amount: schema.campaigns.budget_amount }).from(schema.campaigns).where(eq(schema.campaigns.id, id));
@@ -682,8 +699,8 @@ router.use(
 );
 
 // Custom call report routes (feedback, chain, approval queue, submit, search) — mount before CRUD
-router.use('/call-reports', callReportRoutes);
 router.use('/call-reports', callReportsCustomRoutes);
+router.use('/call-reports', callReportRoutes);
 router.use(
   '/call-reports',
   createCrudRouter(schema.callReports, {

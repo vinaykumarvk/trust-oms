@@ -35,6 +35,22 @@ const upload = multer({
   limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
 });
 
+async function assertPortfolioOwnership(req: any, res: any, portfolioId: string): Promise<boolean> {
+  const clientId = req.clientId as string | undefined;
+  if (!clientId) {
+    res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required' } });
+    return false;
+  }
+
+  const ownsPortfolio = await clientPortalService.portfolioBelongsToClient(portfolioId, clientId);
+  if (!ownsPortfolio) {
+    res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied' } });
+    return false;
+  }
+
+  return true;
+}
+
 // ---------------------------------------------------------------------------
 // Portfolio Summary
 // ---------------------------------------------------------------------------
@@ -70,6 +86,7 @@ router.get(
         error: { code: 'INVALID_INPUT', message: 'portfolioId is required' },
       });
     }
+    if (!(await assertPortfolioOwnership(req, res, portfolioId))) return;
 
     const data = await clientPortalService.getAllocation(portfolioId);
     res.json({ data });
@@ -92,6 +109,7 @@ router.get(
         error: { code: 'INVALID_INPUT', message: 'portfolioId is required' },
       });
     }
+    if (!(await assertPortfolioOwnership(req, res, portfolioId))) return;
 
     const data = await clientPortalService.getPerformance(portfolioId, period);
     res.json({ data });
@@ -112,6 +130,7 @@ router.get(
         error: { code: 'INVALID_INPUT', message: 'portfolioId is required' },
       });
     }
+    if (!(await assertPortfolioOwnership(req, res, portfolioId))) return;
 
     const data = await clientPortalService.getHoldings(portfolioId);
     res.json({ data });
@@ -134,6 +153,7 @@ router.get(
         error: { code: 'INVALID_INPUT', message: 'portfolioId is required' },
       });
     }
+    if (!(await assertPortfolioOwnership(req, res, portfolioId))) return;
 
     const data = await clientPortalService.getRecentTransactions(
       portfolioId,
@@ -465,6 +485,8 @@ router.post(
     if (!req.file) {
       return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'file is required (multipart field: file)' } });
     }
+    const sr = await assertSROwnership(req, res, srId);
+    if (!sr) return;
     const uploadedById = parseInt(String(req.userId ?? '0'), 10) || 0;
     const uploadedByType = req.clientId ? 'CLIENT' : 'RM';
     const { document_class } = req.body;

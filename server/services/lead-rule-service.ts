@@ -10,7 +10,7 @@
 
 import { db } from '../db';
 import * as schema from '@shared/schema';
-import { eq, and, sql, count, gt, lt, gte, lte, or } from 'drizzle-orm';
+import { eq, and, sql, count, gt, lt, gte, lte, or, ne } from 'drizzle-orm';
 
 // ============================================================================
 // Types
@@ -348,6 +348,19 @@ export const leadRuleService = {
       if (!validation.valid) {
         throw new Error(`Invalid criteria: ${validation.error}`);
       }
+    }
+
+    // BRD LP-006: criteria_name must remain unique during updates.
+    if (data.criteria_name) {
+      const [dup] = await db
+        .select({ id: schema.leadRules.id })
+        .from(schema.leadRules)
+        .where(and(
+          eq(schema.leadRules.criteria_name, data.criteria_name),
+          ne(schema.leadRules.id, id),
+        ))
+        .limit(1);
+      if (dup) throw new Error(`A rule with criteria_name "${data.criteria_name}" already exists`);
     }
 
     const updateFields: Record<string, unknown> = {

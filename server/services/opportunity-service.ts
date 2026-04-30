@@ -7,12 +7,13 @@
 
 import { db } from '../db';
 import * as schema from '@shared/schema';
-import { eq, and, sql, desc, count } from 'drizzle-orm';
+import { eq, and, sql, desc, lt, notInArray } from 'drizzle-orm';
 import { DEFAULT_CURRENCY } from '../constants/crm';
 
 type Opportunity = typeof schema.opportunities.$inferSelect;
 
 const VALID_STAGES = ['IDENTIFIED', 'QUALIFYING', 'PROPOSAL', 'NEGOTIATION', 'WON', 'LOST'] as const;
+const TERMINAL_STAGES = ['WON', 'LOST', 'EXPIRED'] as const;
 const STAGE_ORDER: Record<string, number> = {
   IDENTIFIED: 0, QUALIFYING: 1, PROPOSAL: 2, NEGOTIATION: 3, WON: 4, LOST: 5,
 };
@@ -41,6 +42,7 @@ export const opportunityService = {
     pipeline_currency?: string;
     probability?: number;
     expected_close_date?: string;
+    created_by?: number | string;
   }): Promise<Opportunity> {
     // P2-15: Probability must be 0-100
     if (data.probability !== undefined && (data.probability < 0 || data.probability > 100)) {
@@ -77,6 +79,18 @@ export const opportunityService = {
       expected_close_date: data.expected_close_date,
       stage: 'IDENTIFIED',
     }).returning();
+
+    await db.insert(schema.conversationHistory).values({
+      lead_id: opp.lead_id ?? null,
+      prospect_id: opp.prospect_id ?? null,
+      client_id: opp.client_id ?? null,
+      interaction_type: 'NOTE',
+      interaction_date: new Date(),
+      summary: `Opportunity "${opp.name}" (${opp.opportunity_code}) created`,
+      reference_type: 'opportunity',
+      reference_id: opp.id,
+      created_by: data.created_by != null ? String(data.created_by) : null,
+    } as any);
 
     return opp;
   },
@@ -151,8 +165,8 @@ export const opportunityService = {
       .where(eq(schema.opportunities.id, id));
     if (!opp) throw new Error('Opportunity not found');
 
-    if (opp.stage === 'WON' || opp.stage === 'LOST') {
-      throw new Error('Cannot change stage of WON or LOST opportunities');
+    if (TERMINAL_STAGES.includes(opp.stage as typeof TERMINAL_STAGES[number])) {
+      throw new Error('Cannot change stage of WON or LOST opportunities; EXPIRED opportunities are also terminal');
     }
 
     if (newStage === 'LOST' && (!loss_reason || loss_reason.trim().length === 0)) {
@@ -264,5 +278,45 @@ export const opportunityService = {
       total_pipeline_value: totalPipeline,
       weighted_pipeline_value: weightedPipeline,
     };
+  },
+
+  async processExpiredOpportunities(today = new Date().toISOString().split('T')[0]): Promise<number> {
+    const expiredOpportunities = await db
+      .select()
+      .from(schema.opportunities)
+      .where(
+        and(
+          notInArray(schema.opportunities.stage, [...TERMINAL_STAGES]),
+          eq(schema.opportunities.is_deleted, false),
+          lt(schema.opportunities.expected_close_date, today),
+        ),
+      );
+
+    for (const opp of expiredOpportunities) {
+      await db.transaction(async (tx: typeof db) => {
+        await tx
+          .update(schema.opportunities)
+          .set({
+            stage: 'EXPIRED',
+            updated_at: new Date(),
+            updated_by: 'SYSTEM_EXPIRY_JOB',
+          })
+          .where(eq(schema.opportunities.id, opp.id));
+
+        await tx.insert(schema.conversationHistory).values({
+          lead_id: opp.lead_id ?? null,
+          prospect_id: opp.prospect_id ?? null,
+          client_id: opp.client_id ?? null,
+          interaction_type: 'NOTE',
+          interaction_date: new Date(),
+          summary: `Opportunity "${opp.name}" (${opp.opportunity_code}) expired after expected close date ${opp.expected_close_date}.`,
+          reference_type: 'opportunity',
+          reference_id: opp.id,
+          created_by: 'SYSTEM_EXPIRY_JOB',
+        } as any);
+      });
+    }
+
+    return expiredOpportunities.length;
   },
 };

@@ -1473,6 +1473,20 @@ export const notificationLog = pgTable('notification_log', {
   ...auditFields,
 });
 
+export const notificationPreferences = pgTable('notification_preferences', {
+  id: serial('id').primaryKey(),
+  user_id: text('user_id').notNull(),
+  event_type: text('event_type').notNull(),
+  channel: notificationChannelEnum('channel').notNull(),
+  enabled: boolean('enabled').notNull().default(true),
+  is_critical: boolean('is_critical').notNull().default(false),
+  ...auditFields,
+}, (table) => ({
+  userEventChannelIdx: uniqueIndex('notification_preferences_user_event_channel_idx')
+    .on(table.user_id, table.event_type, table.channel),
+  userIdx: index('notification_preferences_user_idx').on(table.user_id),
+}));
+
 export const consentLog = pgTable('consent_log', {
   id: serial('id').primaryKey(),
   client_id: text('client_id').references(() => clients.client_id),
@@ -4185,6 +4199,7 @@ export const conversationTypeEnum = pgEnum('conversation_type', [
   'MEETING_SCHEDULED', 'MEETING_COMPLETED', 'MEETING_CANCELLED',
   'MEETING_RESCHEDULED', 'CALL_REPORT_FILED', 'CALL_REPORT_APPROVED',
   'CALL_REPORT_REJECTED', 'ACTION_ITEM_COMPLETED', 'FEEDBACK_ADDED',
+  'MEETING_NO_SHOW',
 ]);
 
 export const handoverTypeEnum = pgEnum('handover_type', ['PERMANENT', 'TEMPORARY']);
@@ -4232,6 +4247,7 @@ export const taskPriorityEnum = pgEnum('crm_task_priority', [
 export const notificationTypeEnum = pgEnum('crm_notification_type', [
   'MEETING_REMINDER', 'TASK_DUE', 'TASK_ASSIGNED', 'CALL_REPORT_RETURNED',
   'HANDOVER_PENDING', 'SLA_BREACH', 'CAMPAIGN_APPROVED', 'LEAD_ASSIGNED',
+  'CALL_REPORT_PENDING_APPROVAL', 'CALL_REPORT_APPROVED', 'CALL_REPORT_REJECTED',
 ]);
 
 // ============================================================================

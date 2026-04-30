@@ -470,7 +470,7 @@ export const prospectService = {
     if (!prospect) throw new Error('Prospect not found');
 
     // G-23: Only the assigned RM or a supervisor may drop a prospect
-    const isSupervisor = userRole && ['BO_HEAD', 'SYSTEM_ADMIN'].includes(userRole);
+    const isSupervisor = userRole && ['SENIOR_RM', 'BO_HEAD', 'SYSTEM_ADMIN'].includes(userRole);
     const numericUserId = parseInt(userId, 10);
     if (!isSupervisor && prospect.assigned_rm_id !== null && prospect.assigned_rm_id !== undefined && prospect.assigned_rm_id !== numericUserId) {
       throw new Error('Only the assigned Relationship Manager or a supervisor can drop this prospect');
@@ -516,7 +516,7 @@ export const prospectService = {
     if (!prospect) throw new Error('Prospect not found');
 
     // G-23: Only the assigned RM or a supervisor may reactivate a prospect
-    const isSupervisor = userRole && ['BO_HEAD', 'SYSTEM_ADMIN'].includes(userRole);
+    const isSupervisor = userRole && ['SENIOR_RM', 'BO_HEAD', 'SYSTEM_ADMIN'].includes(userRole);
     const numericUserId = parseInt(userId, 10);
     if (!isSupervisor && prospect.assigned_rm_id !== null && prospect.assigned_rm_id !== undefined && prospect.assigned_rm_id !== numericUserId) {
       throw new Error('Only the assigned Relationship Manager or a supervisor can reactivate this prospect');
@@ -982,5 +982,32 @@ export const prospectService = {
     }
 
     return { total: rows.length, success_count: successCount, failure_count: failureCount, results };
+  },
+
+  /**
+   * BRD retention job: soft-delete stale dropped prospects after the configured
+   * retention period. Uses drop_date first and falls back to updated_at for
+   * older records that predate the explicit drop timestamp.
+   */
+  async processRetentionPurge(retentionDays = 365): Promise<number> {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - retentionDays);
+
+    const purged = await db
+      .update(schema.prospects)
+      .set({
+        is_deleted: true,
+        deleted_at: new Date(),
+        updated_by: 'SYSTEM_RETENTION_JOB',
+        updated_at: new Date(),
+      } as any)
+      .where(and(
+        eq(schema.prospects.is_deleted, false),
+        eq(schema.prospects.prospect_status, 'DROPPED'),
+        sql`COALESCE(${schema.prospects.drop_date}, ${schema.prospects.updated_at}) <= ${cutoff}`,
+      ))
+      .returning({ id: schema.prospects.id });
+
+    return purged.length;
   },
 };
