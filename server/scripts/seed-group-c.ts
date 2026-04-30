@@ -1910,12 +1910,15 @@ async function main() {
   });
 
   console.log('\n[seed-group-c] Done.');
-  process.exit(0);
 }
 
+export { main as seedGroupC };
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main().catch((err) => {
-    console.error('[seed-group-c] Fatal:', err);
-    process.exit(1);
-  });
+  main()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error('[seed-group-c] Fatal:', err);
+      process.exit(1);
+    });
 }

@@ -1,0 +1,90 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  GAR_REGION: asia-southeast1
+  CLOUD_RUN_REGION: asia-southeast1
+  PROJECT_ID: wealthmanagement-491511
+  # Container image paths (Artifact Registry via gcr.io compat)
+  IMAGE_API: gcr.io/wealthmanagement-491511/trust-banking-api
+  IMAGE_BO: gcr.io/wealthmanagement-491511/trust-banking-bo
+  IMAGE_PORTAL: gcr.io/wealthmanagement-491511/trust-banking-portal
+
+jobs:
+  # Gate deployment behind a passing CI run
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  build-and-deploy:
+    name: Build & Deploy
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+      id-token: write  # Required for Workload Identity Federation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker --quiet
+
+      - name: Build and push API image
+        run: |
+          docker build -f Dockerfile.api -t $IMAGE_API:${{ github.sha }} -t $IMAGE_API:latest .
+          docker push $IMAGE_API:${{ github.sha }}
+          docker push $IMAGE_API:latest
+
+      - name: Build and push Back-Office image
+        run: |
+          docker build -f Dockerfile.bo -t $IMAGE_BO:${{ github.sha }} -t $IMAGE_BO:latest .
+          docker push $IMAGE_BO:${{ github.sha }}
+          docker push $IMAGE_BO:latest
+
+      - name: Build and push Portal image
+        run: |
+          docker build -f Dockerfile.portal -t $IMAGE_PORTAL:${{ github.sha }} -t $IMAGE_PORTAL:latest .
+          docker push $IMAGE_PORTAL:${{ github.sha }}
+          docker push $IMAGE_PORTAL:latest
+
+      - name: Deploy API to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: trust-banking-api
+          region: ${{ env.CLOUD_RUN_REGION }}
+          image: ${{ env.IMAGE_API }}:${{ github.sha }}
+
+      - name: Deploy Back-Office to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: trust-banking-bo
+          region: ${{ env.CLOUD_RUN_REGION }}
+          image: ${{ env.IMAGE_BO }}:${{ github.sha }}
+
+      - name: Deploy Portal to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: trust-banking-portal
+          region: ${{ env.CLOUD_RUN_REGION }}
+          image: ${{ env.IMAGE_PORTAL }}:${{ github.sha }}

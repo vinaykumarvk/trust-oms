@@ -50,14 +50,17 @@ router.post(
 
     // Use authenticated identity from JWT — never trust client-supplied role
     const userIdNum = parseInt(req.userId || '0', 10) || 0;
+    const { mfaToken } = req.body;
+    const invokedBy: Record<string, unknown> = {
+      userId: userIdNum,
+      role: req.userRole!,
+      mfaVerified: false,
+    };
+    if (mfaToken) invokedBy.mfaToken = mfaToken;
     const halt = await killSwitchService.invokeKillSwitch({
       scope,
       reason,
-      invokedBy: {
-        userId: userIdNum,
-        role: req.userRole!,
-        mfaVerified: false, // TODO: MFA verification in Phase 0C
-      },
+      invokedBy: invokedBy as any,
     });
 
     // Attempt to cancel open orders for the halted scope

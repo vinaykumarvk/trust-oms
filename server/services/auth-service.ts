@@ -21,7 +21,11 @@ import { eq, and, isNull, gt } from 'drizzle-orm';
 // Config
 // ---------------------------------------------------------------------------
 
-const JWT_SECRET_RAW = process.env.JWT_SECRET || 'trustoms-dev-secret-change-in-production';
+const isDevOrTest = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+const JWT_SECRET_RAW = process.env.JWT_SECRET || (isDevOrTest ? 'trustoms-dev-secret-change-in-production' : '');
+if (!JWT_SECRET_RAW && !isDevOrTest) {
+  throw new Error('FATAL: JWT_SECRET environment variable is required in production. Refusing to start with no secret.');
+}
 const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_RAW);
 const ACCESS_TOKEN_TTL = '15m';
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days

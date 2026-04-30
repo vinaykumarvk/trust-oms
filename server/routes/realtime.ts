@@ -44,9 +44,10 @@ router.get(
 router.post(
   '/subscribe',
   asyncHandler(async (req, res) => {
-    const { userId, channel } = req.body;
+    const userId = req.userId;
+    const { channel } = req.body;
     if (!userId || !channel) {
-      return res.status(400).json({ error: { message: 'userId and channel are required' } });
+      return res.status(400).json({ error: { message: 'channel is required' } });
     }
     const result = realtimeService.subscribe(userId, channel);
     res.json({ data: result });
@@ -56,9 +57,10 @@ router.post(
 router.post(
   '/unsubscribe',
   asyncHandler(async (req, res) => {
-    const { userId, channel } = req.body;
+    const userId = req.userId;
+    const { channel } = req.body;
     if (!userId || !channel) {
-      return res.status(400).json({ error: { message: 'userId and channel are required' } });
+      return res.status(400).json({ error: { message: 'channel is required' } });
     }
     const result = realtimeService.unsubscribe(userId, channel);
     res.json({ data: result });
@@ -125,9 +127,10 @@ router.post(
   '/workspace/:workspaceId/join',
   asyncHandler(async (req, res) => {
     const { workspaceId } = req.params;
-    const { userId, userName } = req.body;
+    const userId = req.userId ?? '';
+    const { userName } = req.body;
     if (!userId || !userName) {
-      return res.status(400).json({ error: { message: 'userId and userName are required' } });
+      return res.status(400).json({ error: { message: 'userName is required' } });
     }
     const data = realtimeService.joinWorkspace(workspaceId, userId, userName);
     res.json({ data });
@@ -138,9 +141,9 @@ router.post(
   '/workspace/:workspaceId/leave',
   asyncHandler(async (req, res) => {
     const { workspaceId } = req.params;
-    const { userId } = req.body;
+    const userId = req.userId ?? '';
     if (!userId) {
-      return res.status(400).json({ error: { message: 'userId is required' } });
+      return res.status(401).json({ error: { message: 'Authentication required' } });
     }
     const data = realtimeService.leaveWorkspace(workspaceId, userId);
     res.json({ data });
@@ -155,9 +158,10 @@ router.post(
   '/workspace/:workspaceId/vote',
   asyncHandler(async (req, res) => {
     const { workspaceId } = req.params;
-    const { userId, decision, comments } = req.body;
+    const userId = req.userId ?? '';
+    const { decision, comments } = req.body;
     if (!userId || !decision) {
-      return res.status(400).json({ error: { message: 'userId and decision are required' } });
+      return res.status(400).json({ error: { message: 'decision is required' } });
     }
     const data = realtimeService.castVote(workspaceId, userId, decision, comments);
     res.json({ data });
@@ -181,11 +185,12 @@ router.post(
   '/workspace/:workspaceId/chat',
   asyncHandler(async (req, res) => {
     const { workspaceId } = req.params;
-    const { userId, userName, message } = req.body;
+    const userId = req.userId ?? '';
+    const { userName, message } = req.body;
     if (!userId || !userName || !message) {
       return res
         .status(400)
-        .json({ error: { message: 'userId, userName, and message are required' } });
+        .json({ error: { message: 'userName and message are required' } });
     }
     const data = realtimeService.sendWorkspaceMessage(workspaceId, userId, userName, message);
     res.json({ data });

@@ -8,7 +8,7 @@
 
 import { db } from '../db';
 import * as schema from '@shared/schema';
-import { eq, and, sql, desc, asc, or, like, gte, lte, ne, inArray, isNull, count } from 'drizzle-orm';
+import { eq, and, sql, desc, asc, or, gte, lte, ne, inArray, isNull, count } from 'drizzle-orm';
 
 type Handover = typeof schema.handovers.$inferSelect;
 type HandoverItem = typeof schema.handoverItems.$inferSelect;

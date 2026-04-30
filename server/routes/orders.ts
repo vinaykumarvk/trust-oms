@@ -32,7 +32,7 @@ router.use(requireFrontOfficeRole());
 
 /** POST /api/v1/orders -- Create order */
 router.post('/', asyncHandler(async (req, res) => {
-  const userId = (req.headers['x-user-id'] as string) ?? 'system';
+  const userId = req.userId ?? 'system';
   const order = await orderService.createOrder(req.body, userId);
 
   // Run suitability check if order has a portfolio
@@ -108,33 +108,34 @@ router.put('/:id', asyncHandler(async (req, res) => {
 /** POST /api/v1/orders/:id/submit -- Submit for authorization */
 router.post('/:id/submit', asyncHandler(async (req, res) => {
   const order = await orderService.submitForAuthorization(req.params.id);
-  const userId = (req.headers['x-user-id'] as string) ?? 'system';
-  await notificationService.emitOrderEvent(req.params.id, 'submitted', userId);
+  await notificationService.emitOrderEvent(req.params.id, 'submitted', req.userId ?? 'system');
   res.json({ data: order });
 }));
 
 /** POST /api/v1/orders/:id/authorize -- Authorize order (requires senior/checker role) */
 router.post('/:id/authorize', requireAnyRole('SENIOR_RM', 'SENIOR_TRADER', 'BO_CHECKER'), asyncHandler(async (req, res) => {
-  const { approver_id, approver_role, decision, comment } = req.body;
-  if (!approver_id || !decision) {
-    return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'approver_id and decision required' } });
+  const { decision, comment } = req.body;
+  const approverId = parseInt(req.userId ?? '0', 10);
+  const approverRole = req.userRole ?? 'SRM';
+  if (!approverId || !decision) {
+    return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'decision is required' } });
   }
 
   const result = await authorizationService.authorizeOrder(
-    req.params.id, approver_id, approver_role ?? 'SRM', decision, comment
+    req.params.id, approverId, approverRole, decision, comment
   );
 
   // Emit notification
-  await notificationService.emitOrderEvent(req.params.id, decision.toLowerCase(), String(approver_id));
+  await notificationService.emitOrderEvent(req.params.id, decision.toLowerCase(), req.userId ?? '');
 
   res.json({ data: result });
 }));
 
 /** POST /api/v1/orders/:id/reject -- Reject order (shortcut) */
-router.post('/:id/reject', asyncHandler(async (req, res) => {
-  const { approver_id, approver_role, comment } = req.body;
+router.post('/:id/reject', requireAnyRole('SENIOR_RM', 'SENIOR_TRADER', 'BO_CHECKER'), asyncHandler(async (req, res) => {
+  const { comment } = req.body;
   const result = await authorizationService.authorizeOrder(
-    req.params.id, approver_id ?? 0, approver_role ?? 'SRM', 'REJECTED', comment
+    req.params.id, parseInt(req.userId ?? '0', 10), req.userRole ?? 'SRM', 'REJECTED', comment
   );
   res.json({ data: result });
 }));

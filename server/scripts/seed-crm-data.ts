@@ -1798,8 +1798,7 @@ async function main() {
   console.log(`  Found: ${Object.keys(userIds).length} users, ${Object.keys(meetingIds).length} meetings, ${Object.keys(callReportIds).length} call reports`);
 
   if (Object.keys(userIds).length === 0) {
-    console.error('ERROR: No users found. Run seed-demo-data.ts first.');
-    process.exit(1);
+    throw new Error('No users found. Run seed-demo-data.ts first.');
   }
 
   // Run seedings in FK dependency order
@@ -1835,6 +1834,8 @@ async function main() {
   console.log('║   rm_handovers, crm_expenses, lead_rules                      ║');
   console.log('╚══════════════════════════════════════════════════════════════╝');
 }
+
+export { main as seedCrmData };
 
 // ESM main guard
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

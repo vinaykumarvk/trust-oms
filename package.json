@@ -18,6 +18,7 @@
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
     "check": "tsc",
+    "seed": "tsx server/scripts/seed-all.ts",
     "smoke:platform": "tsx server/scripts/smoke-platform-services.ts",
     "compute:features": "tsx server/jobs/compute-features.ts",
     "test": "vitest",

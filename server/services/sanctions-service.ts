@@ -200,7 +200,7 @@ export class WorldCheckProvider implements SanctionsScreeningProvider {
     //   );
     //   return this.parseWorldCheckResponse(data);
 
-    console.log(`[WorldCheck] Screening request prepared for: ${name}`, JSON.stringify(requestBody));
+    console.log(`[WorldCheck] Screening request prepared (stub mode)`);
     return { hit: false, score: 0, matches: [] };
   }
 }
@@ -316,7 +316,7 @@ export class DowJonesProvider implements SanctionsScreeningProvider {
     //   );
     //   return this.parseDowJonesResponse(data);
 
-    console.log(`[DowJones] Screening request prepared for: ${name}`, JSON.stringify(requestBody));
+    console.log(`[DowJones] Screening request prepared (stub mode)`);
     return { hit: false, score: 0, matches: [] };
   }
 }

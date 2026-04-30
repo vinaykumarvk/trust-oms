@@ -18,6 +18,7 @@
  */
 
 import 'dotenv/config';
+import { fileURLToPath } from 'url';
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq } from 'drizzle-orm';
@@ -791,12 +792,16 @@ async function seedReferenceData() {
   console.log('\nReference data seeding complete.');
 }
 
-seedReferenceData()
-  .then(() => {
-    console.log('Done.');
-    process.exit(0);
-  })
-  .catch((err) => {
-    console.error('Seed failed:', err);
-    process.exit(1);
-  });
+export { seedReferenceData };
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  seedReferenceData()
+    .then(() => {
+      console.log('Done.');
+      process.exit(0);
+    })
+    .catch((err) => {
+      console.error('Seed failed:', err);
+      process.exit(1);
+    });
+}

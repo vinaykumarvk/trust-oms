@@ -243,7 +243,8 @@ router.get(
 router.post(
   '/request-action',
   asyncHandler(async (req, res) => {
-    const { clientId, actionType, details } = req.body;
+    const clientId = req.clientId;
+    const { actionType, details } = req.body;
 
     if (!clientId || !actionType) {
       return res.status(400).json({
@@ -353,10 +354,8 @@ router.get(
   '/service-requests/detail/:id',
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id, 10);
-    const sr = await serviceRequestService.getServiceRequestById(id);
-    if (!sr) {
-      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Service request not found' } });
-    }
+    const sr = await assertSROwnership(req, res, id);
+    if (!sr) return;
     res.json({ data: sr });
   }),
 );

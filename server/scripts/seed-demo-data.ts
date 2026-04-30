@@ -33,6 +33,7 @@
  */
 
 import 'dotenv/config';
+import { fileURLToPath } from 'url';
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
@@ -1102,10 +1103,14 @@ async function main() {
     console.log('╚══════════════════════════════════════════════════════════════╝');
   } catch (err) {
     console.error('\n[ERROR] Seed failed:', err);
-    process.exit(1);
-  } finally {
-    process.exit(0);
+    throw err;
   }
 }
 
-main();
+export { main as seedDemoData };
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main()
+    .then(() => process.exit(0))
+    .catch(() => process.exit(1));
+}

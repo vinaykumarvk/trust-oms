@@ -1,0 +1,7474 @@
+openapi: 3.0.3
+info:
+  title: TrustOMS Philippines API
+  version: 1.0.0
+  description: >
+    Trust Order Management System — comprehensive API for trust banking operations
+    including order lifecycle, trade execution, settlement, compliance, CRM,
+    risk profiling, fee management, and client self-service portal.
+  contact:
+    name: TrustOMS Engineering
+servers:
+  - url: /api/v1
+    description: API v1
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    CookieAuth:
+      type: apiKey
+      in: cookie
+      name: trustoms-access-token
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+    PaginatedResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: {}
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+    DataResponse:
+      type: object
+      properties:
+        data:
+          type: object
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 1
+    PageSizeParam:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        default: 25
+    SearchParam:
+      name: search
+      in: query
+      schema:
+        type: string
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Health
+    description: System health check
+  - name: Auth
+    description: Authentication (login, refresh, logout, profile)
+  - name: Entity Registry
+    description: Dynamic entity metadata and field configuration
+  - name: Orders
+    description: Order lifecycle management
+  - name: Trades
+    description: Block trading, fills, and execution
+  - name: Confirmations
+    description: Trade confirmation and matching
+  - name: Settlements
+    description: Settlement and cash ledger management
+  - name: NAV
+    description: NAV calculation and fund accounting
+  - name: RM Dashboard
+    description: Relationship Manager dashboard
+  - name: Suitability
+    description: Suitability assessment and checks
+  - name: Kill Switch
+    description: Emergency trading halt controls
+  - name: Executive
+    description: Executive dashboard and operations control tower
+  - name: Notifications
+    description: Notification system and preferences
+  - name: Whistleblower
+    description: Whistleblower reporting and case management
+  - name: Scenario
+    description: What-if scenario analysis and ESG scoring
+  - name: AI
+    description: AI suitability engine and intelligent order routing
+  - name: Realtime
+    description: Real-time subscriptions and collaborative workspace
+  - name: Approvals
+    description: Maker-checker approval queue
+  - name: Audit
+    description: Audit trail and compliance logging
+  - name: KYC
+    description: KYC management and renewal
+  - name: EOD
+    description: End-of-day processing
+  - name: Reconciliation
+    description: Reconciliation engine and break management
+  - name: Corporate Actions
+    description: Corporate action lifecycle and entitlements
+  - name: Fees
+    description: Fee engine — schedules, accruals, billing, TER
+  - name: Tax
+    description: Tax engine — WHT, BIR, FATCA, CRS, 1601-FQ
+  - name: Surveillance
+    description: Trade surveillance, alerts, and fraud detection
+  - name: Reversals
+    description: Trade and transaction reversals
+  - name: Integrations
+    description: Integration hub and external connectors
+  - name: Transfers
+    description: Portfolio transfers (in-kind and cash)
+  - name: Contributions
+    description: Trust contributions and deposits
+  - name: Withdrawals
+    description: Trust withdrawals and redemptions
+  - name: Compliance Limits
+    description: Pre/post-trade compliance limits
+  - name: Rebalancing
+    description: Portfolio modeling and rebalancing
+  - name: Scheduled Plans
+    description: EIP, ERP, and standing instruction plans
+  - name: PERA
+    description: Personal Equity and Retirement Account
+  - name: Risk Analytics
+    description: VaR, duration, IREP risk analytics
+  - name: Compliance
+    description: Compliance workbench and rules engine
+  - name: ORE
+    description: ORE ledger and operational risk events
+  - name: Reports
+    description: Reports and analytics hub
+  - name: Uploads
+    description: Bulk upload processing
+  - name: GL
+    description: Enterprise General Ledger and posting engine
+  - name: ECL
+    description: Expected Credit Loss computation
+  - name: TTRA
+    description: Trust and Transfer Agent lifecycle
+  - name: Claims
+    description: Claims and compensation management
+  - name: Risk Profiling
+    description: Risk profiling, questionnaires, and assessments
+  - name: Proposals
+    description: Investment proposal generation and workflow
+  - name: Campaigns
+    description: Campaign management, lead lists, and dispatch
+  - name: Lead Management
+    description: Lead lifecycle, conversion, and sub-entities
+  - name: Prospect Management
+    description: Prospect lifecycle, conversion, and sub-entities
+  - name: Negative List
+    description: Negative list screening
+  - name: HAM
+    description: Handover and Assignment Management
+  - name: Meetings
+    description: CRM meeting management
+  - name: Call Reports
+    description: CRM call report management
+  - name: Opportunities
+    description: CRM opportunity pipeline
+  - name: CRM Tasks
+    description: CRM task management
+  - name: CRM Notifications
+    description: CRM notification inbox
+  - name: CRM Handovers
+    description: CRM RM handover requests
+  - name: MFA
+    description: Multi-factor authentication enrollment
+  - name: Consent
+    description: Consent and privacy center
+  - name: Degraded Mode
+    description: Feed health and degraded mode management
+  - name: DSAR
+    description: Data Subject Access Requests
+  - name: Regulatory Calendar
+    description: Regulatory filing calendar
+  - name: Content Packs
+    description: Content pack versioning
+  - name: Service Requests
+    description: Service request and task management
+  - name: Features
+    description: Platform feature service integration
+  - name: Intelligence
+    description: Platform intelligence service (AI copilot)
+  - name: System Config
+    description: System configuration management
+  - name: Client Messages
+    description: Back-office client messaging
+  - name: Statements
+    description: Statement generation and delivery
+  - name: Client Portal
+    description: Client self-service portal
+  - name: CRUD Entities
+    description: >
+      Standard CRUD endpoints for reference/master data entities.
+      Each entity supports: GET / (list), GET /:id, POST /, PUT /:id,
+      DELETE /:id (soft), GET /export/csv, POST /check-duplicate, POST /bulk-import.
+
+paths:
+  # ===========================================================================
+  # Health
+  # ===========================================================================
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      security: []
+      responses:
+        '200':
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  version:
+                    type: string
+                  service:
+                    type: string
+
+  # ===========================================================================
+  # Auth
+  # ===========================================================================
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Authenticate and receive token pair
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        type: object
+                      accessToken:
+                        type: string
+                      refreshToken:
+                        type: string
+                      expiresIn:
+                        type: integer
+        '400':
+          description: Missing credentials
+        '401':
+          description: Invalid credentials
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Exchange refresh token for new token pair
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: Token refreshed
+        '400':
+          description: Missing refresh token
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke current session
+      responses:
+        '200':
+          description: Logged out
+
+  /auth/logout-all:
+    post:
+      tags: [Auth]
+      summary: Revoke all sessions for current user
+      responses:
+        '200':
+          description: All sessions revoked
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user profile
+      responses:
+        '200':
+          description: User profile
+        '401':
+          description: Not authenticated
+
+  /auth/change-password:
+    put:
+      tags: [Auth]
+      summary: Change password (requires old password)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [oldPassword, newPassword]
+              properties:
+                oldPassword:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: Password changed
+
+  # ===========================================================================
+  # Entity Registry
+  # ===========================================================================
+  /entity-registry:
+    get:
+      tags: [Entity Registry]
+      summary: List all registered entities
+      responses:
+        '200':
+          description: Entity list
+
+  /entity-registry/{entityKey}:
+    get:
+      tags: [Entity Registry]
+      summary: Get entity configuration
+      parameters:
+        - name: entityKey
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Entity config
+
+  /entity-registry/{entityKey}/fields:
+    get:
+      tags: [Entity Registry]
+      summary: Get field configurations for an entity
+      parameters:
+        - name: entityKey
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Field configs
+
+  # ===========================================================================
+  # Orders
+  # ===========================================================================
+  /orders:
+    get:
+      tags: [Orders]
+      summary: List orders with filters
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - $ref: '#/components/parameters/SearchParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: portfolio_id
+          in: query
+          schema:
+            type: string
+        - name: side
+          in: query
+          schema:
+            type: string
+        - name: trader_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Paginated order list
+    post:
+      tags: [Orders]
+      summary: Create a new order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Order created
+
+  /orders/auto-compute:
+    post:
+      tags: [Orders]
+      summary: Auto-compute missing order field (quantity/price/amount)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Computed values
+
+  /orders/pending-auth:
+    get:
+      tags: [Orders]
+      summary: Pending authorization queue
+      parameters:
+        - name: tier
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pending orders
+
+  /orders/{id}:
+    get:
+      tags: [Orders]
+      summary: Get single order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order details
+        '404':
+          description: Not found
+    put:
+      tags: [Orders]
+      summary: Update draft order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Order updated
+    delete:
+      tags: [Orders]
+      summary: Cancel order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order cancelled
+
+  /orders/{id}/submit:
+    post:
+      tags: [Orders]
+      summary: Submit order for authorization
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order submitted
+
+  /orders/{id}/authorize:
+    post:
+      tags: [Orders]
+      summary: Authorize order (requires senior/checker role)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [approver_id, decision]
+              properties:
+                approver_id:
+                  type: integer
+                approver_role:
+                  type: string
+                decision:
+                  type: string
+                  enum: [APPROVED, REJECTED]
+                comment:
+                  type: string
+      responses:
+        '200':
+          description: Authorization recorded
+
+  /orders/{id}/reject:
+    post:
+      tags: [Orders]
+      summary: Reject order (shortcut)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                approver_id:
+                  type: integer
+                comment:
+                  type: string
+      responses:
+        '200':
+          description: Order rejected
+
+  /orders/{id}/revert:
+    post:
+      tags: [Orders]
+      summary: Revert/un-cancel an order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order reverted
+
+  /orders/{id}/timeline:
+    get:
+      tags: [Orders]
+      summary: Order state transition history
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Timeline events
+
+  /orders/{id}/authorizations:
+    get:
+      tags: [Orders]
+      summary: Get authorization chain for an order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Authorization chain
+
+  # ===========================================================================
+  # Trades
+  # ===========================================================================
+  /trades/aggregation-view:
+    get:
+      tags: [Trades]
+      summary: Aggregated trade view
+      responses:
+        '200':
+          description: Aggregation data
+
+  /trades/brokers/compare:
+    get:
+      tags: [Trades]
+      summary: Compare broker execution quality
+      responses:
+        '200':
+          description: Broker comparison
+
+  /trades/blocks:
+    get:
+      tags: [Trades]
+      summary: List trade blocks
+      responses:
+        '200':
+          description: Block list
+    post:
+      tags: [Trades]
+      summary: Create a trade block
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Block created
+
+  /trades/blocks/suggestions:
+    get:
+      tags: [Trades]
+      summary: Get block suggestions for pending orders
+      responses:
+        '200':
+          description: Suggested blocks
+
+  /trades/blocks/{id}:
+    get:
+      tags: [Trades]
+      summary: Get single trade block
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Block details
+
+  /trades/blocks/{id}/allocate:
+    post:
+      tags: [Trades]
+      summary: Allocate block to child orders
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Allocation complete
+
+  /trades/blocks/{id}/place:
+    post:
+      tags: [Trades]
+      summary: Place block order with broker
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Placement sent
+
+  /trades/blocks/{id}/placement:
+    delete:
+      tags: [Trades]
+      summary: Cancel block placement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Placement cancelled
+
+  /trades/blocks/{id}/fills:
+    get:
+      tags: [Trades]
+      summary: Get fills for a block
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Fill list
+
+  /trades/fills:
+    post:
+      tags: [Trades]
+      summary: Record a fill/execution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Fill recorded
+
+  /trades/fills/order/{orderId}:
+    get:
+      tags: [Trades]
+      summary: Get fills for a specific order
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order fills
+
+  # ===========================================================================
+  # Confirmations
+  # ===========================================================================
+  /confirmations:
+    get:
+      tags: [Confirmations]
+      summary: List confirmations with filters
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Confirmation list
+
+  /confirmations/stats:
+    get:
+      tags: [Confirmations]
+      summary: Confirmation statistics
+      responses:
+        '200':
+          description: Stats summary
+
+  /confirmations/{id}:
+    get:
+      tags: [Confirmations]
+      summary: Get single confirmation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Confirmation details
+
+  /confirmations/{id}/match:
+    post:
+      tags: [Confirmations]
+      summary: Match a confirmation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Matched
+
+  /confirmations/{id}/dispute:
+    post:
+      tags: [Confirmations]
+      summary: Dispute a confirmation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Disputed
+
+  /confirmations/{id}/affirm:
+    post:
+      tags: [Confirmations]
+      summary: Affirm a confirmation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Affirmed
+
+  /confirmations/{id}/cancel:
+    post:
+      tags: [Confirmations]
+      summary: Cancel a confirmation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Cancelled
+
+  # ===========================================================================
+  # Settlements
+  # ===========================================================================
+  /settlements:
+    get:
+      tags: [Settlements]
+      summary: List settlements with filters
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: portfolio_id
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Settlement list
+
+  /settlements/summary:
+    get:
+      tags: [Settlements]
+      summary: Settlement summary dashboard
+      responses:
+        '200':
+          description: Summary data
+
+  /settlements/generate:
+    post:
+      tags: [Settlements]
+      summary: Generate settlement instructions from confirmed trades
+      responses:
+        '201':
+          description: Instructions generated
+
+  /settlements/cash-ledger:
+    get:
+      tags: [Settlements]
+      summary: Cash ledger entries
+      parameters:
+        - name: portfolio_id
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ledger entries
+
+  /settlements/cash-ledger/summary:
+    get:
+      tags: [Settlements]
+      summary: Cash ledger summary by portfolio
+      responses:
+        '200':
+          description: Cash summary
+
+  /settlements/{id}/settle:
+    post:
+      tags: [Settlements]
+      summary: Mark settlement as settled
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Settlement settled
+
+  /settlements/{id}/fail:
+    post:
+      tags: [Settlements]
+      summary: Mark settlement as failed
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Settlement failed
+
+  /settlements/net:
+    post:
+      tags: [Settlements]
+      summary: Net settlements by counterparty/currency/date
+      responses:
+        '200':
+          description: Netting results
+
+  /settlements/unified-calc:
+    post:
+      tags: [Settlements]
+      summary: Unified settlement calculator with fee schedules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Calculated settlement
+
+  # ===========================================================================
+  # NAV
+  # ===========================================================================
+  /nav/prices:
+    get:
+      tags: [NAV]
+      summary: List security prices
+      responses:
+        '200':
+          description: Price list
+
+  /nav/prices/upload:
+    post:
+      tags: [NAV]
+      summary: Upload prices from market feed
+      responses:
+        '201':
+          description: Prices uploaded
+
+  /nav/valuations/run:
+    post:
+      tags: [NAV]
+      summary: Run portfolio valuation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                portfolioId:
+                  type: string
+                date:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Valuation computed
+
+  /nav/calculate:
+    post:
+      tags: [NAV]
+      summary: Calculate NAV for a fund portfolio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                portfolioId:
+                  type: string
+                date:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: NAV calculated
+
+  /nav/performance:
+    post:
+      tags: [NAV]
+      summary: Calculate portfolio performance (TWR/MWR/Sharpe)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                portfolioId:
+                  type: string
+                startDate:
+                  type: string
+                  format: date
+                endDate:
+                  type: string
+                  format: date
+      responses:
+        '200':
+          description: Performance metrics
+
+  /nav/history:
+    get:
+      tags: [NAV]
+      summary: NAV history for a portfolio
+      parameters:
+        - name: portfolioId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: NAV history
+
+  /nav/benchmark:
+    post:
+      tags: [NAV]
+      summary: Compare portfolio performance against benchmark
+      responses:
+        '200':
+          description: Benchmark comparison
+
+  /nav/attribution:
+    post:
+      tags: [NAV]
+      summary: Performance attribution analysis
+      responses:
+        '200':
+          description: Attribution results
+
+  # ===========================================================================
+  # RM Dashboard
+  # ===========================================================================
+  /rm-dashboard/summary:
+    get:
+      tags: [RM Dashboard]
+      summary: RM dashboard summary
+      parameters:
+        - name: rmId
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Dashboard summary
+
+  /rm-dashboard/aum-breakdown:
+    get:
+      tags: [RM Dashboard]
+      summary: AUM breakdown by asset class
+      responses:
+        '200':
+          description: AUM breakdown
+
+  /rm-dashboard/pipeline:
+    get:
+      tags: [RM Dashboard]
+      summary: Order pipeline overview
+      responses:
+        '200':
+          description: Pipeline data
+
+  /rm-dashboard/alerts:
+    get:
+      tags: [RM Dashboard]
+      summary: RM alerts and notifications
+      responses:
+        '200':
+          description: Alert list
+
+  /rm-dashboard/pending-tasks:
+    get:
+      tags: [RM Dashboard]
+      summary: Pending tasks for RM
+      responses:
+        '200':
+          description: Task list
+
+  # ===========================================================================
+  # Suitability
+  # ===========================================================================
+  /suitability/{clientId}/capture:
+    post:
+      tags: [Suitability]
+      summary: Capture suitability questionnaire responses
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Responses captured
+
+  /suitability/{clientId}/current:
+    get:
+      tags: [Suitability]
+      summary: Get current suitability profile
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Current profile
+
+  /suitability/{clientId}/history:
+    get:
+      tags: [Suitability]
+      summary: Suitability assessment history
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Assessment history
+
+  /suitability/check-order/{orderId}:
+    post:
+      tags: [Suitability]
+      summary: Run suitability check on an order
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Suitability check result
+
+  # ===========================================================================
+  # Kill Switch
+  # ===========================================================================
+  /kill-switch/activate:
+    post:
+      tags: [Kill Switch]
+      summary: Activate kill switch (halts trading)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason, activatedBy]
+              properties:
+                reason:
+                  type: string
+                activatedBy:
+                  type: string
+                scope:
+                  type: string
+                totp_code:
+                  type: string
+      responses:
+        '200':
+          description: Kill switch activated
+
+  /kill-switch/status:
+    get:
+      tags: [Kill Switch]
+      summary: Get current kill switch status
+      responses:
+        '200':
+          description: Status
+
+  /kill-switch/history:
+    get:
+      tags: [Kill Switch]
+      summary: Kill switch activation history
+      responses:
+        '200':
+          description: History list
+
+  /kill-switch/health:
+    get:
+      tags: [Kill Switch]
+      summary: System health indicators
+      responses:
+        '200':
+          description: Health metrics
+
+  /kill-switch/deactivate:
+    post:
+      tags: [Kill Switch]
+      summary: Deactivate kill switch (resume trading)
+      responses:
+        '200':
+          description: Deactivated
+
+  # ===========================================================================
+  # Executive Dashboard
+  # ===========================================================================
+  /executive/aum:
+    get:
+      tags: [Executive]
+      summary: Total AUM overview
+      responses:
+        '200':
+          description: AUM data
+
+  /executive/operations:
+    get:
+      tags: [Executive]
+      summary: Operations control tower metrics
+      responses:
+        '200':
+          description: Operations data
+
+  /executive/compliance:
+    get:
+      tags: [Executive]
+      summary: Compliance dashboard
+      responses:
+        '200':
+          description: Compliance metrics
+
+  /executive/risk:
+    get:
+      tags: [Executive]
+      summary: Risk overview
+      responses:
+        '200':
+          description: Risk data
+
+  /executive/revenue:
+    get:
+      tags: [Executive]
+      summary: Revenue and fee summary
+      responses:
+        '200':
+          description: Revenue data
+
+  /executive/client-activity:
+    get:
+      tags: [Executive]
+      summary: Client activity heatmap
+      responses:
+        '200':
+          description: Activity data
+
+  # ===========================================================================
+  # Notifications
+  # ===========================================================================
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: List notifications with filters
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: userId
+          in: query
+          schema:
+            type: integer
+        - name: channel
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Notification list
+
+  /notifications/preferences/{userId}:
+    get:
+      tags: [Notifications]
+      summary: Get notification preferences for a user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Preferences
+    put:
+      tags: [Notifications]
+      summary: Update notification preferences
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Preferences updated
+
+  /notifications/dispatch:
+    post:
+      tags: [Notifications]
+      summary: Dispatch a notification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Dispatched
+
+  /notifications/retry-failed:
+    post:
+      tags: [Notifications]
+      summary: Retry all failed notifications
+      responses:
+        '200':
+          description: Retried
+
+  /notifications/{id}:
+    get:
+      tags: [Notifications]
+      summary: Get single notification
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Notification details
+
+  /notifications/{id}/read:
+    put:
+      tags: [Notifications]
+      summary: Mark notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Marked read
+
+  # ===========================================================================
+  # Whistleblower
+  # ===========================================================================
+  /whistleblower/reports:
+    get:
+      tags: [Whistleblower]
+      summary: List whistleblower reports
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Report list
+
+  /whistleblower/summary:
+    get:
+      tags: [Whistleblower]
+      summary: Whistleblower summary statistics
+      responses:
+        '200':
+          description: Summary
+
+  /whistleblower/reports/{id}:
+    get:
+      tags: [Whistleblower]
+      summary: Get single report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Report details
+
+  /whistleblower/reports/submit:
+    post:
+      tags: [Whistleblower]
+      summary: Submit a whistleblower report
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Report submitted
+
+  /whistleblower/reports/{id}/investigate:
+    post:
+      tags: [Whistleblower]
+      summary: Begin investigation on a report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Investigation started
+
+  /whistleblower/reports/{id}/update:
+    put:
+      tags: [Whistleblower]
+      summary: Update report status/notes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated
+
+  /whistleblower/reports/{id}/close:
+    post:
+      tags: [Whistleblower]
+      summary: Close a whistleblower case
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Case closed
+
+  # ===========================================================================
+  # Scenario & ESG
+  # ===========================================================================
+  /scenario/analyze:
+    post:
+      tags: [Scenario]
+      summary: Run what-if scenario analysis on a portfolio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                portfolioId:
+                  type: string
+                scenarios:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '200':
+          description: Scenario results
+
+  /scenario/history/{portfolioId}:
+    get:
+      tags: [Scenario]
+      summary: Scenario analysis history
+      parameters:
+        - name: portfolioId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: History
+
+  /scenario/esg/security/{securityId}:
+    get:
+      tags: [Scenario]
+      summary: ESG scores for a security
+      parameters:
+        - name: securityId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ESG scores
+
+  /scenario/esg/portfolio/{portfolioId}:
+    get:
+      tags: [Scenario]
+      summary: Portfolio-level ESG score
+      parameters:
+        - name: portfolioId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Portfolio ESG
+
+  /scenario/esg/breakdown/{portfolioId}:
+    get:
+      tags: [Scenario]
+      summary: ESG breakdown by pillar (E/S/G)
+      parameters:
+        - name: portfolioId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ESG breakdown
+
+  /scenario/esg/screening/{portfolioId}:
+    get:
+      tags: [Scenario]
+      summary: ESG screening violations
+      parameters:
+        - name: portfolioId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Screening results
+
+  # ===========================================================================
+  # AI Engine
+  # ===========================================================================
+  /ai/suitability/predict:
+    post:
+      tags: [AI]
+      summary: ML suitability prediction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Prediction result
+
+  /ai/suitability/explain/{predictionId}:
+    get:
+      tags: [AI]
+      summary: Explainability for a prediction
+      parameters:
+        - name: predictionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Explanation
+
+  /ai/suitability/shadow/{clientId}:
+    get:
+      tags: [AI]
+      summary: Shadow mode comparison for a client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Shadow results
+
+  /ai/suitability/metrics:
+    get:
+      tags: [AI]
+      summary: AI suitability model metrics
+      responses:
+        '200':
+          description: Model metrics
+
+  /ai/suitability/history:
+    get:
+      tags: [AI]
+      summary: Prediction history
+      responses:
+        '200':
+          description: History
+
+  /ai/suitability/shadow-results:
+    get:
+      tags: [AI]
+      summary: Aggregated shadow mode results
+      responses:
+        '200':
+          description: Shadow results
+
+  /ai/routing/recommend:
+    post:
+      tags: [AI]
+      summary: Get intelligent order routing recommendation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Routing recommendation
+
+  /ai/routing/quality/{brokerId}:
+    get:
+      tags: [AI]
+      summary: Broker execution quality metrics
+      parameters:
+        - name: brokerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Quality metrics
+
+  /ai/routing/leaderboard:
+    get:
+      tags: [AI]
+      summary: Broker execution leaderboard
+      responses:
+        '200':
+          description: Leaderboard
+
+  /ai/routing/decisions:
+    get:
+      tags: [AI]
+      summary: Routing decision history
+      responses:
+        '200':
+          description: Decision history
+
+  /ai/routing/brokers:
+    get:
+      tags: [AI]
+      summary: Available brokers for routing
+      responses:
+        '200':
+          description: Broker list
+
+  # ===========================================================================
+  # Realtime
+  # ===========================================================================
+  /realtime/subscribe:
+    get:
+      tags: [Realtime]
+      summary: SSE event stream subscription
+      responses:
+        '200':
+          description: SSE stream
+
+  /realtime/publish:
+    post:
+      tags: [Realtime]
+      summary: Publish event to channel
+      responses:
+        '200':
+          description: Published
+
+  /realtime/presence/join:
+    post:
+      tags: [Realtime]
+      summary: Join presence channel
+      responses:
+        '200':
+          description: Joined
+
+  /realtime/presence:
+    get:
+      tags: [Realtime]
+      summary: List active presence users
+      responses:
+        '200':
+          description: Presence list
+
+  /realtime/workspace/create:
+    post:
+      tags: [Realtime]
+      summary: Create collaborative workspace
+      responses:
+        '201':
+          description: Workspace created
+
+  /realtime/workspace/{id}:
+    get:
+      tags: [Realtime]
+      summary: Get workspace state
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Workspace data
+
+  /realtime/workspace/{id}/members:
+    get:
+      tags: [Realtime]
+      summary: List workspace members
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Members
+
+  /realtime/workspace/{id}/invite:
+    post:
+      tags: [Realtime]
+      summary: Invite user to workspace
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Invited
+
+  /realtime/workspace/{id}/update:
+    post:
+      tags: [Realtime]
+      summary: Broadcast workspace update
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Updated
+
+  /realtime/workspace/{id}/lock:
+    post:
+      tags: [Realtime]
+      summary: Lock a workspace section
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Locked
+
+  /realtime/channels:
+    get:
+      tags: [Realtime]
+      summary: List available channels
+      responses:
+        '200':
+          description: Channel list
+
+  /realtime/channels/{channelId}/history:
+    get:
+      tags: [Realtime]
+      summary: Channel message history
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Message history
+
+  /realtime/chat:
+    post:
+      tags: [Realtime]
+      summary: Send chat message
+      responses:
+        '201':
+          description: Message sent
+
+  # ===========================================================================
+  # Approvals
+  # ===========================================================================
+  /approvals:
+    get:
+      tags: [Approvals]
+      summary: List approval queue items
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, APPROVED, REJECTED, CANCELLED]
+        - name: entityType
+          in: query
+          schema:
+            type: string
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: view
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated approval list
+
+  /approvals/summary:
+    get:
+      tags: [Approvals]
+      summary: Approval queue summary counts
+      responses:
+        '200':
+          description: Summary counts
+
+  /approvals/{id}:
+    get:
+      tags: [Approvals]
+      summary: Get single approval item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Approval details
+
+  /approvals/{id}/approve:
+    post:
+      tags: [Approvals]
+      summary: Approve an item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  type: string
+      responses:
+        '200':
+          description: Approved
+
+  /approvals/{id}/reject:
+    post:
+      tags: [Approvals]
+      summary: Reject an item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Rejected
+
+  /approvals/{id}/cancel:
+    post:
+      tags: [Approvals]
+      summary: Cancel an approval request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Cancelled
+
+  /approvals/batch-approve:
+    post:
+      tags: [Approvals]
+      summary: Batch approve multiple items
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: integer
+      responses:
+        '200':
+          description: Batch approved
+
+  /approvals/batch-reject:
+    post:
+      tags: [Approvals]
+      summary: Batch reject multiple items
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: integer
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Batch rejected
+
+  # ===========================================================================
+  # Audit
+  # ===========================================================================
+  /audit:
+    get:
+      tags: [Audit]
+      summary: List audit trail entries
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: entityType
+          in: query
+          schema:
+            type: string
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: actorId
+          in: query
+          schema:
+            type: string
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Audit entries
+
+  /audit/summary:
+    get:
+      tags: [Audit]
+      summary: Audit summary statistics
+      responses:
+        '200':
+          description: Summary
+
+  /audit/verify-chain/{entityType}/{entityId}:
+    get:
+      tags: [Audit]
+      summary: Verify audit chain integrity
+      parameters:
+        - name: entityType
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Chain verification result
+
+  /audit/{entityType}/{entityId}:
+    get:
+      tags: [Audit]
+      summary: Audit trail for a specific entity
+      parameters:
+        - name: entityType
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Entity audit trail
+
+  # ===========================================================================
+  # KYC
+  # ===========================================================================
+  /kyc/summary:
+    get:
+      tags: [KYC]
+      summary: KYC status summary dashboard
+      responses:
+        '200':
+          description: KYC summary
+
+  /kyc/expiring:
+    get:
+      tags: [KYC]
+      summary: List clients with expiring KYC
+      responses:
+        '200':
+          description: Expiring list
+
+  /kyc/{clientId}/initiate:
+    post:
+      tags: [KYC]
+      summary: Initiate KYC review for client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: KYC initiated
+
+  /kyc/{clientId}/verify:
+    post:
+      tags: [KYC]
+      summary: Verify KYC documents
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: KYC verified
+
+  /kyc/{clientId}/reject:
+    post:
+      tags: [KYC]
+      summary: Reject KYC submission
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: KYC rejected
+
+  /kyc/bulk-renewal:
+    post:
+      tags: [KYC]
+      summary: Trigger bulk KYC renewal
+      responses:
+        '200':
+          description: Bulk renewal initiated
+
+  /kyc/{clientId}/history:
+    get:
+      tags: [KYC]
+      summary: KYC review history for client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: KYC history
+
+  /kyc/{clientId}/risk-rating:
+    get:
+      tags: [KYC]
+      summary: Get client KYC risk rating
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Risk rating
+
+  # ===========================================================================
+  # EOD Processing
+  # ===========================================================================
+  /eod/status:
+    get:
+      tags: [EOD]
+      summary: Current EOD processing status
+      responses:
+        '200':
+          description: EOD status
+
+  /eod/history:
+    get:
+      tags: [EOD]
+      summary: EOD run history
+      responses:
+        '200':
+          description: Run history
+
+  /eod/definitions:
+    get:
+      tags: [EOD]
+      summary: EOD job definitions
+      responses:
+        '200':
+          description: Job definitions
+
+  /eod/trigger:
+    post:
+      tags: [EOD]
+      summary: Trigger EOD processing run
+      responses:
+        '201':
+          description: Run triggered
+
+  /eod/status/{runId}:
+    get:
+      tags: [EOD]
+      summary: Get status of specific EOD run
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Run status
+
+  /eod/jobs/{id}/retry:
+    post:
+      tags: [EOD]
+      summary: Retry a failed EOD job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Job retried
+
+  /eod/jobs/{id}/skip:
+    post:
+      tags: [EOD]
+      summary: Skip a failed EOD job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Job skipped
+
+  # ===========================================================================
+  # Reconciliation
+  # ===========================================================================
+  /reconciliation/summary:
+    get:
+      tags: [Reconciliation]
+      summary: Reconciliation summary dashboard
+      responses:
+        '200':
+          description: Summary
+
+  /reconciliation/runs:
+    get:
+      tags: [Reconciliation]
+      summary: List reconciliation runs
+      responses:
+        '200':
+          description: Run list
+
+  /reconciliation/runs/internal-triad:
+    post:
+      tags: [Reconciliation]
+      summary: Run internal triad reconciliation
+      responses:
+        '201':
+          description: Run created
+
+  /reconciliation/runs/transaction:
+    post:
+      tags: [Reconciliation]
+      summary: Run transaction reconciliation
+      responses:
+        '201':
+          description: Run created
+
+  /reconciliation/runs/position:
+    post:
+      tags: [Reconciliation]
+      summary: Run position reconciliation
+      responses:
+        '201':
+          description: Run created
+
+  /reconciliation/breaks:
+    get:
+      tags: [Reconciliation]
+      summary: List reconciliation breaks
+      responses:
+        '200':
+          description: Break list
+
+  /reconciliation/breaks/aging:
+    get:
+      tags: [Reconciliation]
+      summary: Break aging analysis
+      responses:
+        '200':
+          description: Aging data
+
+  /reconciliation/breaks/{id}/resolve:
+    post:
+      tags: [Reconciliation]
+      summary: Resolve a reconciliation break
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Break resolved
+
+  # ===========================================================================
+  # Corporate Actions
+  # ===========================================================================
+  /corporate-actions:
+    get:
+      tags: [Corporate Actions]
+      summary: List corporate actions
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Corporate action list
+    post:
+      tags: [Corporate Actions]
+      summary: Create a corporate action
+      responses:
+        '201':
+          description: Created
+
+  /corporate-actions/summary:
+    get:
+      tags: [Corporate Actions]
+      summary: Corporate actions summary
+      responses:
+        '200':
+          description: Summary
+
+  /corporate-actions/history:
+    get:
+      tags: [Corporate Actions]
+      summary: Corporate actions history
+      responses:
+        '200':
+          description: History
+
+  /corporate-actions/upcoming:
+    get:
+      tags: [Corporate Actions]
+      summary: Upcoming corporate actions
+      responses:
+        '200':
+          description: Upcoming list
+
+  /corporate-actions/{id}/scrub:
+    put:
+      tags: [Corporate Actions]
+      summary: Scrub (validate) corporate action data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Scrubbed
+
+  /corporate-actions/{id}/golden-copy:
+    put:
+      tags: [Corporate Actions]
+      summary: Finalize golden copy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Golden copy set
+
+  /corporate-actions/{id}/simulate:
+    post:
+      tags: [Corporate Actions]
+      summary: Simulate entitlement impact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Simulation result
+
+  /corporate-actions/{id}/amend:
+    put:
+      tags: [Corporate Actions]
+      summary: Amend corporate action
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Amended
+
+  /corporate-actions/{id}/cancel:
+    post:
+      tags: [Corporate Actions]
+      summary: Cancel corporate action
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Cancelled
+
+  /corporate-actions/{id}/replay:
+    post:
+      tags: [Corporate Actions]
+      summary: Replay corporate action processing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Replayed
+
+  /corporate-actions/{id}/settlement-date:
+    put:
+      tags: [Corporate Actions]
+      summary: Update settlement date
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Date updated
+
+  /corporate-actions/{id}/entitlements:
+    get:
+      tags: [Corporate Actions]
+      summary: List entitlements for a corporate action
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Entitlement list
+
+  /corporate-actions/{id}/calculate:
+    post:
+      tags: [Corporate Actions]
+      summary: Calculate entitlements
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Entitlements calculated
+
+  /corporate-actions/entitlements/{id}/elect:
+    post:
+      tags: [Corporate Actions]
+      summary: Record election on entitlement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Election recorded
+
+  /corporate-actions/entitlements/{id}/post:
+    post:
+      tags: [Corporate Actions]
+      summary: Post entitlement to portfolio
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Posted
+
+  # ===========================================================================
+  # Fees
+  # ===========================================================================
+  /fees/summary:
+    get:
+      tags: [Fees]
+      summary: Fee engine summary dashboard
+      responses:
+        '200':
+          description: Fee summary
+
+  /fees/schedules:
+    get:
+      tags: [Fees]
+      summary: List fee schedules
+      responses:
+        '200':
+          description: Schedule list
+    post:
+      tags: [Fees]
+      summary: Create fee schedule
+      responses:
+        '201':
+          description: Created
+
+  /fees/accruals/run:
+    post:
+      tags: [Fees]
+      summary: Run fee accrual batch
+      responses:
+        '201':
+          description: Accrual run triggered
+
+  /fees/accruals/status:
+    get:
+      tags: [Fees]
+      summary: Get accrual run status
+      responses:
+        '200':
+          description: Accrual status
+
+  /fees/billing/run:
+    post:
+      tags: [Fees]
+      summary: Run billing batch
+      responses:
+        '201':
+          description: Billing run triggered
+
+  /fees/invoices:
+    get:
+      tags: [Fees]
+      summary: List invoices
+      responses:
+        '200':
+          description: Invoice list
+
+  /fees/invoices/{id}/waive:
+    post:
+      tags: [Fees]
+      summary: Waive an invoice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Waived
+
+  /fees/ter/{portfolioId}:
+    get:
+      tags: [Fees]
+      summary: Total expense ratio for portfolio
+      parameters:
+        - name: portfolioId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: TER data
+
+  # ===========================================================================
+  # Tax
+  # ===========================================================================
+  /tax/events:
+    get:
+      tags: [Tax]
+      summary: List tax events with filters
+      parameters:
+        - name: portfolioId
+          in: query
+          schema:
+            type: string
+        - name: taxType
+          in: query
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Tax events
+
+  /tax/summary:
+    get:
+      tags: [Tax]
+      summary: Tax summary for a period
+      parameters:
+        - name: periodFrom
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: periodTo
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Tax summary
+
+  /tax/calculate-wht:
+    post:
+      tags: [Tax]
+      summary: Calculate withholding tax for a trade
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tradeId]
+              properties:
+                tradeId:
+                  type: integer
+      responses:
+        '201':
+          description: WHT calculated
+
+  /tax/bir/{formType}:
+    post:
+      tags: [Tax]
+      summary: Generate BIR form (2306/2307/2316)
+      parameters:
+        - name: formType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: ['2306', '2307', '2316']
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [periodFrom, periodTo]
+              properties:
+                portfolioId:
+                  type: string
+                periodFrom:
+                  type: string
+                  format: date
+                periodTo:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: BIR form generated
+
+  /tax/fatca/{year}:
+    post:
+      tags: [Tax]
+      summary: Generate FATCA report
+      parameters:
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: FATCA report generated
+
+  /tax/crs/{year}:
+    post:
+      tags: [Tax]
+      summary: Generate CRS report
+      parameters:
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: CRS report generated
+
+  /tax/1601fq/{month}:
+    post:
+      tags: [Tax]
+      summary: Generate 1601-FQ monthly filing
+      parameters:
+        - name: month
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+      responses:
+        '201':
+          description: Filing generated
+
+  /tax/1601fq/generate:
+    post:
+      tags: [Tax]
+      summary: Generate quarterly 1601-FQ filing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quarter, year]
+              properties:
+                quarter:
+                  type: integer
+                  minimum: 1
+                  maximum: 4
+                year:
+                  type: integer
+      responses:
+        '201':
+          description: Quarterly filing generated
+
+  # ===========================================================================
+  # Surveillance & Fraud Detection
+  # ===========================================================================
+  /surveillance/evaluate:
+    post:
+      tags: [Surveillance]
+      summary: Evaluate surveillance pattern against an order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderId, pattern]
+              properties:
+                orderId:
+                  type: string
+                pattern:
+                  type: string
+                  enum: [LAYERING, SPOOFING, WASH_TRADING, FRONT_RUNNING]
+      responses:
+        '200':
+          description: Evaluation result
+
+  /surveillance/alerts:
+    get:
+      tags: [Surveillance]
+      summary: List surveillance alerts
+      parameters:
+        - name: pattern
+          in: query
+          schema:
+            type: string
+        - name: disposition
+          in: query
+          schema:
+            type: string
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Alert list
+
+  /surveillance/alerts/{id}:
+    get:
+      tags: [Surveillance]
+      summary: Get single surveillance alert
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Alert details
+
+  /surveillance/alerts/{id}/disposition:
+    post:
+      tags: [Surveillance]
+      summary: Disposition a surveillance alert
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision, analystId]
+              properties:
+                decision:
+                  type: string
+                  enum: [FALSE_POSITIVE, INVESTIGATE, ESCALATE]
+                analystId:
+                  type: integer
+      responses:
+        '200':
+          description: Alert dispositioned
+
+  /surveillance/anomaly-score:
+    post:
+      tags: [Surveillance]
+      summary: Compute anomaly score for an RM
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rmId]
+              properties:
+                rmId:
+                  type: integer
+      responses:
+        '200':
+          description: Anomaly score
+
+  /surveillance/fraud/score:
+    post:
+      tags: [Surveillance]
+      summary: Score an order for fraud risk (ensemble ML + heuristic)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderId]
+              properties:
+                orderId:
+                  type: string
+      responses:
+        '200':
+          description: Fraud score
+
+  /surveillance/fraud/features:
+    post:
+      tags: [Surveillance]
+      summary: Extract fraud features for explainability
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderId]
+              properties:
+                orderId:
+                  type: string
+      responses:
+        '200':
+          description: Feature vector
+
+  /surveillance/fraud/config:
+    get:
+      tags: [Surveillance]
+      summary: Get fraud detection ensemble configuration
+      responses:
+        '200':
+          description: Config
+
+  # ===========================================================================
+  # Reversals
+  # ===========================================================================
+  /reversals:
+    get:
+      tags: [Reversals]
+      summary: List reversal requests
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Reversal list
+    post:
+      tags: [Reversals]
+      summary: Create reversal request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Reversal created
+
+  /reversals/{id}:
+    get:
+      tags: [Reversals]
+      summary: Get single reversal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Reversal details
+
+  /reversals/{id}/approve:
+    post:
+      tags: [Reversals]
+      summary: Approve reversal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Approved
+
+  /reversals/{id}/reject:
+    post:
+      tags: [Reversals]
+      summary: Reject reversal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Rejected
+
+  /reversals/{id}/execute:
+    post:
+      tags: [Reversals]
+      summary: Execute approved reversal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Executed
+
+  # ===========================================================================
+  # Integrations
+  # ===========================================================================
+  /integrations:
+    get:
+      tags: [Integrations]
+      summary: List integration connectors
+      responses:
+        '200':
+          description: Connector list
+
+  /integrations/routing-rules:
+    get:
+      tags: [Integrations]
+      summary: List routing rules
+      responses:
+        '200':
+          description: Rule list
+    post:
+      tags: [Integrations]
+      summary: Create routing rule
+      responses:
+        '201':
+          description: Created
+
+  /integrations/routing-rules/{ruleId}:
+    put:
+      tags: [Integrations]
+      summary: Update routing rule
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Integrations]
+      summary: Delete routing rule
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deleted
+
+  /integrations/activity-log:
+    get:
+      tags: [Integrations]
+      summary: Integration activity log
+      responses:
+        '200':
+          description: Activity log
+
+  /integrations/simulate:
+    post:
+      tags: [Integrations]
+      summary: Simulate integration call
+      responses:
+        '200':
+          description: Simulation result
+
+  /integrations/{id}:
+    get:
+      tags: [Integrations]
+      summary: Get connector details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Connector details
+    put:
+      tags: [Integrations]
+      summary: Update connector
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated
+
+  /integrations/{id}/test:
+    post:
+      tags: [Integrations]
+      summary: Test connector connectivity
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Test result
+
+  /integrations/{id}/metrics:
+    get:
+      tags: [Integrations]
+      summary: Connector health metrics
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Metrics
+
+  # ===========================================================================
+  # Transfers, Contributions, Withdrawals
+  # ===========================================================================
+  /transfers:
+    get:
+      tags: [Transfers]
+      summary: List transfer requests
+      responses:
+        '200':
+          description: Transfer list
+    post:
+      tags: [Transfers]
+      summary: Create transfer request
+      responses:
+        '201':
+          description: Created
+
+  /transfers/{id}/approve:
+    post:
+      tags: [Transfers]
+      summary: Approve transfer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Approved
+
+  /transfers/{id}/execute:
+    post:
+      tags: [Transfers]
+      summary: Execute approved transfer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Executed
+
+  /transfers/in-kind:
+    post:
+      tags: [Transfers]
+      summary: Create in-kind transfer
+      responses:
+        '201':
+          description: In-kind transfer created
+
+  /transfers/cost-basis:
+    post:
+      tags: [Transfers]
+      summary: Propagate cost basis on in-kind transfer
+      responses:
+        '200':
+          description: Cost basis propagated
+
+  /contributions:
+    get:
+      tags: [Contributions]
+      summary: List contributions
+      responses:
+        '200':
+          description: Contribution list
+    post:
+      tags: [Contributions]
+      summary: Create contribution
+      responses:
+        '201':
+          description: Created
+
+  /contributions/{id}/approve:
+    post:
+      tags: [Contributions]
+      summary: Approve contribution
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Approved
+
+  /contributions/{id}/post:
+    post:
+      tags: [Contributions]
+      summary: Post contribution to portfolio
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Posted
+
+  /withdrawals:
+    get:
+      tags: [Withdrawals]
+      summary: List withdrawals
+      responses:
+        '200':
+          description: Withdrawal list
+    post:
+      tags: [Withdrawals]
+      summary: Create withdrawal request
+      responses:
+        '201':
+          description: Created
+
+  /withdrawals/{id}/approve:
+    post:
+      tags: [Withdrawals]
+      summary: Approve withdrawal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Approved
+
+  /withdrawals/{id}/execute:
+    post:
+      tags: [Withdrawals]
+      summary: Execute withdrawal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Executed
+
+  /withdrawals/{id}/penalty:
+    post:
+      tags: [Withdrawals]
+      summary: Calculate early withdrawal penalty
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Penalty calculated
+
+  # ===========================================================================
+  # Compliance Limits
+  # ===========================================================================
+  /compliance-limits:
+    get:
+      tags: [Compliance Limits]
+      summary: List compliance limits
+      responses:
+        '200':
+          description: Limit list
+    post:
+      tags: [Compliance Limits]
+      summary: Create compliance limit
+      responses:
+        '201':
+          description: Created
+
+  /compliance-limits/{id}:
+    delete:
+      tags: [Compliance Limits]
+      summary: Delete compliance limit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deleted
+
+  /compliance-limits/check:
+    post:
+      tags: [Compliance Limits]
+      summary: Run pre-trade compliance check
+      responses:
+        '200':
+          description: Check result
+
+  /compliance-limits/breaches:
+    get:
+      tags: [Compliance Limits]
+      summary: List compliance breaches
+      responses:
+        '200':
+          description: Breach list
+
+  /compliance-limits/post-trade:
+    post:
+      tags: [Compliance Limits]
+      summary: Run post-trade compliance check
+      responses:
+        '200':
+          description: Post-trade result
+
+  /compliance-limits/summary:
+    get:
+      tags: [Compliance Limits]
+      summary: Compliance limits summary
+      responses:
+        '200':
+          description: Summary
+
+  /compliance-limits/portfolio/{portfolioId}:
+    get:
+      tags: [Compliance Limits]
+      summary: Limits for a portfolio
+      parameters:
+        - name: portfolioId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Portfolio limits
+
+  /compliance-limits/utilization:
+    get:
+      tags: [Compliance Limits]
+      summary: Limit utilization overview
+      responses:
+        '200':
+          description: Utilization data
+
+  # ===========================================================================
+  # Rebalancing
+  # ===========================================================================
+  /rebalancing/models:
+    get:
+      tags: [Rebalancing]
+      summary: List model portfolios
+      responses:
+        '200':
+          description: Model list
+    post:
+      tags: [Rebalancing]
+      summary: Create model portfolio
+      responses:
+        '201':
+          description: Created
+
+  /rebalancing/models/{id}:
+    put:
+      tags: [Rebalancing]
+      summary: Update model portfolio
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Rebalancing]
+      summary: Delete model portfolio
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deleted
+
+  /rebalancing/drift/{portfolioId}:
+    get:
+      tags: [Rebalancing]
+      summary: Calculate portfolio drift from model
+      parameters:
+        - name: portfolioId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Drift analysis
+
+  /rebalancing/proposals:
+    get:
+      tags: [Rebalancing]
+      summary: List rebalancing proposals
+      responses:
+        '200':
+          description: Proposal list
+
+  /rebalancing/generate:
+    post:
+      tags: [Rebalancing]
+      summary: Generate rebalancing proposal
+      responses:
+        '201':
+          description: Proposal generated
+
+  /rebalancing/proposals/{id}/approve:
+    post:
+      tags: [Rebalancing]
+      summary: Approve rebalancing proposal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Approved
+
+  /rebalancing/proposals/{id}/execute:
+    post:
+      tags: [Rebalancing]
+      summary: Execute rebalancing proposal (generate orders)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Orders generated
+
+  /rebalancing/proposals/{id}/cancel:
+    post:
+      tags: [Rebalancing]
+      summary: Cancel rebalancing proposal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Cancelled
+
+  /rebalancing/what-if:
+    post:
+      tags: [Rebalancing]
+      summary: What-if rebalancing simulation
+      responses:
+        '200':
+          description: Simulation result
+
+  /rebalancing/tax-harvest:
+    post:
+      tags: [Rebalancing]
+      summary: Tax-loss harvesting analysis
+      responses:
+        '200':
+          description: Harvest analysis
+
+  # ===========================================================================
+  # Scheduled Plans, PERA, Risk Analytics, Compliance Workbench, ORE
+  # ===========================================================================
+  /scheduled-plans:
+    get:
+      tags: [Scheduled Plans]
+      summary: List scheduled plans (EIP/ERP)
+      responses:
+        '200':
+          description: Plan list
+    post:
+      tags: [Scheduled Plans]
+      summary: Create scheduled plan
+      responses:
+        '201':
+          description: Created
+
+  /scheduled-plans/{id}:
+    get:
+      tags: [Scheduled Plans]
+      summary: Get scheduled plan details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Plan details
+
+  /scheduled-plans/{id}/execute:
+    post:
+      tags: [Scheduled Plans]
+      summary: Execute scheduled plan (create order)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Plan executed
+
+  /scheduled-plans/{id}/suspend:
+    post:
+      tags: [Scheduled Plans]
+      summary: Suspend a scheduled plan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Suspended
+
+  /pera:
+    get:
+      tags: [PERA]
+      summary: List PERA accounts
+      responses:
+        '200':
+          description: Account list
+
+  /risk-analytics/var:
+    get:
+      tags: [Risk Analytics]
+      summary: Value-at-Risk calculation
+      responses:
+        '200':
+          description: VaR result
+
+  /risk-analytics/duration:
+    get:
+      tags: [Risk Analytics]
+      summary: Duration and DV01 analysis
+      responses:
+        '200':
+          description: Duration result
+
+  /risk-analytics/stress-test:
+    post:
+      tags: [Risk Analytics]
+      summary: Run stress test scenarios
+      responses:
+        '200':
+          description: Stress test results
+
+  /compliance/rules:
+    get:
+      tags: [Compliance]
+      summary: List compliance rules
+      responses:
+        '200':
+          description: Rule list
+
+  /compliance/evaluate:
+    post:
+      tags: [Compliance]
+      summary: Evaluate compliance rules against portfolio
+      responses:
+        '200':
+          description: Evaluation result
+
+  /ore/events:
+    get:
+      tags: [ORE]
+      summary: List operational risk events
+      responses:
+        '200':
+          description: Event list
+
+  /ore/events/{id}:
+    get:
+      tags: [ORE]
+      summary: Get ORE event details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Event details
+
+  # ===========================================================================
+  # Uploads, Reports
+  # ===========================================================================
+  /uploads:
+    get:
+      tags: [Uploads]
+      summary: List upload batches
+      responses:
+        '200':
+          description: Batch list
+    post:
+      tags: [Uploads]
+      summary: Upload file for processing
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                type:
+                  type: string
+      responses:
+        '201':
+          description: Upload accepted
+
+  /uploads/{id}:
+    get:
+      tags: [Uploads]
+      summary: Get upload batch status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Batch status
+
+  /uploads/{id}/process:
+    post:
+      tags: [Uploads]
+      summary: Process upload batch
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Processing started
+
+  /uploads/{id}/confirm:
+    post:
+      tags: [Uploads]
+      summary: Confirm processed batch
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Confirmed
+
+  /reports:
+    get:
+      tags: [Reports]
+      summary: List available reports
+      responses:
+        '200':
+          description: Report catalog
+
+  /reports/generate:
+    post:
+      tags: [Reports]
+      summary: Generate a report
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reportType:
+                  type: string
+                parameters:
+                  type: object
+      responses:
+        '201':
+          description: Report generated
+
+  /reports/{id}:
+    get:
+      tags: [Reports]
+      summary: Get generated report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Report data
+
+  # ===========================================================================
+  # TTRA, Claims, ECL
+  # ===========================================================================
+  /ttra:
+    get:
+      tags: [TTRA]
+      summary: List TTRAs
+      responses:
+        '200':
+          description: TTRA list
+    post:
+      tags: [TTRA]
+      summary: Create TTRA
+      responses:
+        '201':
+          description: Created
+
+  /ttra/summary:
+    get:
+      tags: [TTRA]
+      summary: TTRA summary dashboard
+      responses:
+        '200':
+          description: Summary
+
+  /ttra/expiring:
+    get:
+      tags: [TTRA]
+      summary: List expiring TTRAs
+      responses:
+        '200':
+          description: Expiring list
+
+  /ttra/{id}:
+    get:
+      tags: [TTRA]
+      summary: Get TTRA details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Details
+
+  /ttra/{id}/status:
+    put:
+      tags: [TTRA]
+      summary: Update TTRA status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Status updated
+
+  /ttra/batch/expiry-check:
+    post:
+      tags: [TTRA]
+      summary: Batch expiry check
+      responses:
+        '200':
+          description: Check complete
+
+  /ttra/batch/reminders:
+    post:
+      tags: [TTRA]
+      summary: Send batch expiry reminders
+      responses:
+        '200':
+          description: Reminders sent
+
+  /claims:
+    get:
+      tags: [Claims]
+      summary: List claims
+      responses:
+        '200':
+          description: Claim list
+    post:
+      tags: [Claims]
+      summary: Create claim
+      responses:
+        '201':
+          description: Created
+
+  /claims/summary:
+    get:
+      tags: [Claims]
+      summary: Claims summary
+      responses:
+        '200':
+          description: Summary
+
+  /claims/aging:
+    get:
+      tags: [Claims]
+      summary: Claims aging analysis
+      responses:
+        '200':
+          description: Aging data
+
+  /claims/{id}:
+    get:
+      tags: [Claims]
+      summary: Get claim details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Details
+
+  /claims/{id}/investigate:
+    put:
+      tags: [Claims]
+      summary: Begin claim investigation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Investigation started
+
+  /claims/{id}/evidence:
+    put:
+      tags: [Claims]
+      summary: Upload evidence for claim
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Evidence uploaded
+
+  /claims/{id}/root-cause:
+    put:
+      tags: [Claims]
+      summary: Record root cause analysis
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Root cause recorded
+
+  /claims/{id}/submit-approval:
+    put:
+      tags: [Claims]
+      summary: Submit claim for approval
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Submitted
+
+  /claims/{id}/approve:
+    put:
+      tags: [Claims]
+      summary: Approve claim
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Approved
+
+  /claims/{id}/reject:
+    put:
+      tags: [Claims]
+      summary: Reject claim
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Rejected
+
+  /claims/{id}/settle:
+    put:
+      tags: [Claims]
+      summary: Settle claim
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Settled
+
+  /claims/{id}/withdraw:
+    put:
+      tags: [Claims]
+      summary: Withdraw claim
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Withdrawn
+
+  /claims/{id}/disclose:
+    put:
+      tags: [Claims]
+      summary: Disclose claim to regulators
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Disclosed
+
+  /ecl/summary:
+    get:
+      tags: [ECL]
+      summary: ECL computation summary
+      responses:
+        '200':
+          description: Summary
+
+  /ecl/portfolio/{portfolioId}:
+    get:
+      tags: [ECL]
+      summary: ECL for specific portfolio
+      parameters:
+        - name: portfolioId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Portfolio ECL
+
+  /ecl/compute:
+    post:
+      tags: [ECL]
+      summary: Trigger ECL computation
+      responses:
+        '201':
+          description: Computation triggered
+
+  # ===========================================================================
+  # Risk Profiling
+  # ===========================================================================
+  /risk-profiling/questionnaires:
+    get:
+      tags: [Risk Profiling]
+      summary: List questionnaires
+      responses:
+        '200':
+          description: Questionnaire list
+    post:
+      tags: [Risk Profiling]
+      summary: Create questionnaire
+      responses:
+        '201':
+          description: Created
+
+  /risk-profiling/questionnaires/{id}:
+    get:
+      tags: [Risk Profiling]
+      summary: Get questionnaire with questions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Questionnaire details
+    put:
+      tags: [Risk Profiling]
+      summary: Update questionnaire
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Risk Profiling]
+      summary: Delete questionnaire
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deleted
+
+  /risk-profiling/questionnaires/{id}/authorize:
+    post:
+      tags: [Risk Profiling]
+      summary: Authorize questionnaire
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Authorized
+
+  /risk-profiling/questionnaires/{id}/reject:
+    post:
+      tags: [Risk Profiling]
+      summary: Reject questionnaire
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Rejected
+
+  /risk-profiling/questionnaires/{questionnaireId}/questions:
+    post:
+      tags: [Risk Profiling]
+      summary: Add question to questionnaire
+      parameters:
+        - name: questionnaireId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Question added
+
+  /risk-profiling/questions/{id}:
+    put:
+      tags: [Risk Profiling]
+      summary: Update question
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Risk Profiling]
+      summary: Delete question
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deleted
+
+  /risk-profiling/questions/{questionId}/options:
+    post:
+      tags: [Risk Profiling]
+      summary: Add option to question
+      parameters:
+        - name: questionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Option added
+
+  /risk-profiling/options/{id}:
+    put:
+      tags: [Risk Profiling]
+      summary: Update option
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Risk Profiling]
+      summary: Delete option
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deleted
+
+  /risk-profiling/questions/{questionId}/normalization-ranges:
+    put:
+      tags: [Risk Profiling]
+      summary: Set normalization ranges for a question
+      parameters:
+        - name: questionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Ranges set
+
+  /risk-profiling/risk-appetite:
+    get:
+      tags: [Risk Profiling]
+      summary: List risk appetite configurations
+      responses:
+        '200':
+          description: Config list
+    post:
+      tags: [Risk Profiling]
+      summary: Create risk appetite config
+      responses:
+        '201':
+          description: Created
+
+  /risk-profiling/risk-appetite/{id}:
+    put:
+      tags: [Risk Profiling]
+      summary: Update risk appetite config
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated
+
+  /risk-profiling/risk-appetite/{id}/authorize:
+    post:
+      tags: [Risk Profiling]
+      summary: Authorize risk appetite config
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Authorized
+
+  /risk-profiling/risk-appetite/{id}/reject:
+    post:
+      tags: [Risk Profiling]
+      summary: Reject risk appetite config
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Rejected
+
+  /risk-profiling/asset-allocation:
+    get:
+      tags: [Risk Profiling]
+      summary: List asset allocation configs
+      responses:
+        '200':
+          description: Allocation list
+    post:
+      tags: [Risk Profiling]
+      summary: Create asset allocation config
+      responses:
+        '201':
+          description: Created
+
+  /risk-profiling/asset-allocation/{id}:
+    put:
+      tags: [Risk Profiling]
+      summary: Update asset allocation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated
+
+  /risk-profiling/asset-allocation/{id}/authorize:
+    post:
+      tags: [Risk Profiling]
+      summary: Authorize asset allocation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Authorized
+
+  /risk-profiling/asset-allocation/{id}/reject:
+    post:
+      tags: [Risk Profiling]
+      summary: Reject asset allocation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Rejected
+
+  /risk-profiling/assessments/compute-score:
+    post:
+      tags: [Risk Profiling]
+      summary: Compute risk score from questionnaire responses
+      responses:
+        '200':
+          description: Score computed
+
+  /risk-profiling/assessments:
+    post:
+      tags: [Risk Profiling]
+      summary: Create customer risk assessment
+      responses:
+        '201':
+          description: Assessment created
+
+  /risk-profiling/assessments/customer/{customerId}:
+    get:
+      tags: [Risk Profiling]
+      summary: List assessments for a customer
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Assessment list
+
+  /risk-profiling/assessments/customer/{customerId}/active:
+    get:
+      tags: [Risk Profiling]
+      summary: Get active risk profile for customer
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Active profile
+
+  /risk-profiling/assessments/{id}/approve-deviation:
+    post:
+      tags: [Risk Profiling]
+      summary: Approve deviation from assessed risk category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deviation approved
+
+  /risk-profiling/deviations/check:
+    post:
+      tags: [Risk Profiling]
+      summary: Check for risk-return deviations
+      responses:
+        '200':
+          description: Deviation check result
+
+  /risk-profiling/deviations:
+    post:
+      tags: [Risk Profiling]
+      summary: Record a deviation
+      responses:
+        '201':
+          description: Deviation recorded
+
+  /risk-profiling/deviations/{id}/acknowledge:
+    post:
+      tags: [Risk Profiling]
+      summary: Acknowledge deviation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Acknowledged
+
+  /risk-profiling/escalations:
+    get:
+      tags: [Risk Profiling]
+      summary: List escalations
+      responses:
+        '200':
+          description: Escalation list
+
+  /risk-profiling/escalations/{id}/resolve:
+    post:
+      tags: [Risk Profiling]
+      summary: Resolve escalation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Resolved
+
+  /risk-profiling/validate-config:
+    get:
+      tags: [Risk Profiling]
+      summary: Validate risk profiling configuration completeness
+      responses:
+        '200':
+          description: Validation result
+
+  /risk-profiling/supervisor/dashboard:
+    get:
+      tags: [Risk Profiling]
+      summary: Supervisor dashboard
+      responses:
+        '200':
+          description: Dashboard data
+
+  /risk-profiling/reports/completion:
+    get:
+      tags: [Risk Profiling]
+      summary: Risk profiling completion report
+      responses:
+        '200':
+          description: Completion report
+
+  /risk-profiling/audit-logs:
+    get:
+      tags: [Risk Profiling]
+      summary: Risk profiling audit logs
+      responses:
+        '200':
+          description: Audit logs
+
+  # ===========================================================================
+  # Proposals
+  # ===========================================================================
+  /proposals:
+    get:
+      tags: [Proposals]
+      summary: List investment proposals
+      responses:
+        '200':
+          description: Proposal list
+    post:
+      tags: [Proposals]
+      summary: Create investment proposal
+      responses:
+        '201':
+          description: Created
+
+  /proposals/{id}:
+    get:
+      tags: [Proposals]
+      summary: Get proposal details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Proposal details
+    put:
+      tags: [Proposals]
+      summary: Update proposal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Proposals]
+      summary: Delete proposal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deleted
+
+  /proposals/{proposalId}/line-items:
+    post:
+      tags: [Proposals]
+      summary: Add line item to proposal
+      parameters:
+        - name: proposalId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Line item added
+
+  /proposals/line-items/{id}:
+    put:
+      tags: [Proposals]
+      summary: Update line item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Proposals]
+      summary: Delete line item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deleted
+
+  /proposals/{proposalId}/validate-allocation:
+    get:
+      tags: [Proposals]
+      summary: Validate allocation against risk profile
+      parameters:
+        - name: proposalId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Validation result
+
+  /proposals/{proposalId}/suitability-check:
+    post:
+      tags: [Proposals]
+      summary: Run suitability check on proposal
+      parameters:
+        - name: proposalId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Check result
+
+  /proposals/{proposalId}/what-if:
+    post:
+      tags: [Proposals]
+      summary: What-if analysis on proposal
+      parameters:
+        - name: proposalId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: What-if result
+
+  /proposals/{id}/submit:
+    post:
+      tags: [Proposals]
+      summary: Submit proposal for approval
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Submitted
+
+  /proposals/{id}/approve-l1:
+    post:
+      tags: [Proposals]
+      summary: Level-1 approval
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: L1 approved
+
+  /proposals/{id}/reject-l1:
+    post:
+      tags: [Proposals]
+      summary: Level-1 rejection
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: L1 rejected
+
+  /proposals/{id}/approve-compliance:
+    post:
+      tags: [Proposals]
+      summary: Compliance approval
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Compliance approved
+
+  /proposals/{id}/reject-compliance:
+    post:
+      tags: [Proposals]
+      summary: Compliance rejection
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Compliance rejected
+
+  /proposals/{id}/send-to-client:
+    post:
+      tags: [Proposals]
+      summary: Send proposal to client
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Sent to client
+
+  /proposals/{id}/client-accept:
+    post:
+      tags: [Proposals]
+      summary: Client accepts proposal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Accepted
+
+  /proposals/{id}/client-reject:
+    post:
+      tags: [Proposals]
+      summary: Client rejects proposal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Rejected
+
+  /proposals/{id}/return-for-revision:
+    post:
+      tags: [Proposals]
+      summary: Return proposal for revision
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Returned
+
+  /proposals/{id}/generate-pdf:
+    post:
+      tags: [Proposals]
+      summary: Generate PDF for proposal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: PDF generated
+
+  /proposals/reports/pipeline:
+    get:
+      tags: [Proposals]
+      summary: Proposal pipeline report
+      responses:
+        '200':
+          description: Pipeline data
+
+  /proposals/reports/risk-mismatch:
+    get:
+      tags: [Proposals]
+      summary: Risk mismatch report
+      responses:
+        '200':
+          description: Mismatch data
+
+  /proposals/reports/product-rating:
+    get:
+      tags: [Proposals]
+      summary: Product rating report
+      responses:
+        '200':
+          description: Rating data
+
+  # ===========================================================================
+  # Campaigns
+  # ===========================================================================
+  /campaign-mgmt/campaigns/{id}/submit:
+    post:
+      tags: [Campaigns]
+      summary: Submit campaign for approval
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Submitted
+
+  /campaign-mgmt/campaigns/{id}/approve:
+    post:
+      tags: [Campaigns]
+      summary: Approve campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Approved
+
+  /campaign-mgmt/campaigns/{id}/reject:
+    post:
+      tags: [Campaigns]
+      summary: Reject campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Rejected
+
+  /campaign-mgmt/campaigns/{id}/reset-to-draft:
+    post:
+      tags: [Campaigns]
+      summary: Reset campaign to draft
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Reset
+
+  /campaign-mgmt/campaigns/{id}/copy:
+    post:
+      tags: [Campaigns]
+      summary: Clone campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Cloned
+
+  /campaign-mgmt/campaigns/{id}/analytics:
+    get:
+      tags: [Campaigns]
+      summary: Campaign analytics
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Analytics
+
+  /campaign-mgmt/campaigns/{id}/responses:
+    get:
+      tags: [Campaigns]
+      summary: Campaign response list
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Response list
+
+  /campaign-mgmt/campaigns/{id}/dispatch:
+    post:
+      tags: [Campaigns]
+      summary: Dispatch campaign communications
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Dispatched
+
+  /campaign-mgmt/campaign-dashboard/stats:
+    get:
+      tags: [Campaigns]
+      summary: Campaign dashboard statistics
+      responses:
+        '200':
+          description: Stats
+
+  /campaign-mgmt/campaign-dashboard/rm-scorecards:
+    get:
+      tags: [Campaigns]
+      summary: RM scorecards for campaigns
+      responses:
+        '200':
+          description: Scorecards
+
+  /campaign-mgmt/lead-lists/preview:
+    post:
+      tags: [Campaigns]
+      summary: Preview lead list generation (dry-run)
+      responses:
+        '200':
+          description: Preview result
+
+  /campaign-mgmt/lead-rules/preview:
+    post:
+      tags: [Campaigns]
+      summary: Preview lead rule evaluation
+      responses:
+        '200':
+          description: Preview
+
+  /campaign-mgmt/lead-rules/criteria-preview:
+    post:
+      tags: [Campaigns]
+      summary: Preview criteria evaluation
+      responses:
+        '200':
+          description: Criteria preview
+
+  /campaign-mgmt/unsubscribe:
+    post:
+      tags: [Campaigns]
+      summary: Process unsubscribe request
+      security: []
+      responses:
+        '200':
+          description: Unsubscribed
+
+  /campaign-mgmt/communications/webhook:
+    post:
+      tags: [Campaigns]
+      summary: Webhook for communication delivery events
+      security: []
+      responses:
+        '200':
+          description: Processed
+
+  /campaign-mgmt/interactions:
+    post:
+      tags: [Campaigns]
+      summary: Record campaign interaction
+      responses:
+        '201':
+          description: Interaction recorded
+
+  /campaign-mgmt/conversion-history:
+    get:
+      tags: [Campaigns]
+      summary: Lead-to-prospect conversion history
+      responses:
+        '200':
+          description: Conversion history
+
+  /campaign-mgmt/conversion-history/funnel:
+    get:
+      tags: [Campaigns]
+      summary: Conversion funnel analytics
+      responses:
+        '200':
+          description: Funnel data
+
+  /campaign-mgmt/communications/{id}/retry:
+    post:
+      tags: [Campaigns]
+      summary: Retry failed communication
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Retried
+
+  # ===========================================================================
+  # Lead & Prospect Management
+  # ===========================================================================
+  /lead-mgmt/leads/dashboard:
+    get:
+      tags: [Lead Management]
+      summary: Lead management dashboard
+      responses:
+        '200':
+          description: Dashboard
+
+  /lead-mgmt/leads/{id}/convert:
+    post:
+      tags: [Lead Management]
+      summary: Convert lead to prospect
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Converted
+
+  /lead-mgmt/leads/{id}/status:
+    post:
+      tags: [Lead Management]
+      summary: Update lead status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Status updated
+
+  /lead-mgmt/leads/{id}/family-members:
+    post:
+      tags: [Lead Management]
+      summary: Add family member to lead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Added
+
+  /lead-mgmt/leads/{id}/addresses:
+    post:
+      tags: [Lead Management]
+      summary: Add address to lead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Added
+
+  /lead-mgmt/leads/{id}/identifications:
+    post:
+      tags: [Lead Management]
+      summary: Add identification to lead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Added
+
+  /lead-mgmt/leads/{id}/lifestyle:
+    post:
+      tags: [Lead Management]
+      summary: Add lifestyle record to lead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Added
+
+  /lead-mgmt/leads/{id}/documents:
+    post:
+      tags: [Lead Management]
+      summary: Add document to lead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Added
+
+  /prospect-mgmt/prospects/dashboard:
+    get:
+      tags: [Prospect Management]
+      summary: Prospect management dashboard
+      responses:
+        '200':
+          description: Dashboard
+
+  /prospect-mgmt/prospects/funnel:
+    get:
+      tags: [Prospect Management]
+      summary: Prospect conversion funnel
+      responses:
+        '200':
+          description: Funnel
+
+  /prospect-mgmt/prospects/bulk-upload:
+    post:
+      tags: [Prospect Management]
+      summary: Bulk upload prospects
+      responses:
+        '200':
+          description: Upload result
+
+  /prospect-mgmt/prospects/{id}/drop:
+    post:
+      tags: [Prospect Management]
+      summary: Drop prospect
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Dropped
+
+  /prospect-mgmt/prospects/{id}/reactivate:
+    post:
+      tags: [Prospect Management]
+      summary: Reactivate dropped prospect
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Reactivated
+
+  /prospect-mgmt/prospects/{id}/recommend:
+    post:
+      tags: [Prospect Management]
+      summary: Recommend products for prospect
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Recommendations
+
+  /prospect-mgmt/prospects/{id}/merge-preview:
+    get:
+      tags: [Prospect Management]
+      summary: Preview prospect merge
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Merge preview
+
+  /prospect-mgmt/prospects/{id}/link-customer:
+    post:
+      tags: [Prospect Management]
+      summary: Link prospect to existing customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Linked
+
+  # ===========================================================================
+  # HAM (Handover & Assignment Management)
+  # ===========================================================================
+  /ham/leads:
+    get:
+      tags: [HAM]
+      summary: Leads assigned to RM (for handover)
+      responses:
+        '200':
+          description: Lead list
+
+  /ham/prospects:
+    get:
+      tags: [HAM]
+      summary: Prospects assigned to RM
+      responses:
+        '200':
+          description: Prospect list
+
+  /ham/clients:
+    get:
+      tags: [HAM]
+      summary: Clients assigned to RM
+      responses:
+        '200':
+          description: Client list
+
+  /ham/request:
+    post:
+      tags: [HAM]
+      summary: Create handover request
+      responses:
+        '201':
+          description: Request created
+
+  /ham/request/{id}:
+    get:
+      tags: [HAM]
+      summary: Get handover request details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Request details
+    patch:
+      tags: [HAM]
+      summary: Update handover request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated
+
+  /ham/history:
+    get:
+      tags: [HAM]
+      summary: Handover history
+      responses:
+        '200':
+          description: History
+
+  /ham/dashboard:
+    get:
+      tags: [HAM]
+      summary: Handover dashboard
+      responses:
+        '200':
+          description: Dashboard
+
+  /ham/pending:
+    get:
+      tags: [HAM]
+      summary: Pending handover requests
+      responses:
+        '200':
+          description: Pending list
+
+  /ham/authorize/{id}:
+    post:
+      tags: [HAM]
+      summary: Authorize handover request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Authorized
+
+  /ham/reject/{id}:
+    post:
+      tags: [HAM]
+      summary: Reject handover request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Rejected
+
+  /ham/batch-authorize:
+    post:
+      tags: [HAM]
+      summary: Batch authorize handovers
+      responses:
+        '200':
+          description: Batch authorized
+
+  /ham/batch-reject:
+    post:
+      tags: [HAM]
+      summary: Batch reject handovers
+      responses:
+        '200':
+          description: Batch rejected
+
+  /ham/delegation/request:
+    post:
+      tags: [HAM]
+      summary: Create delegation request
+      responses:
+        '201':
+          description: Delegation created
+
+  /ham/delegation/active:
+    get:
+      tags: [HAM]
+      summary: List active delegations
+      responses:
+        '200':
+          description: Active delegations
+
+  /ham/delegation/cancel/{id}:
+    post:
+      tags: [HAM]
+      summary: Cancel delegation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Cancelled
+
+  /ham/delegation/extend/{id}:
+    post:
+      tags: [HAM]
+      summary: Extend delegation period
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Extended
+
+  /ham/delegation/calendar:
+    get:
+      tags: [HAM]
+      summary: Delegation calendar view
+      responses:
+        '200':
+          description: Calendar
+
+  /ham/request/{id}/submit:
+    post:
+      tags: [HAM]
+      summary: Submit handover request for approval
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Submitted
+
+  /ham/request/{id}/cancel:
+    post:
+      tags: [HAM]
+      summary: Cancel handover request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Cancelled
+
+  /ham/request/{id}/reversal:
+    post:
+      tags: [HAM]
+      summary: Request reversal of completed handover
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Reversal requested
+
+  /ham/request/{id}/compliance-gates:
+    get:
+      tags: [HAM]
+      summary: Get compliance gates for handover
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Gates
+
+  /ham/request/{id}/scrutiny:
+    get:
+      tags: [HAM]
+      summary: Get scrutiny checklist
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Checklist
+
+  /ham/request/{id}/audit:
+    get:
+      tags: [HAM]
+      summary: Handover audit trail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Audit trail
+
+  /ham/sla/breached:
+    get:
+      tags: [HAM]
+      summary: SLA-breached handovers
+      responses:
+        '200':
+          description: Breached list
+
+  /ham/export/dashboard:
+    get:
+      tags: [HAM]
+      summary: Export dashboard as CSV
+      responses:
+        '200':
+          description: CSV file
+
+  /ham/export/audit-trail:
+    get:
+      tags: [HAM]
+      summary: Export audit trail as CSV
+      responses:
+        '200':
+          description: CSV file
+
+  # ===========================================================================
+  # Meetings
+  # ===========================================================================
+  /meetings/calendar:
+    get:
+      tags: [Meetings]
+      summary: Calendar view of meetings
+      parameters:
+        - name: start
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Calendar events
+
+  /meetings/team-calendar:
+    get:
+      tags: [Meetings]
+      summary: Team calendar view
+      responses:
+        '200':
+          description: Team calendar
+
+  /meetings:
+    post:
+      tags: [Meetings]
+      summary: Schedule a meeting
+      responses:
+        '201':
+          description: Created
+
+  /meetings/{id}:
+    get:
+      tags: [Meetings]
+      summary: Get meeting details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Details
+    patch:
+      tags: [Meetings]
+      summary: Update meeting
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated
+
+  /meetings/{id}/complete:
+    patch:
+      tags: [Meetings]
+      summary: Mark meeting as completed
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Completed
+
+  /meetings/{id}/cancel:
+    post:
+      tags: [Meetings]
+      summary: Cancel meeting (with reason)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cancel_reason]
+              properties:
+                cancel_reason:
+                  type: string
+                  minLength: 10
+      responses:
+        '200':
+          description: Cancelled
+
+  /meetings/{id}/reschedule:
+    patch:
+      tags: [Meetings]
+      summary: Reschedule meeting
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Rescheduled
+
+  /meetings/{id}/invitees:
+    put:
+      tags: [Meetings]
+      summary: Update meeting invitee list
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Invitees updated
+
+  # ===========================================================================
+  # Call Reports
+  # ===========================================================================
+  /call-reports:
+    get:
+      tags: [Call Reports]
+      summary: List call reports
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Report list
+    post:
+      tags: [Call Reports]
+      summary: Create call report
+      responses:
+        '201':
+          description: Created
+
+  /call-reports/{id}:
+    get:
+      tags: [Call Reports]
+      summary: Get call report details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Details
+    patch:
+      tags: [Call Reports]
+      summary: Update call report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated
+
+  /call-reports/{id}/submit:
+    post:
+      tags: [Call Reports]
+      summary: Submit call report for approval
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Submitted
+
+  /call-reports/{id}/feedback:
+    get:
+      tags: [Call Reports]
+      summary: Get feedback for call report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Feedback list
+    post:
+      tags: [Call Reports]
+      summary: Add feedback to call report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Feedback added
+
+  /call-reports/{id}/chain:
+    get:
+      tags: [Call Reports]
+      summary: Get call report chain (parent/child)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Chain
+
+  /call-reports/{id}/link-parent:
+    post:
+      tags: [Call Reports]
+      summary: Link call report to parent
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Linked
+
+  /call-reports/approval-queue:
+    get:
+      tags: [Call Reports]
+      summary: Call report approval queue
+      responses:
+        '200':
+          description: Queue
+
+  /call-reports/{id}/approve-queue:
+    post:
+      tags: [Call Reports]
+      summary: Approve from queue
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Approved
+
+  /call-reports/{id}/reject-queue:
+    post:
+      tags: [Call Reports]
+      summary: Reject from queue
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Rejected
+
+  /call-reports/action-items/{id}:
+    patch:
+      tags: [Call Reports]
+      summary: Update action item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated
+
+  /call-reports/export:
+    get:
+      tags: [Call Reports]
+      summary: Export call reports as CSV
+      responses:
+        '200':
+          description: CSV file
+
+  # ===========================================================================
+  # Opportunities, CRM Tasks, CRM Notifications, CRM Handovers
+  # ===========================================================================
+  /opportunities:
+    get:
+      tags: [Opportunities]
+      summary: List opportunities
+      responses:
+        '200':
+          description: List
+    post:
+      tags: [Opportunities]
+      summary: Create opportunity
+      responses:
+        '201':
+          description: Created
+
+  /opportunities/dashboard:
+    get:
+      tags: [Opportunities]
+      summary: Opportunity dashboard
+      responses:
+        '200':
+          description: Dashboard
+
+  /opportunities/{id}:
+    get:
+      tags: [Opportunities]
+      summary: Get opportunity details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Details
+    patch:
+      tags: [Opportunities]
+      summary: Update opportunity
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated
+
+  /opportunities/{id}/stage:
+    post:
+      tags: [Opportunities]
+      summary: Advance opportunity stage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Stage advanced
+
+  /opportunities/bulk-upload:
+    post:
+      tags: [Opportunities]
+      summary: Bulk upload opportunities
+      responses:
+        '200':
+          description: Upload result
+
+  /crm-tasks:
+    get:
+      tags: [CRM Tasks]
+      summary: List CRM tasks
+      responses:
+        '200':
+          description: Task list
+    post:
+      tags: [CRM Tasks]
+      summary: Create CRM task
+      responses:
+        '201':
+          description: Created
+
+  /crm-tasks/overdue:
+    get:
+      tags: [CRM Tasks]
+      summary: Overdue tasks
+      responses:
+        '200':
+          description: Overdue list
+
+  /crm-tasks/{id}:
+    get:
+      tags: [CRM Tasks]
+      summary: Get task details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Details
+    patch:
+      tags: [CRM Tasks]
+      summary: Update task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated
+
+  /crm-tasks/{id}/status:
+    post:
+      tags: [CRM Tasks]
+      summary: Update task status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Status updated
+
+  /crm-notifications:
+    get:
+      tags: [CRM Notifications]
+      summary: List CRM notifications
+      responses:
+        '200':
+          description: Notification list
+
+  /crm-notifications/unread-count:
+    get:
+      tags: [CRM Notifications]
+      summary: Unread notification count
+      responses:
+        '200':
+          description: Count
+
+  /crm-notifications/{id}/read:
+    post:
+      tags: [CRM Notifications]
+      summary: Mark notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Marked read
+
+  /crm-notifications/mark-all-read:
+    post:
+      tags: [CRM Notifications]
+      summary: Mark all notifications as read
+      responses:
+        '200':
+          description: All marked read
+
+  /crm-handovers:
+    get:
+      tags: [CRM Handovers]
+      summary: List CRM handover requests
+      responses:
+        '200':
+          description: Handover list
+    post:
+      tags: [CRM Handovers]
+      summary: Create CRM handover request
+      responses:
+        '201':
+          description: Created
+
+  /crm-handovers/{id}:
+    get:
+      tags: [CRM Handovers]
+      summary: Get handover details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Details
+
+  /crm-handovers/{id}/authorize:
+    post:
+      tags: [CRM Handovers]
+      summary: Authorize CRM handover
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Authorized
+
+  /crm-handovers/rm-history/{entityType}/{entityId}:
+    get:
+      tags: [CRM Handovers]
+      summary: RM assignment history for entity
+      parameters:
+        - name: entityType
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: History
+
+  # ===========================================================================
+  # MFA
+  # ===========================================================================
+  /mfa/enroll:
+    post:
+      tags: [MFA]
+      summary: Enroll in TOTP MFA
+      responses:
+        '200':
+          description: Enrollment secret and QR URI
+
+  /mfa/verify:
+    post:
+      tags: [MFA]
+      summary: Verify TOTP code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+      responses:
+        '200':
+          description: Verification result
+
+  /mfa/status:
+    get:
+      tags: [MFA]
+      summary: Get MFA enrollment status
+      responses:
+        '200':
+          description: Status
+
+  /mfa/disable:
+    post:
+      tags: [MFA]
+      summary: Disable MFA
+      responses:
+        '200':
+          description: Disabled
+
+  /mfa/backup-codes:
+    post:
+      tags: [MFA]
+      summary: Generate backup codes
+      responses:
+        '200':
+          description: Backup codes
+
+  # ===========================================================================
+  # Consent & Privacy
+  # ===========================================================================
+  /consent/client/{clientId}:
+    get:
+      tags: [Consent]
+      summary: Get consent records for client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Consent list
+
+  /consent/check/{clientId}/{purpose}:
+    get:
+      tags: [Consent]
+      summary: Check if client consented to specific purpose
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: purpose
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Consent check
+
+  /consent:
+    post:
+      tags: [Consent]
+      summary: Record consent
+      responses:
+        '201':
+          description: Consent recorded
+
+  /consent/{consentId}/withdraw:
+    put:
+      tags: [Consent]
+      summary: Withdraw consent
+      parameters:
+        - name: consentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Withdrawn
+
+  /consent/erasure/{clientId}:
+    post:
+      tags: [Consent]
+      summary: Request data erasure (right to be forgotten)
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Erasure requested
+
+  /consent/erasure/{clientId}/process:
+    post:
+      tags: [Consent]
+      summary: Process erasure request
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Processed
+
+  /consent/erasure-queue:
+    get:
+      tags: [Consent]
+      summary: Pending erasure requests queue
+      responses:
+        '200':
+          description: Queue
+
+  /consent/breach-notifications:
+    get:
+      tags: [Consent]
+      summary: List data breach notifications
+      responses:
+        '200':
+          description: Breach list
+    post:
+      tags: [Consent]
+      summary: Create breach notification
+      responses:
+        '201':
+          description: Created
+
+  /consent/breach-notifications/{id}/notify-npc:
+    post:
+      tags: [Consent]
+      summary: Notify NPC of data breach
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: NPC notified
+
+  # ===========================================================================
+  # Degraded Mode & Feed Health
+  # ===========================================================================
+  /degraded-mode/feed-health:
+    get:
+      tags: [Degraded Mode]
+      summary: Feed health snapshots
+      responses:
+        '200':
+          description: Health data
+
+  /degraded-mode/active:
+    get:
+      tags: [Degraded Mode]
+      summary: Active incidents
+      responses:
+        '200':
+          description: Active list
+
+  /degraded-mode/history:
+    get:
+      tags: [Degraded Mode]
+      summary: Incident history
+      responses:
+        '200':
+          description: History
+
+  /degraded-mode/kpi/{year}:
+    get:
+      tags: [Degraded Mode]
+      summary: Annual KPI metrics
+      parameters:
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: KPI data
+
+  /degraded-mode/report:
+    post:
+      tags: [Degraded Mode]
+      summary: Report new incident
+      responses:
+        '201':
+          description: Reported
+
+  /degraded-mode/{incidentId}/resolve:
+    put:
+      tags: [Degraded Mode]
+      summary: Resolve incident
+      parameters:
+        - name: incidentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Resolved
+
+  /degraded-mode/{incidentId}/rca:
+    put:
+      tags: [Degraded Mode]
+      summary: Update root cause analysis
+      parameters:
+        - name: incidentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: RCA updated
+
+  # ===========================================================================
+  # DSAR
+  # ===========================================================================
+  /dsar:
+    get:
+      tags: [DSAR]
+      summary: List DSAR requests
+      responses:
+        '200':
+          description: Request list
+    post:
+      tags: [DSAR]
+      summary: Create DSAR request
+      responses:
+        '201':
+          description: Created
+
+  /dsar/{id}:
+    get:
+      tags: [DSAR]
+      summary: Get DSAR request details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Details
+
+  /dsar/{id}/process:
+    post:
+      tags: [DSAR]
+      summary: Process DSAR request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Processed
+
+  /dsar/{id}/approve:
+    post:
+      tags: [DSAR]
+      summary: Approve DSAR
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Approved
+
+  /dsar/{id}/reject:
+    post:
+      tags: [DSAR]
+      summary: Reject DSAR
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Rejected
+
+  # ===========================================================================
+  # Regulatory Calendar
+  # ===========================================================================
+  /regulatory-calendar:
+    get:
+      tags: [Regulatory Calendar]
+      summary: List regulatory filings
+      responses:
+        '200':
+          description: Filing list
+    post:
+      tags: [Regulatory Calendar]
+      summary: Create regulatory filing
+      responses:
+        '201':
+          description: Created
+
+  /regulatory-calendar/upcoming:
+    get:
+      tags: [Regulatory Calendar]
+      summary: Upcoming filings
+      responses:
+        '200':
+          description: Upcoming list
+
+  /regulatory-calendar/{id}:
+    get:
+      tags: [Regulatory Calendar]
+      summary: Get filing details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Details
+    put:
+      tags: [Regulatory Calendar]
+      summary: Update filing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated
+
+  /regulatory-calendar/check-notifications:
+    post:
+      tags: [Regulatory Calendar]
+      summary: Check and send filing reminders
+      responses:
+        '200':
+          description: Checked
+
+  # ===========================================================================
+  # Content Packs
+  # ===========================================================================
+  /content-packs:
+    get:
+      tags: [Content Packs]
+      summary: List content packs
+      responses:
+        '200':
+          description: Pack list
+    post:
+      tags: [Content Packs]
+      summary: Create content pack
+      responses:
+        '201':
+          description: Created
+
+  /content-packs/{id}:
+    get:
+      tags: [Content Packs]
+      summary: Get content pack details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Details
+
+  /content-packs/{id}/activate:
+    post:
+      tags: [Content Packs]
+      summary: Activate content pack version
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Activated
+
+  /content-packs/{id}/rollback:
+    post:
+      tags: [Content Packs]
+      summary: Rollback to previous version
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Rolled back
+
+  /content-packs/{id}/verify:
+    post:
+      tags: [Content Packs]
+      summary: Verify content pack integrity
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Verified
+
+  # ===========================================================================
+  # Service Requests (Back-Office)
+  # ===========================================================================
+  /service-requests:
+    get:
+      tags: [Service Requests]
+      summary: List service requests
+      responses:
+        '200':
+          description: Request list
+
+  /service-requests/summary:
+    get:
+      tags: [Service Requests]
+      summary: Service request summary
+      responses:
+        '200':
+          description: Summary
+
+  /service-requests/{id}:
+    get:
+      tags: [Service Requests]
+      summary: Get service request details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Details
+    put:
+      tags: [Service Requests]
+      summary: Update service request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated
+
+  /service-requests/{id}/history:
+    get:
+      tags: [Service Requests]
+      summary: Status history timeline
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: History
+
+  /service-requests/{id}/send-for-verification:
+    put:
+      tags: [Service Requests]
+      summary: Send SR for verification
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Sent
+
+  /service-requests/{id}/complete:
+    put:
+      tags: [Service Requests]
+      summary: Complete service request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Completed
+
+  /service-requests/{id}/incomplete:
+    put:
+      tags: [Service Requests]
+      summary: Mark SR as incomplete
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Marked incomplete
+
+  /service-requests/{id}/reject:
+    put:
+      tags: [Service Requests]
+      summary: Reject service request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Rejected
+
+  /service-requests/{id}/reassign:
+    put:
+      tags: [Service Requests]
+      summary: Reassign service request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Reassigned
+
+  /service-requests/{id}/documents:
+    get:
+      tags: [Service Requests]
+      summary: List documents for SR
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Document list
+
+  /service-requests/{id}/documents/{docId}/download:
+    get:
+      tags: [Service Requests]
+      summary: Download SR document
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: File download
+
+  # ===========================================================================
+  # Platform Services (Features & Intelligence)
+  # ===========================================================================
+  /features/platform-status:
+    get:
+      tags: [Features]
+      summary: Feature service platform status
+      responses:
+        '200':
+          description: Status
+
+  /features/definitions:
+    get:
+      tags: [Features]
+      summary: List feature definitions
+      responses:
+        '200':
+          description: Definition list
+
+  /features/{entityType}/{entityId}:
+    get:
+      tags: [Features]
+      summary: Get features for an entity
+      parameters:
+        - name: entityType
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Feature values
+
+  /features/{entityType}/{entityId}/history:
+    get:
+      tags: [Features]
+      summary: Feature history for entity
+      parameters:
+        - name: entityType
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: History
+
+  /features/batch:
+    post:
+      tags: [Features]
+      summary: Batch feature lookup
+      responses:
+        '200':
+          description: Batch result
+
+  /features/compute:
+    post:
+      tags: [Features]
+      summary: Trigger feature computation
+      responses:
+        '200':
+          description: Computation triggered
+
+  /intelligence/platform-status:
+    get:
+      tags: [Intelligence]
+      summary: Intelligence service platform status
+      responses:
+        '200':
+          description: Status
+
+  /intelligence/copilot/stream:
+    post:
+      tags: [Intelligence]
+      summary: AI copilot SSE chat stream
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt]
+              properties:
+                prompt:
+                  type: string
+                context:
+                  type: object
+      responses:
+        '200':
+          description: SSE stream
+
+  /intelligence/morning-briefing:
+    get:
+      tags: [Intelligence]
+      summary: AI morning briefing for RM
+      responses:
+        '200':
+          description: Briefing
+
+  /intelligence/nba:
+    get:
+      tags: [Intelligence]
+      summary: Next-best-action recommendations
+      responses:
+        '200':
+          description: NBA list
+
+  /intelligence/alerts:
+    get:
+      tags: [Intelligence]
+      summary: AI-generated alerts
+      responses:
+        '200':
+          description: Alert list
+
+  /intelligence/tag-call-report:
+    post:
+      tags: [Intelligence]
+      summary: AI-tag a call report (topics, sentiment, action items)
+      responses:
+        '200':
+          description: Tags
+
+  /intelligence/meeting-prep/{meetingId}:
+    get:
+      tags: [Intelligence]
+      summary: AI meeting preparation brief
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Prep brief
+
+  /intelligence/documents:
+    post:
+      tags: [Intelligence]
+      summary: AI document analysis
+      responses:
+        '200':
+          description: Analysis
+
+  # ===========================================================================
+  # System Config, Client Messages, Statements (Back-Office)
+  # ===========================================================================
+  /system-config:
+    get:
+      tags: [System Config]
+      summary: List system configuration entries
+      responses:
+        '200':
+          description: Config list
+
+  /system-config/{key}:
+    get:
+      tags: [System Config]
+      summary: Get config value by key
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Config value
+    put:
+      tags: [System Config]
+      summary: Update config value
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Updated
+
+  /client-messages:
+    get:
+      tags: [Client Messages]
+      summary: List client messages (back-office view)
+      responses:
+        '200':
+          description: Message list
+
+  /client-messages/{id}/reply:
+    post:
+      tags: [Client Messages]
+      summary: Reply to client message
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Reply sent
+
+  /statements:
+    get:
+      tags: [Statements]
+      summary: List statements (back-office)
+      responses:
+        '200':
+          description: Statement list
+    post:
+      tags: [Statements]
+      summary: Generate statement
+      responses:
+        '201':
+          description: Generated
+
+  # ===========================================================================
+  # Negative List
+  # ===========================================================================
+  /negative-list:
+    get:
+      tags: [Negative List]
+      summary: List negative list entries
+      responses:
+        '200':
+          description: Entry list
+    post:
+      tags: [Negative List]
+      summary: Add entry to negative list
+      responses:
+        '201':
+          description: Added
+
+  /negative-list/{id}:
+    patch:
+      tags: [Negative List]
+      summary: Update negative list entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated
+
+  /negative-list/upload:
+    post:
+      tags: [Negative List]
+      summary: Bulk upload negative list entries
+      responses:
+        '200':
+          description: Upload result
+
+  /negative-list/check:
+    post:
+      tags: [Negative List]
+      summary: Screen name against negative list
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        '200':
+          description: Screening result
+
+  # ===========================================================================
+  # Client Portal
+  # ===========================================================================
+  /client-portal/portfolio-summary/{clientId}:
+    get:
+      tags: [Client Portal]
+      summary: Aggregated portfolio overview for client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Portfolio summary
+
+  /client-portal/allocation/{portfolioId}:
+    get:
+      tags: [Client Portal]
+      summary: Asset allocation breakdown
+      parameters:
+        - name: portfolioId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Allocation
+
+  /client-portal/performance/{portfolioId}:
+    get:
+      tags: [Client Portal]
+      summary: Portfolio performance (TWR/IRR)
+      parameters:
+        - name: portfolioId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: period
+          in: query
+          schema:
+            type: string
+            default: 1Y
+      responses:
+        '200':
+          description: Performance data
+
+  /client-portal/holdings/{portfolioId}:
+    get:
+      tags: [Client Portal]
+      summary: Detailed holdings list
+      parameters:
+        - name: portfolioId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Holdings
+
+  /client-portal/transactions/{portfolioId}:
+    get:
+      tags: [Client Portal]
+      summary: Recent transactions
+      parameters:
+        - name: portfolioId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Transactions
+
+  /client-portal/statements/{clientId}:
+    get:
+      tags: [Client Portal]
+      summary: Available statements for client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Statement list
+
+  /client-portal/statements/{clientId}/{statementId}/download:
+    get:
+      tags: [Client Portal]
+      summary: Download statement PDF
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: statementId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: PDF file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '202':
+          description: Statement being prepared
+
+  /client-portal/request-action:
+    post:
+      tags: [Client Portal]
+      summary: Submit client action request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clientId, actionType]
+              properties:
+                clientId:
+                  type: string
+                actionType:
+                  type: string
+                details:
+                  type: object
+      responses:
+        '201':
+          description: Request created
+
+  /client-portal/notifications/{clientId}:
+    get:
+      tags: [Client Portal]
+      summary: Client notifications
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Notification list
+
+  /client-portal/service-requests/{clientId}:
+    get:
+      tags: [Client Portal]
+      summary: List service requests for client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: SR list
+
+  /client-portal/service-requests:
+    post:
+      tags: [Client Portal]
+      summary: Create service request (portal)
+      responses:
+        '201':
+          description: Created
+
+  /client-portal/service-requests/detail/{id}:
+    get:
+      tags: [Client Portal]
+      summary: Get SR detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: SR detail
+
+  /client-portal/service-requests/{id}:
+    put:
+      tags: [Client Portal]
+      summary: Update SR
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated
+
+  /client-portal/service-requests/{id}/close:
+    put:
+      tags: [Client Portal]
+      summary: Close SR with reason
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Closed
+
+  /client-portal/service-requests/{id}/resubmit:
+    put:
+      tags: [Client Portal]
+      summary: Resubmit SR for verification
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Resubmitted
+
+  /client-portal/service-requests/{id}/history:
+    get:
+      tags: [Client Portal]
+      summary: SR status history
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: History
+
+  /client-portal/service-requests/{id}/documents:
+    get:
+      tags: [Client Portal]
+      summary: List SR documents
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Document list
+    post:
+      tags: [Client Portal]
+      summary: Upload document to SR
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Uploaded
+
+  /client-portal/risk-profile/{clientId}:
+    get:
+      tags: [Client Portal]
+      summary: Client risk profile with allocation
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Risk profile
+
+  /client-portal/proposals:
+    get:
+      tags: [Client Portal]
+      summary: List proposals for authenticated client
+      responses:
+        '200':
+          description: Proposal list
+
+  /client-portal/proposals/detail/{id}:
+    get:
+      tags: [Client Portal]
+      summary: Get proposal detail (IDOR-protected)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Proposal detail
+
+  /client-portal/proposals/{id}/accept:
+    post:
+      tags: [Client Portal]
+      summary: Client accepts proposal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Accepted
+
+  /client-portal/proposals/{id}/reject:
+    post:
+      tags: [Client Portal]
+      summary: Client rejects proposal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Rejected
+
+  /client-portal/campaign-inbox:
+    get:
+      tags: [Client Portal]
+      summary: Campaign inbox for client
+      responses:
+        '200':
+          description: Campaign communications
+
+  /client-portal/campaign-inbox/{commId}/rsvp:
+    post:
+      tags: [Client Portal]
+      summary: RSVP for event campaign
+      parameters:
+        - name: commId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rsvp_status]
+              properties:
+                rsvp_status:
+                  type: string
+                  enum: [ACCEPTED, DECLINED, TENTATIVE, PENDING]
+                note:
+                  type: string
+      responses:
+        '200':
+          description: RSVP recorded
+
+  /client-portal/meetings:
+    get:
+      tags: [Client Portal]
+      summary: Upcoming meetings for client
+      responses:
+        '200':
+          description: Meeting list
+
+  /client-portal/consent/preferences:
+    get:
+      tags: [Client Portal]
+      summary: Get client consent preferences
+      responses:
+        '200':
+          description: Preferences
+    patch:
+      tags: [Client Portal]
+      summary: Update consent preference
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [consent_type, consent_status]
+              properties:
+                consent_type:
+                  type: string
+                  enum: [MARKETING_EMAIL, MARKETING_SMS, MARKETING_PUSH, ANALYTICS]
+                consent_status:
+                  type: string
+                  enum: [OPTED_IN, OPTED_OUT, PENDING]
+      responses:
+        '200':
+          description: Updated
+
+  /client-portal/consent/opt-out:
+    post:
+      tags: [Client Portal]
+      summary: Quick opt-out from consent type
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [consent_type]
+              properties:
+                consent_type:
+                  type: string
+      responses:
+        '200':
+          description: Opted out
+
+  /client-portal/messages:
+    get:
+      tags: [Client Portal]
+      summary: Client message inbox
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Message list
+    post:
+      tags: [Client Portal]
+      summary: Send message to RM
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                subject:
+                  type: string
+                body:
+                  type: string
+                thread_id:
+                  type: string
+      responses:
+        '201':
+          description: Message sent
+
+  /client-portal/messages/unread-count:
+    get:
+      tags: [Client Portal]
+      summary: Unread message count
+      responses:
+        '200':
+          description: Count
+
+  /client-portal/messages/{id}/read:
+    patch:
+      tags: [Client Portal]
+      summary: Mark message as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Marked read
+
+  # ===========================================================================
+  # CRUD Entities (standard endpoints via crud-factory)
+  #
+  # Each entity below exposes the standard set of endpoints:
+  #   GET    /{entity}              -- Paginated list (page, pageSize, search, sortBy, sortOrder)
+  #   GET    /{entity}/export/csv   -- CSV export
+  #   POST   /{entity}/check-duplicate -- Duplicate check
+  #   GET    /{entity}/{id}         -- Get by ID
+  #   POST   /{entity}              -- Create (maker-checker where configured)
+  #   PUT    /{entity}/{id}         -- Update (optimistic locking via version)
+  #   DELETE /{entity}/{id}         -- Soft delete
+  #   POST   /{entity}/bulk-import  -- Bulk import
+  #
+  # Reference Data:
+  #   /countries, /currencies, /asset-classes, /branches, /exchanges,
+  #   /trust-product-types, /fee-types, /tax-codes, /market-calendar,
+  #   /legal-entities, /feed-routing, /data-stewardship
+  #
+  # Master Data:
+  #   /counterparties, /brokers, /securities, /portfolios, /clients, /users
+  #
+  # Nested Resources (scoped to parent):
+  #   /clients/{parentId}/profiles
+  #   /clients/{parentId}/kyc-cases
+  #   /clients/{parentId}/beneficial-owners
+  #   /clients/{parentId}/fatca-crs
+  #   /portfolios/{parentId}/mandates
+  #   /portfolios/{parentId}/fee-schedules
+  #   /portfolios/{parentId}/positions
+  #   /pera-accounts/{parentId}/transactions
+  #
+  # Workflow:
+  #   /workflow-definitions
+  #
+  # Portfolio:
+  #   /model-portfolios, /compliance-limits (CRUD), /scheduled-plans (CRUD),
+  #   /pera-accounts, /held-away-assets, /standing-instructions
+  #
+  # CRM:
+  #   /campaigns, /lead-lists, /leads, /lead-list-members, /campaign-lists,
+  #   /campaign-responses, /campaign-communications, /prospects, /meetings (CRUD),
+  #   /meeting-invitees, /call-reports (CRUD), /call-report-feedback,
+  #   /action-items, /rm-handovers, /opportunities (CRUD),
+  #   /notification-templates, /call-report-approvals, /conversation-history,
+  #   /lead-upload-batches, /campaign-consent-log, /campaign-translations
+  #
+  # Other:
+  #   /settlement-account-configs, /broker-charge-schedules, /cash-sweep-rules,
+  #   /derivative-setups, /sanctions-screening, /stress-test-results
+  # ===========================================================================
+
+  # TrustFees Pro CRUD entities (each with standard CRUD endpoints):
+  # /pricing-definitions, /eligibility-expressions, /accrual-schedules,
+  # /fee-plan-templates, /fee-plans, /tfp-accruals, /tfp-invoices,
+  # /tfp-payments, /tfp-adhoc-fees, /fee-overrides, /exceptions,
+  # /tfp-audit, /disputes, /credit-notes, /fee-reports,
+  # /circuit-breakers, /collection-triggers, /tfp-event-fees

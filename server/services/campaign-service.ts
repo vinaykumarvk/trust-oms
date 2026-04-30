@@ -7,8 +7,7 @@
 
 import { db } from '../db';
 import * as schema from '@shared/schema';
-import { eq, and, sql, desc, count, inArray, notInArray, ne, like, gte, lte, gt, lt, isNull, or } from 'drizzle-orm';
-import { consentService } from './consent-service';
+import { eq, and, sql, desc, count, inArray, notInArray, ne, gte, lte, gt, lt, isNull, or } from 'drizzle-orm';
 import { sanctionsService } from './sanctions-service';
 import { notificationInboxService } from './notification-inbox-service';
 import crypto from 'crypto';

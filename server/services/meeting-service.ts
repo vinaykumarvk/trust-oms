@@ -7,7 +7,7 @@
 
 import { db } from '../db';
 import * as schema from '@shared/schema';
-import { eq, and, sql, desc, asc, gte, lte, between, ilike, or } from 'drizzle-orm';
+import { eq, and, sql, desc, asc, gte, lte, ilike, or } from 'drizzle-orm';
 import { NotFoundError, ForbiddenError, ValidationError, ConflictError } from './service-errors';
 import { notificationInboxService } from './notification-inbox-service';
 

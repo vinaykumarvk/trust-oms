@@ -851,6 +851,8 @@ async function main() {
   console.log('╚══════════════════════════════════════════════════════════════╝');
 }
 
+export { main as seedGroupB };
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main()
     .then(() => process.exit(0))

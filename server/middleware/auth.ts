@@ -19,7 +19,11 @@ declare global {
 /** Paths that never require authentication */
 const PUBLIC_PATHS = ['/api/v1/health', '/health', '/readiness', '/api/v1/auth/login', '/api/v1/auth/refresh'];
 
-const JWT_SECRET_RAW = process.env.JWT_SECRET || 'trustoms-dev-secret-change-in-production';
+const isDevOrTest = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+const JWT_SECRET_RAW = process.env.JWT_SECRET || (isDevOrTest ? 'trustoms-dev-secret-change-in-production' : '');
+if (!JWT_SECRET_RAW && !isDevOrTest) {
+  throw new Error('FATAL: JWT_SECRET environment variable is required in production. Refusing to start with no secret.');
+}
 const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_RAW);
 
 /**

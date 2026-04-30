@@ -16,7 +16,7 @@
 
 import { db } from '../db';
 import * as schema from '@shared/schema';
-import { eq, and, sql, desc, ilike, or, isNull, gt, lt, gte, lte, inArray } from 'drizzle-orm';
+import { eq, and, sql, desc, ilike, or, gte, lte, inArray } from 'drizzle-orm';
 import { notificationInboxService } from './notification-inbox-service';
 
 // ---------------------------------------------------------------------------

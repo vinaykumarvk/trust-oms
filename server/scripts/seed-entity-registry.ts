@@ -11,6 +11,7 @@
  */
 
 import 'dotenv/config';
+import { fileURLToPath } from 'url';
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { entityFieldDefaultsMap } from '@shared/entity-configs';
@@ -344,12 +345,16 @@ async function seedEntityRegistry() {
 // Main
 // ---------------------------------------------------------------------------
 
-seedEntityRegistry()
-  .then(() => {
-    console.log('Done.');
-    process.exit(0);
-  })
-  .catch((err) => {
-    console.error('Seed failed:', err);
-    process.exit(1);
-  });
+export { seedEntityRegistry };
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  seedEntityRegistry()
+    .then(() => {
+      console.log('Done.');
+      process.exit(0);
+    })
+    .catch((err) => {
+      console.error('Seed failed:', err);
+      process.exit(1);
+    });
+}
