@@ -22,6 +22,7 @@ describe('prospect lifecycle ownership and audit coverage', () => {
     expect(serviceSource).toContain('schema.auditRecords');
     expect(serviceSource).toContain("to: 'DROPPED'");
     expect(serviceSource).toContain("to: 'REACTIVATED'");
-    expect(serviceSource).toContain("to: 'RECOMMENDED'");
+    expect(serviceSource).toContain('RECOMMENDED_PROSPECT_STATUS');
+    expect(serviceSource).toContain("const RECOMMENDED_PROSPECT_STATUS: ProspectStatus = 'RECOMMENDED_FOR_CLIENT'");
   });
 });

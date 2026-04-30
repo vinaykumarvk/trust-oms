@@ -502,7 +502,7 @@ describe('Lead & Prospect Lifecycle — CRM Phase 2', () => {
   });
 
   describe('Prospect-to-Customer Conversion Guards', () => {
-    it('should reject if prospect is not RECOMMENDED', async () => {
+    it('should reject if prospect is not RECOMMENDED_FOR_CLIENT', async () => {
       const { conversionService } = await import('../../server/services/conversion-service');
 
       mockWhere.mockResolvedValueOnce([{
@@ -514,7 +514,7 @@ describe('Lead & Prospect Lifecycle — CRM Phase 2', () => {
 
       await expect(
         conversionService.prospectToCustomer(1, 'CLI-001', 'user-001'),
-      ).rejects.toThrow('Prospect must be in RECOMMENDED status');
+      ).rejects.toThrow('Prospect must be in RECOMMENDED_FOR_CLIENT status');
     });
 
     it('should reject if prospect not found', async () => {

@@ -158,6 +158,7 @@ Per the `feature-life-cycle` skill, execution pauses after this plan unless the 
 | Phase 3 | WS-04 / WS-09 Opportunity timeline audit | Added conversation-history creation for new opportunities and passed authenticated route actor context into opportunity creation for audit attribution. |
 | Phase 3 | WS-05 / WS-09 Call report approval notification channels | Added persisted multi-channel CRM inbox notification helpers and wired late-submission plus approval-decision notifications to create both in-app and email-channel records, including call-report notification enum values. |
 | Phase 3 | WS-08 Campaign event validation | Enforced `EVENT_INVITATION` conditional required fields (`event_name`, `event_date`, `event_venue`) on campaign create and update using merged current values. |
+| Phase 3 | WS-08 / WS-14 Prospect recommendation status alignment | Added an additive `RECOMMENDED_FOR_CLIENT` prospect-status migration, made it the canonical recommendation status, and kept conversion/reporting compatible with legacy `RECOMMENDED` rows. |
 
 ### Validation
 
@@ -213,6 +214,8 @@ Per the `feature-life-cycle` skill, execution pauses after this plan unless the 
 | `npm run test:run -- tests/e2e/campaign-event-validation.spec.ts tests/e2e/campaign-management.spec.ts tests/e2e/campaign-lifecycle.spec.ts` | PASS — 3 files, 136 tests |
 | `npm run test:run -- tests/e2e/client-portal-ownership.spec.ts tests/e2e/notification-preferences.spec.ts tests/e2e/campaign-upload-validation.spec.ts tests/e2e/campaign-upload-error-report.spec.ts tests/e2e/campaign-interaction-integrity.spec.ts tests/e2e/campaign-response-modification-lifecycle.spec.ts tests/e2e/campaign-event-validation.spec.ts tests/e2e/lead-list-audience-lock.spec.ts tests/e2e/campaign-unsubscribe-optout.spec.ts tests/e2e/campaign-delivery-webhook.spec.ts tests/e2e/campaign-scheduler-lifecycle.spec.ts tests/e2e/negative-list-expiry-filter.spec.ts tests/e2e/prospect-ownership-audit.spec.ts tests/e2e/prospect-create-screening-consent.spec.ts tests/e2e/lead-prospect-retention-scheduler.spec.ts tests/e2e/lead-rule-criteria-controls.spec.ts tests/e2e/approval-auto-unclaim-scheduler.spec.ts tests/e2e/approval-workflow-controls.spec.ts tests/e2e/call-report-auth-user-propagation.spec.ts tests/e2e/call-report-action-item-controls.spec.ts tests/e2e/call-report-action-item-update-auth.spec.ts tests/e2e/call-report-approval-notifications.spec.ts tests/e2e/call-report-routing-filters.spec.ts tests/e2e/task-assignment-branch-controls.spec.ts tests/e2e/meeting-dual-reminders.spec.ts tests/e2e/scheduler-wiring.spec.ts tests/e2e/meeting-no-show-scheduler.spec.ts tests/e2e/opportunity-expiry-scheduler.spec.ts tests/e2e/opportunity-conversation-history.spec.ts` | PASS — 29 files, 80 tests |
 | `npm run test:run` | PASS — 85 files, 2365 tests |
+| `npm run test:run -- tests/e2e/prospect-recommended-status-migration.spec.ts tests/e2e/prospect-ownership-audit.spec.ts tests/e2e/lead-prospect-lifecycle.spec.ts tests/e2e/prospect-create-screening-consent.spec.ts` | PASS — 4 files, 60 tests |
+| `npm run test:run` | PASS — 86 files, 2368 tests |
 | `npm run check` | PASS |
 
 ### Remaining Scope

@@ -4139,7 +4139,7 @@ export const dispatchStatusEnum = pgEnum('dispatch_status', [
 ]);
 
 export const prospectStatusEnum = pgEnum('prospect_status', [
-  'ACTIVE', 'DROPPED', 'REACTIVATED', 'RECOMMENDED', 'CONVERTED',
+  'ACTIVE', 'DROPPED', 'REACTIVATED', 'RECOMMENDED', 'RECOMMENDED_FOR_CLIENT', 'CONVERTED',
 ]);
 
 export const meetingModeEnum = pgEnum('meeting_mode', [

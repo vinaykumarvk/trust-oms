@@ -23,7 +23,8 @@ type ProspectIdentification = typeof schema.prospectIdentifications.$inferSelect
 type ProspectLifestyle = typeof schema.prospectLifestyle.$inferSelect;
 type ProspectDocument = typeof schema.prospectDocuments.$inferSelect;
 
-type ProspectStatus = 'ACTIVE' | 'DROPPED' | 'REACTIVATED' | 'RECOMMENDED' | 'CONVERTED';
+type ProspectStatus = 'ACTIVE' | 'DROPPED' | 'REACTIVATED' | 'RECOMMENDED' | 'RECOMMENDED_FOR_CLIENT' | 'CONVERTED';
+const RECOMMENDED_PROSPECT_STATUS: ProspectStatus = 'RECOMMENDED_FOR_CLIENT';
 
 /** Typed input for prospect create/update operations */
 interface ProspectData {
@@ -68,15 +69,16 @@ interface ProspectData {
  * Prospect status transitions:
  * ACTIVE -> DROPPED (mandatory drop_reason, min 10 chars, sets drop_date)
  * DROPPED -> REACTIVATED (sets reactivation_date)
- * REACTIVATED -> RECOMMENDED | DROPPED
- * RECOMMENDED -> CONVERTED
- * ACTIVE -> RECOMMENDED
+ * REACTIVATED -> RECOMMENDED_FOR_CLIENT | DROPPED
+ * RECOMMENDED / RECOMMENDED_FOR_CLIENT -> CONVERTED
+ * ACTIVE -> RECOMMENDED_FOR_CLIENT
  */
 const TRANSITION_MAP: Record<ProspectStatus, ProspectStatus[]> = {
-  ACTIVE: ['DROPPED', 'RECOMMENDED'],
+  ACTIVE: ['DROPPED', RECOMMENDED_PROSPECT_STATUS],
   DROPPED: ['REACTIVATED'],
-  REACTIVATED: ['RECOMMENDED', 'DROPPED'],
+  REACTIVATED: [RECOMMENDED_PROSPECT_STATUS, 'DROPPED'],
   RECOMMENDED: ['CONVERTED'],
+  RECOMMENDED_FOR_CLIENT: ['CONVERTED'],
   CONVERTED: [], // terminal
 };
 
@@ -557,7 +559,7 @@ export const prospectService = {
     if (!prospect) throw new Error('Prospect not found');
 
     const allowed = TRANSITION_MAP[prospect.prospect_status as ProspectStatus];
-    if (!allowed || !allowed.includes('RECOMMENDED')) {
+    if (!allowed || !allowed.includes(RECOMMENDED_PROSPECT_STATUS)) {
       throw new Error(`Cannot recommend a prospect in ${prospect.prospect_status} status`);
     }
 
@@ -590,7 +592,7 @@ export const prospectService = {
     const [updated] = await db
       .update(schema.prospects)
       .set({
-        prospect_status: 'RECOMMENDED',
+        prospect_status: RECOMMENDED_PROSPECT_STATUS,
         updated_by: userId,
         updated_at: new Date(),
       } as any)
@@ -602,7 +604,7 @@ export const prospectService = {
       entity_id: String(id),
       action: 'UPDATE',
       actor_id: userId,
-      changes: { status: { from: prospect.prospect_status, to: 'RECOMMENDED' } },
+      changes: { status: { from: prospect.prospect_status, to: RECOMMENDED_PROSPECT_STATUS } },
     } as any);
 
     return updated;
@@ -934,7 +936,7 @@ export const prospectService = {
       active: statusMap['ACTIVE'] || 0,
       dropped: statusMap['DROPPED'] || 0,
       reactivated: statusMap['REACTIVATED'] || 0,
-      recommended: statusMap['RECOMMENDED'] || 0,
+      recommended: (statusMap['RECOMMENDED_FOR_CLIENT'] || 0) + (statusMap['RECOMMENDED'] || 0),
       converted: statusMap['CONVERTED'] || 0,
       ageing_buckets: {
         green: greenCount,

@@ -289,7 +289,7 @@ export const conversionService = {
    * Convert a Prospect to a Customer.
    *
    * Requirements:
-   * - Prospect must be in RECOMMENDED status
+ * - Prospect must be in RECOMMENDED_FOR_CLIENT status. Legacy RECOMMENDED rows are still accepted.
    * - clientId references an existing client record
    * - Creates conversion_history record
    * - Sets prospect status to CONVERTED with converted_client_id
@@ -306,9 +306,9 @@ export const conversionService = {
       .where(and(eq(schema.prospects.id, prospectId), eq(schema.prospects.is_deleted, false)));
     if (!prospect) throw new Error('Prospect not found');
 
-    if (prospect.prospect_status !== 'RECOMMENDED') {
+    if (prospect.prospect_status !== 'RECOMMENDED_FOR_CLIENT' && prospect.prospect_status !== 'RECOMMENDED') {
       throw new Error(
-        `Prospect must be in RECOMMENDED status to convert. Current status: ${prospect.prospect_status}`,
+        `Prospect must be in RECOMMENDED_FOR_CLIENT status to convert. Current status: ${prospect.prospect_status}`,
       );
     }
 
@@ -481,7 +481,7 @@ export const conversionService = {
     const qualified = leadMap['QUALIFIED'] || 0;
     const clientAccepted = leadMap['CLIENT_ACCEPTED'] || 0;
     const convertedToProspect = leadMap['CONVERTED'] || 0;
-    const recommended = prospectMap['RECOMMENDED'] || 0;
+    const recommended = (prospectMap['RECOMMENDED_FOR_CLIENT'] || 0) + (prospectMap['RECOMMENDED'] || 0);
     const convertedToCustomer = prospectMap['CONVERTED'] || 0;
 
     // Drop-off rates
