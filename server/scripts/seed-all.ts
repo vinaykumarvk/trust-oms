@@ -42,6 +42,7 @@ import { seedGroupC } from './seed-group-c';
 import { seedCrmData } from './seed-crm-data';
 import { seedLoanData } from './seed-loan-data';
 import { seedEbtData } from './seed-ebt-data';
+import { seedGapClosureData } from './seed-gap-closure-data';
 
 // ─── Step runner with timing ──────────────────────────────────────────────────
 
@@ -118,6 +119,10 @@ async function main() {
     {
       name: 'EBT Data (plans, members, contributions, gratuity rules, tax rules)',
       fn: seedEbtData,
+    },
+    {
+      name: 'Gap Closure Data (charges, valuations, FX deals, KB articles, SR tasks)',
+      fn: seedGapClosureData,
     },
   ];
 

@@ -38,6 +38,9 @@ import gapClosureP2Routes from './gap-closures-p2';
 import fiduciaryExtRoutes from './fiduciary-extensions';
 import metrobankExtRoutes from './metrobank-extensions';
 import metrobankPartialExtRoutes from './metrobank-partial-extensions';
+import securityMasterExtRoutes from './security-master-extensions';
+import p1GapClosureRoutes from './p1-gap-closure';
+import p2GapClosureRoutes from './p2-gap-closure';
 
 const router = Router();
 
@@ -222,6 +225,9 @@ router.use('/gap-closures-p2', gapClosureP2Routes);
 router.use('/fiduciary', fiduciaryExtRoutes);
 router.use('/metrobank', metrobankExtRoutes);
 router.use('/metrobank-ext', metrobankPartialExtRoutes);
+router.use('/security-master', securityMasterExtRoutes);
+router.use('/p1-gaps', p1GapClosureRoutes);
+router.use('/p2-gaps', p2GapClosureRoutes);
 
 // Clients — PII logging enabled
 router.use(

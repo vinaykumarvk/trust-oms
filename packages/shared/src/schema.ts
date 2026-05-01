@@ -4455,6 +4455,136 @@ export const glFxRevaluationDetails = pgTable('gl_fx_revaluation_details', {
 });
 
 // ============================================================================
+// Enterprise GL — Charge Setup & Valuation Parameters (Gap Closure)
+// ============================================================================
+
+/** GL Charge Setup — fee/charge configurations by effective date per fund (GL-FEE-002) */
+export const glChargeSetup = pgTable('gl_charge_setup', {
+  id: serial('id').primaryKey(),
+  fund_id: integer('fund_id').references(() => fundMaster.id).notNull(),
+  charge_code: text('charge_code').notNull(),
+  charge_name: text('charge_name').notNull(),
+  charge_type: text('charge_type').notNull(), // FIXED, PERCENTAGE, PER_AMOUNT, TENOR_SLAB
+  fixed_amount: numeric('fixed_amount'),
+  percentage_rate: numeric('percentage_rate'),
+  per_amount_rate: numeric('per_amount_rate'),
+  per_amount_unit: numeric('per_amount_unit'),
+  tenor_slabs: jsonb('tenor_slabs').$type<Array<{ from_days: number; to_days: number; rate: number }>>(),
+  min_fee: numeric('min_fee'),
+  max_fee: numeric('max_fee'),
+  fee_gl_dr: integer('fee_gl_dr').references(() => glHeads.id),
+  fee_gl_cr: integer('fee_gl_cr').references(() => glHeads.id),
+  effective_from: date('effective_from').notNull(),
+  effective_to: date('effective_to'),
+  is_active: boolean('is_active').default(true).notNull(),
+  ...auditFields,
+});
+
+/** GL Valuation Parameters — per-fund valuation settings (GL-VAL-001) */
+export const glValuationParameters = pgTable('gl_valuation_parameters', {
+  id: serial('id').primaryKey(),
+  fund_id: integer('fund_id').references(() => fundMaster.id).notNull(),
+  stock_exchange: text('stock_exchange').notNull().default('PSE'),
+  price_type_priority: jsonb('price_type_priority').$type<string[]>().default(['CLOSING', 'LAST_TRADED', 'BID', 'MID']),
+  fallback_days: integer('fallback_days').notNull().default(3),
+  fallback_method: text('fallback_method').notNull().default('PRIOR_CLOSE'), // PRIOR_CLOSE, WAC, COST
+  override_allowed: boolean('override_allowed').default(true).notNull(),
+  effective_from: date('effective_from').notNull(),
+  effective_to: date('effective_to'),
+  ...auditFields,
+});
+
+/** GL Market Price Override — manual price override per fund/security (GL-VAL-002) */
+export const glMarketPriceOverrides = pgTable('gl_market_price_overrides', {
+  id: serial('id').primaryKey(),
+  fund_id: integer('fund_id').references(() => fundMaster.id).notNull(),
+  security_id: integer('security_id').references(() => securities.id).notNull(),
+  price_date: date('price_date').notNull(),
+  original_price: numeric('original_price'),
+  override_price: numeric('override_price').notNull(),
+  override_reason: text('override_reason').notNull(),
+  approved_by: integer('approved_by').references(() => users.id),
+  approved_at: timestamp('approved_at', { withTimezone: true }),
+  ...auditFields,
+});
+
+/** UITF TER History — Total Expense Ratio persistence (TFP-TER) */
+export const uitfTerHistory = pgTable('uitf_ter_history', {
+  id: serial('id').primaryKey(),
+  fund_id: integer('fund_id').references(() => fundMaster.id).notNull(),
+  period: text('period').notNull(), // YYYY-MM or YYYY-Q1
+  total_expenses: numeric('total_expenses').notNull(),
+  average_nav: numeric('average_nav').notNull(),
+  ter_pct: numeric('ter_pct').notNull(),
+  breakdown: jsonb('breakdown').$type<Record<string, number>>(),
+  computed_at: timestamp('computed_at', { withTimezone: true }).defaultNow().notNull(),
+  computed_by: integer('computed_by').references(() => users.id),
+  ...auditFields,
+});
+
+/** FX Deals — FX deal capture with TOAP rates (FR-CSH-002p) */
+export const fxDeals = pgTable('fx_deals', {
+  id: serial('id').primaryKey(),
+  deal_reference: text('deal_reference').unique().notNull(),
+  deal_type: text('deal_type').notNull(), // SPOT, FORWARD, SWAP
+  buy_currency: text('buy_currency').notNull(),
+  sell_currency: text('sell_currency').notNull(),
+  buy_amount: numeric('buy_amount').notNull(),
+  sell_amount: numeric('sell_amount').notNull(),
+  exchange_rate: numeric('exchange_rate').notNull(),
+  toap_rate: numeric('toap_rate'),
+  value_date: date('value_date').notNull(),
+  maturity_date: date('maturity_date'),
+  counterparty_id: integer('counterparty_id'),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  deal_status: text('deal_status').notNull().default('PENDING'), // PENDING, CONFIRMED, SETTLED, CANCELLED
+  settlement_reference: text('settlement_reference'),
+  ...auditFields,
+});
+
+/** Nostro Reconciliation — daily nostro/vostro recon (FR-CSH-001p) */
+export const nostroReconciliations = pgTable('nostro_reconciliations', {
+  id: serial('id').primaryKey(),
+  gl_head_id: integer('gl_head_id').references(() => glHeads.id).notNull(),
+  recon_date: date('recon_date').notNull(),
+  book_balance: numeric('book_balance').notNull(),
+  bank_balance: numeric('bank_balance').notNull(),
+  difference: numeric('difference').notNull(),
+  unmatched_items: jsonb('unmatched_items').$type<Array<{ ref: string; amount: number; direction: string }>>(),
+  recon_status: text('recon_status').notNull().default('PENDING'), // PENDING, MATCHED, EXCEPTION
+  reconciled_by: integer('reconciled_by').references(() => users.id),
+  reconciled_at: timestamp('reconciled_at', { withTimezone: true }),
+  ...auditFields,
+});
+
+/** Knowledge Base — FAQ/KB articles for service requests (SR-007) */
+export const knowledgeBase = pgTable('knowledge_base', {
+  id: serial('id').primaryKey(),
+  title: text('title').notNull(),
+  category: text('category').notNull(),
+  content: text('content').notNull(),
+  tags: jsonb('tags').$type<string[]>().default([]),
+  is_published: boolean('is_published').default(true).notNull(),
+  view_count: integer('view_count').default(0).notNull(),
+  helpful_count: integer('helpful_count').default(0).notNull(),
+  ...auditFields,
+});
+
+/** SR Sub-Tasks — task breakdown for service requests (SR-004) */
+export const srTasks = pgTable('sr_tasks', {
+  id: serial('id').primaryKey(),
+  sr_id: integer('sr_id').references(() => serviceRequests.id).notNull(),
+  task_title: text('task_title').notNull(),
+  task_description: text('task_description'),
+  assigned_to: integer('assigned_to').references(() => users.id),
+  task_status: text('task_status').notNull().default('PENDING'), // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+  due_date: timestamp('due_date', { withTimezone: true }),
+  completed_at: timestamp('completed_at', { withTimezone: true }),
+  sort_order: integer('sort_order').default(0).notNull(),
+  ...auditFields,
+});
+
+// ============================================================================
 // Enterprise GL — Relations
 // ============================================================================
 
@@ -6621,6 +6751,7 @@ export const srPriorityEnum = pgEnum('sr_priority', [
   'LOW',
   'MEDIUM',
   'HIGH',
+  'CRITICAL',
 ]);
 
 export const srTypeEnum = pgEnum('sr_type', [
@@ -8416,5 +8547,159 @@ export const impairmentAssessments = pgTable('impairment_assessments', {
   gl_journal_id: integer('gl_journal_id'),
   assessment_status: text('assessment_status').default('DRAFT'), // DRAFT, APPROVED, POSTED, REVERSED
   approved_by: integer('approved_by').references(() => users.id),
+  ...auditFields,
+});
+
+// ============================================================================
+// MB-GAP-014: Security Master Extensions — Non-Financial Assets
+// ============================================================================
+
+/** MB-GAP-014a: Instrument sub-type master (FXTN, RTB, ROP, T-bill, LTNCD, etc.) */
+export const instrumentSubTypes = pgTable('instrument_sub_types', {
+  id: serial('id').primaryKey(),
+  code: text('code').unique().notNull(),
+  name: text('name').notNull(),
+  asset_class: text('asset_class').notNull(), // EQUITY, FIXED_INCOME, MONEY_MARKET, ALTERNATIVE, DERIVATIVE
+  description: text('description'),
+  is_government: boolean('is_government').default(false),
+  is_listed: boolean('is_listed').default(true),
+  tenor_category: text('tenor_category'), // SHORT_TERM, MEDIUM_TERM, LONG_TERM
+  regulatory_category: text('regulatory_category'), // BSP_ELIGIBLE, PDEX_LISTED, SEC_REGISTERED
+  is_active: boolean('is_active').default(true),
+  ...auditFields,
+});
+
+/** MB-GAP-014b: Deposit placements (time deposits, special savings, structured deposits) */
+export const depositPlacements = pgTable('deposit_placements', {
+  id: serial('id').primaryKey(),
+  placement_id: text('placement_id').unique().notNull(),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  deposit_type: text('deposit_type').notNull(), // TIME_DEPOSIT, SPECIAL_SAVINGS, STRUCTURED_DEPOSIT, FIXED_DEPOSIT
+  bank_name: text('bank_name').notNull(),
+  bank_branch: text('bank_branch'),
+  account_number: text('account_number'),
+  currency: text('currency').default('PHP'),
+  principal_amount: numeric('principal_amount', { precision: 21, scale: 4 }).notNull(),
+  interest_rate: numeric('interest_rate', { precision: 10, scale: 6 }),
+  placement_date: date('placement_date').notNull(),
+  maturity_date: date('maturity_date'),
+  term_days: integer('term_days'),
+  interest_computation: text('interest_computation').default('ACTUAL_360'), // ACTUAL_360, ACTUAL_365, 30_360
+  accrued_interest: numeric('accrued_interest', { precision: 21, scale: 4 }).default('0'),
+  pre_termination_penalty_pct: numeric('pre_termination_penalty_pct', { precision: 10, scale: 6 }),
+  auto_rollover: boolean('auto_rollover').default(false),
+  rollover_count: integer('rollover_count').default(0),
+  withholding_tax_rate: numeric('withholding_tax_rate', { precision: 10, scale: 6 }).default('0.20'),
+  placement_status: text('placement_status').default('ACTIVE'), // ACTIVE, MATURED, PRE_TERMINATED, ROLLED_OVER
+  certificate_number: text('certificate_number'),
+  remarks: text('remarks'),
+  ...auditFields,
+});
+
+/** MB-GAP-014c: Property assets master (real estate — land, building, TCT/CCT) */
+export const propertyAssets = pgTable('property_assets', {
+  id: serial('id').primaryKey(),
+  property_id: text('property_id').unique().notNull(),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  property_type: text('property_type').notNull(), // LAND, BUILDING, CONDOMINIUM_UNIT, COMMERCIAL, RESIDENTIAL, AGRICULTURAL, INDUSTRIAL
+  title_type: text('title_type'), // TCT (Transfer Certificate of Title), CCT (Condominium Certificate of Title), OCT, TAX_DECLARATION
+  title_number: text('title_number'),
+  registry_of_deeds: text('registry_of_deeds'),
+  lot_number: text('lot_number'),
+  block_number: text('block_number'),
+  survey_number: text('survey_number'),
+  tax_declaration_number: text('tax_declaration_number'),
+  address: text('address'),
+  city_municipality: text('city_municipality'),
+  province: text('province'),
+  land_area_sqm: numeric('land_area_sqm', { precision: 21, scale: 4 }),
+  floor_area_sqm: numeric('floor_area_sqm', { precision: 21, scale: 4 }),
+  acquisition_date: date('acquisition_date'),
+  acquisition_cost: numeric('acquisition_cost', { precision: 21, scale: 4 }),
+  current_appraised_value: numeric('current_appraised_value', { precision: 21, scale: 4 }),
+  last_appraisal_date: date('last_appraisal_date'),
+  appraiser_name: text('appraiser_name'),
+  zonal_value: numeric('zonal_value', { precision: 21, scale: 4 }),
+  assessed_value: numeric('assessed_value', { precision: 21, scale: 4 }),
+  rental_income_monthly: numeric('rental_income_monthly', { precision: 21, scale: 4 }),
+  tenant_name: text('tenant_name'),
+  lease_start_date: date('lease_start_date'),
+  lease_end_date: date('lease_end_date'),
+  insurance_policy_number: text('insurance_policy_number'),
+  insurance_expiry_date: date('insurance_expiry_date'),
+  encumbrances: text('encumbrances'), // mortgages, liens, annotations
+  property_status: text('property_status').default('HELD'), // HELD, FOR_SALE, SOLD, FORECLOSED, UNDER_LITIGATION
+  remarks: text('remarks'),
+  ...auditFields,
+});
+
+/** MB-GAP-014d: Property valuations history */
+export const propertyValuations = pgTable('property_valuations', {
+  id: serial('id').primaryKey(),
+  property_id: text('property_id').references(() => propertyAssets.property_id),
+  valuation_date: date('valuation_date').notNull(),
+  valuation_type: text('valuation_type').notNull(), // APPRAISAL, ZONAL, BIR_ZONAL, MARKET_COMPARABLE, INCOME_APPROACH
+  appraised_value: numeric('appraised_value', { precision: 21, scale: 4 }).notNull(),
+  appraiser_name: text('appraiser_name'),
+  appraiser_license: text('appraiser_license'),
+  valuation_report_ref: text('valuation_report_ref'),
+  remarks: text('remarks'),
+  ...auditFields,
+});
+
+/** MB-GAP-014e: Safekeeping vault master */
+export const safekeepingVaults = pgTable('safekeeping_vaults', {
+  id: serial('id').primaryKey(),
+  vault_code: text('vault_code').unique().notNull(),
+  vault_name: text('vault_name').notNull(),
+  location: text('location').notNull(),
+  branch_code: text('branch_code'),
+  vault_type: text('vault_type').default('MAIN'), // MAIN, BRANCH, OFFSITE, PARTNER_CUSTODIAN
+  total_capacity: integer('total_capacity'),
+  used_capacity: integer('used_capacity').default(0),
+  access_level: text('access_level').default('RESTRICTED'), // RESTRICTED, HIGH_SECURITY, STANDARD
+  custodian_name: text('custodian_name'),
+  is_active: boolean('is_active').default(true),
+  remarks: text('remarks'),
+  ...auditFields,
+});
+
+/** MB-GAP-014f: Vault access log */
+export const vaultAccessLogs = pgTable('vault_access_logs', {
+  id: serial('id').primaryKey(),
+  vault_id: integer('vault_id').references(() => safekeepingVaults.id),
+  accessed_by: integer('accessed_by').references(() => users.id),
+  access_type: text('access_type').notNull(), // DEPOSIT, WITHDRAWAL, INSPECTION, INVENTORY, TRANSFER
+  certificate_ids: jsonb('certificate_ids'), // array of certificate IDs accessed
+  access_date: timestamp('access_date').defaultNow(),
+  witness_name: text('witness_name'),
+  purpose: text('purpose'),
+  remarks: text('remarks'),
+  ...auditFields,
+});
+
+/** MB-GAP-014g: Non-financial assets (artwork, jewelry, collectibles) */
+export const nonFinancialAssets = pgTable('non_financial_assets', {
+  id: serial('id').primaryKey(),
+  asset_id: text('asset_id').unique().notNull(),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  asset_category: text('asset_category').notNull(), // ARTWORK, JEWELRY, COLLECTIBLES, ANTIQUES, PRECIOUS_METALS, VEHICLES, EQUIPMENT, OTHER
+  description: text('description').notNull(),
+  acquisition_date: date('acquisition_date'),
+  acquisition_cost: numeric('acquisition_cost', { precision: 21, scale: 4 }),
+  current_valuation: numeric('current_valuation', { precision: 21, scale: 4 }),
+  last_valuation_date: date('last_valuation_date'),
+  appraiser_name: text('appraiser_name'),
+  storage_location: text('storage_location'),
+  vault_id: integer('vault_id').references(() => safekeepingVaults.id),
+  insurance_policy_number: text('insurance_policy_number'),
+  insurance_value: numeric('insurance_value', { precision: 21, scale: 4 }),
+  insurance_expiry_date: date('insurance_expiry_date'),
+  condition_rating: text('condition_rating'), // EXCELLENT, GOOD, FAIR, POOR
+  provenance: text('provenance'), // history of ownership
+  serial_number: text('serial_number'),
+  dimensions: text('dimensions'), // size/weight/measurements
+  asset_status: text('asset_status').default('HELD'), // HELD, FOR_SALE, SOLD, LOST, DAMAGED
+  remarks: text('remarks'),
   ...auditFields,
 });

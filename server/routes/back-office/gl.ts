@@ -109,6 +109,7 @@ import { glBatchProcessor } from '../../services/gl-batch-processor';
 import { glAccrualService } from '../../services/gl-accrual-service';
 import { glReportBuilder } from '../../services/gl-report-builder';
 import { glReportScheduler } from '../../services/gl-report-scheduler';
+import { glExceptionService } from '../../services/gl-gap-closure-service';
 
 const router = Router();
 router.use(requireBackOfficeRole());
@@ -1701,17 +1702,22 @@ router.post(
   }),
 );
 
-/** GET /gl-nav/computations -- List NAV computations */
+/** GET /gl-nav/computations -- List NAV computations (GL-FUND-009: wired) */
 router.get(
   '/gl-nav/computations',
   asyncHandler(async (req: any, res: any) => {
-    // NAV computations listing not available as a dedicated method;
-    // return acknowledgement
-    res.json({ data: [], message: 'Use GET /gl-nav/computations/:id for individual lookup' });
+    const { glNavReportService } = await import('../../services/gl-gap-closure-service');
+    const fundId = req.query.fund_id ? parseInt(req.query.fund_id as string) : undefined;
+    if (fundId) {
+      const data = await glNavReportService.getNavpuReport(fundId, req.query.date_from as string, req.query.date_to as string);
+      res.json({ data });
+    } else {
+      res.json({ data: [], message: 'Provide fund_id query parameter' });
+    }
   }),
 );
 
-/** GET /gl-nav/computations/:id -- Get NAV computation */
+/** GET /gl-nav/computations/:id -- Get NAV computation detail (GL-FUND-009: wired) */
 router.get(
   '/gl-nav/computations/:id',
   asyncHandler(async (req: any, res: any) => {
@@ -1721,11 +1727,18 @@ router.get(
         error: { code: 'INVALID_INPUT', message: 'Invalid NAV computation ID' },
       });
     }
-    // NAV computation detail not available as a dedicated method;
-    // return not found
-    res.status(404).json({
-      error: { code: 'NOT_FOUND', message: `NAV computation ${id} not found` },
-    });
+    const { glNavReportService } = await import('../../services/gl-gap-closure-service');
+    // Use nav summary for single computation lookup
+    const { db: dbInstance } = await import('../../db');
+    const s = await import('@shared/schema');
+    const { eq: eqOp } = await import('drizzle-orm');
+    const [record] = await dbInstance.select().from(s.glNavComputations).where(eqOp(s.glNavComputations.id, id)).limit(1);
+    if (!record) {
+      return res.status(404).json({
+        error: { code: 'NOT_FOUND', message: `NAV computation ${id} not found` },
+      });
+    }
+    res.json({ data: record });
   }),
 );
 
@@ -1823,16 +1836,19 @@ router.post(
 // GL Exception Queue APIs
 // ============================================================================
 
-/** GET /gl-exceptions -- List posting exceptions */
+/** GET /gl-exceptions -- List posting exceptions (GL-AUD-006: un-stubbed) */
 router.get(
   '/gl-exceptions',
   asyncHandler(async (req: any, res: any) => {
-    // Exception queue not available as a dedicated service method
-    res.json({ data: [], total: 0, message: 'GL exception queue' });
+    const resolved = req.query.resolved === 'true' ? true : req.query.resolved === 'false' ? false : undefined;
+    const category = req.query.category as string | undefined;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+    const data = await glExceptionService.listExceptions({ resolved, category, limit });
+    res.json({ data, total: data.length });
   }),
 );
 
-/** PUT /gl-exceptions/:id/resolve -- Resolve exception */
+/** PUT /gl-exceptions/:id/resolve -- Resolve exception (GL-AUD-006: un-stubbed) */
 router.put(
   '/gl-exceptions/:id/resolve',
   asyncHandler(async (req: any, res: any) => {
@@ -1848,17 +1864,8 @@ router.put(
         error: { code: 'INVALID_INPUT', message: 'resolution is required' },
       });
     }
-    // Exception resolution not available as a dedicated service method
-    res.json({
-      data: {
-        id,
-        resolution,
-        notes,
-        resolved_by: req.userId || 'system',
-        resolved_at: new Date().toISOString(),
-        status: 'RESOLVED',
-      },
-    });
+    const data = await glExceptionService.resolveException(id, resolution, notes ?? '', req.userId ?? 1);
+    res.json({ data });
   }),
 );
 
