@@ -17,7 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@ui/components/ui/sheet";
 import { Label } from "@ui/components/ui/label";
 import { Skeleton } from "@ui/components/ui/skeleton";
-import { useToast } from "@ui/hooks/use-toast";
+import { useToast } from "@ui/components/ui/toast";
 import {
   Banknote, Plus, Search, AlertTriangle, Calendar, TrendingUp,
   DollarSign, ChevronLeft, ChevronRight, Eye,

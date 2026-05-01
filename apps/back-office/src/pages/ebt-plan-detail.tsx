@@ -47,7 +47,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@ui/components/ui/tabs";
-import { useToast } from "@ui/hooks/use-toast";
+import { useToast } from "@ui/components/ui/toast";
 import {
   ArrowLeft,
   Plus,

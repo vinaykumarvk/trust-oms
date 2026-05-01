@@ -40,7 +40,7 @@ import {
 } from "@ui/components/ui/select";
 import { Label } from "@ui/components/ui/label";
 import { Textarea } from "@ui/components/ui/textarea";
-import { useToast } from "@ui/hooks/use-toast";
+import { useToast } from "@ui/components/ui/toast";
 import {
   Heart,
   Plus,

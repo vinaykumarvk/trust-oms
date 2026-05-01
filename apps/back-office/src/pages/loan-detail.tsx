@@ -18,7 +18,7 @@ import { Input } from "@ui/components/ui/input";
 import { Label } from "@ui/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ui/components/ui/select";
 import { Skeleton } from "@ui/components/ui/skeleton";
-import { useToast } from "@ui/hooks/use-toast";
+import { useToast } from "@ui/components/ui/toast";
 import {
   ArrowLeft, CheckCircle, Play, XCircle, DollarSign,
   Plus, RefreshCw, FileText, Shield, Receipt,
@@ -101,7 +101,7 @@ export default function LoanDetail() {
   // ── Mutations ───────────────────────────────────────────────────────────────
   const action = (path: string, method = "POST") =>
     useMutation({
-      mutationFn: (body?: any) =>
+      mutationFn: (body: Record<string, unknown> | void) =>
         fetch(`${API}/${facilityId}${path}`, {
           method, headers: { "Content-Type": "application/json" },
           body: body ? JSON.stringify(body) : undefined,
