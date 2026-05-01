@@ -41,7 +41,8 @@ import { logAuditEvent } from '../services/audit-logger';
 
 export function requireAnyRole(...roles: string[]) {
   return (req: Request, res: Response, next: NextFunction) => {
-    if (!req.userRole || !roles.includes(req.userRole)) {
+    const normalizedRole = req.userRole?.toUpperCase();
+    if (!normalizedRole || !roles.includes(normalizedRole)) {
       return res.status(403).json({
         error: {
           code: 'FORBIDDEN',
@@ -205,9 +206,9 @@ export function requirePermission(resource: string, action: string) {
 
     // Support both req.user.roles (array) and req.userRole (string)
     const userRoles: string[] = (req as any).user?.roles
-      ?? (req.userRole ? [req.userRole] : []);
+      ?? (req.userRole ? [req.userRole.toUpperCase()] : []);
 
-    const hasPermission = userRoles.some((role: string) => allowedRoles.includes(role));
+    const hasPermission = userRoles.some((role: string) => allowedRoles.includes(role.toUpperCase()));
 
     if (!hasPermission) {
       return res.status(403).json({
