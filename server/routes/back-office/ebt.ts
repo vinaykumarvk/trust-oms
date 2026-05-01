@@ -8,6 +8,15 @@
 
 import { Router, Request, Response } from 'express';
 import { ebtService, ebtGratuityService } from '../../services/ebt-service';
+import {
+  pfMemberTransferService,
+  pfMemberMergeService,
+  pfForfeitureService,
+  pfFundValuationService,
+  pfMemberUnitService,
+  pfLoanAmortizationService,
+  pfBenefitPaymentService,
+} from '../../services/pf-extension-service';
 import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { safeErrorMessage, httpStatusFromError } from '../../services/service-errors';
 
@@ -299,6 +308,126 @@ router.post('/plans/:planId/distribute-income', requireBackOfficeRole(), asyncHa
 router.get('/dashboard', requireBackOfficeRole(), asyncHandler(async (req, res) => {
   const summary = await ebtService.getDashboardSummary(req.query.plan_id as string);
   res.json(summary);
+}));
+
+// ─── MB-GAP-023: Member Transfer ──────────────────────────────────────────────
+
+router.post('/members/:memberId/transfer', requireBackOfficeRole(), asyncHandler(async (req: any, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  const { target_plan_id, transfer_balance } = req.body;
+  if (!target_plan_id) return res.status(400).json({ error: 'target_plan_id required' });
+  const data = await pfMemberTransferService.transferMember(
+    req.params.memberId, target_plan_id, String(userId), transfer_balance ?? true,
+  );
+  res.json(data);
+}));
+
+// ─── MB-GAP-023: Member Merge ─────────────────────────────────────────────────
+
+router.post('/members/merge', requireBackOfficeRole(), asyncHandler(async (req: any, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  const { primary_member_id, duplicate_member_id } = req.body;
+  if (!primary_member_id || !duplicate_member_id) {
+    return res.status(400).json({ error: 'primary_member_id and duplicate_member_id required' });
+  }
+  const data = await pfMemberMergeService.mergeDuplicate(primary_member_id, duplicate_member_id, String(userId));
+  res.json(data);
+}));
+
+// ─── MB-GAP-023: Forfeiture ──────────────────────────────────────────────────
+
+router.get('/members/:memberId/forfeiture', requireBackOfficeRole(), asyncHandler(async (req, res) => {
+  const data = await pfForfeitureService.computeForfeiture(req.params.memberId);
+  res.json(data);
+}));
+
+router.post('/members/:memberId/forfeiture', requireBackOfficeRole(), asyncHandler(async (req: any, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  const data = await pfForfeitureService.executeForfeiture(req.params.memberId, String(userId));
+  res.json(data);
+}));
+
+// ─── MB-GAP-023: Fund Valuations / NAVPU ──────────────────────────────────────
+
+router.post('/valuations', requireBackOfficeRole(), asyncHandler(async (req: any, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  const data = await pfFundValuationService.recordValuation({ ...req.body, userId: String(userId) });
+  res.status(201).json(data);
+}));
+
+router.get('/valuations/:planId', requireBackOfficeRole(), asyncHandler(async (req, res) => {
+  const limit = parseInt(String(req.query.limit ?? '90'), 10);
+  const data = await pfFundValuationService.getValuationHistory(req.params.planId, limit);
+  res.json(data);
+}));
+
+router.get('/valuations/:planId/latest', requireBackOfficeRole(), asyncHandler(async (req, res) => {
+  const data = await pfFundValuationService.getLatestNavpu(req.params.planId);
+  res.json(data);
+}));
+
+// ─── MB-GAP-023: Member Units ─────────────────────────────────────────────────
+
+router.post('/member-units', requireBackOfficeRole(), asyncHandler(async (req: any, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  const data = await pfMemberUnitService.recordUnitTransaction({ ...req.body, userId: String(userId) });
+  res.status(201).json(data);
+}));
+
+router.get('/member-units/:memberId/:planId', requireBackOfficeRole(), asyncHandler(async (req, res) => {
+  const data = await pfMemberUnitService.getUnitLedger(req.params.memberId, req.params.planId);
+  res.json(data);
+}));
+
+router.get('/member-units/:memberId/:planId/balance', requireBackOfficeRole(), asyncHandler(async (req, res) => {
+  const data = await pfMemberUnitService.getUnitBalance(req.params.memberId, req.params.planId);
+  res.json(data);
+}));
+
+// ─── MB-GAP-023: Loan Amortization ───────────────────────────────────────────
+
+router.post('/loans/:loanId/amortization', requireBackOfficeRole(), asyncHandler(async (req: any, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  const data = await pfLoanAmortizationService.generateSchedule(req.params.loanId, String(userId));
+  res.json(data);
+}));
+
+router.get('/loans/:loanId/amortization', requireBackOfficeRole(), asyncHandler(async (req, res) => {
+  const data = await pfLoanAmortizationService.getSchedule(req.params.loanId);
+  res.json(data);
+}));
+
+// ─── MB-GAP-023: Benefit Payment Scheduling ──────────────────────────────────
+
+router.post('/claims/:claimId/schedule-payments', requireBackOfficeRole(), asyncHandler(async (req: any, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  const data = await pfBenefitPaymentService.schedulePayments({
+    claim_id: req.params.claimId,
+    ...req.body,
+    userId: String(userId),
+  });
+  res.json(data);
+}));
+
+router.get('/claims/:claimId/payments', requireBackOfficeRole(), asyncHandler(async (req, res) => {
+  const data = await pfBenefitPaymentService.getPaymentSchedule(req.params.claimId);
+  res.json(data);
+}));
+
+router.post('/payments/:paymentId/mark-paid', requireBackOfficeRole(), asyncHandler(async (req: any, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  const paymentId = parseInt(req.params.paymentId, 10);
+  if (isNaN(paymentId)) return res.status(400).json({ error: 'Invalid paymentId' });
+  const data = await pfBenefitPaymentService.markPaid(paymentId, req.body.reference ?? '', String(userId));
+  res.json(data);
 }));
 
 export default router;

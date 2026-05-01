@@ -616,6 +616,23 @@ export const trustAccounts = pgTable(
     closed_at: timestamp('closed_at', { withTimezone: true }),
     risk_profile_snapshot: jsonb('risk_profile_snapshot'),
     related_party_policy: jsonb('related_party_policy'),
+    // MB-GAP-006: Trust account build-up enrichment
+    sales_officer_id: integer('sales_officer_id').references(() => users.id),
+    account_officer_id: integer('account_officer_id').references(() => users.id),
+    portfolio_manager_id: integer('portfolio_manager_id').references(() => users.id),
+    referring_unit: text('referring_unit'),
+    tbg_division: text('tbg_division'),
+    sa_no: text('sa_no'),
+    sa_name: text('sa_name'),
+    mailing_instructions: jsonb('mailing_instructions'),
+    statement_frequency: text('statement_frequency').default('QUARTERLY'),
+    amla_type: text('amla_type').default('NORMAL'),
+    discretion_flag: boolean('discretion_flag').default(false),
+    tax_status: text('tax_status').default('TAXABLE'),
+    escrow_contract_expiry: date('escrow_contract_expiry'),
+    // MB-GAP-007: Joint account support
+    joint_account_type: text('joint_account_type').default('SOLE'),
+    max_joint_holders: integer('max_joint_holders').default(1),
     ...auditFields,
   },
   (table) => [
@@ -755,6 +772,71 @@ export const trustAccountFoundationEvents = pgTable(
   ],
 );
 
+// MB-GAP-008: Trust account special instructions
+export const trustSpecialInstructions = pgTable(
+  'trust_special_instructions',
+  {
+    id: serial('id').primaryKey(),
+    trust_account_id: text('trust_account_id').notNull().references(() => trustAccounts.account_id),
+    instruction_type: text('instruction_type').notNull().default('CUSTOM'),
+    title: text('title').notNull(),
+    description: text('description'),
+    trigger_date: date('trigger_date'),
+    recurrence_rule: text('recurrence_rule').default('NONE'),
+    next_trigger_date: date('next_trigger_date'),
+    is_active: boolean('is_active').notNull().default(true),
+    notified_at: timestamp('notified_at', { withTimezone: true }),
+    assigned_to: integer('assigned_to').references(() => users.id),
+    ...auditFields,
+  },
+  (table) => [
+    index('idx_trust_special_instructions_account').on(table.trust_account_id),
+    index('idx_trust_special_instructions_next_trigger').on(table.next_trigger_date),
+  ],
+);
+
+// MB-GAP-009: Trust account status change history
+export const trustAccountStatusHistory = pgTable(
+  'trust_account_status_history',
+  {
+    id: serial('id').primaryKey(),
+    trust_account_id: text('trust_account_id').notNull().references(() => trustAccounts.account_id),
+    previous_status: text('previous_status'),
+    new_status: text('new_status').notNull(),
+    change_reason: text('change_reason'),
+    changed_by: integer('changed_by').references(() => users.id),
+    effective_date: date('effective_date').notNull(),
+    approval_required: boolean('approval_required').default(false),
+    approved_by: integer('approved_by').references(() => users.id),
+    approved_at: timestamp('approved_at', { withTimezone: true }),
+    ...auditFields,
+  },
+  (table) => [
+    index('idx_trust_account_status_history_account').on(table.trust_account_id),
+  ],
+);
+
+// MB-GAP-009: Trust hold change history (placed/modified/lifted)
+export const trustHoldHistory = pgTable(
+  'trust_hold_history',
+  {
+    id: serial('id').primaryKey(),
+    hold_id: text('hold_id').references(() => accountHolds.hold_id),
+    trust_account_id: text('trust_account_id').references(() => trustAccounts.account_id),
+    action: text('action').notNull(),
+    previous_state: jsonb('previous_state'),
+    change_reason: text('change_reason'),
+    changed_by: integer('changed_by').references(() => users.id),
+    approved_by: integer('approved_by').references(() => users.id),
+    approved_at: timestamp('approved_at', { withTimezone: true }),
+    ...auditFields,
+  },
+  (table) => [
+    index('idx_trust_hold_history_hold').on(table.hold_id),
+    index('idx_trust_hold_history_account').on(table.trust_account_id),
+  ],
+);
+
 // ============================================================================
 // 4. Securities & Counterparties
 // ============================================================================
@@ -784,6 +866,14 @@ export const securities = pgTable('securities', {
   maturity_date: date('maturity_date'),
   yield_rate: numeric('yield_rate'),
   coupon_frequency: integer('coupon_frequency'),
+  // MB-GAP-014: Exotic instrument fields
+  is_callable: boolean('is_callable').default(false),
+  call_date: date('call_date'),
+  call_price: numeric('call_price', { precision: 21, scale: 4 }),
+  is_putable: boolean('is_putable').default(false),
+  put_date: date('put_date'),
+  put_price: numeric('put_price', { precision: 21, scale: 4 }),
+  instrument_sub_type: text('instrument_sub_type'),
   ...auditFields,
 });
 
@@ -7331,6 +7421,77 @@ export const ebtReinstatements = pgTable('ebt_reinstatements', {
   index('ebt_reinstatements_member_idx').on(table.member_id),
 ]);
 
+// MB-GAP-023: Fund NAVPU valuations
+export const pfFundValuations = pgTable('pf_fund_valuations', {
+  id: serial('id').primaryKey(),
+  plan_id: text('plan_id').references(() => ebtPlans.plan_id).notNull(),
+  valuation_date: date('valuation_date').notNull(),
+  total_fund_assets: numeric('total_fund_assets', { precision: 21, scale: 4 }).notNull(),
+  total_units_outstanding: numeric('total_units_outstanding', { precision: 21, scale: 8 }).notNull(),
+  navpu: numeric('navpu', { precision: 21, scale: 8 }).notNull(),
+  previous_navpu: numeric('previous_navpu', { precision: 21, scale: 8 }),
+  daily_return_pct: numeric('daily_return_pct', { precision: 9, scale: 6 }),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('pf_fund_valuations_plan_idx').on(table.plan_id),
+  index('pf_fund_valuations_date_idx').on(table.valuation_date),
+]);
+
+// MB-GAP-023: Member unit ledger
+export const pfMemberUnits = pgTable('pf_member_units', {
+  id: serial('id').primaryKey(),
+  member_id: text('member_id').references(() => ebtMembers.member_id).notNull(),
+  plan_id: text('plan_id').references(() => ebtPlans.plan_id).notNull(),
+  transaction_date: date('transaction_date').notNull(),
+  transaction_type: text('transaction_type').notNull(),
+  units: numeric('units', { precision: 21, scale: 8 }).notNull(),
+  navpu_at_transaction: numeric('navpu_at_transaction', { precision: 21, scale: 8 }).notNull(),
+  amount: numeric('amount', { precision: 21, scale: 4 }).notNull(),
+  running_units: numeric('running_units', { precision: 21, scale: 8 }).notNull(),
+  reference_id: text('reference_id'),
+  ...auditFields,
+}, (table) => [
+  index('pf_member_units_member_idx').on(table.member_id),
+  index('pf_member_units_plan_idx').on(table.plan_id),
+]);
+
+// MB-GAP-023: Benefit payment schedule (lump-sum vs annuity)
+export const pfBenefitPayments = pgTable('pf_benefit_payments', {
+  id: serial('id').primaryKey(),
+  claim_id: text('claim_id').references(() => ebtBenefitClaims.claim_id).notNull(),
+  member_id: text('member_id').references(() => ebtMembers.member_id).notNull(),
+  payment_mode: text('payment_mode').notNull().default('LUMP_SUM'),
+  scheduled_date: date('scheduled_date').notNull(),
+  amount: numeric('amount', { precision: 21, scale: 4 }).notNull(),
+  payment_status: text('payment_status').default('SCHEDULED'),
+  paid_date: date('paid_date'),
+  payment_reference: text('payment_reference'),
+  sequence_no: integer('sequence_no').default(1),
+  total_installments: integer('total_installments').default(1),
+  ...auditFields,
+}, (table) => [
+  index('pf_benefit_payments_claim_idx').on(table.claim_id),
+  index('pf_benefit_payments_member_idx').on(table.member_id),
+]);
+
+// MB-GAP-023: Loan amortization schedule
+export const pfLoanAmortization = pgTable('pf_loan_amortization', {
+  id: serial('id').primaryKey(),
+  loan_id: text('loan_id').references(() => ebtLoans.loan_id).notNull(),
+  installment_no: integer('installment_no').notNull(),
+  due_date: date('due_date').notNull(),
+  principal: numeric('principal', { precision: 21, scale: 4 }).notNull(),
+  interest: numeric('interest', { precision: 21, scale: 4 }).notNull(),
+  total_payment: numeric('total_payment', { precision: 21, scale: 4 }).notNull(),
+  remaining_balance: numeric('remaining_balance', { precision: 21, scale: 4 }).notNull(),
+  paid: boolean('paid').default(false),
+  paid_date: date('paid_date'),
+  ...auditFields,
+}, (table) => [
+  index('pf_loan_amortization_loan_idx').on(table.loan_id),
+]);
+
 // ─── Account & Fund Management Enums ─────────────────────────────────────────
 
 export const holdOutTypeEnum = pgEnum('hold_out_type', [
@@ -7562,6 +7723,110 @@ export const stockholderMeetings = pgTable('stockholder_meetings', {
   ...auditFields,
 });
 
+// ─── MB-GAP-027: Life Insurance Trust ─────────────────────────────────────────
+
+export const lifeInsuranceTrusts = pgTable('life_insurance_trusts', {
+  id: serial('id').primaryKey(),
+  trust_id: text('trust_id').unique().notNull(),
+  trust_account_id: text('trust_account_id').references(() => trustAccounts.account_id),
+  client_id: text('client_id').references(() => clients.client_id).notNull(),
+  policy_number: text('policy_number').notNull(),
+  insurer_name: text('insurer_name').notNull(),
+  insured_name: text('insured_name').notNull(),
+  beneficiary_name: text('beneficiary_name'),
+  policy_type: text('policy_type').default('WHOLE_LIFE'),
+  face_value: numeric('face_value', { precision: 21, scale: 4 }),
+  premium_amount: numeric('premium_amount', { precision: 21, scale: 4 }),
+  premium_frequency: text('premium_frequency').default('ANNUAL'),
+  next_premium_date: date('next_premium_date'),
+  policy_inception_date: date('policy_inception_date'),
+  policy_maturity_date: date('policy_maturity_date'),
+  trust_fee_type: text('trust_fee_type').default('FLAT'),
+  trust_fee_amount: numeric('trust_fee_amount', { precision: 21, scale: 4 }),
+  trust_fee_rate: numeric('trust_fee_rate', { precision: 9, scale: 6 }),
+  policy_status: text('policy_status').default('ACTIVE'),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('life_insurance_trusts_client_idx').on(table.client_id),
+  index('life_insurance_trusts_policy_idx').on(table.policy_number),
+]);
+
+export const lifeInsurancePremiums = pgTable('life_insurance_premiums', {
+  id: serial('id').primaryKey(),
+  trust_id: text('trust_id').references(() => lifeInsuranceTrusts.trust_id).notNull(),
+  premium_date: date('premium_date').notNull(),
+  amount: numeric('amount', { precision: 21, scale: 4 }).notNull(),
+  payment_status: text('payment_status').default('PENDING'),
+  payment_reference: text('payment_reference'),
+  paid_date: date('paid_date'),
+  reminder_sent: boolean('reminder_sent').default(false),
+  reminder_sent_date: date('reminder_sent_date'),
+  ...auditFields,
+}, (table) => [
+  index('life_insurance_premiums_trust_idx').on(table.trust_id),
+  index('life_insurance_premiums_date_idx').on(table.premium_date),
+]);
+
+// MB-GAP-025: Proxy registration (extends stockholderMeetings)
+export const proxyRegistrations = pgTable('proxy_registrations', {
+  id: serial('id').primaryKey(),
+  meeting_id: text('meeting_id').references(() => stockholderMeetings.meeting_id).notNull(),
+  stockholder_name: text('stockholder_name').notNull(),
+  stockholder_account: text('stockholder_account'),
+  shares_represented: numeric('shares_represented', { precision: 21, scale: 4 }).notNull(),
+  proxy_holder_name: text('proxy_holder_name').notNull(),
+  proxy_type: text('proxy_type').default('GENERAL'),
+  registration_date: date('registration_date'),
+  validation_status: text('validation_status').default('PENDING'),
+  validated_by: text('validated_by'),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('proxy_registrations_meeting_idx').on(table.meeting_id),
+]);
+
+// MB-GAP-028: UITF switching transactions
+export const uitfSwitchingTransactions = pgTable('uitf_switching_transactions', {
+  id: serial('id').primaryKey(),
+  switching_id: text('switching_id').unique().notNull(),
+  investor_id: text('investor_id').references(() => clients.client_id).notNull(),
+  source_portfolio_id: text('source_portfolio_id').references(() => portfolios.portfolio_id).notNull(),
+  target_portfolio_id: text('target_portfolio_id').references(() => portfolios.portfolio_id).notNull(),
+  switch_date: date('switch_date').notNull(),
+  redeemed_units: numeric('redeemed_units', { precision: 21, scale: 8 }).notNull(),
+  redemption_navpu: numeric('redemption_navpu', { precision: 21, scale: 8 }).notNull(),
+  redemption_amount: numeric('redemption_amount', { precision: 21, scale: 4 }).notNull(),
+  subscribed_units: numeric('subscribed_units', { precision: 21, scale: 8 }),
+  subscription_navpu: numeric('subscription_navpu', { precision: 21, scale: 8 }),
+  subscription_amount: numeric('subscription_amount', { precision: 21, scale: 4 }),
+  switching_fee: numeric('switching_fee', { precision: 21, scale: 4 }).default('0'),
+  switch_status: text('switch_status').default('PENDING'),
+  cut_off_applied: boolean('cut_off_applied').default(false),
+  ...auditFields,
+}, (table) => [
+  index('uitf_switching_investor_idx').on(table.investor_id),
+]);
+
+// MB-GAP-028: UITF document tracking (PTA/COT/TOF)
+export const uitfDocuments = pgTable('uitf_documents', {
+  id: serial('id').primaryKey(),
+  document_type: text('document_type').notNull(),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  investor_id: text('investor_id').references(() => clients.client_id),
+  transaction_reference: text('transaction_reference'),
+  document_date: date('document_date').notNull(),
+  document_number: text('document_number').unique(),
+  content: jsonb('content'),
+  generated_by: text('generated_by'),
+  delivery_status: text('delivery_status').default('PENDING'),
+  delivered_at: timestamp('delivered_at', { withTimezone: true }),
+  ...auditFields,
+}, (table) => [
+  index('uitf_documents_portfolio_idx').on(table.portfolio_id),
+  index('uitf_documents_investor_idx').on(table.investor_id),
+]);
+
 // ─── Operations Tables ───────────────────────────────────────────────────────
 
 /** OPS-03/04/05/06: Check management */
@@ -7584,6 +7849,13 @@ export const checkRegister = pgTable('check_register', {
   printed: boolean('printed').default(false),
   print_date: date('print_date'),
   remarks: text('remarks'),
+  // MB-GAP-020: Stop payment and reconciliation extensions
+  stop_payment_date: date('stop_payment_date'),
+  stop_payment_reason: text('stop_payment_reason'),
+  stop_payment_requested_by: integer('stop_payment_requested_by'),
+  reconciled: boolean('reconciled').default(false),
+  reconciled_date: date('reconciled_date'),
+  bank_statement_ref: text('bank_statement_ref'),
   ...auditFields,
 }, (table) => [
   index('check_register_status_idx').on(table.check_status),
@@ -7905,5 +8177,244 @@ export const transactionAdvices = pgTable('transaction_advices', {
   advice_content: jsonb('advice_content'),
   delivery_status: text('delivery_status').default('PENDING'),
   delivered_at: timestamp('delivered_at'),
+  ...auditFields,
+});
+
+// ============================================================================
+// MB-GAP-010: Fee Monitoring Alerts
+// ============================================================================
+export const feeMonitoringAlerts = pgTable('fee_monitoring_alerts', {
+  id: serial('id').primaryKey(),
+  alert_type: text('alert_type').notNull(), // AUM_DEVIATION, UNCOLLECTED_FEE, FLOOR_FEE_BREACH, FEE_VARIANCE
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  fee_plan_id: integer('fee_plan_id').references(() => feePlans.id),
+  severity: text('severity').default('MEDIUM'), // LOW, MEDIUM, HIGH, CRITICAL
+  threshold_value: numeric('threshold_value', { precision: 21, scale: 4 }),
+  actual_value: numeric('actual_value', { precision: 21, scale: 4 }),
+  deviation_pct: numeric('deviation_pct', { precision: 10, scale: 4 }),
+  alert_message: text('alert_message'),
+  alert_status: text('alert_status').default('OPEN'), // OPEN, ACKNOWLEDGED, RESOLVED, DISMISSED
+  acknowledged_by: integer('acknowledged_by').references(() => users.id),
+  acknowledged_at: timestamp('acknowledged_at'),
+  resolved_at: timestamp('resolved_at'),
+  ...auditFields,
+});
+
+// ============================================================================
+// MB-GAP-011: Performance Snapshots (TWR / IRR)
+// ============================================================================
+export const performanceSnapshots = pgTable('performance_snapshots', {
+  id: serial('id').primaryKey(),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  client_id: text('client_id').references(() => clients.client_id),
+  snapshot_date: date('snapshot_date').notNull(),
+  period_type: text('period_type').notNull(), // DAILY, MTD, QTD, YTD, 1Y, 3Y, 5Y, INCEPTION
+  twr_return: numeric('twr_return', { precision: 18, scale: 8 }),
+  irr_return: numeric('irr_return', { precision: 18, scale: 8 }),
+  benchmark_return: numeric('benchmark_return', { precision: 18, scale: 8 }),
+  excess_return: numeric('excess_return', { precision: 18, scale: 8 }),
+  beginning_market_value: numeric('beginning_market_value', { precision: 21, scale: 4 }),
+  ending_market_value: numeric('ending_market_value', { precision: 21, scale: 4 }),
+  net_cash_flows: numeric('net_cash_flows', { precision: 21, scale: 4 }),
+  income_earned: numeric('income_earned', { precision: 21, scale: 4 }),
+  realized_gains: numeric('realized_gains', { precision: 21, scale: 4 }),
+  unrealized_gains: numeric('unrealized_gains', { precision: 21, scale: 4 }),
+  attribution_by_asset_class: jsonb('attribution_by_asset_class'), // { equity: 0.05, fixed_income: 0.02, ... }
+  attribution_by_security: jsonb('attribution_by_security'),
+  gips_compliant: boolean('gips_compliant').default(false),
+  ...auditFields,
+}, (table) => [
+  index('perf_snap_portfolio_date_idx').on(table.portfolio_id, table.snapshot_date),
+]);
+
+// ============================================================================
+// MB-GAP-012: Fee Waivers
+// ============================================================================
+export const feeWaivers = pgTable('fee_waivers', {
+  id: serial('id').primaryKey(),
+  waiver_ref: text('waiver_ref').unique().notNull(),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  client_id: text('client_id').references(() => clients.client_id),
+  fee_plan_id: integer('fee_plan_id').references(() => feePlans.id),
+  waiver_type: text('waiver_type').notNull(), // FULL, PARTIAL, DISCOUNT_PCT, DISCOUNT_ABS
+  waiver_reason: text('waiver_reason').notNull(),
+  exemption_class: text('exemption_class'), // CHARITY, GOVERNMENT, EDUCATIONAL, EMPLOYEE, SENIOR_CITIZEN
+  original_fee_amount: numeric('original_fee_amount', { precision: 21, scale: 4 }),
+  waived_amount: numeric('waived_amount', { precision: 21, scale: 4 }),
+  discount_pct: numeric('discount_pct', { precision: 8, scale: 4 }),
+  effective_from: date('effective_from'),
+  effective_to: date('effective_to'),
+  waiver_status: text('waiver_status').default('PENDING'), // PENDING, APPROVED, REJECTED, EXPIRED
+  requested_by: integer('requested_by').references(() => users.id),
+  approved_by: integer('approved_by').references(() => users.id),
+  approved_at: timestamp('approved_at'),
+  rejection_reason: text('rejection_reason'),
+  ...auditFields,
+});
+
+// ============================================================================
+// MB-GAP-015: Standing Payment Instructions
+// ============================================================================
+export const standingPaymentInstructions = pgTable('standing_payment_instructions', {
+  id: serial('id').primaryKey(),
+  instruction_ref: text('instruction_ref').unique().notNull(),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  client_id: text('client_id').references(() => clients.client_id),
+  instruction_type: text('instruction_type').notNull(), // DIVIDEND, INTEREST, PRINCIPAL, SUBSCRIPTION, REDEMPTION
+  payment_method: text('payment_method').default('CREDIT_TO_ACCOUNT'), // CREDIT_TO_ACCOUNT, CHECK, WIRE
+  beneficiary_account: text('beneficiary_account'),
+  beneficiary_name: text('beneficiary_name'),
+  amount: numeric('amount', { precision: 21, scale: 4 }),
+  currency: text('currency').default('PHP'),
+  frequency: text('frequency').notNull(), // MONTHLY, QUARTERLY, SEMI_ANNUAL, ANNUAL, ON_EVENT
+  banking_day_rule: text('banking_day_rule').default('FOLLOWING'), // FOLLOWING, PRECEDING, MODIFIED_FOLLOWING
+  next_execution_date: date('next_execution_date'),
+  last_execution_date: date('last_execution_date'),
+  instruction_status: text('instruction_status').default('ACTIVE'), // ACTIVE, SUSPENDED, CANCELLED, COMPLETED
+  suspend_reason: text('suspend_reason'),
+  auto_cancel_on_closure: boolean('auto_cancel_on_closure').default(true),
+  execution_count: integer('execution_count').default(0),
+  ...auditFields,
+});
+
+// ============================================================================
+// MB-GAP-022: Document Checklists
+// ============================================================================
+export const documentChecklists = pgTable('document_checklists', {
+  id: serial('id').primaryKey(),
+  checklist_code: text('checklist_code').unique().notNull(),
+  checklist_name: text('checklist_name').notNull(),
+  applies_to: text('applies_to').notNull(), // ACCOUNT_OPENING, WITHDRAWAL, CONTRIBUTION, LOAN, BENEFIT_CLAIM, TRANSFER
+  product_type: text('product_type'), // specific trust product type or NULL for all
+  is_active: boolean('is_active').default(true),
+  ...auditFields,
+});
+
+export const documentChecklistItems = pgTable('document_checklist_items', {
+  id: serial('id').primaryKey(),
+  checklist_id: integer('checklist_id').references(() => documentChecklists.id).notNull(),
+  document_name: text('document_name').notNull(),
+  document_description: text('document_description'),
+  is_mandatory: boolean('is_mandatory').default(true),
+  copy_type: text('copy_type').default('ORIGINAL'), // ORIGINAL, CERTIFIED_COPY, PHOTOCOPY, ANY
+  max_age_days: integer('max_age_days'), // document must not be older than N days
+  sort_order: integer('sort_order').default(0),
+  ...auditFields,
+});
+
+export const documentChecklistAssignments = pgTable('document_checklist_assignments', {
+  id: serial('id').primaryKey(),
+  checklist_id: integer('checklist_id').references(() => documentChecklists.id).notNull(),
+  checklist_item_id: integer('checklist_item_id').references(() => documentChecklistItems.id).notNull(),
+  trust_account_id: text('trust_account_id'),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  reference_type: text('reference_type'), // ACCOUNT_OPENING, SERVICE_REQUEST, etc.
+  reference_id: text('reference_id'),
+  submission_status: text('submission_status').default('PENDING'), // PENDING, SUBMITTED, ACCEPTED, REJECTED, WAIVED
+  submitted_at: timestamp('submitted_at'),
+  reviewed_by: integer('reviewed_by').references(() => users.id),
+  reviewed_at: timestamp('reviewed_at'),
+  rejection_reason: text('rejection_reason'),
+  document_file_ref: text('document_file_ref'),
+  copy_type_submitted: text('copy_type_submitted'),
+  ...auditFields,
+});
+
+// ============================================================================
+// MB-GAP-032: Regulatory Report Runs
+// ============================================================================
+export const regulatoryReportRuns = pgTable('regulatory_report_runs', {
+  id: serial('id').primaryKey(),
+  report_template_id: integer('report_template_id').references(() => reportTemplates.id),
+  report_type: text('report_type').notNull(), // BSP_FRP, BSP_DOSRI, BIR_WHT, BIR_SAWT, SEC_UITF, SEC_TRUST_ANNUAL, AMLC_CTR, AMLC_STR
+  report_period: text('report_period').notNull(), // e.g., '2026-Q1', '2026-04'
+  run_status: text('run_status').default('QUEUED'), // QUEUED, RUNNING, COMPLETED, FAILED, CANCELLED
+  started_at: timestamp('started_at'),
+  completed_at: timestamp('completed_at'),
+  output_format: text('output_format').default('PDF'), // PDF, XLSX, CSV, WORD
+  output_file_ref: text('output_file_ref'),
+  output_file_size: integer('output_file_size'),
+  row_count: integer('row_count'),
+  target_path: text('target_path'),
+  email_recipients: jsonb('email_recipients'), // ["email1@mb.com", ...]
+  dispatch_status: text('dispatch_status').default('NOT_SENT'), // NOT_SENT, SENT, DELIVERED, FAILED
+  dispatched_at: timestamp('dispatched_at'),
+  dispatch_error: text('dispatch_error'),
+  encrypted: boolean('encrypted').default(false),
+  generated_by: integer('generated_by').references(() => users.id),
+  error_message: text('error_message'),
+  ...auditFields,
+});
+
+// ============================================================================
+// MB-GAP-003: UDF Instance Values
+// ============================================================================
+export const udfValues = pgTable('udf_values', {
+  id: serial('id').primaryKey(),
+  field_config_id: integer('field_config_id').references(() => entityFieldConfig.id).notNull(),
+  entity_type: text('entity_type').notNull(),
+  entity_id: text('entity_id').notNull(),
+  field_value: text('field_value'),
+  field_value_numeric: numeric('field_value_numeric', { precision: 21, scale: 4 }),
+  field_value_date: date('field_value_date'),
+  field_value_json: jsonb('field_value_json'),
+  ...auditFields,
+}, (table) => [
+  index('udf_values_entity_idx').on(table.entity_type, table.entity_id),
+]);
+
+// ============================================================================
+// MB-GAP-013: Restriction Matrix
+// ============================================================================
+export const restrictionRules = pgTable('restriction_rules', {
+  id: serial('id').primaryKey(),
+  rule_code: text('rule_code').unique().notNull(),
+  restriction_type: text('restriction_type').notNull(), // NATIONALITY, RESIDENCY, MIN_PRINCIPAL, US_INDICIA, DOC_DEFICIENCY, HOLDOUT, SUITABILITY, PRODUCT_ELIGIBILITY
+  applies_to: text('applies_to').notNull(), // SECURITY, PRODUCT, TRANSACTION, ACCOUNT, CLIENT
+  condition_expression: jsonb('condition_expression'), // {"field":"client.nationality","operator":"NOT_IN","values":["US","UK"]}
+  action_on_breach: text('action_on_breach').default('BLOCK'), // BLOCK, WARN, REQUIRE_APPROVAL
+  severity: text('severity').default('HIGH'),
+  is_active: boolean('is_active').default(true),
+  effective_from: date('effective_from'),
+  effective_to: date('effective_to'),
+  ...auditFields,
+});
+
+// ============================================================================
+// MB-GAP-021: Custodian Holdings Reconciliation
+// ============================================================================
+export const custodianReconciliations = pgTable('custodian_reconciliations', {
+  id: serial('id').primaryKey(),
+  recon_ref: text('recon_ref').unique().notNull(),
+  custodian_name: text('custodian_name').notNull(),
+  recon_date: date('recon_date').notNull(),
+  recon_type: text('recon_type').notNull(), // HOLDINGS, CASH, TRANSACTIONS
+  source_format: text('source_format'), // PDF, EXCEL, CSV, SWIFT
+  total_records: integer('total_records').default(0),
+  matched_records: integer('matched_records').default(0),
+  unmatched_records: integer('unmatched_records').default(0),
+  exceptions: jsonb('exceptions'), // [{security_id, our_qty, custodian_qty, variance}]
+  recon_status: text('recon_status').default('PENDING'), // PENDING, IN_PROGRESS, COMPLETED, EXCEPTIONS_FOUND
+  completed_at: timestamp('completed_at'),
+  ...auditFields,
+});
+
+// ============================================================================
+// MB-GAP-031: Impairment Assessments
+// ============================================================================
+export const impairmentAssessments = pgTable('impairment_assessments', {
+  id: serial('id').primaryKey(),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  security_id: integer('security_id').references(() => securities.id),
+  assessment_date: date('assessment_date').notNull(),
+  assessment_type: text('assessment_type').notNull(), // IFRS9_ECL, IAS36, FAIR_VALUE_DECLINE
+  carrying_amount: numeric('carrying_amount', { precision: 21, scale: 4 }),
+  recoverable_amount: numeric('recoverable_amount', { precision: 21, scale: 4 }),
+  impairment_loss: numeric('impairment_loss', { precision: 21, scale: 4 }),
+  reversal_amount: numeric('reversal_amount', { precision: 21, scale: 4 }),
+  trigger_reason: text('trigger_reason'), // COVENANT_BREACH, FAIR_VALUE_DECLINE_20PCT, COUNTERPARTY_DEFAULT, MARKET_CONDITION
+  gl_journal_id: integer('gl_journal_id'),
+  assessment_status: text('assessment_status').default('DRAFT'), // DRAFT, APPROVED, POSTED, REVERSED
+  approved_by: integer('approved_by').references(() => users.id),
   ...auditFields,
 });
