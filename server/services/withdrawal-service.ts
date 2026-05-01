@@ -10,6 +10,7 @@
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, desc, and, asc, sql, inArray } from 'drizzle-orm';
+import { trustAccountFoundationService } from './trust-account-foundation-service';
 
 export const withdrawalService = {
   /** Request a withdrawal from a portfolio */
@@ -94,6 +95,8 @@ export const withdrawalService = {
     // Look up configurable penalty schedule from system_config
     let penaltyRate = 0;
     let whtRate = 0;
+    let penaltyScheduleSource = 'DEFAULT';
+    let whtScheduleSource = 'DEFAULT';
 
     try {
       const [penaltyConfig] = await db
@@ -104,6 +107,7 @@ export const withdrawalService = {
 
       if (penaltyConfig?.config_value) {
         penaltyRate = parseFloat(penaltyConfig.config_value);
+        penaltyScheduleSource = `system_config:${penaltyConfig.config_key}`;
       }
 
       const [whtConfig] = await db
@@ -114,6 +118,7 @@ export const withdrawalService = {
 
       if (whtConfig?.config_value) {
         whtRate = parseFloat(whtConfig.config_value);
+        whtScheduleSource = `system_config:${whtConfig.config_key}`;
       }
     } catch {
       // Fall back to defaults if system_config query fails
@@ -137,6 +142,8 @@ export const withdrawalService = {
         default:
           penaltyRate = 0;
           whtRate = 0;
+          penaltyScheduleSource = 'DEFAULT_STANDARD';
+          whtScheduleSource = 'DEFAULT_STANDARD';
           break;
       }
     }
@@ -154,19 +161,55 @@ export const withdrawalService = {
       .where(eq(schema.withdrawals.id, withdrawalId))
       .returning();
 
+    try {
+      await db
+        .insert(schema.taxEvents)
+        .values({
+          portfolio_id: withdrawal.portfolio_id,
+          tax_type: 'WHT',
+          gross_amount: String(amount),
+          tax_rate: String(whtRate),
+          tax_amount: String(whtAmount),
+          certificate_ref: `WITHDRAW-${withdrawalId}`,
+          bir_form_type: withdrawalType === 'PERA_UNQUALIFIED' ? 'PERA_WITHDRAWAL' : 'WITHDRAWAL_WHT',
+          filing_status: 'PENDING',
+          source: 'WITHDRAWAL',
+          model_version: 'WITHDRAWAL_TAX_PENALTY_SCHEDULE_V1',
+          calculation_payload: {
+            withdrawal_id: withdrawalId,
+            withdrawal_type: withdrawalType,
+            currency: withdrawal.currency ?? 'PHP',
+            gross_amount: amount,
+            penalty_rate: penaltyRate,
+            penalty_amount: penaltyAmount,
+            penalty_schedule_source: penaltyScheduleSource,
+            wht_rate: whtRate,
+            wht_amount: whtAmount,
+            wht_schedule_source: whtScheduleSource,
+            total_deductions: totalDeductions,
+            net_amount: amount - totalDeductions,
+          },
+          correlation_id: `WITHDRAW-${withdrawalId}`,
+        } as any);
+    } catch (err: unknown) {
+      console.error('[WithdrawalService] Failed to create withdrawal tax event:', err instanceof Error ? err.message : err);
+    }
+
     return {
       withdrawal: updated,
       penalty_rate: penaltyRate,
       penalty_amount: penaltyAmount,
+      penalty_schedule_source: penaltyScheduleSource,
       wht_rate: whtRate,
       wht_amount: whtAmount,
+      wht_schedule_source: whtScheduleSource,
       total_deductions: totalDeductions,
       net_amount: amount - totalDeductions,
     };
   },
 
   /** Approve a pending withdrawal */
-  async approveWithdrawal(withdrawalId: number, approvedBy: number) {
+  async approveWithdrawal(withdrawalId: number, approvedBy: number, signerPartyIds: number[] = []) {
     const [withdrawal] = await db
       .select()
       .from(schema.withdrawals)
@@ -181,6 +224,17 @@ export const withdrawalService = {
       throw new Error(
         `Cannot approve withdrawal in status ${withdrawal.withdrawal_status}; must be PENDING_APPROVAL`,
       );
+    }
+
+    if (withdrawal.portfolio_id) {
+      await trustAccountFoundationService.assertPortfolioMandateAuthority(withdrawal.portfolio_id, {
+        action: 'withdrawal',
+        amount: withdrawal.amount,
+        signer_party_ids: signerPartyIds,
+        actor_id: approvedBy,
+        related_entity_type: 'WITHDRAWAL',
+        related_entity_id: withdrawalId,
+      });
     }
 
     const [updated] = await db

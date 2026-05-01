@@ -18,6 +18,7 @@
 | 1.0     | 2026-04-16 | ADS Softek  | Sections 8–14 added; draft complete                                   |
 | 1.0-FIN | 2026-04-17 | ADS Softek  | 31 adversarial findings integrated; sign-off ready                    |
 | 1.1-GAP | 2026-04-18 | ADS Softek  | BDO RFI gap analysis integrated; 9 gap themes, 2 new modules, expanded validations |
+| 1.2-MB-BDO | 2026-05-01 | ADS Softek | Metrobank and BDO gap remediation addendum added; expanded integration, account master, EBT, corporate trust, UITF, document, reporting, accounting, settlement, security, and migration requirements |
 
 ---
 
@@ -108,6 +109,20 @@ TrustOMS Philippines modernises the entire trust-banking transaction lifecycle �
 25. Branch & Channel Portability — cross-channel order lineage, branch visibility rules, branch dashboard, trader-ID tagging. *(BDO RFI Gap #7.)*
 26. Enhanced Settlement — book-only settlement, bulk settlement, multi-currency orders, inline FX conversion, payment-mode enumeration. *(BDO RFI Gap #8.)*
 27. Risk Analytics — VAR computation, back-testing, Macaulay/modified duration, stress-test downloads, IREP. *(BDO RFI Gap #6.)*
+28. Enterprise Integration Hub — governed adapters for CASA, AMLA/AMLC, datawarehouse, trust GL to bank GL, private banking, online channels, pricing vendors, custodians, loan systems, eBIR, BSP PERA, PDDTS, SWIFT, RTGS, and payment-file exchanges. *(Metrobank and BDO Addendum FR-EXT / FR-OPS.)*
+29. Enriched Account and Relationship Master — account metadata, joint/related parties, group/mother/project accounts, settlement rules, dormant/closed/reopen controls, hold-out, freeze, deceased, garnishment, and security-hold history. *(Metrobank and BDO Addendum FR-ACCT.)*
+30. Employee Benefit, Provident Fund, and Retirement Plan Administration — employer plan setup, member working sheets, vesting, portability, benefit computation, loan offsets, gratuity, tax treatment, forfeitures, contributions, and income distribution. *(Metrobank and BDO Addendum FR-EBT.)*
+31. Corporate Trust, Loan Agency, MTI, and Life Insurance Trust — loan agency lifecycle, collateral, MPCs, receivables/payables, safekeeping, managed trust investments, and life insurance trust workflows. *(Metrobank and BDO Addendum FR-CT.)*
+32. Stock Transfer and Securities Services — issuer/shareholder master, certificated and scripless holdings, certificate inventory, stock rights, former transfer-agent uploads, proxy, voting, and tabulation. *(Metrobank and BDO Addendum FR-ST.)*
+33. Expanded Document Management — product-aware document checklists, mandatory/optional rules, original/copy tags, DMS integration, aging, waiver, approval, secure PERA documents, title/agreement safekeeping, and document release controls. *(Metrobank and BDO Addendum FR-DOC.)*
+34. Advanced Reporting and Controlled Report Writer — standard templates, nested calculations, font/layout controls, Word/PDF/Excel/CSV export, scheduler, target paths, password-protected reports, email/SFTP dispatch, masking, and dispatch monitoring. *(Metrobank and BDO Addendum FR-RPT.)*
+35. Trust Accounting, Valuation, and Reconciliation — COA, trustor/trustee books, PFRS 9, GL/SL reconciliation, valuation, accrual, amortization, impairment, property accounting, year-end close, and controlled reversals. *(Metrobank and BDO Addendum FR-GL.)*
+36. Controlled Data Migration and Bulk Maintenance — bulk account creation, order/contribution upload, historical migration, control totals, reconciliation, rollback, and source lineage. *(Metrobank and BDO Addendum FR-DATA.)*
+37. Non-Functional Gap Remediation — non-blocking reports, scheduler reliability, backup/reindex controls, masking, idle timeout, concurrent-login policy, notification privacy, and access-matrix enforcement. *(Metrobank and BDO Addendum NFR.)*
+
+## 2.1.1 Metrobank and BDO Gap Remediation Addendum
+
+The expanded requirements for the Metrobank and BDO gap findings are maintained in **[TrustOMS-Philippines-BRD-Metrobank-BDO-Enhancement-Addendum.md](TrustOMS-Philippines-BRD-Metrobank-BDO-Enhancement-Addendum.md)**. That addendum is part of the BRD baseline and must be included in traceability, implementation planning, test-case generation, UAT evidence, and release readiness review.
 
 ## 2.2 Out of Scope (Initial Release)
 - Full treasury / derivatives pricing library (use Bloomberg BVAL / Numerix externally).

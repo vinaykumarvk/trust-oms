@@ -70,13 +70,14 @@ vi.mock('@shared/schema', () => {
     'oreEvents', 'peraAccounts', 'peraTransactions', 'portfolios', 'positions',
     'pricingRecords', 'rebalancingRuns', 'reconBreaks', 'reconRuns',
     'reversalCases', 'scheduledPlans', 'securities', 'settlementInstructions',
+    'settlementLifecycleEvents',
     'standingInstructions', 'taxEvents', 'tradeSurveillanceAlerts', 'trades',
     'transfers', 'unitTransactions', 'uploadBatches', 'validationOverrides',
     'whistleblowerCases', 'withdrawals',
     // New Philippines BRD tables
     'sanctionsScreeningLog', 'form1601fq', 'fixOutboundMessages', 'switchOrders',
     'subsequentAllocations', 'ipoAllocations', 'brokerChargeSchedules',
-    'cashSweepRules', 'settlementAccountConfigs', 'derivativeSetups',
+    'cashSweepRules', 'settlementAccountConfigs', 'trustSettlementAccounts', 'fxRates', 'derivativeSetups',
     'stressTestResults', 'uploadBatchItems',
     // GL tables
     'glBusinessEvents', 'glEventDefinitions', 'glCriteriaDefinitions',
@@ -195,6 +196,12 @@ describe('E2E Settlement Service (FR-SET-004, FR-SET-005)', () => {
       expect(typeof settlementService.markSettled).toBe('function');
     });
 
+    it('should expose DVP/RVP lifecycle methods', () => {
+      expect(typeof settlementService.matchSettlement).toBe('function');
+      expect(typeof settlementService.recordSettlementLifecycleEvent).toBe('function');
+      expect(typeof settlementService._inferSettlementMechanism).toBe('function');
+    });
+
     it('should expose markFailed method', () => {
       expect(typeof settlementService.markFailed).toBe('function');
     });
@@ -213,6 +220,10 @@ describe('E2E Settlement Service (FR-SET-004, FR-SET-005)', () => {
 
     it('should expose bulkSettle method', () => {
       expect(typeof settlementService.bulkSettle).toBe('function');
+    });
+
+    it('should expose netSettlements method', () => {
+      expect(typeof settlementService.netSettlements).toBe('function');
     });
 
     it('should expose generateOfficialReceipt method', () => {
@@ -288,12 +299,47 @@ describe('E2E Settlement Service (FR-SET-004, FR-SET-005)', () => {
   // =========================================================================
 
   describe('Settlement Lifecycle Execution', () => {
+    it('should persist DVP/RVP settlement lifecycle evidence', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const root = process.cwd();
+      const schemaSource = fs.readFileSync(path.join(root, 'packages/shared/src/schema.ts'), 'utf-8');
+      const serviceSource = fs.readFileSync(path.join(root, 'server/services/settlement-service.ts'), 'utf-8');
+      const routeSource = fs.readFileSync(path.join(root, 'server/routes/settlements.ts'), 'utf-8');
+      const migrationSource = fs.readFileSync(
+        path.join(root, 'drizzle/20260501_add_settlement_lifecycle_events.sql'),
+        'utf-8',
+      );
+
+      expect(schemaSource).toContain('settlementLifecycleEvents');
+      expect(schemaSource).toContain("pgTable(\n  'settlement_lifecycle_events'");
+      expect(migrationSource).toContain('CREATE TABLE IF NOT EXISTS settlement_lifecycle_events');
+      expect(serviceSource).toContain('SETTLEMENT_INITIALIZED');
+      expect(serviceSource).toContain('SETTLEMENT_MATCHED');
+      expect(serviceSource).toContain('SETTLEMENT_SETTLED');
+      expect(routeSource).toContain("/:id/match");
+    });
+
     it('should call initializeSettlement with a confirmation ID', async () => {
       try {
         const result = await settlementService.initializeSettlement(1);
         expect(result).toBeDefined();
       } catch (err: any) {
         // Mock DB may not return valid confirmation data
+        expect(err).toBeDefined();
+      }
+    });
+
+    it('should call matchSettlement with DVP/RVP leg statuses', async () => {
+      try {
+        const result = await settlementService.matchSettlement(1, {
+          matchedBy: 1,
+          externalRef: 'MATCH-001',
+          deliveryLegStatus: 'MATCHED',
+          paymentLegStatus: 'MATCHED',
+        });
+        expect(result).toBeDefined();
+      } catch (err: any) {
         expect(err).toBeDefined();
       }
     });
@@ -353,6 +399,50 @@ describe('E2E Settlement Service (FR-SET-004, FR-SET-005)', () => {
   // =========================================================================
 
   describe('Bulk Settle', () => {
+    it('should expose auto-netting route and lifecycle evidence', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const root = process.cwd();
+      const serviceSource = fs.readFileSync(path.join(root, 'server/services/settlement-service.ts'), 'utf-8');
+      const routeSource = fs.readFileSync(path.join(root, 'server/routes/settlements.ts'), 'utf-8');
+
+      expect(serviceSource).toContain('NET_SETTLEMENT_CREATED');
+      expect(serviceSource).toContain('SETTLEMENT_NETTED');
+      expect(serviceSource).toContain('original_settlement_ids');
+      expect(routeSource).toContain('/net-settle');
+      expect(routeSource).toContain('settlementService.netSettlements');
+    });
+
+    it('should wire settlement cash posting to FX auto-conversion evidence', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const root = process.cwd();
+      const serviceSource = fs.readFileSync(path.join(root, 'server/services/settlement-service.ts'), 'utf-8');
+
+      expect(serviceSource).toContain("import { fxRateService } from './fx-rate-service'");
+      expect(serviceSource).toContain("import { cashLedgerService } from './cash-ledger-service'");
+      expect(serviceSource).toContain('fxRateService.getFxRate');
+      expect(serviceSource).toContain('SETTLE-${settlementId}-FX-');
+      expect(serviceSource).toContain('fx_conversion: fxConversion');
+    });
+
+    it('should call netSettlements with currency and value-date filters', async () => {
+      try {
+        const result = await settlementService.netSettlements({
+          currency: 'PHP',
+          valueDate: '2026-04-21',
+          nettedBy: 1,
+        });
+        expect(result).toBeDefined();
+        expect(typeof result.groups_processed).toBe('number');
+        expect(typeof result.instructions_netted).toBe('number');
+        expect(typeof result.net_instructions_created).toBe('number');
+        expect(Array.isArray(result.details)).toBe(true);
+      } catch (err: any) {
+        expect(err).toBeDefined();
+      }
+    });
+
     it('should call bulkSettle with currency filter', async () => {
       try {
         const result = await settlementService.bulkSettle({

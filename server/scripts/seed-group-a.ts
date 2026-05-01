@@ -630,6 +630,9 @@ async function seedGlRuleEngine(userId: number, headIds: Record<string, number>)
   const criteriaIds: Record<string, number> = {};
   let criSeeded = 0;
   for (const [code, eventId] of Object.entries(eventIds)) {
+    const [existing] = await db.select().from(schema.glCriteriaDefinitions)
+      .where(eq(schema.glCriteriaDefinitions.event_id, eventId)).limit(1);
+    if (existing) { criteriaIds[code] = existing.id; continue; }
     const [ins] = await db.insert(schema.glCriteriaDefinitions).values({
       event_id: eventId,
       criteria_name: `Default — ${code}`,
@@ -672,6 +675,9 @@ async function seedGlRuleEngine(userId: number, headIds: Record<string, number>)
   let rsSeeded = 0;
   for (const r of ruleEntries) {
     if (!criteriaIds[r.code] || !r.dr || !r.cr) continue;
+    const [existingRs] = await db.select().from(schema.glAccountingRuleSets)
+      .where(eq(schema.glAccountingRuleSets.rule_code, r.ruleCode)).limit(1);
+    if (existingRs) { rsSeeded++; continue; }
     const [rs] = await db.insert(schema.glAccountingRuleSets).values({
       criteria_id: criteriaIds[r.code],
       rule_code: r.ruleCode,

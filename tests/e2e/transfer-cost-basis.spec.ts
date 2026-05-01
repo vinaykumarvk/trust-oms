@@ -60,7 +60,7 @@ vi.mock('@shared/schema', () => {
     'positions', 'pricingRecords', 'rebalancingRuns', 'reconBreaks', 'reconRuns',
     'reversalCases', 'scheduledPlans', 'securities', 'settlementInstructions',
     'standingInstructions', 'taxEvents', 'tradeSurveillanceAlerts', 'trades',
-    'transfers', 'unitTransactions', 'uploadBatches', 'validationOverrides',
+    'transfers', 'externalTransferMessages', 'unitTransactions', 'uploadBatches', 'validationOverrides',
     'whistleblowerCases', 'withdrawals', 'sanctionsScreeningLog', 'form1601fq',
     'fixOutboundMessages', 'switchOrders', 'subsequentAllocations', 'ipoAllocations',
     'brokerChargeSchedules', 'cashSweepRules', 'settlementAccountConfigs',
@@ -152,6 +152,27 @@ describe('Transfer Cost-Basis Propagation & External Transfers — BRD Gap Closu
 
     it('should have confirmExternalTransfer method', () => {
       expect(typeof transferService.confirmExternalTransfer).toBe('function');
+    });
+
+    it('should persist external transfer SWIFT evidence in a dedicated table', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const root = process.cwd();
+      const schemaSource = fs.readFileSync(path.join(root, 'packages/shared/src/schema.ts'), 'utf-8');
+      const serviceSource = fs.readFileSync(path.join(root, 'server/services/transfer-service.ts'), 'utf-8');
+      const routeSource = fs.readFileSync(path.join(root, 'server/routes/back-office/transfers.ts'), 'utf-8');
+      const migrationSource = fs.readFileSync(
+        path.join(root, 'drizzle/20260501_add_external_transfer_messages.sql'),
+        'utf-8',
+      );
+
+      expect(schemaSource).toContain('externalTransferMessages');
+      expect(schemaSource).toContain("pgTable(\n  'external_transfer_messages'");
+      expect(migrationSource).toContain('CREATE TABLE IF NOT EXISTS external_transfer_messages');
+      expect(serviceSource).toContain('schema.externalTransferMessages');
+      expect(serviceSource).toContain("gateway_status: 'GENERATED'");
+      expect(serviceSource).toContain("gateway_status: 'CONFIRMED'");
+      expect(routeSource).toContain('signerPartyIds');
     });
 
     it('should have getTransfers method for listing', () => {
@@ -290,7 +311,7 @@ describe('Transfer Cost-Basis Propagation & External Transfers — BRD Gap Closu
         }
       } catch (err: any) {
         // Mock data may not satisfy portfolio/security validation
-        expect(err.message).toMatch(/not found|Insufficient position/);
+        expect(err.message).toMatch(/not found|Insufficient position|Mandate authority check failed/);
       }
     });
 

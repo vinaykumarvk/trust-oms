@@ -12,6 +12,7 @@ import * as schema from '@shared/schema';
 import { eq, and, sql, count } from 'drizzle-orm';
 import crypto from 'crypto';
 import { DEFAULT_CURRENCY } from '../constants/crm';
+import { trustAccountFoundationService } from './trust-account-foundation-service';
 
 type Prospect = typeof schema.prospects.$inferSelect;
 
@@ -299,6 +300,15 @@ export const conversionService = {
     prospect_code: string;
     client_id: string;
     conversion_date: string;
+    trust_foundation: {
+      trust_account_id: string;
+      portfolio_id: string;
+      holding_account_count: number;
+      security_account_count: number;
+      settlement_account_count: number;
+      mandate_count: number;
+      related_party_count: number;
+    };
   }> {
     const [prospect] = await db
       .select()
@@ -345,11 +355,46 @@ export const conversionService = {
         .where(eq(schema.prospects.id, prospectId))
         .returning();
 
+      const trustFoundation = await trustAccountFoundationService.createDefaultFoundation(
+        {
+          client_id: clientId,
+          product_type: 'IMA_DISCRETIONARY',
+          account_name: `${client.legal_name || clientId} Trust Account`,
+          base_currency: prospect.aum_currency || DEFAULT_CURRENCY,
+          branch_id: prospect.branch_id ?? null,
+          assigned_rm_id: prospect.assigned_rm_id ?? client.assigned_rm_id ?? null,
+          onboarding_reference_type: 'PROSPECT',
+          onboarding_reference_id: String(prospectId),
+          risk_profile_snapshot: {
+            prospect_risk_profile: prospect.risk_profile,
+            client_risk_profile: client.risk_profile,
+          },
+          related_parties: [{
+            party_type: 'SETTLOR',
+            legal_name: client.legal_name || `${prospect.first_name || ''} ${prospect.last_name || ''}`.trim() || clientId,
+            client_id: clientId,
+            authority_scope: { account_opening: true, instructions: true },
+            is_authorized_signatory: true,
+          }],
+        },
+        userId,
+        tx,
+      );
+
       return {
         prospect_id: prospectId,
         prospect_code: prospect.prospect_code,
         client_id: clientId,
         conversion_date: new Date().toISOString(),
+        trust_foundation: {
+          trust_account_id: trustFoundation.trust_account_id,
+          portfolio_id: trustFoundation.portfolio_id,
+          holding_account_count: trustFoundation.holding_account_ids.length,
+          security_account_count: trustFoundation.security_account_ids.length,
+          settlement_account_count: trustFoundation.settlement_account_ids.length,
+          mandate_count: trustFoundation.mandate_ids.length,
+          related_party_count: trustFoundation.related_party_ids.length,
+        },
       };
     });
   },

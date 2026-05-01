@@ -40,6 +40,8 @@ import { seedGroupA } from './seed-group-a';
 import { seedGroupB } from './seed-group-b';
 import { seedGroupC } from './seed-group-c';
 import { seedCrmData } from './seed-crm-data';
+import { seedLoanData } from './seed-loan-data';
+import { seedEbtData } from './seed-ebt-data';
 
 // ─── Step runner with timing ──────────────────────────────────────────────────
 
@@ -109,14 +111,28 @@ async function main() {
       name: 'CRM Data (campaigns, leads, prospects, tasks, expenses)',
       fn: seedCrmData,
     },
+    {
+      name: 'Loan Data (corporate trust: facilities, payments, collaterals, MPCs)',
+      fn: seedLoanData,
+    },
+    {
+      name: 'EBT Data (plans, members, contributions, gratuity rules, tax rules)',
+      fn: seedEbtData,
+    },
   ];
 
   const totalStart = Date.now();
   let completed = 0;
 
+  const failures: string[] = [];
   for (let i = 0; i < steps.length; i++) {
-    await runStep(steps[i], i, steps.length);
-    completed++;
+    try {
+      await runStep(steps[i], i, steps.length);
+      completed++;
+    } catch (err) {
+      failures.push(steps[i].name);
+      console.error(`  ↳ Continuing to next step despite failure...`);
+    }
   }
 
   const totalElapsed = ((Date.now() - totalStart) / 1000).toFixed(1);
@@ -131,6 +147,11 @@ async function main() {
   console.log('║   trust_officer_1 / trust_officer_2 / trust_officer_3                ║');
   console.log('║   rm_1 / rm_2 / rm_3 / compliance_officer / portfolio_mgr            ║');
   console.log('╚══════════════════════════════════════════════════════════════════════╝');
+
+  if (failures.length > 0) {
+    console.log(`\n  [WARN] ${failures.length} step(s) had errors:`);
+    failures.forEach((f) => console.log(`    - ${f}`));
+  }
 }
 
 // ─── Entry point ──────────────────────────────────────────────────────────────

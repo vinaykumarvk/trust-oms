@@ -87,6 +87,10 @@ import {
   ArrowRightLeft,
   Calendar,
   CheckSquare,
+  Heart,
+  UserMinus,
+  Undo2,
+  HandCoins,
 } from "lucide-react";
 
 export interface NavItem {
@@ -125,6 +129,7 @@ export const navSections: NavSection[] = [
     defaultOpen: true,
     items: [
       { label: "Portfolios", path: "/master-data/portfolios", icon: Briefcase },
+      { label: "Trust Accounts", path: "/master-data/trust-accounts", icon: ShieldCheck },
       { label: "Securities", path: "/master-data/securities", icon: Landmark },
       { label: "Clients", path: "/master-data/clients", icon: Users },
       { label: "Client Onboarding", path: "/master-data/client-onboarding", icon: UserCheck },
@@ -222,6 +227,36 @@ export const navSections: NavSection[] = [
       { label: "Transaction Recon", path: "/operations/transaction-recon", icon: GitCompare },
       { label: "EOD Processing", path: "/operations/eod", icon: Clock },
       { label: "Feed Monitor", path: "/operations/feed-monitor", icon: Radio },
+    ],
+  },
+  {
+    label: "Corporate Trust",
+    icon: Landmark,
+    items: [
+      { label: "Loan Dashboard", path: "/corporate-trust/loans", icon: Banknote },
+      { label: "Loan Collateral", path: "/corporate-trust/collateral", icon: Shield },
+      { label: "MPC Management", path: "/corporate-trust/mpc", icon: Receipt },
+      { label: "Amortization", path: "/corporate-trust/amortization", icon: Calculator },
+    ],
+  },
+  {
+    label: "Employee Benefit Trust",
+    icon: Heart,
+    items: [
+      { label: "EBT Dashboard", path: "/ebt/dashboard", icon: PieChart },
+      { label: "Plans", path: "/ebt/plans", icon: ClipboardList },
+      { label: "Benefit Claims", path: "/ebt/claims", icon: HandCoins },
+      { label: "Separations", path: "/ebt/separations", icon: UserMinus },
+    ],
+  },
+  {
+    label: "Securities Services",
+    icon: FileText,
+    items: [
+      { label: "Stock Transfers", path: "/securities/transfers", icon: ArrowRightLeft },
+      { label: "Stock Rights", path: "/securities/rights", icon: Tag },
+      { label: "Unclaimed Certs", path: "/securities/unclaimed", icon: FileSearch },
+      { label: "Stockholder Meetings", path: "/securities/meetings", icon: Users },
     ],
   },
   {

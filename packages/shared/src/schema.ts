@@ -55,7 +55,7 @@ export const orderStatusEnum = pgEnum('order_status', [
   'CANCELLED',
 ]);
 
-export const orderSideEnum = pgEnum('order_side', ['BUY', 'SELL']);
+export const orderSideEnum = pgEnum('order_side', ['BUY', 'SELL', 'SWITCH_IN', 'SWITCH_OUT']);
 
 export const orderTypeEnum = pgEnum('order_type', ['MARKET', 'LIMIT', 'STOP']);
 
@@ -374,6 +374,31 @@ export const feeEventTypeEnum = pgEnum('fee_event_type', [
   'PRE_TERMINATION', 'REDEMPTION', 'CORPORATE_ACTION',
 ]);
 
+export const trustAccountStatusEnum = pgEnum('trust_account_status', [
+  'DRAFT', 'PENDING_DOCUMENTS', 'ACTIVE', 'SUSPENDED', 'CLOSED',
+]);
+
+export const trustSubAccountStatusEnum = pgEnum('trust_sub_account_status', [
+  'PENDING_SETUP', 'ACTIVE', 'SUSPENDED', 'CLOSED',
+]);
+
+export const trustHoldingAccountTypeEnum = pgEnum('trust_holding_account_type', [
+  'CASH', 'SECURITIES', 'FEES', 'INCOME', 'SETTLEMENT',
+]);
+
+export const trustSettlementAccountPurposeEnum = pgEnum('trust_settlement_account_purpose', [
+  'TSA', 'CSA',
+]);
+
+export const trustRelatedPartyTypeEnum = pgEnum('trust_related_party_type', [
+  'SETTLOR', 'BENEFICIARY', 'TRUSTEE', 'CO_TRUSTEE', 'AUTHORIZED_SIGNATORY',
+  'UBO', 'GUARDIAN', 'PROTECTOR', 'RELATED_ENTITY', 'OTHER',
+]);
+
+export const trustMandateTypeEnum = pgEnum('trust_mandate_type', [
+  'DISCRETIONARY', 'DIRECTED', 'SAFEKEEPING', 'ESCROW', 'AGENCY', 'OTHER',
+]);
+
 // ============================================================================
 // Helper: Audit fields added to every table
 // ============================================================================
@@ -570,6 +595,167 @@ export const mandates = pgTable('mandates', {
 });
 
 // ============================================================================
+// 3A. Trust Banking Account Foundation
+// ============================================================================
+
+export const trustAccounts = pgTable(
+  'trust_accounts',
+  {
+    account_id: text('account_id').primaryKey(),
+    client_id: text('client_id').notNull().references(() => clients.client_id),
+    primary_portfolio_id: text('primary_portfolio_id').references(() => portfolios.portfolio_id),
+    product_type: trustProductTypeEnum('product_type').notNull(),
+    account_name: text('account_name').notNull(),
+    base_currency: text('base_currency').notNull().default('PHP'),
+    account_status: trustAccountStatusEnum('account_status').notNull().default('DRAFT'),
+    branch_id: integer('branch_id').references(() => branches.id),
+    assigned_rm_id: integer('assigned_rm_id').references(() => users.id),
+    onboarding_reference_type: text('onboarding_reference_type'),
+    onboarding_reference_id: text('onboarding_reference_id'),
+    opened_at: timestamp('opened_at', { withTimezone: true }),
+    closed_at: timestamp('closed_at', { withTimezone: true }),
+    risk_profile_snapshot: jsonb('risk_profile_snapshot'),
+    related_party_policy: jsonb('related_party_policy'),
+    ...auditFields,
+  },
+  (table) => [
+    index('idx_trust_accounts_client').on(table.client_id),
+    index('idx_trust_accounts_portfolio').on(table.primary_portfolio_id),
+    uniqueIndex('ux_trust_accounts_onboarding_ref')
+      .on(table.onboarding_reference_type, table.onboarding_reference_id)
+      .where(sql`${table.onboarding_reference_type} is not null and ${table.onboarding_reference_id} is not null`),
+  ],
+);
+
+export const trustHoldingAccounts = pgTable(
+  'trust_holding_accounts',
+  {
+    account_id: text('account_id').primaryKey(),
+    trust_account_id: text('trust_account_id').notNull().references(() => trustAccounts.account_id),
+    portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+    account_no: text('account_no').notNull().unique(),
+    account_type: trustHoldingAccountTypeEnum('account_type').notNull(),
+    currency: text('currency').notNull().default('PHP'),
+    account_status: trustSubAccountStatusEnum('account_status').notNull().default('PENDING_SETUP'),
+    balance_snapshot: numeric('balance_snapshot', { precision: 21, scale: 4 }).default('0'),
+    available_balance_snapshot: numeric('available_balance_snapshot', { precision: 21, scale: 4 }).default('0'),
+    opened_at: timestamp('opened_at', { withTimezone: true }),
+    ...auditFields,
+  },
+  (table) => [
+    index('idx_trust_holding_accounts_trust').on(table.trust_account_id),
+    index('idx_trust_holding_accounts_portfolio').on(table.portfolio_id),
+  ],
+);
+
+export const trustSecurityAccounts = pgTable(
+  'trust_security_accounts',
+  {
+    account_id: text('account_id').primaryKey(),
+    trust_account_id: text('trust_account_id').notNull().references(() => trustAccounts.account_id),
+    portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+    custodian_id: integer('custodian_id').references(() => counterparties.id),
+    depository: text('depository'),
+    account_no: text('account_no').notNull().unique(),
+    currency: text('currency').notNull().default('PHP'),
+    account_status: trustSubAccountStatusEnum('account_status').notNull().default('PENDING_SETUP'),
+    opened_at: timestamp('opened_at', { withTimezone: true }),
+    ...auditFields,
+  },
+  (table) => [
+    index('idx_trust_security_accounts_trust').on(table.trust_account_id),
+    index('idx_trust_security_accounts_portfolio').on(table.portfolio_id),
+  ],
+);
+
+export const trustSettlementAccounts = pgTable(
+  'trust_settlement_accounts',
+  {
+    account_id: text('account_id').primaryKey(),
+    trust_account_id: text('trust_account_id').notNull().references(() => trustAccounts.account_id),
+    portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+    purpose: trustSettlementAccountPurposeEnum('purpose').notNull(),
+    account_level: text('account_level').notNull().default('PORTFOLIO'),
+    account_no: text('account_no').notNull().unique(),
+    account_name: text('account_name').notNull(),
+    currency: text('currency').notNull().default('PHP'),
+    bank_name: text('bank_name'),
+    routing_bic: text('routing_bic'),
+    is_default: boolean('is_default').notNull().default(false),
+    account_status: trustSubAccountStatusEnum('account_status').notNull().default('PENDING_SETUP'),
+    opened_at: timestamp('opened_at', { withTimezone: true }),
+    ...auditFields,
+  },
+  (table) => [
+    index('idx_trust_settlement_accounts_trust').on(table.trust_account_id),
+    index('idx_trust_settlement_accounts_portfolio').on(table.portfolio_id),
+  ],
+);
+
+export const trustMandates = pgTable(
+  'trust_mandates',
+  {
+    id: serial('id').primaryKey(),
+    trust_account_id: text('trust_account_id').notNull().references(() => trustAccounts.account_id),
+    portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+    mandate_type: trustMandateTypeEnum('mandate_type').notNull(),
+    effective_from: date('effective_from').notNull(),
+    effective_to: date('effective_to'),
+    investment_authority: text('investment_authority'),
+    signing_rule: jsonb('signing_rule'),
+    risk_limits: jsonb('risk_limits'),
+    document_reference: text('document_reference'),
+    mandate_status: text('mandate_status').notNull().default('ACTIVE'),
+    ...auditFields,
+  },
+  (table) => [
+    index('idx_trust_mandates_trust').on(table.trust_account_id),
+    index('idx_trust_mandates_portfolio').on(table.portfolio_id),
+  ],
+);
+
+export const trustRelatedParties = pgTable(
+  'trust_related_parties',
+  {
+    id: serial('id').primaryKey(),
+    trust_account_id: text('trust_account_id').notNull().references(() => trustAccounts.account_id),
+    client_id: text('client_id').references(() => clients.client_id),
+    party_type: trustRelatedPartyTypeEnum('party_type').notNull(),
+    legal_name: text('legal_name').notNull(),
+    ownership_pct: numeric('ownership_pct', { precision: 9, scale: 4 }),
+    authority_scope: jsonb('authority_scope'),
+    signing_limit: numeric('signing_limit', { precision: 21, scale: 4 }),
+    is_ubo: boolean('is_ubo').notNull().default(false),
+    is_authorized_signatory: boolean('is_authorized_signatory').notNull().default(false),
+    kyc_status: kycStatusEnum('kyc_status').default('PENDING'),
+    screening_status: text('screening_status').default('PENDING'),
+    effective_from: date('effective_from'),
+    effective_to: date('effective_to'),
+    ...auditFields,
+  },
+  (table) => [
+    index('idx_trust_related_parties_trust').on(table.trust_account_id),
+    index('idx_trust_related_parties_client').on(table.client_id),
+  ],
+);
+
+export const trustAccountFoundationEvents = pgTable(
+  'trust_account_foundation_events',
+  {
+    id: serial('id').primaryKey(),
+    trust_account_id: text('trust_account_id').notNull().references(() => trustAccounts.account_id),
+    event_type: text('event_type').notNull(),
+    payload: jsonb('payload'),
+    actor_id: integer('actor_id').references(() => users.id),
+    event_at: timestamp('event_at', { withTimezone: true }).defaultNow().notNull(),
+    ...auditFields,
+  },
+  (table) => [
+    index('idx_trust_account_foundation_events_trust').on(table.trust_account_id),
+  ],
+);
+
+// ============================================================================
 // 4. Securities & Counterparties
 // ============================================================================
 
@@ -743,6 +929,29 @@ export const settlementInstructions = pgTable('settlement_instructions', {
   settlement_account_level: text('settlement_account_level'),
   ...auditFields,
 });
+
+export const settlementLifecycleEvents = pgTable(
+  'settlement_lifecycle_events',
+  {
+    id: serial('id').primaryKey(),
+    settlement_id: integer('settlement_id').notNull().references(() => settlementInstructions.id),
+    event_type: text('event_type').notNull(),
+    settlement_mechanism: text('settlement_mechanism').notNull(),
+    from_status: text('from_status'),
+    to_status: text('to_status'),
+    delivery_leg_status: text('delivery_leg_status'),
+    payment_leg_status: text('payment_leg_status'),
+    external_ref: text('external_ref'),
+    payload: jsonb('payload'),
+    actor_id: integer('actor_id').references(() => users.id),
+    event_at: timestamp('event_at', { withTimezone: true }).defaultNow().notNull(),
+    ...auditFields,
+  },
+  (table) => [
+    index('idx_settlement_lifecycle_events_settlement').on(table.settlement_id),
+    index('idx_settlement_lifecycle_events_type').on(table.event_type),
+  ],
+);
 
 // ============================================================================
 // 8. Position & Cash
@@ -1304,6 +1513,7 @@ export const taxEvents = pgTable('tax_events', {
   filing_status: text('filing_status'),
   ttra_id: text('ttra_id'),
   model_version: text('model_version'),
+  calculation_payload: jsonb('calculation_payload'),
   entitlement_id: integer('entitlement_id'),
   corrected_event_id: integer('corrected_event_id'),
   source: text('source').default('TRADE'),
@@ -1355,6 +1565,37 @@ export const transfers = pgTable('transfers', {
   transfer_status: text('transfer_status'),
   ...auditFields,
 });
+
+export const externalTransferMessages = pgTable(
+  'external_transfer_messages',
+  {
+    id: serial('id').primaryKey(),
+    transfer_id: integer('transfer_id').notNull().references(() => transfers.id),
+    portfolio_id: text('portfolio_id').notNull().references(() => portfolios.portfolio_id),
+    trust_account_id: text('trust_account_id').references(() => trustAccounts.account_id),
+    direction: text('direction').notNull().default('OUTBOUND'),
+    message_type: text('message_type').notNull(),
+    swift_ref: text('swift_ref').notNull().unique(),
+    sender_bic: text('sender_bic').notNull(),
+    receiver_bic: text('receiver_bic').notNull(),
+    external_account: text('external_account').notNull(),
+    security_id: integer('security_id').notNull().references(() => securities.id),
+    quantity: numeric('quantity', { precision: 21, scale: 8 }).notNull(),
+    trade_date: date('trade_date').notNull(),
+    settlement_date: date('settlement_date').notNull(),
+    message_payload: jsonb('message_payload').notNull(),
+    gateway_status: text('gateway_status').notNull().default('GENERATED'),
+    custodian_ref: text('custodian_ref'),
+    confirmed_at: timestamp('confirmed_at', { withTimezone: true }),
+    confirmed_by: integer('confirmed_by').references(() => users.id),
+    ...auditFields,
+  },
+  (table) => [
+    index('idx_external_transfer_messages_transfer').on(table.transfer_id),
+    index('idx_external_transfer_messages_portfolio').on(table.portfolio_id),
+    uniqueIndex('ux_external_transfer_messages_swift_ref').on(table.swift_ref),
+  ],
+);
 
 export const contributions = pgTable('contributions', {
   id: serial('id').primaryKey(),
@@ -2167,6 +2408,8 @@ export const clientsRelations = relations(clients, ({ many }) => ({
   beneficialOwners: many(beneficialOwners),
   fatcaCrs: many(clientFatcaCrs),
   portfolios: many(portfolios),
+  trustAccounts: many(trustAccounts),
+  trustRelatedParties: many(trustRelatedParties),
   consentLogs: many(consentLog),
   scheduledPlans: many(scheduledPlans),
   peraAccounts: many(peraAccounts),
@@ -2224,12 +2467,112 @@ export const portfoliosRelations = relations(portfolios, ({ one, many }) => ({
   heldAwayAssets: many(heldAwayAssets),
   scheduledPlans: many(scheduledPlans),
   standingInstructions: many(standingInstructions),
+  trustAccounts: many(trustAccounts),
+  trustHoldingAccounts: many(trustHoldingAccounts),
+  trustSecurityAccounts: many(trustSecurityAccounts),
+  trustSettlementAccounts: many(trustSettlementAccounts),
+  trustMandates: many(trustMandates),
 }));
 
 export const mandatesRelations = relations(mandates, ({ one }) => ({
   portfolio: one(portfolios, {
     fields: [mandates.portfolio_id],
     references: [portfolios.portfolio_id],
+  }),
+}));
+
+export const trustAccountsRelations = relations(trustAccounts, ({ one, many }) => ({
+  client: one(clients, {
+    fields: [trustAccounts.client_id],
+    references: [clients.client_id],
+  }),
+  primaryPortfolio: one(portfolios, {
+    fields: [trustAccounts.primary_portfolio_id],
+    references: [portfolios.portfolio_id],
+  }),
+  branch: one(branches, {
+    fields: [trustAccounts.branch_id],
+    references: [branches.id],
+  }),
+  assignedRm: one(users, {
+    fields: [trustAccounts.assigned_rm_id],
+    references: [users.id],
+  }),
+  holdingAccounts: many(trustHoldingAccounts),
+  securityAccounts: many(trustSecurityAccounts),
+  settlementAccounts: many(trustSettlementAccounts),
+  mandates: many(trustMandates),
+  relatedParties: many(trustRelatedParties),
+  foundationEvents: many(trustAccountFoundationEvents),
+}));
+
+export const trustHoldingAccountsRelations = relations(trustHoldingAccounts, ({ one }) => ({
+  trustAccount: one(trustAccounts, {
+    fields: [trustHoldingAccounts.trust_account_id],
+    references: [trustAccounts.account_id],
+  }),
+  portfolio: one(portfolios, {
+    fields: [trustHoldingAccounts.portfolio_id],
+    references: [portfolios.portfolio_id],
+  }),
+}));
+
+export const trustSecurityAccountsRelations = relations(trustSecurityAccounts, ({ one }) => ({
+  trustAccount: one(trustAccounts, {
+    fields: [trustSecurityAccounts.trust_account_id],
+    references: [trustAccounts.account_id],
+  }),
+  portfolio: one(portfolios, {
+    fields: [trustSecurityAccounts.portfolio_id],
+    references: [portfolios.portfolio_id],
+  }),
+  custodian: one(counterparties, {
+    fields: [trustSecurityAccounts.custodian_id],
+    references: [counterparties.id],
+  }),
+}));
+
+export const trustSettlementAccountsRelations = relations(trustSettlementAccounts, ({ one }) => ({
+  trustAccount: one(trustAccounts, {
+    fields: [trustSettlementAccounts.trust_account_id],
+    references: [trustAccounts.account_id],
+  }),
+  portfolio: one(portfolios, {
+    fields: [trustSettlementAccounts.portfolio_id],
+    references: [portfolios.portfolio_id],
+  }),
+}));
+
+export const trustMandatesRelations = relations(trustMandates, ({ one }) => ({
+  trustAccount: one(trustAccounts, {
+    fields: [trustMandates.trust_account_id],
+    references: [trustAccounts.account_id],
+  }),
+  portfolio: one(portfolios, {
+    fields: [trustMandates.portfolio_id],
+    references: [portfolios.portfolio_id],
+  }),
+}));
+
+export const trustRelatedPartiesRelations = relations(trustRelatedParties, ({ one }) => ({
+  trustAccount: one(trustAccounts, {
+    fields: [trustRelatedParties.trust_account_id],
+    references: [trustAccounts.account_id],
+  }),
+  client: one(clients, {
+    fields: [trustRelatedParties.client_id],
+    references: [clients.client_id],
+  }),
+}));
+
+export const trustAccountFoundationEventsRelations = relations(trustAccountFoundationEvents, ({ one }) => ({
+  trustAccount: one(trustAccounts, {
+    fields: [trustAccountFoundationEvents.trust_account_id],
+    references: [trustAccounts.account_id],
+  }),
+  actor: one(users, {
+    fields: [trustAccountFoundationEvents.actor_id],
+    references: [users.id],
   }),
 }));
 
@@ -2336,10 +2679,22 @@ export const confirmationsRelations = relations(confirmations, ({ one }) => ({
   }),
 }));
 
-export const settlementInstructionsRelations = relations(settlementInstructions, ({ one }) => ({
+export const settlementInstructionsRelations = relations(settlementInstructions, ({ one, many }) => ({
   trade: one(trades, {
     fields: [settlementInstructions.trade_id],
     references: [trades.trade_id],
+  }),
+  lifecycleEvents: many(settlementLifecycleEvents),
+}));
+
+export const settlementLifecycleEventsRelations = relations(settlementLifecycleEvents, ({ one }) => ({
+  settlement: one(settlementInstructions, {
+    fields: [settlementLifecycleEvents.settlement_id],
+    references: [settlementInstructions.id],
+  }),
+  actor: one(users, {
+    fields: [settlementLifecycleEvents.actor_id],
+    references: [users.id],
   }),
 }));
 
@@ -2501,6 +2856,29 @@ export const transfersRelations = relations(transfers, ({ one }) => ({
   security: one(securities, {
     fields: [transfers.security_id],
     references: [securities.id],
+  }),
+}));
+
+export const externalTransferMessagesRelations = relations(externalTransferMessages, ({ one }) => ({
+  transfer: one(transfers, {
+    fields: [externalTransferMessages.transfer_id],
+    references: [transfers.id],
+  }),
+  portfolio: one(portfolios, {
+    fields: [externalTransferMessages.portfolio_id],
+    references: [portfolios.portfolio_id],
+  }),
+  trustAccount: one(trustAccounts, {
+    fields: [externalTransferMessages.trust_account_id],
+    references: [trustAccounts.account_id],
+  }),
+  security: one(securities, {
+    fields: [externalTransferMessages.security_id],
+    references: [securities.id],
+  }),
+  confirmer: one(users, {
+    fields: [externalTransferMessages.confirmed_by],
+    references: [users.id],
   }),
 }));
 
@@ -6334,3 +6712,1198 @@ export const clientStatements = pgTable('client_statements', {
   index('client_statements_client_id_idx').on(table.client_id),
   index('client_statements_period_idx').on(table.period),
 ]);
+
+// ─── Corporate Trust / Loan Management Enums ──────────────────────────────────
+
+export const loanFacilityStatusEnum = pgEnum('loan_facility_status', [
+  'DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'ACTIVE', 'MATURED', 'DEFAULTED', 'RESTRUCTURED', 'CLOSED', 'CANCELLED',
+]);
+
+export const loanTypeEnum = pgEnum('loan_type', [
+  'TERM_LOAN', 'REVOLVING_CREDIT', 'BRIDGE_LOAN', 'PROJECT_FINANCE', 'SYNDICATED_LOAN', 'BILATERAL_LOAN', 'MORTGAGE_LOAN', 'WORKING_CAPITAL',
+]);
+
+export const interestTypeEnum = pgEnum('interest_type', ['FIXED', 'FLOATING', 'HYBRID']);
+
+export const interestBasisEnum = pgEnum('interest_basis', ['ACT_360', 'ACT_365', 'ACT_ACT', '30_360', '30_365']);
+
+export const amortizationTypeEnum = pgEnum('amortization_type', [
+  'EQUAL_AMORTIZATION', 'EQUAL_PRINCIPAL', 'BULLET', 'BALLOON', 'INCREASING', 'DECREASING', 'CUSTOM',
+]);
+
+export const loanPaymentFrequencyEnum = pgEnum('loan_payment_frequency', [
+  'MONTHLY', 'QUARTERLY', 'SEMI_ANNUAL', 'ANNUAL', 'AT_MATURITY', 'CUSTOM',
+]);
+
+export const collateralTypeEnum = pgEnum('collateral_type', [
+  'REAL_ESTATE', 'EQUIPMENT', 'INVENTORY', 'RECEIVABLES', 'SECURITIES', 'DEPOSIT', 'GUARANTEE', 'ASSIGNMENT_OF_PROCEEDS', 'OTHER',
+]);
+
+export const mpcStatusEnum = pgEnum('mpc_status', ['ACTIVE', 'CANCELLED', 'TRANSFERRED', 'MATURED']);
+
+export const loanPaymentTypeEnum = pgEnum('loan_payment_type', [
+  'PRINCIPAL', 'INTEREST', 'PRINCIPAL_AND_INTEREST', 'PREPAYMENT', 'PENALTY', 'FEE',
+]);
+
+export const loanPaymentStatusEnum = pgEnum('loan_payment_status', [
+  'SCHEDULED', 'DUE', 'OVERDUE', 'PAID', 'PARTIALLY_PAID', 'WAIVED', 'CANCELLED',
+]);
+
+export const loanDocumentTypeEnum = pgEnum('loan_document_type', [
+  'LOAN_AGREEMENT', 'PROMISSORY_NOTE', 'MORTGAGE_DEED', 'COLLATERAL_ASSIGNMENT', 'TITLE_DEED',
+  'INSURANCE_POLICY', 'COVENANT_CERTIFICATE', 'AMENDMENT', 'WAIVER', 'SECURITY_AGREEMENT', 'GUARANTEE', 'OTHER',
+]);
+
+export const availmentStatusEnum = pgEnum('availment_status', [
+  'REQUESTED', 'APPROVED', 'DISBURSED', 'REJECTED', 'CANCELLED',
+]);
+
+// ─── Corporate Trust / Loan Management Tables ──────────────────────────────────
+
+export const loanFacilities = pgTable('loan_facilities', {
+  id: serial('id').primaryKey(),
+  facility_id: text('facility_id').notNull().unique(),
+  trust_account_id: text('trust_account_id'),
+  client_id: text('client_id').references(() => clients.client_id),
+  counterparty_id: integer('counterparty_id').references(() => counterparties.id),
+  facility_name: text('facility_name').notNull(),
+  loan_type: loanTypeEnum('loan_type').notNull(),
+  loan_status: loanFacilityStatusEnum('loan_status').notNull().default('DRAFT'),
+  currency: text('currency').notNull().default('PHP'),
+  facility_amount: numeric('facility_amount', { precision: 21, scale: 4 }).notNull(),
+  outstanding_principal: numeric('outstanding_principal', { precision: 21, scale: 4 }).notNull().default('0'),
+  available_amount: numeric('available_amount', { precision: 21, scale: 4 }).notNull().default('0'),
+  disbursed_amount: numeric('disbursed_amount', { precision: 21, scale: 4 }).notNull().default('0'),
+  interest_type: interestTypeEnum('interest_type').notNull(),
+  interest_rate: numeric('interest_rate', { precision: 9, scale: 6 }).notNull(),
+  spread: numeric('spread', { precision: 9, scale: 6 }),
+  benchmark_rate: text('benchmark_rate'),
+  interest_basis: interestBasisEnum('interest_basis').notNull(),
+  amortization_type: amortizationTypeEnum('amortization_type').notNull(),
+  payment_frequency: loanPaymentFrequencyEnum('payment_frequency').notNull(),
+  repricing_frequency: loanPaymentFrequencyEnum('repricing_frequency'),
+  origination_date: date('origination_date'),
+  effective_date: date('effective_date').notNull(),
+  maturity_date: date('maturity_date').notNull(),
+  first_payment_date: date('first_payment_date'),
+  next_payment_date: date('next_payment_date'),
+  next_repricing_date: date('next_repricing_date'),
+  penalty_rate: numeric('penalty_rate', { precision: 9, scale: 6 }),
+  pretermination_penalty_rate: numeric('pretermination_penalty_rate', { precision: 9, scale: 6 }),
+  pretermination_penalty_type: text('pretermination_penalty_type'),
+  grace_period_days: integer('grace_period_days'),
+  purpose: text('purpose'),
+  security_description: text('security_description'),
+  covenant_summary: text('covenant_summary'),
+  trustee_role: text('trustee_role'),
+  syndication_flag: boolean('syndication_flag').default(false),
+  number_of_participants: integer('number_of_participants'),
+  maker_checker_status: text('maker_checker_status'),
+  approved_by: integer('approved_by').references(() => users.id),
+  approved_at: timestamp('approved_at', { withTimezone: true }),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('loan_facilities_client_id_idx').on(table.client_id),
+  index('loan_facilities_status_idx').on(table.loan_status),
+  index('loan_facilities_maturity_idx').on(table.maturity_date),
+]);
+
+export const loanParticipants = pgTable('loan_participants', {
+  id: serial('id').primaryKey(),
+  facility_id: text('facility_id').references(() => loanFacilities.facility_id).notNull(),
+  counterparty_id: integer('counterparty_id').references(() => counterparties.id),
+  participant_role: text('participant_role'),
+  commitment_amount: numeric('commitment_amount', { precision: 21, scale: 4 }),
+  share_percentage: numeric('share_percentage', { precision: 9, scale: 6 }),
+  ...auditFields,
+}, (table) => [
+  index('loan_participants_facility_idx').on(table.facility_id),
+]);
+
+export const loanAvailments = pgTable('loan_availments', {
+  id: serial('id').primaryKey(),
+  availment_id: text('availment_id').notNull().unique(),
+  facility_id: text('facility_id').references(() => loanFacilities.facility_id).notNull(),
+  availment_date: date('availment_date').notNull(),
+  amount: numeric('amount', { precision: 21, scale: 4 }).notNull(),
+  availment_status: availmentStatusEnum('availment_status').notNull().default('REQUESTED'),
+  purpose: text('purpose'),
+  approved_by: integer('approved_by').references(() => users.id),
+  approved_at: timestamp('approved_at', { withTimezone: true }),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('loan_availments_facility_idx').on(table.facility_id),
+]);
+
+export const loanPayments = pgTable('loan_payments', {
+  id: serial('id').primaryKey(),
+  payment_id: text('payment_id').notNull().unique(),
+  facility_id: text('facility_id').references(() => loanFacilities.facility_id).notNull(),
+  payment_type: loanPaymentTypeEnum('payment_type').notNull(),
+  payment_status: loanPaymentStatusEnum('payment_status').notNull().default('SCHEDULED'),
+  scheduled_date: date('scheduled_date'),
+  actual_date: date('actual_date'),
+  principal_amount: numeric('principal_amount', { precision: 21, scale: 4 }).default('0'),
+  interest_amount: numeric('interest_amount', { precision: 21, scale: 4 }).default('0'),
+  penalty_amount: numeric('penalty_amount', { precision: 21, scale: 4 }).default('0'),
+  total_amount: numeric('total_amount', { precision: 21, scale: 4 }).notNull(),
+  payment_reference: text('payment_reference'),
+  wht_amount: numeric('wht_amount', { precision: 21, scale: 4 }).default('0'),
+  net_amount: numeric('net_amount', { precision: 21, scale: 4 }),
+  is_prepayment: boolean('is_prepayment').default(false),
+  days_overdue: integer('days_overdue').default(0),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('loan_payments_facility_idx').on(table.facility_id),
+  index('loan_payments_status_idx').on(table.payment_status),
+  index('loan_payments_scheduled_date_idx').on(table.scheduled_date),
+]);
+
+export const loanAmortizationSchedules = pgTable('loan_amortization_schedules', {
+  id: serial('id').primaryKey(),
+  facility_id: text('facility_id').references(() => loanFacilities.facility_id).notNull(),
+  period_number: integer('period_number').notNull(),
+  payment_date: date('payment_date').notNull(),
+  beginning_balance: numeric('beginning_balance', { precision: 21, scale: 4 }).notNull(),
+  principal_payment: numeric('principal_payment', { precision: 21, scale: 4 }).notNull(),
+  interest_payment: numeric('interest_payment', { precision: 21, scale: 4 }).notNull(),
+  total_payment: numeric('total_payment', { precision: 21, scale: 4 }).notNull(),
+  ending_balance: numeric('ending_balance', { precision: 21, scale: 4 }).notNull(),
+  interest_rate: numeric('interest_rate', { precision: 9, scale: 6 }),
+  cumulative_principal: numeric('cumulative_principal', { precision: 21, scale: 4 }),
+  cumulative_interest: numeric('cumulative_interest', { precision: 21, scale: 4 }),
+  payment_status: loanPaymentStatusEnum('amort_payment_status').default('SCHEDULED'),
+  ...auditFields,
+}, (table) => [
+  uniqueIndex('loan_amort_facility_period_idx').on(table.facility_id, table.period_number),
+  index('loan_amort_payment_date_idx').on(table.payment_date),
+]);
+
+export const loanCollaterals = pgTable('loan_collaterals', {
+  id: serial('id').primaryKey(),
+  collateral_id: text('collateral_id').notNull().unique(),
+  facility_id: text('facility_id').references(() => loanFacilities.facility_id).notNull(),
+  collateral_type: collateralTypeEnum('collateral_type').notNull(),
+  description: text('description'),
+  location: text('location'),
+  title_reference: text('title_reference'),
+  appraised_value: numeric('appraised_value', { precision: 21, scale: 4 }),
+  appraisal_date: date('appraisal_date'),
+  market_value: numeric('market_value', { precision: 21, scale: 4 }),
+  forced_sale_value: numeric('forced_sale_value', { precision: 21, scale: 4 }),
+  insurance_policy: text('insurance_policy'),
+  insurance_expiry: date('insurance_expiry'),
+  insurance_amount: numeric('insurance_amount', { precision: 21, scale: 4 }),
+  lien_position: integer('lien_position'),
+  ltv_ratio: numeric('ltv_ratio', { precision: 9, scale: 6 }),
+  next_revaluation_date: date('next_revaluation_date'),
+  revaluation_frequency: text('revaluation_frequency'),
+  custodian: text('custodian'),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('loan_collaterals_facility_idx').on(table.facility_id),
+]);
+
+export const loanCollateralValuations = pgTable('loan_collateral_valuations', {
+  id: serial('id').primaryKey(),
+  collateral_id: text('collateral_id').references(() => loanCollaterals.collateral_id).notNull(),
+  valuation_date: date('valuation_date').notNull(),
+  appraised_value: numeric('appraised_value', { precision: 21, scale: 4 }),
+  market_value: numeric('market_value', { precision: 21, scale: 4 }),
+  forced_sale_value: numeric('forced_sale_value', { precision: 21, scale: 4 }),
+  appraiser: text('appraiser'),
+  valuation_method: text('valuation_method'),
+  ltv_ratio: numeric('ltv_ratio', { precision: 9, scale: 6 }),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('loan_coll_val_collateral_idx').on(table.collateral_id),
+]);
+
+export const loanDocuments = pgTable('loan_documents', {
+  id: serial('id').primaryKey(),
+  document_id: text('document_id').notNull().unique(),
+  facility_id: text('facility_id').references(() => loanFacilities.facility_id).notNull(),
+  document_type: loanDocumentTypeEnum('document_type').notNull(),
+  document_name: text('document_name').notNull(),
+  file_reference: text('file_reference'),
+  file_size_bytes: integer('file_size_bytes'),
+  mime_type: text('mime_type'),
+  expiry_date: date('expiry_date'),
+  custodian_location: text('custodian_location'),
+  vault_reference: text('vault_reference'),
+  received_date: date('received_date'),
+  return_date: date('return_date'),
+  is_original: boolean('is_original').default(true),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('loan_documents_facility_idx').on(table.facility_id),
+]);
+
+export const mpcs = pgTable('mpcs', {
+  id: serial('id').primaryKey(),
+  mpc_id: text('mpc_id').notNull().unique(),
+  facility_id: text('facility_id').references(() => loanFacilities.facility_id).notNull(),
+  certificate_number: text('certificate_number').notNull().unique(),
+  holder_client_id: text('holder_client_id').references(() => clients.client_id),
+  face_value: numeric('face_value', { precision: 21, scale: 4 }).notNull(),
+  issue_date: date('issue_date').notNull(),
+  maturity_date: date('maturity_date'),
+  interest_rate: numeric('interest_rate', { precision: 9, scale: 6 }),
+  mpc_status: mpcStatusEnum('mpc_status').notNull().default('ACTIVE'),
+  cancellation_date: date('cancellation_date'),
+  cancellation_reason: text('cancellation_reason'),
+  transfer_date: date('transfer_date'),
+  transferred_to: text('transferred_to'),
+  participation_percentage: numeric('participation_percentage', { precision: 9, scale: 6 }),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('mpcs_facility_idx').on(table.facility_id),
+  index('mpcs_holder_idx').on(table.holder_client_id),
+]);
+
+export const loanInterestAccruals = pgTable('loan_interest_accruals', {
+  id: serial('id').primaryKey(),
+  facility_id: text('facility_id').references(() => loanFacilities.facility_id).notNull(),
+  accrual_date: date('accrual_date').notNull(),
+  opening_balance: numeric('opening_balance', { precision: 21, scale: 4 }),
+  interest_rate: numeric('interest_rate', { precision: 9, scale: 6 }),
+  day_count_numerator: integer('day_count_numerator'),
+  day_count_denominator: integer('day_count_denominator'),
+  accrued_amount: numeric('accrued_amount', { precision: 21, scale: 4 }).notNull(),
+  cumulative_accrued: numeric('cumulative_accrued', { precision: 21, scale: 4 }),
+  gl_posted: boolean('gl_posted').default(false),
+  gl_batch_id: integer('gl_batch_id'),
+  ...auditFields,
+}, (table) => [
+  index('loan_accruals_facility_idx').on(table.facility_id),
+  index('loan_accruals_date_idx').on(table.accrual_date),
+]);
+
+export const loanReceivables = pgTable('loan_receivables', {
+  id: serial('id').primaryKey(),
+  facility_id: text('facility_id').references(() => loanFacilities.facility_id).notNull(),
+  receivable_type: text('receivable_type').notNull(),
+  dr_cr: drCrEnum('dr_cr').notNull(),
+  due_date: date('due_date').notNull(),
+  amount: numeric('amount', { precision: 21, scale: 4 }).notNull(),
+  paid_amount: numeric('paid_amount', { precision: 21, scale: 4 }).default('0'),
+  balance: numeric('balance', { precision: 21, scale: 4 }),
+  aging_bucket: text('aging_bucket'),
+  counterparty_id: integer('counterparty_id').references(() => counterparties.id),
+  payment_id: integer('payment_id'),
+  ...auditFields,
+}, (table) => [
+  index('loan_receivables_facility_idx').on(table.facility_id),
+  index('loan_receivables_due_date_idx').on(table.due_date),
+]);
+
+export const loanAmendments = pgTable('loan_amendments', {
+  id: serial('id').primaryKey(),
+  amendment_id: text('amendment_id').notNull().unique(),
+  facility_id: text('facility_id').references(() => loanFacilities.facility_id).notNull(),
+  amendment_date: date('amendment_date').notNull(),
+  amendment_type: text('amendment_type').notNull(),
+  field_changed: text('field_changed'),
+  old_value: text('old_value'),
+  new_value: text('new_value'),
+  reason: text('reason'),
+  approved_by: integer('approved_by').references(() => users.id),
+  approved_at: timestamp('approved_at', { withTimezone: true }),
+  ...auditFields,
+}, (table) => [
+  index('loan_amendments_facility_idx').on(table.facility_id),
+]);
+
+export const loanTaxInsurance = pgTable('loan_tax_insurance', {
+  id: serial('id').primaryKey(),
+  facility_id: text('facility_id').references(() => loanFacilities.facility_id).notNull(),
+  payment_type: text('payment_type').notNull(),
+  due_date: date('due_date'),
+  amount: numeric('amount', { precision: 21, scale: 4 }),
+  paid_date: date('paid_date'),
+  paid_amount: numeric('paid_amount', { precision: 21, scale: 4 }),
+  reference: text('reference'),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('loan_tax_insurance_facility_idx').on(table.facility_id),
+]);
+
+// ─── Employee Benefit Trust (EBT) Enums ──────────────────────────────────────
+
+export const ebtMemberStatusEnum = pgEnum('ebt_member_status', [
+  'ACTIVE', 'INACTIVE', 'SEPARATED', 'RETIRED', 'REINSTATED', 'DECEASED',
+]);
+
+export const ebtSeparationReasonEnum = pgEnum('ebt_separation_reason', [
+  'RESIGNATION', 'RETIREMENT', 'TERMINATION', 'DEATH', 'DISABILITY',
+  'REDUNDANCY', 'RETRENCHMENT', 'END_OF_CONTRACT', 'OTHER',
+]);
+
+export const ebtBenefitTypeEnum = pgEnum('ebt_benefit_type', [
+  'RETIREMENT', 'SEPARATION', 'DEATH', 'DISABILITY', 'GRATUITY',
+  'UNUSED_LEAVES', 'CBA_BENEFIT', 'HONORARIA', 'OTHER',
+]);
+
+export const ebtClaimStatusEnum = pgEnum('ebt_claim_status', [
+  'DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'PROCESSING',
+  'RELEASED', 'CANCELLED', 'ON_HOLD',
+]);
+
+export const ebtContributionTypeEnum = pgEnum('ebt_contribution_type', [
+  'EMPLOYER', 'EMPLOYEE', 'VOLUNTARY',
+]);
+
+export const ebtLoanStatusEnum = pgEnum('ebt_loan_status', [
+  'ACTIVE', 'PAID', 'DEFAULTED', 'WRITTEN_OFF',
+]);
+
+export const ebtCalculationMethodEnum = pgEnum('ebt_calculation_method', [
+  'STANDARD', 'CLIENT_PROVIDED', 'MINIMUM_BENEFIT', 'GRATUITY',
+]);
+
+export const ebtIncomeDistMethodEnum = pgEnum('ebt_income_dist_method', [
+  'PRO_RATA_BALANCE', 'EQUAL_SHARE', 'UNITS_HELD', 'CUSTOM',
+]);
+
+// ─── Employee Benefit Trust (EBT) Tables ─────────────────────────────────────
+
+export const ebtPlans = pgTable('ebt_plans', {
+  id: serial('id').primaryKey(),
+  plan_id: text('plan_id').unique().notNull(),
+  plan_name: text('plan_name').notNull(),
+  employer_client_id: text('employer_client_id').references(() => clients.client_id),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  plan_type: text('plan_type').default('DEFINED_CONTRIBUTION'),
+  effective_date: date('effective_date'),
+  termination_date: date('termination_date'),
+  vesting_years: integer('vesting_years').default(5),
+  vesting_schedule: jsonb('vesting_schedule'),
+  employer_contribution_rate: numeric('employer_contribution_rate', { precision: 9, scale: 6 }),
+  employee_contribution_rate: numeric('employee_contribution_rate', { precision: 9, scale: 6 }),
+  is_multi_employer: boolean('is_multi_employer').default(false),
+  allow_rule_bypass: boolean('allow_rule_bypass').default(false),
+  minimum_benefit_amount: numeric('minimum_benefit_amount', { precision: 21, scale: 4 }),
+  minimum_benefit_enabled: boolean('minimum_benefit_enabled').default(false),
+  tax_exempt_threshold: numeric('tax_exempt_threshold', { precision: 21, scale: 4 }),
+  income_distribution_method: ebtIncomeDistMethodEnum('income_distribution_method').default('PRO_RATA_BALANCE'),
+  income_distribution_frequency: text('income_distribution_frequency').default('QUARTERLY'),
+  reinstatement_cutoff_days: integer('reinstatement_cutoff_days').default(365),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('ebt_plans_employer_idx').on(table.employer_client_id),
+]);
+
+export const ebtMembers = pgTable('ebt_members', {
+  id: serial('id').primaryKey(),
+  member_id: text('member_id').unique().notNull(),
+  plan_id: text('plan_id').references(() => ebtPlans.plan_id).notNull(),
+  employee_id: text('employee_id').notNull(),
+  first_name: text('first_name').notNull(),
+  last_name: text('last_name').notNull(),
+  middle_name: text('middle_name'),
+  date_of_birth: date('date_of_birth'),
+  date_of_hire: date('date_of_hire'),
+  enrollment_date: date('enrollment_date'),
+  separation_date: date('separation_date'),
+  separation_reason: ebtSeparationReasonEnum('separation_reason'),
+  member_status: ebtMemberStatusEnum('member_status').default('ACTIVE'),
+  department: text('department'),
+  position: text('position'),
+  monthly_salary: numeric('monthly_salary', { precision: 21, scale: 4 }),
+  years_of_service: numeric('years_of_service', { precision: 6, scale: 2 }),
+  vesting_percentage: numeric('vesting_percentage', { precision: 9, scale: 6 }),
+  total_employer_contributions: numeric('total_employer_contributions', { precision: 21, scale: 4 }).default('0'),
+  total_employee_contributions: numeric('total_employee_contributions', { precision: 21, scale: 4 }).default('0'),
+  total_earnings: numeric('total_earnings', { precision: 21, scale: 4 }).default('0'),
+  total_withdrawals: numeric('total_withdrawals', { precision: 21, scale: 4 }).default('0'),
+  current_balance: numeric('current_balance', { precision: 21, scale: 4 }).default('0'),
+  beneficiary_name: text('beneficiary_name'),
+  beneficiary_relationship: text('beneficiary_relationship'),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('ebt_members_plan_idx').on(table.plan_id),
+  index('ebt_members_status_idx').on(table.member_status),
+]);
+
+export const ebtContributions = pgTable('ebt_contributions', {
+  id: serial('id').primaryKey(),
+  contribution_id: text('contribution_id').unique().notNull(),
+  plan_id: text('plan_id').references(() => ebtPlans.plan_id).notNull(),
+  member_id: text('member_id').references(() => ebtMembers.member_id).notNull(),
+  contribution_type: ebtContributionTypeEnum('contribution_type').notNull(),
+  contribution_date: date('contribution_date').notNull(),
+  period_start: date('period_start'),
+  period_end: date('period_end'),
+  amount: numeric('amount', { precision: 21, scale: 4 }).notNull(),
+  running_balance: numeric('running_balance', { precision: 21, scale: 4 }),
+  reference: text('reference'),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('ebt_contributions_member_idx').on(table.member_id),
+  index('ebt_contributions_plan_idx').on(table.plan_id),
+  index('ebt_contributions_date_idx').on(table.contribution_date),
+]);
+
+export const ebtBalanceSheets = pgTable('ebt_balance_sheets', {
+  id: serial('id').primaryKey(),
+  sheet_id: text('sheet_id').unique().notNull(),
+  member_id: text('member_id').references(() => ebtMembers.member_id).notNull(),
+  plan_id: text('plan_id').references(() => ebtPlans.plan_id).notNull(),
+  as_of_date: date('as_of_date').notNull(),
+  opening_balance: numeric('opening_balance', { precision: 21, scale: 4 }).default('0'),
+  employer_contributions: numeric('employer_contributions', { precision: 21, scale: 4 }).default('0'),
+  employee_contributions: numeric('employee_contributions', { precision: 21, scale: 4 }).default('0'),
+  investment_earnings: numeric('investment_earnings', { precision: 21, scale: 4 }).default('0'),
+  other_credits: numeric('other_credits', { precision: 21, scale: 4 }).default('0'),
+  withdrawals: numeric('withdrawals', { precision: 21, scale: 4 }).default('0'),
+  loan_deductions: numeric('loan_deductions', { precision: 21, scale: 4 }).default('0'),
+  taxes_withheld: numeric('taxes_withheld', { precision: 21, scale: 4 }).default('0'),
+  other_debits: numeric('other_debits', { precision: 21, scale: 4 }).default('0'),
+  closing_balance: numeric('closing_balance', { precision: 21, scale: 4 }).default('0'),
+  vested_amount: numeric('vested_amount', { precision: 21, scale: 4 }).default('0'),
+  derivation_details: jsonb('derivation_details'),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('ebt_balance_sheets_member_idx').on(table.member_id),
+  uniqueIndex('ebt_balance_sheets_member_date_idx').on(table.member_id, table.as_of_date),
+]);
+
+export const ebtSeparationReasons = pgTable('ebt_separation_reasons', {
+  id: serial('id').primaryKey(),
+  reason_code: text('reason_code').unique().notNull(),
+  reason_name: text('reason_name').notNull(),
+  description: text('description'),
+  requires_notice_period: boolean('requires_notice_period').default(false),
+  notice_period_days: integer('notice_period_days'),
+  is_active: boolean('is_active').default(true),
+  ...auditFields,
+});
+
+export const ebtBenefitTypes = pgTable('ebt_benefit_types', {
+  id: serial('id').primaryKey(),
+  benefit_code: text('benefit_code').unique().notNull(),
+  benefit_name: text('benefit_name').notNull(),
+  benefit_category: ebtBenefitTypeEnum('benefit_category').notNull(),
+  description: text('description'),
+  is_taxable: boolean('is_taxable').default(true),
+  tax_rate: numeric('tax_rate', { precision: 9, scale: 6 }),
+  requires_documentation: boolean('requires_documentation').default(false),
+  is_active: boolean('is_active').default(true),
+  ...auditFields,
+});
+
+export const ebtBenefitClaims = pgTable('ebt_benefit_claims', {
+  id: serial('id').primaryKey(),
+  claim_id: text('claim_id').unique().notNull(),
+  plan_id: text('plan_id').references(() => ebtPlans.plan_id).notNull(),
+  member_id: text('member_id').references(() => ebtMembers.member_id).notNull(),
+  benefit_code: text('benefit_code').references(() => ebtBenefitTypes.benefit_code),
+  claim_status: ebtClaimStatusEnum('claim_status').default('DRAFT'),
+  separation_reason: ebtSeparationReasonEnum('separation_reason'),
+  separation_date: date('separation_date'),
+  years_of_service_at_separation: numeric('years_of_service_at_separation', { precision: 6, scale: 2 }),
+  calculation_method: ebtCalculationMethodEnum('calculation_method').default('STANDARD'),
+  gross_benefit_amount: numeric('gross_benefit_amount', { precision: 21, scale: 4 }),
+  tax_amount: numeric('tax_amount', { precision: 21, scale: 4 }),
+  loan_deduction: numeric('loan_deduction', { precision: 21, scale: 4 }).default('0'),
+  other_deductions: numeric('other_deductions', { precision: 21, scale: 4 }).default('0'),
+  net_benefit_amount: numeric('net_benefit_amount', { precision: 21, scale: 4 }),
+  minimum_benefit_applied: boolean('minimum_benefit_applied').default(false),
+  client_provided_amount: numeric('client_provided_amount', { precision: 21, scale: 4 }),
+  computation_details: jsonb('computation_details'),
+  approved_by: text('approved_by'),
+  approved_date: date('approved_date'),
+  released_date: date('released_date'),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('ebt_benefit_claims_member_idx').on(table.member_id),
+  index('ebt_benefit_claims_plan_idx').on(table.plan_id),
+  index('ebt_benefit_claims_status_idx').on(table.claim_status),
+]);
+
+export const ebtGratuityRules = pgTable('ebt_gratuity_rules', {
+  id: serial('id').primaryKey(),
+  rule_id: text('rule_id').unique().notNull(),
+  plan_id: text('plan_id').references(() => ebtPlans.plan_id).notNull(),
+  min_years_of_service: numeric('min_years_of_service', { precision: 6, scale: 2 }).default('0'),
+  max_years_of_service: numeric('max_years_of_service', { precision: 6, scale: 2 }),
+  multiplier: numeric('multiplier', { precision: 9, scale: 6 }).notNull(),
+  base_type: text('base_type').default('MONTHLY_SALARY'),
+  cap_amount: numeric('cap_amount', { precision: 21, scale: 4 }),
+  applicable_separation_reasons: jsonb('applicable_separation_reasons'),
+  is_active: boolean('is_active').default(true),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('ebt_gratuity_rules_plan_idx').on(table.plan_id),
+]);
+
+export const ebtTaxRules = pgTable('ebt_tax_rules', {
+  id: serial('id').primaryKey(),
+  rule_id: text('rule_id').unique().notNull(),
+  plan_id: text('plan_id').references(() => ebtPlans.plan_id).notNull(),
+  tax_type: text('tax_type').notNull(),
+  applies_to: text('applies_to').notNull(),
+  threshold_amount: numeric('threshold_amount', { precision: 21, scale: 4 }),
+  tax_rate: numeric('tax_rate', { precision: 9, scale: 6 }).notNull(),
+  is_exempt: boolean('is_exempt').default(false),
+  exemption_reason: text('exemption_reason'),
+  min_years_for_exemption: numeric('min_years_for_exemption', { precision: 6, scale: 2 }),
+  effective_date: date('effective_date'),
+  expiry_date: date('expiry_date'),
+  is_active: boolean('is_active').default(true),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('ebt_tax_rules_plan_idx').on(table.plan_id),
+]);
+
+export const ebtLoans = pgTable('ebt_loans', {
+  id: serial('id').primaryKey(),
+  loan_id: text('loan_id').unique().notNull(),
+  plan_id: text('plan_id').references(() => ebtPlans.plan_id).notNull(),
+  member_id: text('member_id').references(() => ebtMembers.member_id).notNull(),
+  loan_status: ebtLoanStatusEnum('loan_status').default('ACTIVE'),
+  original_amount: numeric('original_amount', { precision: 21, scale: 4 }).notNull(),
+  outstanding_balance: numeric('outstanding_balance', { precision: 21, scale: 4 }).notNull(),
+  interest_rate: numeric('interest_rate', { precision: 9, scale: 6 }),
+  loan_date: date('loan_date'),
+  maturity_date: date('maturity_date'),
+  last_payment_date: date('last_payment_date'),
+  source_system: text('source_system'),
+  source_reference: text('source_reference'),
+  interfaced_date: date('interfaced_date'),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('ebt_loans_member_idx').on(table.member_id),
+  index('ebt_loans_plan_idx').on(table.plan_id),
+]);
+
+export const ebtIncomeDistributions = pgTable('ebt_income_distributions', {
+  id: serial('id').primaryKey(),
+  distribution_id: text('distribution_id').unique().notNull(),
+  plan_id: text('plan_id').references(() => ebtPlans.plan_id).notNull(),
+  distribution_date: date('distribution_date').notNull(),
+  period_start: date('period_start'),
+  period_end: date('period_end'),
+  total_income: numeric('total_income', { precision: 21, scale: 4 }).notNull(),
+  distribution_method: ebtIncomeDistMethodEnum('distribution_method').notNull(),
+  total_distributed: numeric('total_distributed', { precision: 21, scale: 4 }).default('0'),
+  member_count: integer('member_count'),
+  details: jsonb('details'),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('ebt_income_distributions_plan_idx').on(table.plan_id),
+]);
+
+export const ebtReinstatements = pgTable('ebt_reinstatements', {
+  id: serial('id').primaryKey(),
+  reinstatement_id: text('reinstatement_id').unique().notNull(),
+  member_id: text('member_id').references(() => ebtMembers.member_id).notNull(),
+  plan_id: text('plan_id').references(() => ebtPlans.plan_id).notNull(),
+  original_separation_date: date('original_separation_date'),
+  reinstatement_date: date('reinstatement_date').notNull(),
+  days_since_separation: integer('days_since_separation'),
+  within_cutoff: boolean('within_cutoff'),
+  previous_balance: numeric('previous_balance', { precision: 21, scale: 4 }),
+  reinstated_balance: numeric('reinstated_balance', { precision: 21, scale: 4 }),
+  requires_recontribution: boolean('requires_recontribution').default(false),
+  recontribution_amount: numeric('recontribution_amount', { precision: 21, scale: 4 }),
+  approved_by: text('approved_by'),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('ebt_reinstatements_member_idx').on(table.member_id),
+]);
+
+// ─── Account & Fund Management Enums ─────────────────────────────────────────
+
+export const holdOutTypeEnum = pgEnum('hold_out_type', [
+  'HOLD_OUT', 'FREEZE', 'DECEASED', 'GARNISHED', 'SPECIAL', 'POST_NO_DEBIT',
+]);
+
+export const holdOutScopeEnum = pgEnum('hold_out_scope', [
+  'CLIENT', 'ACCOUNT', 'HOLDINGS', 'PARTIAL_SECURITY',
+]);
+
+export const accountDormancyStatusEnum = pgEnum('account_dormancy_status', [
+  'ACTIVE', 'PRE_DORMANT', 'DORMANT', 'CLOSED',
+]);
+
+export const checkStatusEnum = pgEnum('check_status', [
+  'ISSUED', 'PAID', 'VOIDED', 'STALE', 'CANCELLED', 'CLEARED',
+]);
+
+export const stockTransferStatusEnum = pgEnum('stock_transfer_status', [
+  'PENDING', 'PROCESSING', 'COMPLETED', 'CANCELLED', 'REJECTED',
+]);
+
+export const ctrStatusEnum = pgEnum('ctr_status', [
+  'DRAFT', 'SUBMITTED', 'FILED', 'ACKNOWLEDGED',
+]);
+
+// ─── Account & Fund Management Tables ────────────────────────────────────────
+
+/** AFM-04: Mother accounts / account group consolidation */
+export const accountGroups = pgTable('account_groups', {
+  id: serial('id').primaryKey(),
+  group_id: text('group_id').unique().notNull(),
+  group_name: text('group_name').notNull(),
+  parent_client_id: text('parent_client_id').references(() => clients.client_id),
+  group_type: text('group_type').default('MOTHER_ACCOUNT'),
+  description: text('description'),
+  total_aum: numeric('total_aum', { precision: 21, scale: 4 }),
+  ...auditFields,
+}, (table) => [
+  index('account_groups_client_idx').on(table.parent_client_id),
+]);
+
+/** AFM-04: Link portfolios to account groups */
+export const accountGroupMembers = pgTable('account_group_members', {
+  id: serial('id').primaryKey(),
+  group_id: text('group_id').references(() => accountGroups.group_id).notNull(),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id).notNull(),
+  relationship: text('relationship').default('MEMBER'),
+  ...auditFields,
+}, (table) => [
+  index('account_group_members_group_idx').on(table.group_id),
+  uniqueIndex('account_group_members_unique').on(table.group_id, table.portfolio_id),
+]);
+
+/** AFM-02/03/05: Project account to collateral trustee linking */
+export const accountLinks = pgTable('account_links', {
+  id: serial('id').primaryKey(),
+  link_id: text('link_id').unique().notNull(),
+  source_portfolio_id: text('source_portfolio_id').references(() => portfolios.portfolio_id).notNull(),
+  target_portfolio_id: text('target_portfolio_id').references(() => portfolios.portfolio_id).notNull(),
+  link_type: text('link_type').notNull(),
+  funding_level: integer('funding_level'),
+  funding_priority: integer('funding_priority'),
+  description: text('description'),
+  ...auditFields,
+}, (table) => [
+  index('account_links_source_idx').on(table.source_portfolio_id),
+  index('account_links_target_idx').on(table.target_portfolio_id),
+]);
+
+/** AFM-10/11: Hold-out tagging */
+export const accountHolds = pgTable('account_holds', {
+  id: serial('id').primaryKey(),
+  hold_id: text('hold_id').unique().notNull(),
+  client_id: text('client_id').references(() => clients.client_id),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  security_id: text('security_id'),
+  hold_type: holdOutTypeEnum('hold_type').notNull(),
+  hold_scope: holdOutScopeEnum('hold_scope').notNull(),
+  is_partial: boolean('is_partial').default(false),
+  held_quantity: numeric('held_quantity', { precision: 21, scale: 4 }),
+  held_amount: numeric('held_amount', { precision: 21, scale: 4 }),
+  promissory_note_ref: text('promissory_note_ref'),
+  loan_amount_secured: numeric('loan_amount_secured', { precision: 21, scale: 4 }),
+  borrower_details: text('borrower_details'),
+  maturity_date: date('maturity_date'),
+  court_order_ref: text('court_order_ref'),
+  effective_date: date('effective_date'),
+  release_date: date('release_date'),
+  released_by: text('released_by'),
+  reason: text('reason'),
+  ...auditFields,
+}, (table) => [
+  index('account_holds_client_idx').on(table.client_id),
+  index('account_holds_portfolio_idx').on(table.portfolio_id),
+]);
+
+/** AFM-07/08/09: Dormancy tracking */
+export const accountDormancy = pgTable('account_dormancy', {
+  id: serial('id').primaryKey(),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id).notNull().unique(),
+  dormancy_status: accountDormancyStatusEnum('dormancy_status').default('ACTIVE'),
+  last_activity_date: date('last_activity_date'),
+  dormancy_trigger_date: date('dormancy_trigger_date'),
+  dormant_since: date('dormant_since'),
+  closed_date: date('closed_date'),
+  close_reason: text('close_reason'),
+  close_parameters: jsonb('close_parameters'),
+  reopened_date: date('reopened_date'),
+  reopened_by: text('reopened_by'),
+  reopen_reason: text('reopen_reason'),
+  notified_users: jsonb('notified_users'),
+  ...auditFields,
+});
+
+/** AFM-12/14: Fee sharing arrangements */
+export const feeSharingArrangements = pgTable('fee_sharing_arrangements', {
+  id: serial('id').primaryKey(),
+  arrangement_id: text('arrangement_id').unique().notNull(),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  client_id: text('client_id').references(() => clients.client_id),
+  arrangement_type: text('arrangement_type').notNull(),
+  counterparty_name: text('counterparty_name'),
+  counterparty_share_pct: numeric('counterparty_share_pct', { precision: 9, scale: 6 }),
+  trust_share_pct: numeric('trust_share_pct', { precision: 9, scale: 6 }),
+  fee_basis: text('fee_basis').default('AUM'),
+  billing_frequency: text('billing_frequency').default('MONTHLY'),
+  effective_date: date('effective_date'),
+  expiry_date: date('expiry_date'),
+  is_active: boolean('is_active').default(true),
+  collection_status: text('collection_status').default('CURRENT'),
+  last_collection_date: date('last_collection_date'),
+  total_collected: numeric('total_collected', { precision: 21, scale: 4 }).default('0'),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('fee_sharing_portfolio_idx').on(table.portfolio_id),
+]);
+
+// ─── Securities Services Tables ──────────────────────────────────────────────
+
+/** SS-01/02: Stock transfer agent files */
+export const stockTransfers = pgTable('stock_transfers', {
+  id: serial('id').primaryKey(),
+  transfer_id: text('transfer_id').unique().notNull(),
+  security_id: text('security_id').notNull(),
+  transfer_type: text('transfer_type').notNull(),
+  share_class: text('share_class'),
+  is_scripless: boolean('is_scripless').default(false),
+  transferor_name: text('transferor_name'),
+  transferor_account: text('transferor_account'),
+  transferee_name: text('transferee_name'),
+  transferee_account: text('transferee_account'),
+  quantity: numeric('quantity', { precision: 21, scale: 4 }).notNull(),
+  transfer_date: date('transfer_date'),
+  settlement_date: date('settlement_date'),
+  certificate_number: text('certificate_number'),
+  new_certificate_number: text('new_certificate_number'),
+  transfer_status: stockTransferStatusEnum('transfer_status').default('PENDING'),
+  transfer_agent_ref: text('transfer_agent_ref'),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('stock_transfers_security_idx').on(table.security_id),
+]);
+
+/** SS-03: Stock rights processing */
+export const stockRights = pgTable('stock_rights', {
+  id: serial('id').primaryKey(),
+  right_id: text('right_id').unique().notNull(),
+  security_id: text('security_id').notNull(),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  right_type: text('right_type').notNull(),
+  record_date: date('record_date'),
+  ex_date: date('ex_date'),
+  exercise_price: numeric('exercise_price', { precision: 21, scale: 4 }),
+  ratio_from: integer('ratio_from'),
+  ratio_to: integer('ratio_to'),
+  eligible_shares: numeric('eligible_shares', { precision: 21, scale: 4 }),
+  rights_received: numeric('rights_received', { precision: 21, scale: 4 }),
+  rights_exercised: numeric('rights_exercised', { precision: 21, scale: 4 }),
+  rights_sold: numeric('rights_sold', { precision: 21, scale: 4 }),
+  rights_expired: numeric('rights_expired', { precision: 21, scale: 4 }),
+  action_taken: text('action_taken'),
+  expiry_date: date('expiry_date'),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('stock_rights_security_idx').on(table.security_id),
+]);
+
+/** SS-04: Unclaimed stock certificate inventory */
+export const unclaimedCertificates = pgTable('unclaimed_certificates', {
+  id: serial('id').primaryKey(),
+  certificate_id: text('certificate_id').unique().notNull(),
+  security_id: text('security_id').notNull(),
+  certificate_number: text('certificate_number'),
+  holder_name: text('holder_name'),
+  holder_address: text('holder_address'),
+  quantity: numeric('quantity', { precision: 21, scale: 4 }),
+  issue_date: date('issue_date'),
+  storage_location: text('storage_location'),
+  vault_reference: text('vault_reference'),
+  shelf_tag: text('shelf_tag'),
+  last_contact_date: date('last_contact_date'),
+  escheat_eligible_date: date('escheat_eligible_date'),
+  is_escheated: boolean('is_escheated').default(false),
+  remarks: text('remarks'),
+  ...auditFields,
+});
+
+/** SS-06: Proxy/stockholder meeting voting */
+export const stockholderMeetings = pgTable('stockholder_meetings', {
+  id: serial('id').primaryKey(),
+  meeting_id: text('meeting_id').unique().notNull(),
+  security_id: text('security_id').notNull(),
+  meeting_type: text('meeting_type').notNull(),
+  meeting_date: date('meeting_date'),
+  record_date: date('record_date'),
+  venue: text('venue'),
+  agenda: jsonb('agenda'),
+  total_registered_shares: numeric('total_registered_shares', { precision: 21, scale: 4 }),
+  total_voted_shares: numeric('total_voted_shares', { precision: 21, scale: 4 }),
+  quorum_reached: boolean('quorum_reached'),
+  proxy_tabulation: jsonb('proxy_tabulation'),
+  voting_results: jsonb('voting_results'),
+  minutes_reference: text('minutes_reference'),
+  remarks: text('remarks'),
+  ...auditFields,
+});
+
+// ─── Operations Tables ───────────────────────────────────────────────────────
+
+/** OPS-03/04/05/06: Check management */
+export const checkRegister = pgTable('check_register', {
+  id: serial('id').primaryKey(),
+  check_id: text('check_id').unique().notNull(),
+  check_number: text('check_number').notNull(),
+  check_series: text('check_series'),
+  bank_account: text('bank_account'),
+  payee_name: text('payee_name').notNull(),
+  amount: numeric('amount', { precision: 21, scale: 4 }).notNull(),
+  issue_date: date('issue_date'),
+  clear_date: date('clear_date'),
+  void_date: date('void_date'),
+  stale_date: date('stale_date'),
+  check_status: checkStatusEnum('check_status').default('ISSUED'),
+  check_purpose: text('check_purpose'),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  related_transaction_id: text('related_transaction_id'),
+  printed: boolean('printed').default(false),
+  print_date: date('print_date'),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('check_register_status_idx').on(table.check_status),
+  uniqueIndex('check_register_number_series_idx').on(table.check_number, table.check_series),
+]);
+
+/** OPS-04: Check/certificate number series */
+export const numberSeries = pgTable('number_series', {
+  id: serial('id').primaryKey(),
+  series_id: text('series_id').unique().notNull(),
+  series_type: text('series_type').notNull(),
+  prefix: text('prefix'),
+  suffix: text('suffix'),
+  current_number: integer('current_number').default(1),
+  increment_by: integer('increment_by').default(1),
+  min_number: integer('min_number').default(1),
+  max_number: integer('max_number'),
+  is_alphanumeric: boolean('is_alphanumeric').default(false),
+  is_active: boolean('is_active').default(true),
+  description: text('description'),
+  ...auditFields,
+});
+
+/** OPS-03: Bank reconciliation */
+export const bankReconciliations = pgTable('bank_reconciliations', {
+  id: serial('id').primaryKey(),
+  reconciliation_id: text('reconciliation_id').unique().notNull(),
+  bank_account: text('bank_account').notNull(),
+  period_start: date('period_start').notNull(),
+  period_end: date('period_end').notNull(),
+  bank_statement_balance: numeric('bank_statement_balance', { precision: 21, scale: 4 }),
+  book_balance: numeric('book_balance', { precision: 21, scale: 4 }),
+  outstanding_checks: numeric('outstanding_checks', { precision: 21, scale: 4 }),
+  deposits_in_transit: numeric('deposits_in_transit', { precision: 21, scale: 4 }),
+  adjusted_bank_balance: numeric('adjusted_bank_balance', { precision: 21, scale: 4 }),
+  adjusted_book_balance: numeric('adjusted_book_balance', { precision: 21, scale: 4 }),
+  is_reconciled: boolean('is_reconciled').default(false),
+  reconciled_by: text('reconciled_by'),
+  reconciled_date: date('reconciled_date'),
+  discrepancy: numeric('discrepancy', { precision: 21, scale: 4 }),
+  items: jsonb('items'),
+  remarks: text('remarks'),
+  ...auditFields,
+});
+
+/** OPS-02: Property depreciation */
+export const propertyDepreciation = pgTable('property_depreciation', {
+  id: serial('id').primaryKey(),
+  asset_id: text('asset_id').unique().notNull(),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  asset_description: text('asset_description').notNull(),
+  acquisition_date: date('acquisition_date'),
+  acquisition_cost: numeric('acquisition_cost', { precision: 21, scale: 4 }),
+  useful_life_years: integer('useful_life_years'),
+  salvage_value: numeric('salvage_value', { precision: 21, scale: 4 }),
+  depreciation_method: text('depreciation_method').default('STRAIGHT_LINE'),
+  accumulated_depreciation: numeric('accumulated_depreciation', { precision: 21, scale: 4 }).default('0'),
+  net_book_value: numeric('net_book_value', { precision: 21, scale: 4 }),
+  last_depreciation_date: date('last_depreciation_date'),
+  remarks: text('remarks'),
+  ...auditFields,
+});
+
+/** OPS-01/07: Loan refunds and LGF reversals */
+export const loanRefunds = pgTable('loan_refunds', {
+  id: serial('id').primaryKey(),
+  refund_id: text('refund_id').unique().notNull(),
+  refund_type: text('refund_type').notNull(),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  original_transaction_id: text('original_transaction_id'),
+  refund_amount: numeric('refund_amount', { precision: 21, scale: 4 }).notNull(),
+  refund_date: date('refund_date'),
+  bank_reference: text('bank_reference'),
+  partner_bank: text('partner_bank'),
+  reason: text('reason'),
+  approval_status: text('approval_status').default('PENDING'),
+  approved_by: text('approved_by'),
+  ...auditFields,
+});
+
+// ─── Order Management Extensions ─────────────────────────────────────────────
+
+/** OM-01: Trade import staging */
+export const tradeImports = pgTable('trade_imports', {
+  id: serial('id').primaryKey(),
+  import_id: text('import_id').unique().notNull(),
+  file_name: text('file_name'),
+  import_date: date('import_date'),
+  imported_by: text('imported_by'),
+  total_records: integer('total_records'),
+  valid_records: integer('valid_records'),
+  error_records: integer('error_records'),
+  import_status: text('import_status').default('PENDING'),
+  validation_errors: jsonb('validation_errors'),
+  records: jsonb('records'),
+  ...auditFields,
+});
+
+// ─── Risk Management Extensions ──────────────────────────────────────────────
+
+/** RM-01/02: Asset swap monitoring */
+export const assetSwaps = pgTable('asset_swaps', {
+  id: serial('id').primaryKey(),
+  swap_id: text('swap_id').unique().notNull(),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id).notNull(),
+  underlying_security_id: text('underlying_security_id'),
+  counterparty: text('counterparty'),
+  notional_amount: numeric('notional_amount', { precision: 21, scale: 4 }),
+  swap_rate: numeric('swap_rate', { precision: 9, scale: 6 }),
+  effective_date: date('effective_date'),
+  maturity_date: date('maturity_date'),
+  next_coupon_date: date('next_coupon_date'),
+  coupon_frequency: text('coupon_frequency'),
+  accrued_charges: numeric('accrued_charges', { precision: 21, scale: 4 }).default('0'),
+  trust_fee_booked: numeric('trust_fee_booked', { precision: 21, scale: 4 }).default('0'),
+  last_fee_date: date('last_fee_date'),
+  swap_status: text('swap_status').default('ACTIVE'),
+  remarks: text('remarks'),
+  ...auditFields,
+}, (table) => [
+  index('asset_swaps_portfolio_idx').on(table.portfolio_id),
+]);
+
+// ─── Reporting & Analytics Tables ────────────────────────────────────────────
+
+/** RA-01: Covered Transaction Reporting (CTR) — AML compliance */
+export const coveredTransactionReports = pgTable('covered_transaction_reports', {
+  id: serial('id').primaryKey(),
+  report_id: text('report_id').unique().notNull(),
+  client_id: text('client_id').references(() => clients.client_id),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  transaction_date: date('transaction_date').notNull(),
+  transaction_type: text('transaction_type'),
+  amount: numeric('amount', { precision: 21, scale: 4 }).notNull(),
+  currency: text('currency').default('PHP'),
+  threshold_amount: numeric('threshold_amount', { precision: 21, scale: 4 }),
+  is_above_threshold: boolean('is_above_threshold').default(false),
+  related_transactions: jsonb('related_transactions'),
+  ctr_status: ctrStatusEnum('ctr_status').default('DRAFT'),
+  filed_date: date('filed_date'),
+  filed_by: text('filed_by'),
+  amlc_reference: text('amlc_reference'),
+  narrative: text('narrative'),
+  ...auditFields,
+}, (table) => [
+  index('ctr_client_idx').on(table.client_id),
+  index('ctr_date_idx').on(table.transaction_date),
+]);
+
+/** RA-02: Escheat processing */
+export const escheatRecords = pgTable('escheat_records', {
+  id: serial('id').primaryKey(),
+  escheat_id: text('escheat_id').unique().notNull(),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  client_id: text('client_id').references(() => clients.client_id),
+  asset_description: text('asset_description'),
+  asset_value: numeric('asset_value', { precision: 21, scale: 4 }),
+  dormant_since: date('dormant_since'),
+  escheat_eligible_date: date('escheat_eligible_date'),
+  escheat_filed_date: date('escheat_filed_date'),
+  escheat_status: text('escheat_status').default('PENDING'),
+  government_reference: text('government_reference'),
+  last_owner_contact: date('last_owner_contact'),
+  notices_sent: integer('notices_sent').default(0),
+  remarks: text('remarks'),
+  ...auditFields,
+});
+
+// ─── General Requirements Tables ─────────────────────────────────────────────
+
+/** GR-01/02: Data migration tracking */
+export const dataMigrations = pgTable('data_migrations', {
+  id: serial('id').primaryKey(),
+  migration_id: text('migration_id').unique().notNull(),
+  migration_type: text('migration_type').notNull(),
+  source_system: text('source_system'),
+  description: text('description'),
+  total_records: integer('total_records'),
+  migrated_records: integer('migrated_records'),
+  failed_records: integer('failed_records'),
+  migration_status: text('migration_status').default('PENDING'),
+  started_at: timestamp('started_at'),
+  completed_at: timestamp('completed_at'),
+  migrated_by: text('migrated_by'),
+  error_log: jsonb('error_log'),
+  validation_summary: jsonb('validation_summary'),
+  ...auditFields,
+});
+
+/** GR-04/05: Report password protection */
+export const reportProtection = pgTable('report_protection', {
+  id: serial('id').primaryKey(),
+  report_id: text('report_id').unique().notNull(),
+  report_type: text('report_type').notNull(),
+  client_id: text('client_id').references(() => clients.client_id),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  is_password_protected: boolean('is_password_protected').default(true),
+  password_hint: text('password_hint'),
+  generated_date: date('generated_date'),
+  generated_by: text('generated_by'),
+  file_reference: text('file_reference'),
+  delivery_method: text('delivery_method'),
+  delivered_date: date('delivered_date'),
+  ...auditFields,
+});
+
+/** GR-03: Report writer saved templates */
+export const reportTemplates = pgTable('report_templates', {
+  id: serial('id').primaryKey(),
+  template_id: text('template_id').unique().notNull(),
+  template_name: text('template_name').notNull(),
+  description: text('description'),
+  report_type: text('report_type'),
+  query_definition: jsonb('query_definition'),
+  columns: jsonb('columns'),
+  filters: jsonb('filters'),
+  calculations: jsonb('calculations'),
+  sort_order: jsonb('sort_order'),
+  grouping: jsonb('grouping'),
+  output_format: text('output_format').default('XLSX'),
+  is_system: boolean('is_system').default(false),
+  created_by_user: text('created_by_user'),
+  last_run_date: date('last_run_date'),
+  ...auditFields,
+});
+
+// ─── P0/P1 PARTIAL Gap Closure Tables ───────────────────────────────────────
+
+/** P-01: Report scheduler job execution history */
+export const reportJobHistory = pgTable('report_job_history', {
+  id: serial('id').primaryKey(),
+  schedule_id: integer('schedule_id').references(() => glReportSchedules.id),
+  execution_date: date('execution_date').notNull(),
+  job_status: text('job_status').default('RUNNING'),
+  records_generated: integer('records_generated'),
+  error_message: text('error_message'),
+  execution_time_ms: integer('execution_time_ms'),
+  output_format: text('output_format'),
+  output_reference: text('output_reference'),
+  ...auditFields,
+});
+
+/** P-02: Market holiday calendar for UITF NAV validation */
+export const marketHolidays = pgTable('market_holidays', {
+  id: serial('id').primaryKey(),
+  holiday_date: date('holiday_date').notNull(),
+  market_code: text('market_code').notNull().default('PSE'),
+  holiday_name: text('holiday_name'),
+  holiday_type: text('holiday_type').default('REGULAR'),
+  is_half_day: boolean('is_half_day').default(false),
+  ...auditFields,
+}, (table) => [
+  index('market_holidays_date_idx').on(table.holiday_date, table.market_code),
+]);
+
+/** P-05: Transfer groups for batch/many-to-many transfers */
+export const transferGroups = pgTable('transfer_groups', {
+  id: serial('id').primaryKey(),
+  group_id: text('group_id').unique().notNull(),
+  group_type: text('group_type').notNull().default('BATCH'),
+  description: text('description'),
+  total_transfers: integer('total_transfers').default(0),
+  completed_transfers: integer('completed_transfers').default(0),
+  group_status: text('group_status').default('PENDING'),
+  initiated_by: text('initiated_by'),
+  ...auditFields,
+});
+
+/** P-07/P-08: Cash flow projection records */
+export const cashFlowProjections = pgTable('cash_flow_projections', {
+  id: serial('id').primaryKey(),
+  projection_id: text('projection_id').unique().notNull(),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  projection_date: date('projection_date').notNull(),
+  flow_type: text('flow_type').notNull(),
+  flow_category: text('flow_category'),
+  security_id: integer('security_id'),
+  amount: numeric('amount', { precision: 21, scale: 4 }).notNull(),
+  currency: text('currency').default('PHP'),
+  source_description: text('source_description'),
+  confidence_level: text('confidence_level').default('HIGH'),
+  is_projected: boolean('is_projected').default(true),
+  ...auditFields,
+}, (table) => [
+  index('cfp_portfolio_date_idx').on(table.portfolio_id, table.projection_date),
+]);
+
+/** P-09: Settlement outbound file tracking */
+export const settlementFiles = pgTable('settlement_files', {
+  id: serial('id').primaryKey(),
+  file_id: text('file_id').unique().notNull(),
+  file_type: text('file_type').notNull(),
+  file_name: text('file_name'),
+  settlement_count: integer('settlement_count').default(0),
+  total_amount: numeric('total_amount', { precision: 21, scale: 4 }),
+  currency: text('currency').default('PHP'),
+  file_status: text('file_status').default('GENERATED'),
+  generated_at: timestamp('generated_at').defaultNow(),
+  transmitted_at: timestamp('transmitted_at'),
+  acknowledged_at: timestamp('acknowledged_at'),
+  transmission_ref: text('transmission_ref'),
+  error_message: text('error_message'),
+  file_content: text('file_content'),
+  ...auditFields,
+});
+
+/** P-14: Transaction advices / contract notes */
+export const transactionAdvices = pgTable('transaction_advices', {
+  id: serial('id').primaryKey(),
+  advice_id: text('advice_id').unique().notNull(),
+  advice_type: text('advice_type').notNull().default('CONTRACT_NOTE'),
+  trade_id: text('trade_id'),
+  confirmation_id: integer('confirmation_id'),
+  portfolio_id: text('portfolio_id').references(() => portfolios.portfolio_id),
+  client_id: text('client_id').references(() => clients.client_id),
+  settlement_date: date('settlement_date'),
+  settlement_amount: numeric('settlement_amount', { precision: 21, scale: 4 }),
+  counterparty_name: text('counterparty_name'),
+  advice_content: jsonb('advice_content'),
+  delivery_status: text('delivery_status').default('PENDING'),
+  delivered_at: timestamp('delivered_at'),
+  ...auditFields,
+});

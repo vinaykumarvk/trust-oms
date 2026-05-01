@@ -12,10 +12,13 @@
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, desc, and, sql, inArray, type InferSelectModel, gte, lte } from 'drizzle-orm';
+import { cashLedgerService } from './cash-ledger-service';
+import { fxRateService } from './fx-rate-service';
 
 type SettlementInstruction = InferSelectModel<typeof schema.settlementInstructions>;
 type Trade = InferSelectModel<typeof schema.trades>;
 type Confirmation = InferSelectModel<typeof schema.confirmations>;
+type SettlementMechanism = 'DVP' | 'RVP' | 'FOP';
 
 // Counter for official receipt numbering within a session
 let receiptSeq = 0;
@@ -24,6 +27,11 @@ let receiptSeq = 0;
 function round(value: number, decimals: number = 2): number {
   const factor = Math.pow(10, decimals);
   return Math.round(value * factor) / factor;
+}
+
+function mechanismForOrder(side?: string | null, isBookOnly?: boolean | null): SettlementMechanism {
+  if (isBookOnly) return 'FOP';
+  return side === 'BUY' ? 'RVP' : 'DVP';
 }
 
 export const settlementService = {
@@ -87,6 +95,7 @@ export const settlementService = {
     // Generate official receipt for cash-receipt type settlements
     const officialReceiptNo =
       order?.side === 'SELL' ? this.generateOfficialReceipt() : null;
+    const settlementMechanism = mechanismForOrder(order?.side, isBookOnly);
 
     // Compute value date (T+2 for equities, T+1 for fixed income, T+0 for FX)
     const today = new Date();
@@ -111,6 +120,25 @@ export const settlementService = {
         official_receipt_no: officialReceiptNo,
       })
       .returning();
+
+    await this.recordSettlementLifecycleEvent(settlement.id, {
+      eventType: 'SETTLEMENT_INITIALIZED',
+      mechanism: settlementMechanism,
+      fromStatus: null,
+      toStatus: 'PENDING',
+      deliveryLegStatus: settlementMechanism === 'FOP' ? 'NOT_REQUIRED' : 'PENDING',
+      paymentLegStatus: settlementMechanism === 'FOP' ? 'NOT_REQUIRED' : 'PENDING',
+      payload: {
+        trade_id: tradeId,
+        confirmation_id: confirmationId,
+        ssi_id: ssiDetails.ssi_id,
+        routing_bic: ssiDetails.routing_bic,
+        swift_message_type: isBookOnly ? null : ssiDetails.swift_message_type,
+        cash_amount: cashAmount,
+        currency,
+        value_date: valueDateStr,
+      },
+    });
 
     return settlement;
   },
@@ -143,6 +171,29 @@ export const settlementService = {
       if (order) {
         currency = order.currency ?? 'PHP';
         portfolioId = order.portfolio_id;
+      }
+    }
+
+    if (portfolioId) {
+      const trustSettlementAccounts = await db
+        .select()
+        .from(schema.trustSettlementAccounts)
+        .where(and(
+          eq(schema.trustSettlementAccounts.portfolio_id, portfolioId),
+          eq(schema.trustSettlementAccounts.currency, currency),
+          eq(schema.trustSettlementAccounts.purpose, 'TSA'),
+          eq(schema.trustSettlementAccounts.is_default, true),
+          eq(schema.trustSettlementAccounts.is_deleted, false),
+        ));
+
+      if (trustSettlementAccounts.length > 0) {
+        const account = trustSettlementAccounts[0];
+
+        return {
+          ssi_id: account.account_no ?? account.account_id ?? `TSA-${portfolioId}-${currency}`,
+          routing_bic: account.routing_bic ?? '',
+          swift_message_type: currency === 'PHP' ? 'MT543' : 'MT540',
+        };
       }
     }
 
@@ -188,6 +239,125 @@ export const settlementService = {
     }
   },
 
+  async _inferSettlementMechanism(settlement: SettlementInstruction): Promise<SettlementMechanism> {
+    if (settlement.is_book_only) return 'FOP';
+    if (!settlement.trade_id) return 'DVP';
+
+    const [trade] = await db
+      .select()
+      .from(schema.trades)
+      .where(eq(schema.trades.trade_id, settlement.trade_id))
+      .limit(1);
+    if (!trade?.order_id) return 'DVP';
+
+    const [order] = await db
+      .select()
+      .from(schema.orders)
+      .where(eq(schema.orders.order_id, trade.order_id))
+      .limit(1);
+
+    return mechanismForOrder(order?.side, settlement.is_book_only);
+  },
+
+  async recordSettlementLifecycleEvent(
+    settlementId: number,
+    event: {
+      eventType: string;
+      mechanism?: SettlementMechanism;
+      fromStatus?: string | null;
+      toStatus?: string | null;
+      deliveryLegStatus?: string | null;
+      paymentLegStatus?: string | null;
+      externalRef?: string | null;
+      actorId?: number | null;
+      payload?: Record<string, unknown>;
+    },
+  ) {
+    const [settlement] = await db
+      .select()
+      .from(schema.settlementInstructions)
+      .where(eq(schema.settlementInstructions.id, settlementId))
+      .limit(1);
+
+    if (!settlement) {
+      throw new Error(`Settlement instruction not found: ${settlementId}`);
+    }
+
+    const mechanism = event.mechanism ?? await this._inferSettlementMechanism(settlement);
+    const actorText = event.actorId ? String(event.actorId) : null;
+
+    const [lifecycleEvent] = await db
+      .insert(schema.settlementLifecycleEvents)
+      .values({
+        settlement_id: settlementId,
+        event_type: event.eventType,
+        settlement_mechanism: mechanism,
+        from_status: event.fromStatus ?? settlement.settlement_status ?? null,
+        to_status: event.toStatus ?? settlement.settlement_status ?? null,
+        delivery_leg_status: event.deliveryLegStatus ?? null,
+        payment_leg_status: event.paymentLegStatus ?? null,
+        external_ref: event.externalRef ?? null,
+        payload: event.payload ?? null,
+        actor_id: event.actorId ?? null,
+        created_by: actorText,
+        updated_by: actorText,
+        correlation_id: event.externalRef ?? settlement.correlation_id ?? null,
+      } as any)
+      .returning();
+
+    return lifecycleEvent;
+  },
+
+  async matchSettlement(
+    settlementId: number,
+    input: {
+      matchedBy?: number;
+      externalRef?: string;
+      deliveryLegStatus?: string;
+      paymentLegStatus?: string;
+      payload?: Record<string, unknown>;
+    } = {},
+  ) {
+    const [settlement] = await db
+      .select()
+      .from(schema.settlementInstructions)
+      .where(eq(schema.settlementInstructions.id, settlementId))
+      .limit(1);
+
+    if (!settlement) {
+      throw new Error(`Settlement instruction not found: ${settlementId}`);
+    }
+
+    if (settlement.settlement_status === 'SETTLED') {
+      throw new Error(`Cannot match settlement ${settlementId}; already SETTLED`);
+    }
+
+    const mechanism = await this._inferSettlementMechanism(settlement);
+    const [updated] = await db
+      .update(schema.settlementInstructions)
+      .set({
+        settlement_status: 'MATCHED',
+        updated_by: input.matchedBy ? String(input.matchedBy) : null,
+        updated_at: new Date(),
+      })
+      .where(eq(schema.settlementInstructions.id, settlementId))
+      .returning();
+
+    await this.recordSettlementLifecycleEvent(settlementId, {
+      eventType: 'SETTLEMENT_MATCHED',
+      mechanism,
+      fromStatus: settlement.settlement_status ?? null,
+      toStatus: 'MATCHED',
+      deliveryLegStatus: input.deliveryLegStatus ?? 'MATCHED',
+      paymentLegStatus: input.paymentLegStatus ?? 'MATCHED',
+      externalRef: input.externalRef ?? null,
+      actorId: input.matchedBy ?? null,
+      payload: input.payload ?? {},
+    });
+
+    return updated;
+  },
+
   /** Generate SWIFT message stub (MT540-548) */
   async generateSwiftMessage(
     settlementId: number,
@@ -214,6 +384,14 @@ export const settlementService = {
         updated_at: new Date(),
       })
       .where(eq(schema.settlementInstructions.id, settlementId));
+
+    await this.recordSettlementLifecycleEvent(settlementId, {
+      eventType: 'SWIFT_MESSAGE_SENT',
+      deliveryLegStatus: 'INSTRUCTED',
+      paymentLegStatus: settlement.is_book_only ? 'NOT_REQUIRED' : 'PENDING',
+      externalRef: messageId,
+      payload: { message_type: messageType },
+    });
 
     return {
       messageId,
@@ -246,6 +424,13 @@ export const settlementService = {
         updated_at: new Date(),
       })
       .where(eq(schema.settlementInstructions.id, settlementId));
+
+    await this.recordSettlementLifecycleEvent(settlementId, {
+      eventType: 'PHILPASS_SUBMITTED',
+      deliveryLegStatus: settlement.is_book_only ? 'NOT_REQUIRED' : 'PENDING',
+      paymentLegStatus: 'INSTRUCTED',
+      externalRef: philpassRef,
+    });
 
     return {
       philpassRef,
@@ -363,11 +548,65 @@ export const settlementService = {
       })
       .where(eq(schema.cashLedger.id, ledger.id));
 
+    const [portfolio] = await db
+      .select({ base_currency: schema.portfolios.base_currency })
+      .from(schema.portfolios)
+      .where(eq(schema.portfolios.portfolio_id, portfolioId))
+      .limit(1);
+
+    const baseCurrency = portfolio?.base_currency ?? 'PHP';
+    let fxConversion: {
+      base_currency: string;
+      fx_rate_used: number;
+      converted_amount: number;
+      converted_transaction_id: number;
+      converted_ledger_id: number;
+      is_stale_rate: boolean;
+    } | null = null;
+
+    if (currency !== baseCurrency) {
+      const rateDate = settlement.value_date ?? todayStr;
+      const rateResult = await fxRateService.getFxRate(currency, baseCurrency, rateDate);
+      const convertedAmount = round(amount * rateResult.mid_rate, 4);
+      const convertedEntry = await cashLedgerService.postEntry({
+        portfolioId,
+        type: side === 'BUY' ? 'DEBIT' : 'CREDIT',
+        amount: Math.abs(convertedAmount),
+        currency: baseCurrency,
+        reference: `SETTLE-${settlementId}-FX-${currency}${baseCurrency}@${rateResult.mid_rate.toFixed(6)}`,
+      });
+
+      fxConversion = {
+        base_currency: baseCurrency,
+        fx_rate_used: rateResult.mid_rate,
+        converted_amount: convertedEntry.amount,
+        converted_transaction_id: convertedEntry.transaction_id,
+        converted_ledger_id: convertedEntry.ledger_id,
+        is_stale_rate: rateResult.is_stale,
+      };
+    }
+
+    await this.recordSettlementLifecycleEvent(settlementId, {
+      eventType: 'CASH_LEDGER_POSTED',
+      deliveryLegStatus: settlement.is_book_only ? 'NOT_REQUIRED' : 'PENDING',
+      paymentLegStatus: 'POSTED',
+      externalRef: `SETTLE-${settlementId}`,
+      payload: {
+        ledger_id: ledger.id,
+        transaction_id: transaction.id,
+        amount,
+        currency,
+        portfolio_id: portfolioId,
+        fx_conversion: fxConversion,
+      },
+    });
+
     return {
       ledger_id: ledger.id,
       transaction_id: transaction.id,
       amount,
       new_balance: newBalance,
+      fx_conversion: fxConversion,
     };
   },
 
@@ -395,6 +634,11 @@ export const settlementService = {
         updated_at: new Date(),
       })
       .where(eq(schema.settlementInstructions.id, settlementId));
+
+    await this.recordSettlementLifecycleEvent(settlementId, {
+      eventType: 'FINACLE_GL_POSTED',
+      externalRef: finacleRef,
+    });
 
     return {
       finacleRef,
@@ -428,6 +672,14 @@ export const settlementService = {
       .where(eq(schema.settlementInstructions.id, settlementId))
       .returning();
 
+    await this.recordSettlementLifecycleEvent(settlementId, {
+      eventType: 'SETTLEMENT_SETTLED',
+      fromStatus: settlement.settlement_status ?? null,
+      toStatus: 'SETTLED',
+      deliveryLegStatus: settlement.is_book_only ? 'NOT_REQUIRED' : 'SETTLED',
+      paymentLegStatus: settlement.is_book_only ? 'NOT_REQUIRED' : 'SETTLED',
+    });
+
     return updated;
   },
 
@@ -451,6 +703,15 @@ export const settlementService = {
       })
       .where(eq(schema.settlementInstructions.id, settlementId))
       .returning();
+
+    await this.recordSettlementLifecycleEvent(settlementId, {
+      eventType: 'SETTLEMENT_FAILED',
+      fromStatus: settlement.settlement_status ?? null,
+      toStatus: 'FAILED',
+      deliveryLegStatus: 'FAILED',
+      paymentLegStatus: 'FAILED',
+      payload: { reason },
+    });
 
     return { ...updated, failure_reason: reason };
   },
@@ -482,6 +743,14 @@ export const settlementService = {
       })
       .where(eq(schema.settlementInstructions.id, settlementId))
       .returning();
+
+    await this.recordSettlementLifecycleEvent(settlementId, {
+      eventType: 'SETTLEMENT_RETRIED',
+      fromStatus: 'FAILED',
+      toStatus: 'PENDING',
+      deliveryLegStatus: 'PENDING',
+      paymentLegStatus: settlement.is_book_only ? 'NOT_REQUIRED' : 'PENDING',
+    });
 
     return updated;
   },
@@ -849,6 +1118,7 @@ export const settlementService = {
   async netSettlements(filters?: {
     currency?: string;
     valueDate?: string;
+    nettedBy?: number;
   }): Promise<{
     groups_processed: number;
     instructions_netted: number;
@@ -978,6 +1248,8 @@ export const settlementService = {
           is_book_only: sample.instruction.is_book_only,
           custodian_group: sample.instruction.custodian_group,
           settlement_account_level: sample.instruction.settlement_account_level,
+          created_by: filters?.nettedBy ? String(filters.nettedBy) : null,
+          updated_by: filters?.nettedBy ? String(filters.nettedBy) : null,
         })
         .returning();
 
@@ -991,9 +1263,51 @@ export const settlementService = {
           settlement_status: 'SETTLED',
           finacle_gl_ref: `NETTED-REF-${netInstruction.id}`,
           settled_at: new Date(),
+          updated_by: filters?.nettedBy ? String(filters.nettedBy) : null,
           updated_at: new Date(),
         })
         .where(inArray(schema.settlementInstructions.id, originalIds));
+
+      await this.recordSettlementLifecycleEvent(netInstruction.id, {
+        eventType: 'NET_SETTLEMENT_CREATED',
+        mechanism: netAmount >= 0 ? 'RVP' : 'DVP',
+        fromStatus: null,
+        toStatus: 'PENDING',
+        deliveryLegStatus: Math.abs(netAmount) === 0 ? 'NOT_REQUIRED' : 'PENDING',
+        paymentLegStatus: Math.abs(netAmount) === 0 ? 'NOT_REQUIRED' : 'PENDING',
+        externalRef: `NETTED-REF-${netInstruction.id}`,
+        actorId: filters?.nettedBy ?? null,
+        payload: {
+          counterparty,
+          currency,
+          value_date: valueDate,
+          original_settlement_ids: originalIds,
+          original_count: group.length,
+          net_amount: netAmount,
+          absolute_cash_amount: Math.abs(netAmount),
+        },
+      });
+
+      for (const original of group) {
+        await this.recordSettlementLifecycleEvent(original.instruction.id, {
+          eventType: 'SETTLEMENT_NETTED',
+          mechanism: mechanismForOrder(original.side, original.instruction.is_book_only),
+          fromStatus: original.instruction.settlement_status ?? null,
+          toStatus: 'SETTLED',
+          deliveryLegStatus: 'NETTED',
+          paymentLegStatus: 'NETTED',
+          externalRef: `NETTED-REF-${netInstruction.id}`,
+          actorId: filters?.nettedBy ?? null,
+          payload: {
+            counterparty,
+            currency,
+            value_date: valueDate,
+            net_instruction_id: netInstruction.id,
+            original_cash_amount: original.instruction.cash_amount,
+            original_side: original.side,
+          },
+        });
+      }
 
       groupsProcessed++;
       instructionsNetted += group.length;

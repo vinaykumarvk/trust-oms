@@ -46,7 +46,7 @@ async function loadRefs() {
 
   return {
     clientId:    client?.client_id      ?? 'CLIENT-001',
-    portfolioId: portfolio?.portfolio_id ?? 'PORT-001',
+    portfolioId: portfolio?.portfolio_id ?? 'PTF-001',
     userId:      user?.id               ?? SYSTEM_USER,
     securityId:  security?.id           ?? 1,
     brokerId:    broker?.id             ?? 1,

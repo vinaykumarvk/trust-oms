@@ -11,6 +11,7 @@ import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, desc, and, sql } from 'drizzle-orm';
 import crypto from 'crypto';
+import { trustAccountFoundationService } from './trust-account-foundation-service';
 
 export const transferService = {
   /** Initiate a transfer between portfolios */
@@ -92,7 +93,7 @@ export const transferService = {
   },
 
   /** Approve a pending transfer */
-  async approveTransfer(transferId: number, approvedBy: number) {
+  async approveTransfer(transferId: number, approvedBy: number, signerPartyIds: number[] = []) {
     const [transfer] = await db
       .select()
       .from(schema.transfers)
@@ -107,6 +108,17 @@ export const transferService = {
       throw new Error(
         `Cannot approve transfer in status ${transfer.transfer_status}; must be PENDING_APPROVAL`,
       );
+    }
+
+    if (transfer.from_portfolio_id) {
+      await trustAccountFoundationService.assertPortfolioMandateAuthority(transfer.from_portfolio_id, {
+        action: 'transfer',
+        amount: transfer.quantity,
+        signer_party_ids: signerPartyIds,
+        actor_id: approvedBy,
+        related_entity_type: 'TRANSFER',
+        related_entity_id: transferId,
+      });
     }
 
     const [updated] = await db
@@ -330,6 +342,7 @@ export const transferService = {
     securityId: number;
     quantity: number;
     initiatedBy?: number;
+    signerPartyIds?: number[];
   }) {
     // Validate source portfolio
     const [fromPortfolio] = await db
@@ -407,10 +420,19 @@ export const transferService = {
       safekeepingAccount: data.externalCustodian.account,
     });
 
+    const mandateAuthority = await trustAccountFoundationService.assertPortfolioMandateAuthority(
+      data.fromPortfolioId,
+      {
+        action: 'transfer',
+        amount: data.quantity,
+        signer_party_ids: data.signerPartyIds ?? [],
+        actor_id: data.initiatedBy,
+        related_entity_type: 'EXTERNAL_TRANSFER_SWIFT',
+        related_entity_id: swiftRef,
+      },
+    );
+
     // Create transfer record with EXTERNAL type and PENDING_CUSTODIAN status
-    // We store the swift_ref and external custodian details in created_by / status fields
-    // as the transfers table does not have dedicated columns for these.
-    // In production, a dedicated swift_transfers table would be preferable.
     const [transfer] = await db
       .insert(schema.transfers)
       .values({
@@ -427,8 +449,33 @@ export const transferService = {
       })
       .returning();
 
+    const [externalMessage] = await db
+      .insert(schema.externalTransferMessages)
+      .values({
+        transfer_id: transfer.id,
+        portfolio_id: data.fromPortfolioId,
+        trust_account_id: mandateAuthority?.trust_account_id ?? null,
+        direction: 'OUTBOUND',
+        message_type: 'MT542',
+        swift_ref: swiftRef,
+        sender_bic: senderBIC,
+        receiver_bic: data.externalCustodian.bic,
+        external_account: data.externalCustodian.account,
+        security_id: data.securityId,
+        quantity: String(data.quantity),
+        trade_date: todayStr,
+        settlement_date: settlementDateStr,
+        message_payload: swiftMessage,
+        gateway_status: 'GENERATED',
+        created_by: data.initiatedBy ? String(data.initiatedBy) : null,
+        updated_by: data.initiatedBy ? String(data.initiatedBy) : null,
+        correlation_id: swiftRef,
+      } as any)
+      .returning();
+
     return {
       transfer,
+      externalMessage,
       swiftRef,
       swiftMessage,
       settlementDate: settlementDateStr,
@@ -536,6 +583,20 @@ export const transferService = {
       })
       .where(eq(schema.transfers.id, transferId))
       .returning();
+
+    await db
+      .update(schema.externalTransferMessages)
+      .set({
+        gateway_status: 'CONFIRMED',
+        custodian_ref: confirmation.custodianRef ?? null,
+        confirmed_at: new Date(),
+        confirmed_by: confirmation.confirmedBy ?? null,
+        updated_by: confirmation.confirmedBy
+          ? String(confirmation.confirmedBy)
+          : 'CUSTODIAN',
+        updated_at: new Date(),
+      } as any)
+      .where(eq(schema.externalTransferMessages.transfer_id, transferId));
 
     return {
       transfer: updated,

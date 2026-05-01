@@ -7,9 +7,11 @@
  *   GET    /                                -- Settlement queue (?status, page, pageSize)
  *   GET    /cut-offs                        -- Today's cut-off times
  *   POST   /bulk-settle                     -- Bulk settle (body: { counterparty?, currency?, valueDate? })
+ *   POST   /net-settle                      -- Net pending settlements (body: { currency?, valueDate?, nettedBy? })
  *   GET    /cash-ledger/liquidity-heatmap   -- Liquidity heat-map (T/T+1/T+2)
  *   GET    /cash-ledger/:portfolioId        -- Cash ledger for portfolio (?currency, startDate, endDate)
  *   POST   /:confirmationId/initiate        -- Initialize settlement from confirmation
+ *   POST   /:id/match                       -- Record DVP/RVP match evidence
  *   POST   /:id/settle                      -- Mark settled
  *   POST   /:id/fail                        -- Mark failed (body: { reason })
  *   POST   /:id/retry                       -- Retry failed settlement
@@ -59,6 +61,20 @@ router.post(
       counterparty,
       currency,
       valueDate,
+    });
+    res.json({ data: result });
+  }),
+);
+
+/** POST /net-settle -- Net pending settlements by counterparty/currency/value date */
+router.post(
+  '/net-settle',
+  asyncHandler(async (req, res) => {
+    const { currency, valueDate, nettedBy } = req.body;
+    const result = await settlementService.netSettlements({
+      currency,
+      valueDate,
+      nettedBy: nettedBy ? parseInt(nettedBy) : undefined,
     });
     res.json({ data: result });
   }),
@@ -126,6 +142,28 @@ router.post(
 
     const settlement = await settlementService.initializeSettlement(confirmationId);
     res.status(201).json({ data: settlement });
+  }),
+);
+
+/** POST /:id/settle -- Mark settlement as settled */
+router.post(
+  '/:id/match',
+  asyncHandler(async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Invalid settlement ID' },
+      });
+    }
+
+    const result = await settlementService.matchSettlement(id, {
+      matchedBy: req.body.matchedBy ? parseInt(req.body.matchedBy) : undefined,
+      externalRef: req.body.externalRef,
+      deliveryLegStatus: req.body.deliveryLegStatus,
+      paymentLegStatus: req.body.paymentLegStatus,
+      payload: req.body.payload,
+    });
+    res.json({ data: result });
   }),
 );
 

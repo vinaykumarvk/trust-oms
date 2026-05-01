@@ -28,6 +28,13 @@ import clientMessageRoutes from './client-messages';
 import boStatementRoutes from './statements';
 import featureRoutes from './features';
 import intelligenceRoutes from './intelligence';
+import trustAccountRoutes from './trust-accounts';
+import loanRoutes from './loans';
+import ebtRoutes from './ebt';
+import accountMgmtRoutes from './account-management';
+import operationsExtRoutes from './operations-extended';
+import gapClosureRoutes from './gap-closures';
+import gapClosureP2Routes from './gap-closures-p2';
 
 const router = Router();
 
@@ -201,6 +208,14 @@ router.use(
     makerChecker: 'portfolios',
   }),
 );
+
+router.use('/trust-accounts', trustAccountRoutes);
+router.use('/loans', loanRoutes);
+router.use('/ebt', ebtRoutes);
+router.use('/account-management', accountMgmtRoutes);
+router.use('/operations', operationsExtRoutes);
+router.use('/gap-closures', gapClosureRoutes);
+router.use('/gap-closures-p2', gapClosureP2Routes);
 
 // Clients — PII logging enabled
 router.use(

@@ -66,7 +66,10 @@ router.post(
     }
 
     const approvedBy = req.body.approvedBy ?? 1;
-    const result = await transferService.approveTransfer(id, approvedBy);
+    const signerPartyIds = Array.isArray(req.body.signerPartyIds)
+      ? req.body.signerPartyIds.map((value: unknown) => parseInt(String(value), 10)).filter(Number.isFinite)
+      : [];
+    const result = await transferService.approveTransfer(id, approvedBy, signerPartyIds);
     res.json(result);
   }),
 );
@@ -121,6 +124,10 @@ router.post(
       externalCustodian,
       securityId: parseInt(securityId),
       quantity: parseFloat(quantity),
+      initiatedBy: req.body.initiatedBy ? parseInt(req.body.initiatedBy) : undefined,
+      signerPartyIds: Array.isArray(req.body.signerPartyIds)
+        ? req.body.signerPartyIds.map((value: unknown) => parseInt(String(value), 10)).filter(Number.isFinite)
+        : [],
     });
     res.status(201).json(result);
   }),

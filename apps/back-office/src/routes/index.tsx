@@ -89,6 +89,17 @@ const ContentPackAdmin = React.lazy(() => import("@/pages/trustfees/content-pack
 const DsarConsole = React.lazy(() => import("@/pages/trustfees/dsar-console"));
 const ReconciliationReport = React.lazy(() => import("@/pages/trustfees/reconciliation-report"));
 
+// Corporate Trust / Loan Management pages
+const LoanDashboard = React.lazy(() => import("@/pages/loan-dashboard"));
+const LoanDetail = React.lazy(() => import("@/pages/loan-detail"));
+
+// Employee Benefit Trust (EBT) pages
+const EbtDashboard = React.lazy(() => import("@/pages/ebt-dashboard"));
+const EbtPlanDetail = React.lazy(() => import("@/pages/ebt-plan-detail"));
+
+// Securities Services pages
+const SecuritiesDashboard = React.lazy(() => import("@/pages/securities-dashboard"));
+
 // Campaign Management / CRM pages
 const CampaignDashboard = React.lazy(() => import("@/pages/crm/campaign-dashboard"));
 const LeadListManager = React.lazy(() => import("@/pages/crm/lead-list-manager"));
@@ -140,6 +151,7 @@ const BranchDashboard = React.lazy(() => import("@/pages/branch-dashboard"));
 const ClientOnboarding = React.lazy(() => import("@/pages/client-onboarding"));
 const ClientsPage = React.lazy(() => import("@/pages/clients"));
 const ClientDetailPage = React.lazy(() => import("@/pages/client-detail"));
+const TrustAccountsPage = React.lazy(() => import("@/pages/trust-accounts"));
 const SecurityMasterPage = React.lazy(() => import("@/pages/security-master"));
 const PortfoliosPage = React.lazy(() => import("@/pages/portfolios"));
 
@@ -249,6 +261,15 @@ export const router = createBrowserRouter([
             ),
           },
 
+          {
+            path: "/master-data/trust-accounts",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TrustAccountsPage />
+              </Suspense>
+            ),
+          },
+
           // Master Data — generic entity pages (fallback for others)
           {
             path: "/master-data/:entityKey",
@@ -325,6 +346,108 @@ export const router = createBrowserRouter([
                 <RiskProfilingCompletionReport />
               </Suspense>
             ),
+          },
+
+          // ---- Corporate Trust / Loan Management ----
+          {
+            path: "/corporate-trust/loans",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <LoanDashboard />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/corporate-trust/loans/:facilityId",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <LoanDetail />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/corporate-trust/collateral",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <LoanDashboard />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/corporate-trust/mpc",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <LoanDashboard />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/corporate-trust/amortization",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <LoanDashboard />
+              </Suspense>
+            ),
+          },
+
+          // ---- Employee Benefit Trust (EBT) ----
+          {
+            path: "/ebt/dashboard",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <EbtDashboard />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/ebt/plans",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <EbtDashboard />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/ebt/plans/:planId",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <EbtPlanDetail />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/ebt/claims",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <EbtDashboard />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/ebt/separations",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <EbtDashboard />
+              </Suspense>
+            ),
+          },
+
+          // ---- Securities Services ----
+          {
+            path: "/securities/transfers",
+            element: (<Suspense fallback={<PageLoader />}><SecuritiesDashboard /></Suspense>),
+          },
+          {
+            path: "/securities/rights",
+            element: (<Suspense fallback={<PageLoader />}><SecuritiesDashboard /></Suspense>),
+          },
+          {
+            path: "/securities/unclaimed",
+            element: (<Suspense fallback={<PageLoader />}><SecuritiesDashboard /></Suspense>),
+          },
+          {
+            path: "/securities/meetings",
+            element: (<Suspense fallback={<PageLoader />}><SecuritiesDashboard /></Suspense>),
           },
 
           // ---- CRM / Campaign Management ----

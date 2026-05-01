@@ -84,7 +84,10 @@ router.post(
     }
 
     const approvedBy = req.body.approvedBy ?? 1;
-    const result = await withdrawalService.approveWithdrawal(id, approvedBy);
+    const signerPartyIds = Array.isArray(req.body.signerPartyIds)
+      ? req.body.signerPartyIds.map((value: unknown) => parseInt(String(value), 10)).filter(Number.isFinite)
+      : [];
+    const result = await withdrawalService.approveWithdrawal(id, approvedBy, signerPartyIds);
     res.json(result);
   }),
 );

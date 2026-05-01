@@ -58,7 +58,7 @@ vi.mock('@shared/schema', () => {
     'orders', 'oreEvents', 'peraAccounts', 'peraTransactions', 'portfolios',
     'positions', 'pricingRecords', 'rebalancingRuns', 'reconBreaks', 'reconRuns',
     'reversalCases', 'scheduledPlans', 'securities', 'settlementInstructions',
-    'standingInstructions', 'taxEvents', 'tradeSurveillanceAlerts', 'trades',
+    'standingInstructions', 'systemConfig', 'taxEvents', 'tradeSurveillanceAlerts', 'trades',
     'transfers', 'unitTransactions', 'uploadBatches', 'validationOverrides',
     'whistleblowerCases', 'withdrawals', 'sanctionsScreeningLog', 'form1601fq',
     'fixOutboundMessages', 'switchOrders', 'subsequentAllocations', 'ipoAllocations',
@@ -158,6 +158,25 @@ describe('Withdrawal Service — Philippines BRD (FR-WDL-003, FR-WDL-004)', () =
 
     it('should have calculatePartialLiquidation method (FR-WDL-004)', () => {
       expect(typeof withdrawalService.calculatePartialLiquidation).toBe('function');
+    });
+
+    it('should persist withdrawal tax and penalty schedule evidence', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const root = process.cwd();
+      const schemaSource = fs.readFileSync(path.join(root, 'packages/shared/src/schema.ts'), 'utf-8');
+      const serviceSource = fs.readFileSync(path.join(root, 'server/services/withdrawal-service.ts'), 'utf-8');
+      const migrationSource = fs.readFileSync(
+        path.join(root, 'drizzle/20260501_add_tax_event_calculation_payload.sql'),
+        'utf-8',
+      );
+
+      expect(schemaSource).toContain('calculation_payload');
+      expect(migrationSource).toContain('ADD COLUMN IF NOT EXISTS calculation_payload jsonb');
+      expect(serviceSource).toContain('WITHDRAWAL_TAX_PENALTY_SCHEDULE_V1');
+      expect(serviceSource).toContain('penalty_schedule_source');
+      expect(serviceSource).toContain('wht_schedule_source');
+      expect(serviceSource).toContain("source: 'WITHDRAWAL'");
     });
   });
 

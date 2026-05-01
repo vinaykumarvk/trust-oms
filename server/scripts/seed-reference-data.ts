@@ -467,7 +467,7 @@ async function seedReferenceData() {
   const entitlementsData = [
     {
       corporate_action_id: 4,
-      portfolio_id: 'PORT-001',
+      portfolio_id: 'PTF-001',
       entitled_qty: '10000',
       elected_option: null,
       tax_treatment: null,
@@ -475,7 +475,7 @@ async function seedReferenceData() {
     },
     {
       corporate_action_id: 4,
-      portfolio_id: 'PORT-002',
+      portfolio_id: 'PTF-002',
       entitled_qty: '5000',
       elected_option: null,
       tax_treatment: null,
@@ -483,7 +483,7 @@ async function seedReferenceData() {
     },
     {
       corporate_action_id: 5,
-      portfolio_id: 'PORT-001',
+      portfolio_id: 'PTF-001',
       entitled_qty: '7500',
       elected_option: 'CASH',
       tax_treatment: 'WHT_25PCT_STATUTORY',
@@ -491,7 +491,7 @@ async function seedReferenceData() {
     },
     {
       corporate_action_id: 6,
-      portfolio_id: 'PORT-001',
+      portfolio_id: 'PTF-001',
       entitled_qty: '20000',
       elected_option: 'CASH',
       tax_treatment: 'WHT_15PCT_TREATY',
@@ -499,7 +499,7 @@ async function seedReferenceData() {
     },
     {
       corporate_action_id: 6,
-      portfolio_id: 'PORT-003',
+      portfolio_id: 'PTF-003',
       entitled_qty: '8000',
       elected_option: 'CASH',
       tax_treatment: 'WHT_25PCT_STATUTORY',
@@ -524,7 +524,7 @@ async function seedReferenceData() {
   const ttraApplicationsData = [
     {
       ttra_id: 'TTRA-SEED-001',
-      client_id: '1',
+      client_id: 'CLT-001',
       treaty_country: 'US',
       cor_document_ref: 'COR-2025-001',
       ttra_status: 'APPROVED' as const,
@@ -537,7 +537,7 @@ async function seedReferenceData() {
     },
     {
       ttra_id: 'TTRA-SEED-002',
-      client_id: '2',
+      client_id: 'CLT-002',
       treaty_country: 'JP',
       cor_document_ref: 'COR-2024-002',
       ttra_status: 'APPROVED' as const,
@@ -549,7 +549,7 @@ async function seedReferenceData() {
     },
     {
       ttra_id: 'TTRA-SEED-003',
-      client_id: '3',
+      client_id: 'CLT-003',
       treaty_country: 'SG',
       cor_document_ref: 'COR-2026-003',
       ttra_status: 'APPLIED' as const,
@@ -561,7 +561,7 @@ async function seedReferenceData() {
     },
     {
       ttra_id: 'TTRA-SEED-004',
-      client_id: '4',
+      client_id: 'CLT-004',
       treaty_country: 'DE',
       cor_document_ref: 'COR-2026-004',
       ttra_status: 'UNDER_REVIEW' as const,
@@ -573,7 +573,7 @@ async function seedReferenceData() {
     },
     {
       ttra_id: 'TTRA-SEED-005',
-      client_id: '5',
+      client_id: 'CLT-005',
       treaty_country: 'UK',
       cor_document_ref: 'COR-2023-005',
       ttra_status: 'EXPIRED' as const,
@@ -585,7 +585,7 @@ async function seedReferenceData() {
     },
     {
       ttra_id: 'TTRA-SEED-006',
-      client_id: '5',
+      client_id: 'CLT-005',
       treaty_country: 'UK',
       cor_document_ref: 'COR-2026-006',
       ttra_status: 'RENEWAL_PENDING' as const,
@@ -698,7 +698,7 @@ async function seedReferenceData() {
   const consentRecordsData = [
     {
       consent_id: 'CON-SEED-001',
-      client_id: '1',
+      client_id: 'CLT-001',
       purpose: 'OPERATIONAL' as const,
       channel_scope: ['EMAIL', 'IN_APP'],
       granted: true,
@@ -710,7 +710,7 @@ async function seedReferenceData() {
     },
     {
       consent_id: 'CON-SEED-002',
-      client_id: '2',
+      client_id: 'CLT-002',
       purpose: 'MARKETING' as const,
       channel_scope: ['EMAIL', 'SMS'],
       granted: true,
@@ -722,7 +722,7 @@ async function seedReferenceData() {
     },
     {
       consent_id: 'CON-SEED-003',
-      client_id: '3',
+      client_id: 'CLT-003',
       purpose: 'AUTOMATED_DECISION' as const,
       channel_scope: ['IN_APP'],
       granted: false,

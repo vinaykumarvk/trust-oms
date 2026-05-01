@@ -10,6 +10,7 @@
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, desc, and, sql } from 'drizzle-orm';
+import { trustAccountFoundationService } from './trust-account-foundation-service';
 
 export const contributionService = {
   /** Record a new contribution */
@@ -53,7 +54,7 @@ export const contributionService = {
   },
 
   /** Approve a pending contribution */
-  async approveContribution(contributionId: number, approvedBy: number) {
+  async approveContribution(contributionId: number, approvedBy: number, signerPartyIds: number[] = []) {
     const [contribution] = await db
       .select()
       .from(schema.contributions)
@@ -68,6 +69,17 @@ export const contributionService = {
       throw new Error(
         `Cannot approve contribution in status ${contribution.contribution_status}; must be PENDING_APPROVAL`,
       );
+    }
+
+    if (contribution.portfolio_id) {
+      await trustAccountFoundationService.assertPortfolioMandateAuthority(contribution.portfolio_id, {
+        action: 'contribution',
+        amount: contribution.amount,
+        signer_party_ids: signerPartyIds,
+        actor_id: approvedBy,
+        related_entity_type: 'CONTRIBUTION',
+        related_entity_id: contributionId,
+      });
     }
 
     const [updated] = await db
