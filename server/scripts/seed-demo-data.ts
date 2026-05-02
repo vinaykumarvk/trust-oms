@@ -94,7 +94,7 @@ async function seedUsers() {
 
   const users = [
     // System admin & bootstrap roles
-    { username: 'admin', password_hash: PASSWORD_HASH, full_name: 'System Administrator', email: 'admin@trustoms.local', role: 'bo_admin', department: 'IT', office: 'Manila HQ' },
+    { username: 'admin', password_hash: PASSWORD_HASH, full_name: 'System Administrator', email: 'admin@trustoms.local', role: 'system_admin', department: 'IT', office: 'Manila HQ' },
     { username: 'bo_head', password_hash: PASSWORD_HASH, full_name: 'Operations Head', email: 'bohead@trustoms.local', role: 'bo_head', department: 'Trust Operations', office: 'Manila HQ' },
     { username: 'bo_maker', password_hash: PASSWORD_HASH, full_name: 'Operations Maker', email: 'bomaker@trustoms.local', role: 'bo_maker', department: 'Trust Operations', office: 'Manila HQ' },
     { username: 'bo_checker', password_hash: PASSWORD_HASH, full_name: 'Operations Checker', email: 'bochecker@trustoms.local', role: 'bo_checker', department: 'Trust Operations', office: 'Manila HQ' },

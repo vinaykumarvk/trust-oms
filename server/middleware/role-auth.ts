@@ -119,19 +119,19 @@ export const requireBackOfficeRole = () =>
   requireAnyRole('BO_MAKER', 'BO_CHECKER', 'BO_HEAD', 'SYSTEM_ADMIN');
 
 export const requireFrontOfficeRole = () =>
-  requireAnyRole('RELATIONSHIP_MANAGER', 'SENIOR_RM', 'TRADER', 'SENIOR_TRADER');
+  requireAnyRole('RELATIONSHIP_MANAGER', 'SENIOR_RM', 'TRADER', 'SENIOR_TRADER', 'SYSTEM_ADMIN');
 
 export const requireMidOfficeRole = () =>
-  requireAnyRole('MO_MAKER', 'MO_CHECKER', 'FUND_ACCOUNTANT');
+  requireAnyRole('MO_MAKER', 'MO_CHECKER', 'FUND_ACCOUNTANT', 'SYSTEM_ADMIN');
 
 export const requireComplianceRole = () =>
-  requireAnyRole('COMPLIANCE_OFFICER', 'CCO');
+  requireAnyRole('COMPLIANCE_OFFICER', 'CCO', 'SYSTEM_ADMIN');
 
 export const requireRiskRole = () =>
-  requireAnyRole('RISK_OFFICER', 'CRO');
+  requireAnyRole('RISK_OFFICER', 'CRO', 'SYSTEM_ADMIN');
 
 export const requireExecutiveRole = () =>
-  requireAnyRole('TRUST_BUSINESS_HEAD', 'CRO', 'CCO');
+  requireAnyRole('TRUST_BUSINESS_HEAD', 'CRO', 'CCO', 'SYSTEM_ADMIN');
 
 /** CRM — relationship managers, senior RMs, and back-office staff */
 export const requireCRMRole = () =>
