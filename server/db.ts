@@ -11,7 +11,7 @@ export const pool = connectionString
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 10_000,
       // Disable SSL for unix sockets (Cloud SQL proxy) and localhost; enable for remote TCP
-      ssl: (connectionString.includes('localhost') || connectionString.includes('/cloudsql/') || connectionString.includes('sslmode=disable'))
+      ssl: (connectionString.includes('localhost') || connectionString.includes('127.0.0.1') || connectionString.includes('/cloudsql/') || connectionString.includes('sslmode=disable'))
         ? false
         : { rejectUnauthorized: false },
     })
