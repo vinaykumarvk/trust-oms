@@ -1346,10 +1346,15 @@ async function seedRpModelPortfolios(userId: number) {
 
 async function seedModelPortfolios(userId: number) {
   console.log('[23] Seeding model_portfolios...');
+  // NOTE: asset_class codes must match securities table (EQ, FI, MM) for comparison to work
   const portfolios = [
-    { name: 'Conservative Blend', description: 'Low-risk portfolio for capital preservation', allocations: [{ asset_class: 'FIXED_INCOME', target_pct: 70, min_pct: 60, max_pct: 80 }, { asset_class: 'CASH', target_pct: 25, min_pct: 15, max_pct: 35 }, { asset_class: 'EQUITY', target_pct: 5, min_pct: 0, max_pct: 10 }] },
-    { name: 'Balanced Growth', description: 'Balanced portfolio for moderate investors', allocations: [{ asset_class: 'EQUITY', target_pct: 50, min_pct: 40, max_pct: 60 }, { asset_class: 'FIXED_INCOME', target_pct: 40, min_pct: 30, max_pct: 50 }, { asset_class: 'CASH', target_pct: 10, min_pct: 5, max_pct: 15 }] },
-    { name: 'Equity-Led Growth', description: 'Equity-dominated portfolio for growth investors', allocations: [{ asset_class: 'EQUITY', target_pct: 75, min_pct: 65, max_pct: 85 }, { asset_class: 'FIXED_INCOME', target_pct: 20, min_pct: 10, max_pct: 30 }, { asset_class: 'CASH', target_pct: 5, min_pct: 0, max_pct: 10 }] },
+    { name: 'Conservative Blend', description: 'Low-risk portfolio for capital preservation', allocations: [{ asset_class: 'FI', target_pct: 70, min_pct: 60, max_pct: 80 }, { asset_class: 'MM', target_pct: 25, min_pct: 15, max_pct: 35 }, { asset_class: 'EQ', target_pct: 5, min_pct: 0, max_pct: 10 }] },
+    { name: 'Balanced Growth', description: 'Balanced portfolio for moderate investors', allocations: [{ asset_class: 'EQ', target_pct: 50, min_pct: 40, max_pct: 60 }, { asset_class: 'FI', target_pct: 40, min_pct: 30, max_pct: 50 }, { asset_class: 'MM', target_pct: 10, min_pct: 5, max_pct: 15 }] },
+    { name: 'Equity-Led Growth', description: 'Equity-dominated portfolio for growth investors', allocations: [{ asset_class: 'EQ', target_pct: 75, min_pct: 65, max_pct: 85 }, { asset_class: 'FI', target_pct: 20, min_pct: 10, max_pct: 30 }, { asset_class: 'MM', target_pct: 5, min_pct: 0, max_pct: 10 }] },
+    { name: 'PSEi Index Tracker', description: 'Passive index replication targeting PSEi constituents', allocations: [{ asset_class: 'EQ', target_pct: 95, min_pct: 90, max_pct: 100 }, { asset_class: 'MM', target_pct: 5, min_pct: 0, max_pct: 10 }] },
+    { name: 'UITF Bond Fund', description: 'Philippine government and corporate bond fund', allocations: [{ asset_class: 'FI', target_pct: 85, min_pct: 75, max_pct: 95 }, { asset_class: 'MM', target_pct: 15, min_pct: 5, max_pct: 25 }] },
+    { name: 'Employee Benefit Balanced', description: 'Moderate-risk balanced fund for employee benefit trusts', allocations: [{ asset_class: 'EQ', target_pct: 40, min_pct: 30, max_pct: 50 }, { asset_class: 'FI', target_pct: 45, min_pct: 35, max_pct: 55 }, { asset_class: 'MM', target_pct: 15, min_pct: 10, max_pct: 25 }] },
+    { name: 'Pre-Need Defensive', description: 'Long-duration defensive portfolio for pre-need trusts', allocations: [{ asset_class: 'FI', target_pct: 80, min_pct: 70, max_pct: 90 }, { asset_class: 'EQ', target_pct: 10, min_pct: 5, max_pct: 20 }, { asset_class: 'MM', target_pct: 10, min_pct: 5, max_pct: 20 }] },
   ];
   let seeded = 0;
   for (const p of portfolios) {

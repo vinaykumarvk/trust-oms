@@ -490,6 +490,24 @@ async function seedPositions(secIds: Record<string, number>) {
     { portfolio_id: 'PTF-008', security_id: secIds['RPGB-2036'], quantity: '200000000', cost_basis: '193000000', market_value: '196500000', unrealized_pnl: '3500000', as_of_date: TODAY },
     { portfolio_id: 'PTF-008', security_id: secIds['BDO'], quantity: '800000', cost_basis: '96000000', market_value: '104400000', unrealized_pnl: '8400000', as_of_date: TODAY },
     { portfolio_id: 'PTF-008', security_id: secIds['TEL'], quantity: '100000', cost_basis: '135000000', market_value: '140000000', unrealized_pnl: '5000000', as_of_date: TODAY },
+    // PTF-006 (UITF, PHP 350M AUM - bond fund)
+    { portfolio_id: 'PTF-006', security_id: secIds['RPGB-2036'], quantity: '150000000', cost_basis: '145500000', market_value: '147750000', unrealized_pnl: '2250000', as_of_date: TODAY },
+    { portfolio_id: 'PTF-006', security_id: secIds['RPGB-2028'], quantity: '100000000', cost_basis: '99600000', market_value: '99800000', unrealized_pnl: '200000', as_of_date: TODAY },
+    { portfolio_id: 'PTF-006', security_id: secIds['BDO-BOND-2027'], quantity: '50000000', cost_basis: '49800000', market_value: '50600000', unrealized_pnl: '800000', as_of_date: TODAY },
+    { portfolio_id: 'PTF-006', security_id: secIds['SM-BOND-2028'], quantity: '30000000', cost_basis: '30000000', market_value: '30250000', unrealized_pnl: '250000', as_of_date: TODAY },
+    { portfolio_id: 'PTF-006', security_id: secIds['RPTB-91'], quantity: '20000000', cost_basis: '20000000', market_value: '19900000', unrealized_pnl: '-100000', as_of_date: TODAY },
+    // PTF-009 (Pre-Need, PHP 780M AUM - large defensive trust)
+    { portfolio_id: 'PTF-009', security_id: secIds['RPGB-2036'], quantity: '300000000', cost_basis: '291000000', market_value: '295500000', unrealized_pnl: '4500000', as_of_date: TODAY },
+    { portfolio_id: 'PTF-009', security_id: secIds['RPGB-2031'], quantity: '150000000', cost_basis: '148500000', market_value: '149250000', unrealized_pnl: '750000', as_of_date: TODAY },
+    { portfolio_id: 'PTF-009', security_id: secIds['BDO-BOND-2027'], quantity: '80000000', cost_basis: '79200000', market_value: '81200000', unrealized_pnl: '2000000', as_of_date: TODAY },
+    { portfolio_id: 'PTF-009', security_id: secIds['BDO'], quantity: '500000', cost_basis: '62500000', market_value: '65250000', unrealized_pnl: '2750000', as_of_date: TODAY },
+    { portfolio_id: 'PTF-009', security_id: secIds['SM'], quantity: '200000', cost_basis: '170000000', market_value: '181000000', unrealized_pnl: '11000000', as_of_date: TODAY },
+    { portfolio_id: 'PTF-009', security_id: secIds['RPTB-91'], quantity: '10000000', cost_basis: '10000000', market_value: '9950000', unrealized_pnl: '-50000', as_of_date: TODAY },
+    // PTF-010 (PMT, PHP 95M AUM)
+    { portfolio_id: 'PTF-010', security_id: secIds['BPI'], quantity: '300000', cost_basis: '31200000', market_value: '32400000', unrealized_pnl: '1200000', as_of_date: TODAY },
+    { portfolio_id: 'PTF-010', security_id: secIds['TEL'], quantity: '50000', cost_basis: '67500000', market_value: '70000000', unrealized_pnl: '2500000', as_of_date: TODAY },
+    { portfolio_id: 'PTF-010', security_id: secIds['RPGB-2028'], quantity: '30000000', cost_basis: '29880000', market_value: '29940000', unrealized_pnl: '60000', as_of_date: TODAY },
+    { portfolio_id: 'PTF-010', security_id: secIds['RPTB-91'], quantity: '5000000', cost_basis: '5000000', market_value: '4975000', unrealized_pnl: '-25000', as_of_date: TODAY },
     // PTF-011 (USD IMA, USD 1.85M AUM)
     { portfolio_id: 'PTF-011', security_id: secIds['ROP-2035'], quantity: '1000000', cost_basis: '940000', market_value: '945000', unrealized_pnl: '5000', as_of_date: TODAY },
   ];
