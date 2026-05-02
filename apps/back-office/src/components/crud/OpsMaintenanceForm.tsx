@@ -626,6 +626,38 @@ export function OpsMaintenanceForm({
           </div>
         );
 
+      case 'json': {
+        const jsonStr =
+          displayValue && typeof displayValue === 'object'
+            ? JSON.stringify(displayValue, null, 2)
+            : String(displayValue ?? '');
+        if (isReadOnly) {
+          return (
+            <pre className="max-h-64 overflow-auto rounded-md border bg-muted p-3 text-xs">
+              {jsonStr}
+            </pre>
+          );
+        }
+        return (
+          <Textarea
+            id={fieldId}
+            value={jsonStr}
+            onChange={(e) => {
+              try {
+                const parsed = JSON.parse(e.target.value);
+                handleFieldChange(field.fieldName, parsed);
+              } catch {
+                handleFieldChange(field.fieldName, e.target.value);
+              }
+            }}
+            placeholder={field.placeholder}
+            disabled={isReadOnly}
+            className="font-mono text-xs"
+            rows={8}
+          />
+        );
+      }
+
       case 'phone':
       case 'tin':
       case 'isin':

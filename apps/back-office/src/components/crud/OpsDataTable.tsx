@@ -129,6 +129,11 @@ function formatCellValue(
     return `${Number(value).toFixed(2)}%`;
   }
 
+  if (field.inputType === 'json' && typeof value === 'object') {
+    if (Array.isArray(value)) return `${value.length} item${value.length !== 1 ? 's' : ''}`;
+    return JSON.stringify(value);
+  }
+
   return String(value);
 }
 
