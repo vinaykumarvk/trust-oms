@@ -720,7 +720,7 @@ export default function ReportsHubPage() {
   );
 
   return (
-    <div className="flex h-[calc(100vh-4rem)]">
+    <div className="flex h-[calc(100dvh-4rem)]">
       {/* Left Sidebar */}
       <ReportSidebar
         selectedReportId={selectedReportId}

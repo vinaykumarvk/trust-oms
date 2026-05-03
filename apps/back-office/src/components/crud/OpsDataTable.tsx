@@ -50,6 +50,7 @@ import {
   Plus,
   Search,
   Lock,
+  X,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -241,11 +242,23 @@ export function OpsDataTable({
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
+            type="search"
             placeholder={`Search ${config.displayNamePlural.toLowerCase()}...`}
             value={localSearch}
             onChange={(e) => setLocalSearch(e.target.value)}
-            className="pl-9"
+            className="pl-9 pr-9"
           />
+          {localSearch && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+              onClick={() => { setLocalSearch(''); onSearchChange(''); }}
+              aria-label="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
 
         {/* Actions */}
@@ -268,9 +281,9 @@ export function OpsDataTable({
       </div>
 
       {/* ---- Table ---- */}
-      <div className="overflow-x-auto rounded-md border">
+      <div className="overflow-x-auto rounded-md border max-h-[70vh] overflow-y-auto">
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky top-0 z-10 bg-background">
             <TableRow>
               {columns.map((col) => (
                 <TableHead
@@ -403,36 +416,40 @@ export function OpsDataTable({
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8"
+              className="h-9 w-9"
               disabled={page <= 1}
               onClick={() => onPageChange(1)}
+              aria-label="First page"
             >
               <ChevronFirst className="h-4 w-4" />
             </Button>
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8"
+              className="h-9 w-9"
               disabled={page <= 1}
               onClick={() => onPageChange(page - 1)}
+              aria-label="Previous page"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8"
+              className="h-9 w-9"
               disabled={page >= totalPages}
               onClick={() => onPageChange(page + 1)}
+              aria-label="Next page"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8"
+              className="h-9 w-9"
               disabled={page >= totalPages}
               onClick={() => onPageChange(totalPages)}
+              aria-label="Last page"
             >
               <ChevronLast className="h-4 w-4" />
             </Button>
