@@ -3,11 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/c
 import { Button } from '@ui/components/ui/button';
 import { Input } from '@ui/components/ui/input';
 import { Badge } from '@ui/components/ui/badge';
-import { useToast } from '@ui/components/ui/toast';
+import { toast } from 'sonner';
 import { Shield, ShieldCheck, ShieldOff, Copy, RefreshCw } from 'lucide-react';
 
 export default function MFASettings() {
-  const { toast } = useToast();
   const [status, setStatus] = useState<{
     mfa_enabled: boolean;
     enrolled: boolean;
@@ -43,14 +42,14 @@ export default function MFASettings() {
       });
       if (!res.ok) {
         const err = await res.json();
-        toast({ title: 'Error', description: err.error, variant: 'destructive' });
+        toast.error('Error', { description: err.error });
         return;
       }
       const data = await res.json();
       setEnrollData(data);
-      toast({ title: 'MFA Enrollment Started', description: 'Scan the QR code with your authenticator app.' });
+      toast.success('MFA Enrollment Started', { description: 'Scan the QR code with your authenticator app.' });
     } catch {
-      toast({ title: 'Error', description: 'Failed to start enrollment', variant: 'destructive' });
+      toast.error('Error', { description: 'Failed to start enrollment' });
     } finally {
       setLoading(false);
     }
@@ -58,7 +57,7 @@ export default function MFASettings() {
 
   const confirmEnrollment = async () => {
     if (!verifyToken || verifyToken.length !== 6) {
-      toast({ title: 'Error', description: 'Enter a 6-digit code', variant: 'destructive' });
+      toast.error('Error', { description: 'Enter a 6-digit code' });
       return;
     }
     setLoading(true);
@@ -71,15 +70,15 @@ export default function MFASettings() {
       });
       if (!res.ok) {
         const err = await res.json();
-        toast({ title: 'Verification Failed', description: err.error, variant: 'destructive' });
+        toast.error('Verification Failed', { description: err.error });
         return;
       }
-      toast({ title: 'MFA Activated', description: 'Your account is now protected with two-factor authentication.' });
+      toast.success('MFA Activated', { description: 'Your account is now protected with two-factor authentication.' });
       setEnrollData(null);
       setVerifyToken('');
       fetchStatus();
     } catch {
-      toast({ title: 'Error', description: 'Verification failed', variant: 'destructive' });
+      toast.error('Error', { description: 'Verification failed' });
     } finally {
       setLoading(false);
     }
@@ -87,7 +86,7 @@ export default function MFASettings() {
 
   const disableMFA = async () => {
     if (!disableToken || disableToken.length !== 6) {
-      toast({ title: 'Error', description: 'Enter a 6-digit code to confirm', variant: 'destructive' });
+      toast.error('Error', { description: 'Enter a 6-digit code to confirm' });
       return;
     }
     setLoading(true);
@@ -100,14 +99,14 @@ export default function MFASettings() {
       });
       if (!res.ok) {
         const err = await res.json();
-        toast({ title: 'Error', description: err.error, variant: 'destructive' });
+        toast.error('Error', { description: err.error });
         return;
       }
-      toast({ title: 'MFA Disabled', description: 'Two-factor authentication has been removed from your account.' });
+      toast.success('MFA Disabled', { description: 'Two-factor authentication has been removed from your account.' });
       setDisableToken('');
       fetchStatus();
     } catch {
-      toast({ title: 'Error', description: 'Failed to disable MFA', variant: 'destructive' });
+      toast.error('Error', { description: 'Failed to disable MFA' });
     } finally {
       setLoading(false);
     }
@@ -177,7 +176,7 @@ export default function MFASettings() {
                   size="sm"
                   onClick={() => {
                     navigator.clipboard.writeText(enrollData.secret);
-                    toast({ title: 'Copied', description: 'Secret copied to clipboard' });
+                    toast.success('Copied', { description: 'Secret copied to clipboard' });
                   }}
                 >
                   <Copy className="h-4 w-4" />

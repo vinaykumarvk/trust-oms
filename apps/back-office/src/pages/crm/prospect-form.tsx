@@ -18,6 +18,7 @@ import {
 import { Button } from '@ui/components/ui/button';
 import { Badge } from '@ui/components/ui/badge';
 import { Input } from '@ui/components/ui/input';
+import { Checkbox } from '@ui/components/ui/checkbox';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@ui/components/ui/select';
@@ -593,7 +594,7 @@ export default function ProspectForm() {
 
               <div className="border-t pt-4">
                 <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
-                  <input type="checkbox" checked={form.politically_exposed} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateField('politically_exposed', e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
+                  <Checkbox checked={form.politically_exposed} onCheckedChange={(v) => updateField('politically_exposed', !!v)} />
                   Politically Exposed Person (PEP)
                 </label>
                 <p className="text-xs text-muted-foreground mt-1">

@@ -360,7 +360,7 @@ function SidebarFooter({ collapsed }: { collapsed: boolean }) {
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className="h-9 w-9"
               aria-label="Log out"
               onClick={handleLogout}
             >
@@ -394,7 +394,7 @@ function SidebarFooter({ collapsed }: { collapsed: boolean }) {
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 shrink-0"
+          className="h-9 w-9 shrink-0"
           aria-label="Log out"
           onClick={handleLogout}
         >

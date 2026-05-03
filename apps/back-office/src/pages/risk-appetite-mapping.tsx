@@ -407,7 +407,7 @@ export default function RiskAppetiteMapping() {
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Actions">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -566,7 +566,8 @@ export default function RiskAppetiteMapping() {
                               variant="ghost"
                               size="icon"
                               onClick={() => removeBand(idx)}
-                              className="h-8 w-8"
+                              className="h-9 w-9"
+                              aria-label="Remove band"
                             >
                               <Trash2 className="h-4 w-4 text-muted-foreground" />
                             </Button>

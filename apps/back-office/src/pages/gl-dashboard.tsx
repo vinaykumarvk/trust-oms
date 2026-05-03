@@ -19,6 +19,7 @@ import { Skeleton } from "@ui/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@ui/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ui/components/ui/select";
+import { Checkbox } from "@ui/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@ui/components/ui/table";
 import {
   BookOpen, Layers, PenLine, FolderTree, Search, BarChart3, RefreshCw, Plus,
@@ -2284,11 +2285,11 @@ export default function GLDashboard() {
             </div>
             <div className="flex items-center gap-6 sm:col-span-2">
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={newHead.is_manual_posting_allowed} onChange={(e) => setNewHead({ ...newHead, is_manual_posting_allowed: e.target.checked })} className="rounded" />
+                <Checkbox checked={newHead.is_manual_posting_allowed} onCheckedChange={(v) => setNewHead({ ...newHead, is_manual_posting_allowed: !!v })} />
                 Manual Posting Allowed
               </label>
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={newHead.is_revaluation_enabled} onChange={(e) => setNewHead({ ...newHead, is_revaluation_enabled: e.target.checked })} className="rounded" />
+                <Checkbox checked={newHead.is_revaluation_enabled} onCheckedChange={(v) => setNewHead({ ...newHead, is_revaluation_enabled: !!v })} />
                 Revaluation Enabled
               </label>
             </div>
@@ -2329,11 +2330,11 @@ export default function GLDashboard() {
             </div>
             <div className="flex items-center gap-4 pt-6">
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={newCat.is_reportable} onChange={(e) => setNewCat({ ...newCat, is_reportable: e.target.checked })} className="rounded" />
+                <Checkbox checked={newCat.is_reportable} onCheckedChange={(v) => setNewCat({ ...newCat, is_reportable: !!v })} />
                 Reportable
               </label>
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={newCat.is_budgetable} onChange={(e) => setNewCat({ ...newCat, is_budgetable: e.target.checked })} className="rounded" />
+                <Checkbox checked={newCat.is_budgetable} onCheckedChange={(v) => setNewCat({ ...newCat, is_budgetable: !!v })} />
                 Budgetable
               </label>
             </div>

@@ -15,7 +15,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@ui/lib/queryClient";
 import { apiUrl } from "@ui/lib/api-url";
-import { useToast } from "@ui/components/ui/toast";
+import { toast } from "sonner";
 
 import {
   Card,
@@ -447,6 +447,7 @@ function FilterBuilder({
                 size="icon"
                 onClick={() => onRemove(f.id)}
                 className="shrink-0"
+                aria-label="Remove filter"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -530,7 +531,6 @@ function SaveTemplateDialog({
 // ---------------------------------------------------------------------------
 
 export default function ReportBuilderPage() {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   // Configuration state
@@ -640,17 +640,10 @@ export default function ReportBuilderPage() {
         limit,
       }),
     onSuccess: (data) => {
-      toast({
-        title: "Query executed",
-        description: `Returned ${data.row_count} rows in ${data.execution_time_ms}ms.`,
-      });
+      toast.success("Query executed", { description: `Returned ${data.row_count} rows in ${data.execution_time_ms}ms.` });
     },
     onError: (err: Error) => {
-      toast({
-        title: "Query failed",
-        description: err.message,
-        variant: "destructive",
-      });
+      toast.error("Query failed", { description: err.message });
     },
   });
 
@@ -674,17 +667,10 @@ export default function ReportBuilderPage() {
     onSuccess: () => {
       setSaveDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["report-templates"] });
-      toast({
-        title: "Template saved",
-        description: "Your query template has been saved successfully.",
-      });
+      toast.success("Template saved", { description: "Your query template has been saved successfully." });
     },
     onError: (err: Error) => {
-      toast({
-        title: "Save failed",
-        description: err.message,
-        variant: "destructive",
-      });
+      toast.error("Save failed", { description: err.message });
     },
   });
 
@@ -703,34 +689,23 @@ export default function ReportBuilderPage() {
       );
       setSortConfig(tmpl.sort);
       setLimit(tmpl.limit);
-      toast({
-        title: "Template loaded",
-        description: `Loaded "${tmpl.name}" configuration.`,
-      });
+      toast.success("Template loaded", { description: `Loaded "${tmpl.name}" configuration.` });
     },
-    [templates, toast]
+    [templates]
   );
 
   // Run query handler
   const handleRunQuery = useCallback(() => {
     if (!selectedTable) {
-      toast({
-        title: "No table selected",
-        description: "Please select a table before running the query.",
-        variant: "destructive",
-      });
+      toast.error("No table selected", { description: "Please select a table before running the query." });
       return;
     }
     if (selectedColumns.length === 0) {
-      toast({
-        title: "No columns selected",
-        description: "Please select at least one column.",
-        variant: "destructive",
-      });
+      toast.error("No columns selected", { description: "Please select at least one column." });
       return;
     }
     runQueryMutation.mutate();
-  }, [selectedTable, selectedColumns, runQueryMutation, toast]);
+  }, [selectedTable, selectedColumns, runQueryMutation]);
 
   // CSV Export
   const handleExportCsv = useCallback(() => {
@@ -741,11 +716,8 @@ export default function ReportBuilderPage() {
       result.rows,
       `${selectedTable}_adhoc_${new Date().toISOString().split("T")[0]}.csv`
     );
-    toast({
-      title: "CSV exported",
-      description: `Exported ${result.row_count} rows.`,
-    });
-  }, [runQueryMutation.data, selectedTable, toast]);
+    toast.success("CSV exported", { description: `Exported ${result.row_count} rows.` });
+  }, [runQueryMutation.data, selectedTable]);
 
   const result = runQueryMutation.data;
 

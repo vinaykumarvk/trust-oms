@@ -12,7 +12,7 @@ import type {
   CrossValidationRule,
 } from '@shared/entity-configs/types';
 import { apiRequest } from '@ui/lib/queryClient';
-import { useToast } from '@ui/components/ui/toast';
+import { toast } from 'sonner';
 import { Button } from '@ui/components/ui/button';
 import { Input } from '@ui/components/ui/input';
 import { Textarea } from '@ui/components/ui/textarea';
@@ -263,7 +263,6 @@ export function OpsMaintenanceForm({
   isSubmitting = false,
   crossValidationRules = [],
 }: OpsMaintenanceFormProps) {
-  const { toast } = useToast();
   const formFields = useMemo(() => getFormFields(config), [config]);
   const fieldGroups = useMemo(() => getFieldGroups(config, formFields), [config, formFields]);
 
@@ -421,11 +420,7 @@ export function OpsMaintenanceForm({
       if (firstErrorField) {
         setActiveTab(firstErrorField.group ?? 'General');
       }
-      toast({
-        title: 'Validation Error',
-        description: 'Please fix the highlighted fields.',
-        variant: 'destructive',
-      });
+      toast.error('Validation Error', { description: 'Please fix the highlighted fields.' });
       return;
     }
 

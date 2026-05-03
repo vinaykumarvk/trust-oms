@@ -11,7 +11,7 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import type { MergedEntityConfig, MergedFieldConfig } from '@shared/entity-configs/types';
 import { apiRequest } from '@ui/lib/queryClient';
-import { useToast } from '@ui/components/ui/toast';
+import { toast } from 'sonner';
 import { Button } from '@ui/components/ui/button';
 import {
   Dialog,
@@ -236,7 +236,6 @@ export function OpsCSVImport({
   onClose,
   onSuccess,
 }: OpsCSVImportProps) {
-  const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const importableFields = useMemo(() => getImportableFields(config), [config]);
@@ -268,20 +267,12 @@ export function OpsCSVImport({
   const processFile = useCallback(
     (file: File) => {
       if (file.size > MAX_FILE_SIZE) {
-        toast({
-          title: 'File too large',
-          description: 'Maximum file size is 10 MB.',
-          variant: 'destructive',
-        });
+        toast.error('File too large', { description: 'Maximum file size is 10 MB.' });
         return;
       }
 
       if (!file.name.toLowerCase().endsWith('.csv')) {
-        toast({
-          title: 'Invalid file type',
-          description: 'Please upload a CSV file.',
-          variant: 'destructive',
-        });
+        toast.error('Invalid file type', { description: 'Please upload a CSV file.' });
         return;
       }
 
@@ -291,11 +282,7 @@ export function OpsCSVImport({
         const parsed = parseCSV(text);
 
         if (parsed.length < 2) {
-          toast({
-            title: 'Invalid CSV',
-            description: 'The file must contain at least a header row and one data row.',
-            variant: 'destructive',
-          });
+          toast.error('Invalid CSV', { description: 'The file must contain at least a header row and one data row.' });
           return;
         }
 
@@ -395,10 +382,7 @@ export function OpsCSVImport({
 
       // Check for 202 maker-checker
       if (result && (result as Record<string, unknown>).__httpStatus === 202) {
-        toast({
-          title: 'Submitted for approval',
-          description: 'The bulk import requires maker-checker approval.',
-        });
+        toast.success('Submitted for approval', { description: 'The bulk import requires maker-checker approval.' });
         handleClose();
         onSuccess();
         return;
@@ -408,15 +392,11 @@ export function OpsCSVImport({
       setStep('result');
     } catch (err) {
       const error = err as Error;
-      toast({
-        title: 'Import Failed',
-        description: error.message || 'An unexpected error occurred during import.',
-        variant: 'destructive',
-      });
+      toast.error('Import Failed', { description: error.message || 'An unexpected error occurred during import.' });
     } finally {
       setImporting(false);
     }
-  }, [csvRows, csvHeaders, mappings, entityKey, toast, handleClose, onSuccess]);
+  }, [csvRows, csvHeaders, mappings, entityKey, handleClose, onSuccess]);
 
   // ---- Mapped data for preview table
   const previewData = useMemo(() => {

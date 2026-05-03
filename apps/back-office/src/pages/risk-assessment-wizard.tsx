@@ -19,6 +19,7 @@ import {
 } from '@ui/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@ui/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/components/ui/select';
+import { Checkbox } from '@ui/components/ui/checkbox';
 import { toast } from 'sonner';
 import {
   User, ClipboardList, FileCheck, Search, ArrowLeft, ArrowRight, Check,
@@ -559,13 +560,13 @@ export default function RiskAssessmentWizard() {
                   <CardContent className="space-y-4">
                     {fullQ.acknowledgement_text && (
                       <div className="flex items-start gap-3">
-                        <input type="checkbox" id="ack" checked={ackChecked} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAckChecked(e.target.checked)} className="h-4 w-4 mt-0.5 rounded border-gray-300" />
+                        <Checkbox id="ack" checked={ackChecked} onCheckedChange={(v) => setAckChecked(!!v)} className="mt-0.5" />
                         <label htmlFor="ack" className="text-sm leading-relaxed">{fullQ.acknowledgement_text}</label>
                       </div>
                     )}
                     {fullQ.disclaimer_text && (
                       <div className="flex items-start gap-3">
-                        <input type="checkbox" id="disc" checked={disclaimerChecked} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDisclaimerChecked(e.target.checked)} className="h-4 w-4 mt-0.5 rounded border-gray-300" />
+                        <Checkbox id="disc" checked={disclaimerChecked} onCheckedChange={(v) => setDisclaimerChecked(!!v)} className="mt-0.5" />
                         <label htmlFor="disc" className="text-sm leading-relaxed">{fullQ.disclaimer_text}</label>
                       </div>
                     )}

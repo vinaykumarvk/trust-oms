@@ -1047,6 +1047,7 @@ export default function QuestionnaireMaintenance() {
                   <Button
                     variant="ghost"
                     size="icon"
+                    aria-label="Remove option"
                     onClick={() => {
                       const newOpts = questionForm.options.filter((_, j) => j !== i);
                       setQuestionForm({ ...questionForm, options: newOpts.length ? newOpts : [{ answer_description: "", weightage: 0 }] });
@@ -1134,6 +1135,7 @@ export default function QuestionnaireMaintenance() {
                 <Button
                   variant="ghost"
                   size="icon"
+                  aria-label="Remove range"
                   onClick={() => {
                     const updated = normRanges.filter((_, j) => j !== i);
                     setNormRanges(updated.length ? updated : [{ min_score: 0, max_score: 0, normalized_value: 0, label: "" }]);
@@ -1224,10 +1226,10 @@ function QuestionCard({
               Ranges
             </Button>
           )}
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit} aria-label="Edit question">
             <Pencil className="h-3 w-3" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={onDelete}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={onDelete} aria-label="Delete question">
             <Trash2 className="h-3 w-3" />
           </Button>
         </div>
