@@ -66,20 +66,20 @@ import {
 /* ---------- Constants ---------- */
 
 const STATUS_COLORS: Record<string, string> = {
-  NEW: "bg-blue-100 text-blue-800",
-  IN_PROGRESS: "bg-amber-100 text-amber-800",
-  PENDING_APPROVAL: "bg-purple-100 text-purple-800",
-  APPROVED: "bg-green-100 text-green-800",
-  REJECTED: "bg-red-100 text-red-800",
-  COMPLETED: "bg-green-200 text-green-900",
+  NEW: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  IN_PROGRESS: "bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200",
+  PENDING_APPROVAL: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200",
+  APPROVED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  REJECTED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+  COMPLETED: "bg-green-200 text-green-900 dark:text-green-100",
 };
 
 const TYPE_COLORS: Record<string, string> = {
-  ACCESS: "bg-blue-100 text-blue-800",
-  ERASURE: "bg-red-100 text-red-800",
-  RECTIFICATION: "bg-amber-100 text-amber-800",
-  PORTABILITY: "bg-purple-100 text-purple-800",
-  RESTRICTION: "bg-gray-100 text-gray-800",
+  ACCESS: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  ERASURE: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+  RECTIFICATION: "bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200",
+  PORTABILITY: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200",
+  RESTRICTION: "bg-gray-100 text-gray-800 dark:text-gray-200",
 };
 
 const STATUS_OPTIONS = [
@@ -139,20 +139,20 @@ function getDeadlineBadge(
   if (diffDays < 2) {
     return {
       text: `${Math.round(diffDays * 24)}h left`,
-      badgeClass: "bg-red-100 text-red-800",
+      badgeClass: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
     };
   }
 
   if (diffDays < 5) {
     return {
       text: `${Math.round(diffDays)}d left`,
-      badgeClass: "bg-yellow-100 text-yellow-800",
+      badgeClass: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
     };
   }
 
   return {
     text: `${Math.round(diffDays)}d left`,
-    badgeClass: "bg-green-100 text-green-800",
+    badgeClass: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
   };
 }
 
@@ -285,7 +285,7 @@ export default function DsarConsole() {
             <AlertTriangle className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
+            <div className="text-2xl font-bold text-red-600 dark:text-red-400">
               {summary.urgent}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -443,7 +443,7 @@ export default function DsarConsole() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-7 text-xs text-red-600 border-red-300"
+                                className="h-7 text-xs text-red-600 dark:text-red-400 border-red-300"
                                 onClick={() => setRejectDialog(req)}
                               >
                                 <XCircle className="mr-1 h-3 w-3" />

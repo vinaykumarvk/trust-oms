@@ -116,16 +116,16 @@ const TASK_TYPES = [
 ] as const;
 
 const PRIORITY_COLORS: Record<string, string> = {
-  LOW: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-  MEDIUM: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
-  HIGH: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
-  CRITICAL: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+  LOW: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900 dark:text-blue-300',
+  MEDIUM: 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900 dark:text-yellow-300',
+  HIGH: 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 dark:bg-orange-900 dark:text-orange-300',
+  CRITICAL: 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900 dark:text-red-300',
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  PENDING: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
-  IN_PROGRESS: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-  COMPLETED: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+  PENDING: 'bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-800 dark:text-gray-300',
+  IN_PROGRESS: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900 dark:text-blue-300',
+  COMPLETED: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-300',
   CANCELLED: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
 };
 
@@ -569,7 +569,7 @@ export default function TaskManager() {
                     </TableCell>
                     <TableCell>
                       <div className={`flex items-center gap-1 text-sm ${
-                        overdue ? 'text-red-600 font-medium dark:text-red-400' : 'text-muted-foreground'
+                        overdue ? 'text-red-600 dark:text-red-400 font-medium dark:text-red-400' : 'text-muted-foreground'
                       }`}>
                         <Calendar className="h-3.5 w-3.5" />
                         {formatDate(task.due_date)}

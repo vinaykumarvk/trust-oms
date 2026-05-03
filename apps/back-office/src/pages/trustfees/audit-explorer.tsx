@@ -212,25 +212,25 @@ export default function AuditExplorer() {
       {/* Verification Result */}
       {verifyMutation.isSuccess && (
         <Card className={verifyMutation.data?.verified
-          ? "border-green-300 bg-green-50"
-          : "border-red-300 bg-red-50"
+          ? "border-green-300 dark:border-green-700 bg-green-50"
+          : "border-red-300 dark:border-red-700 bg-red-50"
         }>
           <CardContent className="flex items-center gap-3 py-3">
             {verifyMutation.data?.verified ? (
               <>
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <span className="text-green-800 font-medium">
+                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                <span className="text-green-800 dark:text-green-200 font-medium">
                   Chain verified: {verifyMutation.data.windows_checked} windows checked -- no tampering detected
                 </span>
               </>
             ) : (
               <>
-                <XCircle className="h-5 w-5 text-red-600" />
+                <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
                 <div>
-                  <span className="text-red-800 font-medium">
+                  <span className="text-red-800 dark:text-red-200 font-medium">
                     Chain integrity broken at window {verifyMutation.data.first_broken_window?.window_id}
                   </span>
-                  <p className="text-sm text-red-600">
+                  <p className="text-sm text-red-600 dark:text-red-400">
                     Expected: {verifyMutation.data.first_broken_window?.expected_hash?.slice(0, 16)}...
                     Got: {verifyMutation.data.first_broken_window?.actual_hash?.slice(0, 16)}...
                   </p>
@@ -243,10 +243,10 @@ export default function AuditExplorer() {
 
       {/* Flush Result */}
       {flushMutation.isSuccess && flushMutation.data?.flushed && (
-        <Card className="border-blue-300 bg-blue-50">
+        <Card className="border-blue-300 dark:border-blue-700 bg-blue-50">
           <CardContent className="flex items-center gap-3 py-3">
-            <CheckCircle className="h-5 w-5 text-blue-600" />
-            <span className="text-blue-800 font-medium">
+            <CheckCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <span className="text-blue-800 dark:text-blue-200 font-medium">
               Window flushed: {flushMutation.data.event_count} events sealed (Window #{flushMutation.data.window_id})
             </span>
           </CardContent>
@@ -372,7 +372,7 @@ export default function AuditExplorer() {
                               <Badge variant="outline" className="text-xs">
                                 {event.event_type}
                               </Badge>
-                              <Badge className="bg-blue-100 text-blue-800 text-xs">
+                              <Badge className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs">
                                 {event.aggregate_type}
                               </Badge>
                               <span className="text-xs text-muted-foreground">

@@ -822,7 +822,7 @@ export default function FeePlanWizard() {
                   ))}
                 </div>
                 {form.pricing_binding_mode === "LATEST_APPROVED" && (
-                  <div className="flex items-center gap-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                  <div className="flex items-center gap-2 rounded-md bg-amber-50 dark:bg-amber-950 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
                     <AlertTriangle className="h-4 w-4 shrink-0" />
                     <span>
                       LATEST_APPROVED mode means this plan will automatically use the latest active pricing version.
@@ -1191,7 +1191,7 @@ export default function FeePlanWizard() {
                           {previewResult.eligibility_result !== null && (
                             <div>
                               <p className="text-xs text-muted-foreground">Eligible</p>
-                              <Badge className={previewResult.eligibility_result ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+                              <Badge className={previewResult.eligibility_result ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200" : "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200"}>
                                 {previewResult.eligibility_result ? "Yes" : "No"}
                               </Badge>
                             </div>
@@ -1284,7 +1284,7 @@ export default function FeePlanWizard() {
 
       {/* Save error */}
       {saveMut.error && (
-        <Card className="border-destructive">
+        <Card className="border-destructive" role="alert">
           <CardContent className="pt-4">
             <p className="text-sm text-destructive">
               {(saveMut.error as any)?.message ?? "Failed to save fee plan"}

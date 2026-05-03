@@ -68,11 +68,11 @@ interface KycCase {
 function statusBadge(status: string | null) {
   switch (status) {
     case 'VERIFIED':
-      return <Badge className="bg-green-100 text-green-800">Verified</Badge>;
+      return <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">Verified</Badge>;
     case 'PENDING':
-      return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
+      return <Badge className="bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">Pending</Badge>;
     case 'EXPIRED':
-      return <Badge className="bg-red-100 text-red-800">Expired</Badge>;
+      return <Badge className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200">Expired</Badge>;
     case 'REJECTED':
       return <Badge className="bg-muted text-foreground">Rejected</Badge>;
     default:
@@ -83,11 +83,11 @@ function statusBadge(status: string | null) {
 function riskBadge(risk: string | null) {
   switch (risk?.toUpperCase()) {
     case 'HIGH':
-      return <Badge className="bg-red-100 text-red-800">High</Badge>;
+      return <Badge className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200">High</Badge>;
     case 'MEDIUM':
-      return <Badge className="bg-yellow-100 text-yellow-800">Medium</Badge>;
+      return <Badge className="bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">Medium</Badge>;
     case 'LOW':
-      return <Badge className="bg-green-100 text-green-800">Low</Badge>;
+      return <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">Low</Badge>;
     default:
       return <Badge variant="outline">{risk ?? '-'}</Badge>;
   }
@@ -197,19 +197,19 @@ export default function KycDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Verified %</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
+            <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{verifiedPct}%</div>
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{verifiedPct}%</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-600" />
+            <Clock className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
+            <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
               {summary?.pending ?? 0}
             </div>
           </CardContent>
@@ -217,10 +217,10 @@ export default function KycDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Expiring (30d)</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-orange-600" />
+            <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
+            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
               {summary?.expiringIn30 ?? 0}
             </div>
           </CardContent>
@@ -228,10 +228,10 @@ export default function KycDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Expired</CardTitle>
-            <XCircle className="h-4 w-4 text-red-600" />
+            <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
+            <div className="text-2xl font-bold text-red-600 dark:text-red-400">
               {summary?.expired ?? 0}
             </div>
           </CardContent>

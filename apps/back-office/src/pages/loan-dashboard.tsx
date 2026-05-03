@@ -32,14 +32,14 @@ function formatCurrency(value: string | number | null | undefined): string {
 
 function statusBadge(status: string) {
   const colors: Record<string, string> = {
-    DRAFT: "bg-gray-100 text-gray-800",
-    PENDING_APPROVAL: "bg-yellow-100 text-yellow-800",
-    APPROVED: "bg-blue-100 text-blue-800",
-    ACTIVE: "bg-green-100 text-green-800",
-    MATURED: "bg-purple-100 text-purple-800",
-    DEFAULTED: "bg-red-100 text-red-800",
-    RESTRUCTURED: "bg-orange-100 text-orange-800",
-    CLOSED: "bg-gray-200 text-gray-600",
+    DRAFT: "bg-gray-100 text-gray-800 dark:text-gray-200",
+    PENDING_APPROVAL: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+    APPROVED: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+    ACTIVE: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+    MATURED: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200",
+    DEFAULTED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+    RESTRUCTURED: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200",
+    CLOSED: "bg-gray-200 text-gray-600 dark:text-gray-400",
     CANCELLED: "bg-gray-200 text-gray-500",
   };
   return <Badge className={colors[status] ?? "bg-gray-100"}>{status.replace(/_/g, " ")}</Badge>;
@@ -169,7 +169,7 @@ export default function LoanDashboard() {
             <AlertTriangle className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{summary?.overdue_count ?? 0}</div>
+            <div className="text-2xl font-bold text-red-600 dark:text-red-400">{summary?.overdue_count ?? 0}</div>
             <p className="text-xs text-muted-foreground">{summary ? formatCurrency(summary.overdue_amount) : "—"}</p>
           </CardContent>
         </Card>
@@ -179,9 +179,9 @@ export default function LoanDashboard() {
       {(overdue.length > 0 || upcoming.length > 0) && (
         <div className="grid gap-4 md:grid-cols-2">
           {overdue.length > 0 && (
-            <Card className="border-red-200">
+            <Card className="border-red-200 dark:border-red-800">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-red-700">
+                <CardTitle className="text-sm font-medium text-red-700 dark:text-red-300">
                   <AlertTriangle className="inline h-4 w-4 mr-1" /> Overdue Payments ({overdue.length})
                 </CardTitle>
               </CardHeader>
@@ -190,7 +190,7 @@ export default function LoanDashboard() {
                   {overdue.slice(0, 5).map((p: any) => (
                     <div key={p.id} className="flex justify-between">
                       <span>{p.facility_id} — {p.payment_type}</span>
-                      <span className="font-medium text-red-600">{formatCurrency(p.total_amount)}</span>
+                      <span className="font-medium text-red-600 dark:text-red-400">{formatCurrency(p.total_amount)}</span>
                     </div>
                   ))}
                 </div>
@@ -198,9 +198,9 @@ export default function LoanDashboard() {
             </Card>
           )}
           {upcoming.length > 0 && (
-            <Card className="border-yellow-200">
+            <Card className="border-yellow-200 dark:border-yellow-800">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-yellow-700">
+                <CardTitle className="text-sm font-medium text-yellow-700 dark:text-yellow-300">
                   <Calendar className="inline h-4 w-4 mr-1" /> Upcoming Payments — Next 15 Days ({upcoming.length})
                 </CardTitle>
               </CardHeader>

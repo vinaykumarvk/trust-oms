@@ -149,21 +149,21 @@ interface ReportDefinition {
 
 /* ---------- Helpers ---------- */
 const GL_TYPE_COLORS: Record<string, string> = {
-  ASSET: "bg-blue-100 text-blue-800", LIABILITY: "bg-purple-100 text-purple-800",
-  INCOME: "bg-green-100 text-green-800", EXPENDITURE: "bg-red-100 text-red-800",
+  ASSET: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200", LIABILITY: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200",
+  INCOME: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200", EXPENDITURE: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
   EQUITY: "bg-indigo-100 text-indigo-800",
 };
 const STATUS_COLORS: Record<string, string> = {
-  OPEN: "bg-green-100 text-green-800", CLOSED: "bg-muted text-foreground",
-  POSTED: "bg-green-100 text-green-800", PENDING_AUTH: "bg-yellow-100 text-yellow-800",
-  REJECTED: "bg-red-100 text-red-800", CANCELLED: "bg-muted text-foreground",
-  APPROVED: "bg-green-100 text-green-800", COMPLETED: "bg-green-100 text-green-800",
-  FAILED: "bg-red-100 text-red-800", RUNNING: "bg-blue-100 text-blue-800",
-  ACTIVE: "bg-green-100 text-green-800", DRAFT: "bg-yellow-100 text-yellow-800",
+  OPEN: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200", CLOSED: "bg-muted text-foreground",
+  POSTED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200", PENDING_AUTH: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+  REJECTED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200", CANCELLED: "bg-muted text-foreground",
+  APPROVED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200", COMPLETED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  FAILED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200", RUNNING: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  ACTIVE: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200", DRAFT: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
 };
 const BATCH_MODE_COLORS: Record<string, string> = {
-  ONLINE: "bg-blue-100 text-blue-800", BATCH: "bg-purple-100 text-purple-800",
-  MANUAL: "bg-orange-100 text-orange-800",
+  ONLINE: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200", BATCH: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200",
+  MANUAL: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200",
 };
 const fmtPHP = (n: number) => n.toLocaleString("en-PH", { style: "currency", currency: "PHP", minimumFractionDigits: 2 });
 const fmtDate = (d: string) => { try { return new Date(d).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }); } catch { return d; } };
@@ -944,8 +944,8 @@ export default function GLDashboard() {
                             <TableCell className="font-mono text-sm font-medium">{c.code}</TableCell>
                             <TableCell className="text-sm">{c.name}</TableCell>
                             <TableCell><Badge className={bc(GL_TYPE_COLORS, c.category_type)}>{c.category_type}</Badge></TableCell>
-                            <TableCell>{c.is_reportable ? <Check className="h-4 w-4 text-green-600" /> : <X className="h-4 w-4 text-muted-foreground" />}</TableCell>
-                            <TableCell>{c.is_budgetable ? <Check className="h-4 w-4 text-green-600" /> : <X className="h-4 w-4 text-muted-foreground" />}</TableCell>
+                            <TableCell>{c.is_reportable ? <Check className="h-4 w-4 text-green-600 dark:text-green-400" /> : <X className="h-4 w-4 text-muted-foreground" />}</TableCell>
+                            <TableCell>{c.is_budgetable ? <Check className="h-4 w-4 text-green-600 dark:text-green-400" /> : <X className="h-4 w-4 text-muted-foreground" />}</TableCell>
                           </TableRow>
                         ))}
                   </TableBody>
@@ -1098,7 +1098,7 @@ export default function GLDashboard() {
                   </div>
                   <div className="text-sm">
                     <span className="text-muted-foreground">Difference: </span>
-                    <span className={`font-mono font-bold ${jeDiff > 0.005 ? "text-red-600" : "text-green-600"}`}>{fmtPHP(jeDiff)}</span>
+                    <span className={`font-mono font-bold ${jeDiff > 0.005 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}>{fmtPHP(jeDiff)}</span>
                   </div>
                 </div>
               </div>
@@ -1113,12 +1113,12 @@ export default function GLDashboard() {
               </div>
 
               {createJournalMut.isError && (
-                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 p-3 text-sm text-red-800 dark:text-red-200" role="alert">
                   <AlertTriangle className="mr-1 inline h-4 w-4" /> {(createJournalMut.error as Error)?.message ?? "Failed to create journal entry"}
                 </div>
               )}
               {createJournalMut.isSuccess && (
-                <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                <div className="rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 p-3 text-sm text-green-800 dark:text-green-200">
                   <Check className="mr-1 inline h-4 w-4" /> Journal entry submitted for authorization
                 </div>
               )}
@@ -1270,11 +1270,11 @@ export default function GLDashboard() {
                 </CardContent></Card>
                 <Card><CardContent className="pt-6">
                   <p className="text-sm font-medium text-muted-foreground">Debit Turnover</p>
-                  <p className="mt-1 text-xl font-bold font-mono text-blue-600">{fmtPHP(drilldownQ.data.debit_turnover)}</p>
+                  <p className="mt-1 text-xl font-bold font-mono text-blue-600 dark:text-blue-400">{fmtPHP(drilldownQ.data.debit_turnover)}</p>
                 </CardContent></Card>
                 <Card><CardContent className="pt-6">
                   <p className="text-sm font-medium text-muted-foreground">Credit Turnover</p>
-                  <p className="mt-1 text-xl font-bold font-mono text-purple-600">{fmtPHP(drilldownQ.data.credit_turnover)}</p>
+                  <p className="mt-1 text-xl font-bold font-mono text-purple-600 dark:text-purple-400">{fmtPHP(drilldownQ.data.credit_turnover)}</p>
                 </CardContent></Card>
                 <Card><CardContent className="pt-6">
                   <p className="text-sm font-medium text-muted-foreground">Closing Balance</p>
@@ -1305,7 +1305,7 @@ export default function GLDashboard() {
                               <TableCell className="text-xs">{fmtDate(l.transaction_date)}</TableCell>
                               <TableCell className="text-xs">{fmtDate(l.value_date)}</TableCell>
                               <TableCell>
-                                <Badge className={l.dr_cr === "DR" ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"}>{l.dr_cr}</Badge>
+                                <Badge className={l.dr_cr === "DR" ? "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200" : "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200"}>{l.dr_cr}</Badge>
                               </TableCell>
                               <TableCell className="text-right font-mono">{fmtPHP(l.amount)}</TableCell>
                               <TableCell className="text-xs">{l.currency}</TableCell>
@@ -1598,7 +1598,7 @@ export default function GLDashboard() {
                 </Button>
               </div>
               {runRevalMut.isSuccess && (
-                <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                <div className="rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 p-3 text-sm text-green-800 dark:text-green-200">
                   <Check className="mr-1 inline h-4 w-4" /> FX revaluation completed successfully
                 </div>
               )}
@@ -1628,7 +1628,7 @@ export default function GLDashboard() {
                             <TableCell className="text-sm">{fmtDate(r.run_date)}</TableCell>
                             <TableCell><Badge className={bc(STATUS_COLORS, r.status)}>{r.status}</Badge></TableCell>
                             <TableCell className="text-right font-mono">{r.gl_entries_count}</TableCell>
-                            <TableCell className={`text-right font-mono ${r.total_gain_loss >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            <TableCell className={`text-right font-mono ${r.total_gain_loss >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
                               {fmtPHP(r.total_gain_loss)}
                             </TableCell>
                             <TableCell className="text-xs">{fmtDate(r.created_at)}</TableCell>
@@ -1805,12 +1805,12 @@ export default function GLDashboard() {
               </div>
 
               {frptiExtractMut.isSuccess && (
-                <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                <div className="rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 p-3 text-sm text-green-800 dark:text-green-200">
                   <Check className="mr-1 inline h-4 w-4" /> FRPTI extract generated successfully
                 </div>
               )}
               {frptiExtractMut.isError && (
-                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 p-3 text-sm text-red-800 dark:text-red-200" role="alert">
                   <AlertTriangle className="mr-1 inline h-4 w-4" /> {(frptiExtractMut.error as Error)?.message ?? "Failed to generate extract"}
                 </div>
               )}
@@ -1846,7 +1846,7 @@ export default function GLDashboard() {
                 </Button>
               </div>
               {frptiAmendMut.isSuccess && (
-                <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                <div className="rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 p-3 text-sm text-green-800 dark:text-green-200">
                   <Check className="mr-1 inline h-4 w-4" /> Amendment submitted successfully
                 </div>
               )}
@@ -1902,12 +1902,12 @@ export default function GLDashboard() {
                 </Button>
               </div>
               {runSodMut.isSuccess && (
-                <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                <div className="rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 p-3 text-sm text-green-800 dark:text-green-200">
                   <Check className="mr-1 inline h-4 w-4" /> SOD completed successfully
                 </div>
               )}
               {runSodMut.isError && (
-                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 p-3 text-sm text-red-800 dark:text-red-200" role="alert">
                   <AlertTriangle className="mr-1 inline h-4 w-4" /> {(runSodMut.error as Error)?.message ?? "SOD failed"}
                 </div>
               )}
@@ -1942,12 +1942,12 @@ export default function GLDashboard() {
                 </Button>
               </div>
               {rollbackEodMut.isSuccess && (
-                <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                <div className="rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 p-3 text-sm text-green-800 dark:text-green-200">
                   <Check className="mr-1 inline h-4 w-4" /> EOD rollback completed
                 </div>
               )}
               {rollbackEodMut.isError && (
-                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 p-3 text-sm text-red-800 dark:text-red-200" role="alert">
                   <AlertTriangle className="mr-1 inline h-4 w-4" /> {(rollbackEodMut.error as Error)?.message ?? "Rollback failed"}
                 </div>
               )}
@@ -2012,12 +2012,12 @@ export default function GLDashboard() {
                   </Button>
                 </div>
                 {runAccrualMut.isSuccess && (
-                  <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                  <div className="rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 p-3 text-sm text-green-800 dark:text-green-200">
                     <Check className="mr-1 inline h-4 w-4" /> Interest accrual completed
                   </div>
                 )}
                 {runAccrualMut.isError && (
-                  <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                  <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 p-3 text-sm text-red-800 dark:text-red-200" role="alert">
                     <AlertTriangle className="mr-1 inline h-4 w-4" /> {(runAccrualMut.error as Error)?.message ?? "Accrual failed"}
                   </div>
                 )}
@@ -2040,12 +2040,12 @@ export default function GLDashboard() {
                   </Button>
                 </div>
                 {runAmortMut.isSuccess && (
-                  <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                  <div className="rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 p-3 text-sm text-green-800 dark:text-green-200">
                     <Check className="mr-1 inline h-4 w-4" /> Amortization completed
                   </div>
                 )}
                 {runAmortMut.isError && (
-                  <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                  <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 p-3 text-sm text-red-800 dark:text-red-200" role="alert">
                     <AlertTriangle className="mr-1 inline h-4 w-4" /> {(runAmortMut.error as Error)?.message ?? "Amortization failed"}
                   </div>
                 )}
@@ -2075,7 +2075,7 @@ export default function GLDashboard() {
                         accrualSchedules.map((s) => (
                           <TableRow key={s.id}>
                             <TableCell className="font-mono text-sm">#{s.id}</TableCell>
-                            <TableCell><Badge className="bg-blue-100 text-blue-800">{s.accrual_type}</Badge></TableCell>
+                            <TableCell><Badge className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">{s.accrual_type}</Badge></TableCell>
                             <TableCell className="text-xs">{s.day_count_convention}</TableCell>
                             <TableCell className="text-right font-mono">{(s.coupon_rate * 100).toFixed(4)}%</TableCell>
                             <TableCell className="text-right font-mono">{fmtPHP(s.face_value)}</TableCell>
@@ -2112,10 +2112,10 @@ export default function GLDashboard() {
                         amortSchedules.map((s) => (
                           <TableRow key={s.id}>
                             <TableCell className="font-mono text-sm">#{s.id}</TableCell>
-                            <TableCell><Badge className="bg-purple-100 text-purple-800">{s.amortization_method}</Badge></TableCell>
+                            <TableCell><Badge className="bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200">{s.amortization_method}</Badge></TableCell>
                             <TableCell className="text-right font-mono">{fmtPHP(s.purchase_price)}</TableCell>
                             <TableCell className="text-right font-mono">{fmtPHP(s.par_value)}</TableCell>
-                            <TableCell className={`text-right font-mono ${s.premium_discount >= 0 ? "text-green-600" : "text-red-600"}`}>{fmtPHP(s.premium_discount)}</TableCell>
+                            <TableCell className={`text-right font-mono ${s.premium_discount >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>{fmtPHP(s.premium_discount)}</TableCell>
                             <TableCell className="text-center">{s.total_periods}</TableCell>
                             <TableCell className="text-center">{s.periods_elapsed}</TableCell>
                             <TableCell className="text-right font-mono">{fmtPHP(s.amortized_amount)}</TableCell>
@@ -2169,7 +2169,7 @@ export default function GLDashboard() {
                             <TableCell className="text-right">{m.required_approvers}</TableCell>
                             <TableCell className="text-right">{m.approval_level}</TableCell>
                             <TableCell className="text-xs">{m.role_required ?? "Any"}</TableCell>
-                            <TableCell>{m.is_active ? <Check className="h-4 w-4 text-green-600" /> : <X className="h-4 w-4 text-muted-foreground" />}</TableCell>
+                            <TableCell>{m.is_active ? <Check className="h-4 w-4 text-green-600 dark:text-green-400" /> : <X className="h-4 w-4 text-muted-foreground" />}</TableCell>
                           </TableRow>
                         ))}
                   </TableBody>
@@ -2295,7 +2295,7 @@ export default function GLDashboard() {
             </div>
           </div>
           {createHeadMut.isError && (
-            <div className="rounded-md border border-red-200 bg-red-50 p-2 text-sm text-red-800">{(createHeadMut.error as Error)?.message ?? "Creation failed"}</div>
+            <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 p-2 text-sm text-red-800 dark:text-red-200" role="alert">{(createHeadMut.error as Error)?.message ?? "Creation failed"}</div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateHeadOpen(false)}>Cancel</Button>
@@ -2340,7 +2340,7 @@ export default function GLDashboard() {
             </div>
           </div>
           {createCatMut.isError && (
-            <div className="rounded-md border border-red-200 bg-red-50 p-2 text-sm text-red-800">{(createCatMut.error as Error)?.message ?? "Creation failed"}</div>
+            <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 p-2 text-sm text-red-800 dark:text-red-200" role="alert">{(createCatMut.error as Error)?.message ?? "Creation failed"}</div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateCatOpen(false)}>Cancel</Button>
@@ -2384,7 +2384,7 @@ export default function GLDashboard() {
             </div>
           </div>
           {createHierMut.isError && (
-            <div className="rounded-md border border-red-200 bg-red-50 p-2 text-sm text-red-800">{(createHierMut.error as Error)?.message ?? "Creation failed"}</div>
+            <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 p-2 text-sm text-red-800 dark:text-red-200" role="alert">{(createHierMut.error as Error)?.message ?? "Creation failed"}</div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateHierOpen(false)}>Cancel</Button>
@@ -2418,7 +2418,7 @@ export default function GLDashboard() {
             </div>
           </div>
           {createFxMut.isError && (
-            <div className="rounded-md border border-red-200 bg-red-50 p-2 text-sm text-red-800">{(createFxMut.error as Error)?.message ?? "Creation failed"}</div>
+            <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 p-2 text-sm text-red-800 dark:text-red-200" role="alert">{(createFxMut.error as Error)?.message ?? "Creation failed"}</div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateFxOpen(false)}>Cancel</Button>
@@ -2434,7 +2434,7 @@ export default function GLDashboard() {
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Confirm Year-End Close</DialogTitle></DialogHeader>
           <div className="py-4 space-y-3">
-            <div className="rounded-md border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
+            <div className="rounded-md border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950 p-4 text-sm text-yellow-800 dark:text-yellow-200">
               <AlertTriangle className="mr-1 inline h-4 w-4" />
               <strong>Warning:</strong> Running year-end close is an irreversible operation. This will:
             </div>
@@ -2488,7 +2488,7 @@ export default function GLDashboard() {
                       batchDetailQ.data.lines.map((l) => (
                         <TableRow key={l.id}>
                           <TableCell>
-                            <Badge className={l.dr_cr === "DR" ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"}>{l.dr_cr}</Badge>
+                            <Badge className={l.dr_cr === "DR" ? "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200" : "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200"}>{l.dr_cr}</Badge>
                           </TableCell>
                           <TableCell className="font-mono text-sm">{l.gl_head_code}</TableCell>
                           <TableCell className="text-sm">{l.gl_head_name ?? "\u2014"}</TableCell>
@@ -2555,7 +2555,7 @@ export default function GLDashboard() {
             </div>
           </div>
           {createAuthMatrixMut.isError && (
-            <div className="rounded-md border border-red-200 bg-red-50 p-2 text-sm text-red-800">{(createAuthMatrixMut.error as Error)?.message ?? "Creation failed"}</div>
+            <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 p-2 text-sm text-red-800 dark:text-red-200" role="alert">{(createAuthMatrixMut.error as Error)?.message ?? "Creation failed"}</div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateAuthMatrixOpen(false)}>Cancel</Button>
@@ -2593,7 +2593,7 @@ export default function GLDashboard() {
             </div>
           </div>
           {createPeriodMut.isError && (
-            <div className="rounded-md border border-red-200 bg-red-50 p-2 text-sm text-red-800">{(createPeriodMut.error as Error)?.message ?? "Creation failed"}</div>
+            <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 p-2 text-sm text-red-800 dark:text-red-200" role="alert">{(createPeriodMut.error as Error)?.message ?? "Creation failed"}</div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreatePeriodOpen(false)}>Cancel</Button>

@@ -103,12 +103,12 @@ interface RiskDistEntry {
 /* ---------- Risk category colours ---------- */
 
 const RISK_CAT_COLORS: Record<string, string> = {
-  Conservative: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+  Conservative: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900/30 dark:text-blue-300',
   'Low to Moderate': 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300',
-  Moderate: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-  'Moderately High': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-  Aggressive: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-  'Very Aggressive': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+  Moderate: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900/30 dark:text-green-300',
+  'Moderately High': 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300',
+  Aggressive: 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 dark:bg-orange-900/30 dark:text-orange-300',
+  'Very Aggressive': 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900/30 dark:text-red-300',
 };
 
 const RISK_BAR_BG: Record<string, string> = {
@@ -362,22 +362,22 @@ export default function SupervisorDashboardRP() {
 
       {/* ---- Error banners ---- */}
       {dashboardQuery.isError && (
-        <div role="alert" className="rounded-md border border-red-200 bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-400">
+        <div role="alert" className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-300 dark:text-red-400">
           Failed to load dashboard summary. Please refresh.
         </div>
       )}
       {leadsQuery.isError && (
-        <div role="alert" className="rounded-md border border-red-200 bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-400">
+        <div role="alert" className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-300 dark:text-red-400">
           Failed to load leads pipeline. Please refresh.
         </div>
       )}
       {pendingQuery.isError && (
-        <div role="alert" className="rounded-md border border-red-200 bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-400">
+        <div role="alert" className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-300 dark:text-red-400">
           Failed to load pending assessments. Please refresh.
         </div>
       )}
       {proposalsQuery.isError && (
-        <div role="alert" className="rounded-md border border-red-200 bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-400">
+        <div role="alert" className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-300 dark:text-red-400">
           Failed to load proposals queue. Please refresh.
         </div>
       )}
@@ -619,7 +619,7 @@ export default function SupervisorDashboardRP() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                            className="text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-700 hover:bg-blue-50"
                             onClick={() => { setViewResponsesAssessment(a); setViewResponsesOpen(true); }}
                             aria-label={`View responses for ${a.customerName}`}
                           >
@@ -628,7 +628,7 @@ export default function SupervisorDashboardRP() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-green-700 hover:text-green-800"
+                            className="text-green-700 dark:text-green-300 hover:text-green-800 dark:text-green-200"
                             onClick={() => approveDeviation.mutate(a.id)}
                             disabled={approveDeviation.isPending}
                             aria-label={`Approve deviation for ${a.customerName}`}
@@ -639,7 +639,7 @@ export default function SupervisorDashboardRP() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="text-red-600 border-red-300 hover:bg-red-50"
+                            className="text-red-600 dark:text-red-400 border-red-300 dark:border-red-700 hover:bg-red-50"
                             onClick={() => { setRejectAssessId(a.id); setRejectAssessOpen(true); }}
                             aria-label={`Reject deviation for ${a.customerName}`}
                           >
@@ -675,8 +675,8 @@ export default function SupervisorDashboardRP() {
                 <p className="text-2xl font-bold">{mismatchData.total ?? 0}</p>
                 <p className="text-xs text-muted-foreground">Total Mismatches</p>
               </div>
-              <div className="rounded-md border bg-green-50 dark:bg-green-900/20 p-3 text-center">
-                <p className="text-2xl font-bold text-green-700">
+              <div className="rounded-md border bg-green-50 dark:bg-green-950 dark:bg-green-900/20 p-3 text-center">
+                <p className="text-2xl font-bold text-green-700 dark:text-green-300">
                   {mismatchData.total > 0
                     ? Math.round(
                         ((mismatchData.mismatches ?? []).filter((m) => m.deviation_acknowledged).length /
@@ -687,8 +687,8 @@ export default function SupervisorDashboardRP() {
                 </p>
                 <p className="text-xs text-muted-foreground">Acknowledged</p>
               </div>
-              <div className="rounded-md border bg-amber-50 dark:bg-amber-900/20 p-3 text-center">
-                <p className="text-2xl font-bold text-amber-700">
+              <div className="rounded-md border bg-amber-50 dark:bg-amber-950 dark:bg-amber-900/20 p-3 text-center">
+                <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">
                   {(mismatchData.mismatches ?? []).filter((m) => !m.deviation_acknowledged).length}
                 </p>
                 <p className="text-xs text-muted-foreground">Unacknowledged</p>
@@ -716,16 +716,16 @@ export default function SupervisorDashboardRP() {
                   mismatchData.mismatches.map((row) => (
                     <TableRow
                       key={row.id}
-                      className={row.product_risk_code > row.customer_risk_code ? 'bg-amber-50 dark:bg-amber-900/20' : ''}
+                      className={row.product_risk_code > row.customer_risk_code ? 'bg-amber-50 dark:bg-amber-950 dark:bg-amber-900/20' : ''}
                     >
                       <TableCell className="font-mono text-sm">{row.customer_id}</TableCell>
                       <TableCell className="text-right font-mono">{row.product_risk_code}</TableCell>
                       <TableCell className="text-right font-mono">{row.customer_risk_code}</TableCell>
                       <TableCell>
                         {row.deviation_acknowledged ? (
-                          <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">Yes</Badge>
+                          <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900/30 dark:text-green-300">Yes</Badge>
                         ) : (
-                          <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">No</Badge>
+                          <Badge className="bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 dark:bg-amber-900/30 dark:text-amber-300">No</Badge>
                         )}
                       </TableCell>
                     </TableRow>
@@ -793,7 +793,7 @@ export default function SupervisorDashboardRP() {
                       <TableCell>{p.customerName}</TableCell>
                       <TableCell className="text-right font-mono">{fmtCurrency(p.amount)}</TableCell>
                       <TableCell>
-                        <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                        <Badge className="bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 dark:bg-amber-900/30 dark:text-amber-300">
                           {p.status}
                         </Badge>
                       </TableCell>
@@ -803,7 +803,7 @@ export default function SupervisorDashboardRP() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-green-700 hover:text-green-800"
+                            className="text-green-700 dark:text-green-300 hover:text-green-800 dark:text-green-200"
                             onClick={() => approveProposalL1.mutate(p.id)}
                             disabled={approveProposalL1.isPending}
                             aria-label={`Approve proposal ${p.proposalNumber}`}
@@ -814,7 +814,7 @@ export default function SupervisorDashboardRP() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-red-700 hover:text-red-800"
+                            className="text-red-700 dark:text-red-300 hover:text-red-800 dark:text-red-200"
                             onClick={() => rejectProposalL1.mutate(p.id)}
                             disabled={rejectProposalL1.isPending}
                             aria-label={`Reject proposal ${p.proposalNumber}`}

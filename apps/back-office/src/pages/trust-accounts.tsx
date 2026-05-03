@@ -201,7 +201,7 @@ export default function TrustAccountsPage() {
               <Button className="w-full" disabled={!createForm.client_id || createMutation.isPending} onClick={() => createMutation.mutate()}>
                 Create Account Stack
               </Button>
-              {createMutation.error && <p className="text-sm text-red-600">{createMutation.error.message}</p>}
+              {createMutation.error && <p className="text-sm text-red-600 dark:text-red-400">{createMutation.error.message}</p>}
             </CardContent>
           </Card>
 
@@ -285,13 +285,13 @@ export default function TrustAccountsPage() {
               {authority && (
                 <div className="md:col-span-4 rounded-md border p-3 text-sm">
                   <div className="flex items-center gap-2">
-                    {authority.passed ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <XCircle className="h-4 w-4 text-red-600" />}
+                    {authority.passed ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" /> : <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />}
                     <span className="font-medium">{authority.passed ? "Authority satisfied" : "Authority failed"}</span>
                   </div>
                   <p className="mt-2 text-muted-foreground">
                     Required {authority.required_signatories}, provided {authority.provided_signatories}, valid {authority.valid_signatories}
                   </p>
-                  {authority.failures.length > 0 && <p className="mt-2 text-red-600">{authority.failures.join("; ")}</p>}
+                  {authority.failures.length > 0 && <p className="mt-2 text-red-600 dark:text-red-400">{authority.failures.join("; ")}</p>}
                 </div>
               )}
             </CardContent>

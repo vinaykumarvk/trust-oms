@@ -80,8 +80,8 @@ export function DedupeModal({
     : 'bg-yellow-50 dark:bg-yellow-950';
 
   const headerTextClass = hasHardStop
-    ? 'text-red-800 dark:text-red-300'
-    : 'text-yellow-800 dark:text-yellow-300';
+    ? 'text-red-800 dark:text-red-200 dark:text-red-300'
+    : 'text-yellow-800 dark:text-yellow-200 dark:text-yellow-300';
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -156,10 +156,10 @@ export function DedupeModal({
                           variant="secondary"
                           className={
                             match.match_score >= 90
-                              ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+                              ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900 dark:text-red-300'
                               : match.match_score >= 70
-                              ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
-                              : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                              ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900 dark:text-yellow-300'
+                              : 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-300'
                           }
                         >
                           {match.match_score}%

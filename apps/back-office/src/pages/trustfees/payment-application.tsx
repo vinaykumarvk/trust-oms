@@ -301,10 +301,10 @@ export default function PaymentApplication() {
                         <Badge
                           className={
                             inv.invoice_status === "PAID"
-                              ? "bg-green-100 text-green-800"
+                              ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
                               : inv.invoice_status === "OVERDUE"
-                                ? "bg-red-100 text-red-800"
-                                : "bg-blue-100 text-blue-800"
+                                ? "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200"
+                                : "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
                           }
                         >
                           {inv.invoice_status.replace("_", " ")}
@@ -350,10 +350,10 @@ export default function PaymentApplication() {
                 <Badge
                   className={
                     detail.invoice_status === "PAID"
-                      ? "bg-green-100 text-green-800"
+                      ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
                       : detail.invoice_status === "OVERDUE"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-blue-100 text-blue-800"
+                        ? "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200"
+                        : "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
                   }
                 >
                   {detail.invoice_status.replace("_", " ")}
@@ -391,7 +391,7 @@ export default function PaymentApplication() {
                 </div>
                 <div className="rounded border p-2">
                   <p className="text-xs text-muted-foreground">Paid</p>
-                  <p className="font-mono text-lg font-bold text-green-600">
+                  <p className="font-mono text-lg font-bold text-green-600 dark:text-green-400">
                     {fmtCurrency(detail.paid_amount, detail.currency)}
                   </p>
                 </div>
@@ -444,9 +444,9 @@ export default function PaymentApplication() {
             </CardHeader>
             <CardContent className="space-y-4">
               {detail.invoice_status === "PAID" ? (
-                <div className="flex items-center gap-2 rounded-md border border-green-500/30 bg-green-50 p-4">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                  <p className="text-sm font-medium text-green-700">
+                <div className="flex items-center gap-2 rounded-md border border-green-500/30 bg-green-50 dark:bg-green-950 p-4">
+                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  <p className="text-sm font-medium text-green-700 dark:text-green-300">
                     This invoice is fully paid.
                   </p>
                 </div>
@@ -459,8 +459,8 @@ export default function PaymentApplication() {
                 </div>
               ) : detail.invoice_status === "DRAFT" ? (
                 <div className="flex items-center gap-2 rounded-md border border-gray-500/30 bg-gray-50 p-4">
-                  <XCircle className="h-5 w-5 text-gray-600" />
-                  <p className="text-sm font-medium text-gray-700">
+                  <XCircle className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     This invoice is still in DRAFT status. Issue it first before recording payments.
                   </p>
                 </div>
@@ -554,7 +554,7 @@ export default function PaymentApplication() {
 
                   {payResult && (
                     <div className="rounded-md border bg-muted/30 p-4">
-                      <h4 className="mb-2 text-sm font-semibold text-green-700">
+                      <h4 className="mb-2 text-sm font-semibold text-green-700 dark:text-green-300">
                         Payment Recorded
                       </h4>
                       <div className="grid grid-cols-2 gap-2">
@@ -570,7 +570,7 @@ export default function PaymentApplication() {
                         </div>
                       </div>
                       {payResult.over_payment && (
-                        <p className="mt-2 text-xs text-amber-600">
+                        <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
                           Over-payment detected. An exception has been created for reconciliation.
                         </p>
                       )}
@@ -621,8 +621,8 @@ export default function PaymentApplication() {
                         <Badge
                           className={
                             pmt.payment_status === "POSTED"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-red-100 text-red-800"
+                              ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
+                              : "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200"
                           }
                         >
                           {pmt.payment_status}

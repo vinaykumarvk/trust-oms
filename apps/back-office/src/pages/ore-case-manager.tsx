@@ -102,11 +102,11 @@ const BASEL_CATEGORIES = [
 type BaselCategory = (typeof BASEL_CATEGORIES)[number];
 
 const BASEL_COLORS: Record<string, string> = {
-  "Internal Fraud": "bg-red-100 text-red-800",
-  "External Fraud": "bg-orange-100 text-orange-800",
-  "Employment Practices": "bg-yellow-100 text-yellow-800",
-  "Clients/Products": "bg-blue-100 text-blue-800",
-  "Damage to Assets": "bg-purple-100 text-purple-800",
+  "Internal Fraud": "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+  "External Fraud": "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200",
+  "Employment Practices": "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+  "Clients/Products": "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  "Damage to Assets": "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200",
   "Business Disruption": "bg-muted text-foreground",
   "Execution/Delivery": "bg-teal-100 text-teal-800",
 };
@@ -556,14 +556,14 @@ export default function OreCaseManager() {
                       </TableCell>
                       <TableCell className="text-center">
                         {ev.root_cause ? (
-                          <CheckCircle className="h-4 w-4 text-green-600 mx-auto" />
+                          <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 mx-auto" />
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
                       <TableCell>
                         {ev.bsp_reported ? (
-                          <Badge className="bg-green-100 text-green-800">Reported</Badge>
+                          <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">Reported</Badge>
                         ) : (
                           <Badge className="bg-muted text-muted-foreground">Pending</Badge>
                         )}
@@ -592,7 +592,7 @@ export default function OreCaseManager() {
                               variant="ghost"
                               size="sm"
                               title="Report to BSP"
-                              className="text-blue-600 hover:text-blue-700"
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:text-blue-300"
                               onClick={() => reportBspMut.mutate(ev.id)}
                               disabled={reportBspMut.isPending}
                             >
@@ -642,7 +642,7 @@ export default function OreCaseManager() {
           {eventsQ.isError && (
             <Card>
               <CardContent className="pt-6">
-                <p className="text-sm text-red-600">
+                <p className="text-sm text-red-600 dark:text-red-400" role="alert">
                   Failed to load operational risk events. Please try again.
                 </p>
               </CardContent>
@@ -711,10 +711,10 @@ export default function OreCaseManager() {
               </div>
 
               {createMut.isError && (
-                <p className="text-sm text-red-600">Failed to create event. Please try again.</p>
+                <p className="text-sm text-red-600 dark:text-red-400" role="alert">Failed to create event. Please try again.</p>
               )}
               {createMut.isSuccess && (
-                <p className="text-sm text-green-600">Event recorded successfully.</p>
+                <p className="text-sm text-green-600 dark:text-green-400">Event recorded successfully.</p>
               )}
             </CardContent>
           </Card>
@@ -769,7 +769,7 @@ export default function OreCaseManager() {
           {quarterlyMut.isError && (
             <Card>
               <CardContent className="pt-6">
-                <p className="text-sm text-red-600">
+                <p className="text-sm text-red-600 dark:text-red-400" role="alert">
                   Failed to generate quarterly report. Please try again.
                 </p>
               </CardContent>
@@ -890,7 +890,7 @@ export default function OreCaseManager() {
                               </TableCell>
                               <TableCell>
                                 {ev.bsp_reported ? (
-                                  <Badge className="bg-green-100 text-green-800">Yes</Badge>
+                                  <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">Yes</Badge>
                                 ) : (
                                   <Badge className="bg-muted text-muted-foreground">No</Badge>
                                 )}

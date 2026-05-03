@@ -99,16 +99,16 @@ const RULE_TYPES: { value: RuleType; label: string; icon: React.ElementType }[] 
 ];
 
 const RULE_TYPE_COLORS: Record<string, string> = {
-  RESTRICTED_LIST: "bg-red-100 text-red-800",
-  POLICY_LIMIT: "bg-blue-100 text-blue-800",
-  SUITABILITY: "bg-purple-100 text-purple-800",
-  IPS: "bg-green-100 text-green-800",
+  RESTRICTED_LIST: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+  POLICY_LIMIT: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  SUITABILITY: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200",
+  IPS: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
 };
 
 const SEVERITY_COLORS: Record<string, string> = {
-  HIGH: "bg-red-100 text-red-800",
-  MEDIUM: "bg-yellow-100 text-yellow-800",
-  LOW: "bg-green-100 text-green-800",
+  HIGH: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+  MEDIUM: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+  LOW: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
 };
 
 // ---------------------------------------------------------------------------
@@ -588,7 +588,7 @@ export default function ComplianceRules() {
                             disabled={toggleMut.isPending}
                             className={
                               rule.is_active
-                                ? "text-green-600 hover:text-green-700"
+                                ? "text-green-600 dark:text-green-400 hover:text-green-700 dark:text-green-300"
                                 : "text-muted-foreground hover:text-muted-foreground"
                             }
                           >
@@ -621,7 +621,7 @@ export default function ComplianceRules() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-red-600 hover:text-red-700"
+                              className="text-red-600 dark:text-red-400 hover:text-red-700 dark:text-red-300"
                               onClick={() => openDelete(rule)}
                             >
                               <Trash2 className="h-3 w-3" />
@@ -638,7 +638,7 @@ export default function ComplianceRules() {
             {rulesQ.isError && (
               <Card>
                 <CardContent className="pt-6">
-                  <p className="text-sm text-red-600">
+                  <p className="text-sm text-red-600 dark:text-red-400" role="alert">
                     Failed to load rules. Please try refreshing.
                   </p>
                 </CardContent>
@@ -692,8 +692,8 @@ export default function ComplianceRules() {
                     <Badge
                       className={
                         orderEvalResult.passed
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
+                          ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
+                          : "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200"
                       }
                     >
                       {orderEvalResult.passed ? (
@@ -748,12 +748,12 @@ export default function ComplianceRules() {
                               </TableCell>
                               <TableCell>
                                 {r.passed ? (
-                                  <Badge className="bg-green-100 text-green-800">
+                                  <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
                                     <CheckCircle className="h-3 w-3 mr-1" />
                                     Pass
                                   </Badge>
                                 ) : (
-                                  <Badge className="bg-red-100 text-red-800">
+                                  <Badge className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200">
                                     <XCircle className="h-3 w-3 mr-1" />
                                     Fail
                                   </Badge>
@@ -782,7 +782,7 @@ export default function ComplianceRules() {
               )}
 
               {evalOrderMut.isError && (
-                <p className="text-sm text-red-600">
+                <p className="text-sm text-red-600 dark:text-red-400" role="alert">
                   Order evaluation failed. Please check the Order ID and try
                   again.
                 </p>
@@ -830,8 +830,8 @@ export default function ComplianceRules() {
                     <Badge
                       className={
                         positionEvalResult.passed
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
+                          ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
+                          : "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200"
                       }
                     >
                       {positionEvalResult.passed ? (
@@ -886,12 +886,12 @@ export default function ComplianceRules() {
                               </TableCell>
                               <TableCell>
                                 {r.passed ? (
-                                  <Badge className="bg-green-100 text-green-800">
+                                  <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
                                     <CheckCircle className="h-3 w-3 mr-1" />
                                     Pass
                                   </Badge>
                                 ) : (
-                                  <Badge className="bg-red-100 text-red-800">
+                                  <Badge className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200">
                                     <XCircle className="h-3 w-3 mr-1" />
                                     Fail
                                   </Badge>
@@ -920,7 +920,7 @@ export default function ComplianceRules() {
               )}
 
               {evalPositionMut.isError && (
-                <p className="text-sm text-red-600">
+                <p className="text-sm text-red-600 dark:text-red-400" role="alert">
                   Position evaluation failed. Please check the Portfolio ID and
                   try again.
                 </p>
@@ -973,7 +973,7 @@ export default function ComplianceRules() {
                 className="font-mono text-sm"
               />
               {conditionError && (
-                <p className="text-xs text-red-600">{conditionError}</p>
+                <p className="text-xs text-red-600 dark:text-red-400">{conditionError}</p>
               )}
             </div>
 
@@ -1049,7 +1049,7 @@ export default function ComplianceRules() {
           </DialogFooter>
 
           {(createMut.isError || updateMut.isError) && (
-            <p className="text-sm text-red-600 mt-2">
+            <p className="text-sm text-red-600 dark:text-red-400 mt-2">
               Failed to save rule. Please check your input and try again.
             </p>
           )}
@@ -1121,7 +1121,7 @@ export default function ComplianceRules() {
           </DialogFooter>
 
           {deleteMut.isError && (
-            <p className="text-sm text-red-600 mt-2">
+            <p className="text-sm text-red-600 dark:text-red-400 mt-2">
               Failed to delete rule. Please try again.
             </p>
           )}

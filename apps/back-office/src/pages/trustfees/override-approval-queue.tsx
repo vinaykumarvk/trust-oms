@@ -58,10 +58,10 @@ import {
 /* ---------- Constants ---------- */
 
 const STATUS_COLORS: Record<string, string> = {
-  AUTO_APPROVED: "bg-green-100 text-green-800",
-  PENDING: "bg-amber-100 text-amber-800",
-  APPROVED: "bg-blue-100 text-blue-800",
-  REJECTED: "bg-red-100 text-red-800",
+  AUTO_APPROVED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  PENDING: "bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200",
+  APPROVED: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  REJECTED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
 };
 
 const STAGE_OPTIONS = ["ALL", "ORDER_CAPTURE", "ACCRUAL", "INVOICE", "PAYMENT"];
@@ -398,8 +398,8 @@ export default function OverrideApprovalQueue() {
                         <span
                           className={`font-mono text-sm font-medium ${
                             isWithinThreshold
-                              ? "text-green-600"
-                              : "text-red-600"
+                              ? "text-green-600 dark:text-green-400"
+                              : "text-red-600 dark:text-red-400"
                           }`}
                         >
                           {fmtPct(deltaPct)}
@@ -508,9 +508,9 @@ export default function OverrideApprovalQueue() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <span className="text-amber-700">
+            <div className="flex items-center gap-2 rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950 p-3 text-sm">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <span className="text-amber-700 dark:text-amber-300">
                 SoD Check: Approver must differ from requester (
                 {approveDialog?.requested_by})
               </span>

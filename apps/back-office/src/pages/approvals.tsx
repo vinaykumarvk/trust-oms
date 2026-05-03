@@ -207,7 +207,7 @@ function SlaBadge({ deadline, breached }: { deadline: string | null; breached: b
   }
 
   return (
-    <Badge variant="outline" className="gap-1 text-green-700 border-green-300">
+    <Badge variant="outline" className="gap-1 text-green-700 dark:text-green-300 border-green-300">
       <Clock className="h-3 w-3" />
       {hoursRemaining.toFixed(0)}h left
     </Badge>
@@ -463,25 +463,25 @@ export default function ApprovalsPage() {
         <SummaryCard
           title="Pending"
           value={summary?.pending}
-          icon={<Clock className="h-5 w-5 text-blue-600" />}
+          icon={<Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
           loading={summaryQuery.isLoading}
         />
         <SummaryCard
           title="Approved Today"
           value={summary?.approvedToday}
-          icon={<CheckCircle className="h-5 w-5 text-green-600" />}
+          icon={<CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />}
           loading={summaryQuery.isLoading}
         />
         <SummaryCard
           title="Rejected Today"
           value={summary?.rejectedToday}
-          icon={<XCircle className="h-5 w-5 text-red-600" />}
+          icon={<XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />}
           loading={summaryQuery.isLoading}
         />
         <SummaryCard
           title="SLA Breached"
           value={summary?.slaBreached}
-          icon={<AlertTriangle className="h-5 w-5 text-orange-600" />}
+          icon={<AlertTriangle className="h-5 w-5 text-orange-600 dark:text-orange-400" />}
           loading={summaryQuery.isLoading}
         />
       </div>

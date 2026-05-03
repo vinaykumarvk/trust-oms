@@ -93,14 +93,14 @@ const LIMIT_TYPES = [
 ] as const;
 
 const LIMIT_TYPE_COLORS: Record<string, string> = {
-  trader: "bg-blue-100 text-blue-800",
-  counterparty: "bg-purple-100 text-purple-800",
+  trader: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  counterparty: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200",
   broker: "bg-indigo-100 text-indigo-800",
   issuer: "bg-cyan-100 text-cyan-800",
-  sector: "bg-green-100 text-green-800",
-  sbl: "bg-orange-100 text-orange-800",
+  sector: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  sbl: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200",
   group: "bg-pink-100 text-pink-800",
-  outlet: "bg-yellow-100 text-yellow-800",
+  outlet: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
 };
 
 // ---------------------------------------------------------------------------
@@ -441,7 +441,7 @@ export default function ComplianceLimits() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-red-600 hover:text-red-700"
+                              className="text-red-600 dark:text-red-400 hover:text-red-700 dark:text-red-300"
                               onClick={() => deleteMut.mutate(limit.id)}
                               disabled={deleteMut.isPending}
                             >
@@ -498,7 +498,7 @@ export default function ComplianceLimits() {
           {validationData && (
             <>
               <div className="flex items-center gap-2">
-                <Badge className={validationData.passed ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+                <Badge className={validationData.passed ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200" : "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200"}>
                   {validationData.passed ? "PASSED" : "FAILED"}
                 </Badge>
                 <span className="text-sm text-muted-foreground">
@@ -525,13 +525,13 @@ export default function ComplianceLimits() {
                           <TableCell className="font-mono text-xs">{r.rule}</TableCell>
                           <TableCell>
                             {r.passed ? (
-                              <Badge className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Pass</Badge>
+                              <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"><CheckCircle className="h-3 w-3 mr-1" />Pass</Badge>
                             ) : (
-                              <Badge className="bg-red-100 text-red-800"><XCircle className="h-3 w-3 mr-1" />Fail</Badge>
+                              <Badge className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200"><XCircle className="h-3 w-3 mr-1" />Fail</Badge>
                             )}
                           </TableCell>
                           <TableCell>
-                            <Badge className={r.severity === "hard" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}>
+                            <Badge className={r.severity === "hard" ? "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200" : "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200"}>
                               {r.severity.toUpperCase()}
                             </Badge>
                           </TableCell>
@@ -567,7 +567,7 @@ export default function ComplianceLimits() {
           {validateMut.isError && (
             <Card>
               <CardContent className="pt-6">
-                <p className="text-sm text-red-600">Validation failed. Please check the Order ID and try again.</p>
+                <p className="text-sm text-red-600 dark:text-red-400" role="alert">Validation failed. Please check the Order ID and try again.</p>
               </CardContent>
             </Card>
           )}
@@ -654,7 +654,7 @@ export default function ComplianceLimits() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge className={isHard ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}>
+                          <Badge className={isHard ? "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200" : "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200"}>
                             {isHard ? "HARD" : "SOFT"}
                           </Badge>
                         </TableCell>
@@ -707,7 +707,7 @@ export default function ComplianceLimits() {
                             <TableCell className="text-right font-mono text-sm">{formatNumber(line.limit_amount)}</TableCell>
                             <TableCell className="text-xs">{formatDate(line.effective_to)}</TableCell>
                             <TableCell className="text-right">
-                              <Badge className={line.days_until_expiry <= 7 ? "bg-red-100 text-red-800" : line.days_until_expiry <= 30 ? "bg-yellow-100 text-yellow-800" : "bg-muted text-foreground"}>
+                              <Badge className={line.days_until_expiry <= 7 ? "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200" : line.days_until_expiry <= 30 ? "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200" : "bg-muted text-foreground"}>
                                 {line.days_until_expiry}d
                               </Badge>
                             </TableCell>

@@ -45,16 +45,16 @@ const ALLOC_COLORS = [
   'bg-orange-500', 'bg-pink-500', 'bg-teal-500', 'bg-indigo-500',
 ];
 const STATUS_COLORS: Record<string, string> = {
-  active: 'bg-green-100 text-green-800', expired: 'bg-red-100 text-red-800',
-  pending_deviation: 'bg-yellow-100 text-yellow-800', none: 'bg-gray-100 text-gray-800',
+  active: 'bg-green-100 dark:bg-green-900 text-green-800', expired: 'bg-red-100 dark:bg-red-900 text-red-800',
+  pending_deviation: 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800', none: 'bg-gray-100 text-gray-800',
 };
 
 /* Risk category color coding (G-079 — FR-018.AC2) */
 function riskCategoryColor(category: string): string {
   const lower = (category || '').toLowerCase();
-  if (lower.includes('aggressive') || lower.includes('very')) return 'text-red-600 font-semibold';
-  if (lower.includes('moderate')) return 'text-amber-600 font-semibold';
-  if (lower.includes('conservative')) return 'text-green-600 font-semibold';
+  if (lower.includes('aggressive') || lower.includes('very')) return 'text-red-600 dark:text-red-400 font-semibold';
+  if (lower.includes('moderate')) return 'text-amber-600 dark:text-amber-400 font-semibold';
+  if (lower.includes('conservative')) return 'text-green-600 dark:text-green-400 font-semibold';
   return 'text-foreground font-semibold';
 }
 
@@ -271,10 +271,10 @@ export default function RiskAssessmentWizard() {
 
       {/* Supervisor: pending deviation approvals */}
       {isSupervisor && pendingDevs && pendingDevs.length > 0 && (
-        <Card className="border-yellow-300 bg-yellow-50">
+        <Card className="border-yellow-300 dark:border-yellow-700 bg-yellow-50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-yellow-600" /> Pending Deviation Approvals ({pendingDevs.length})
+              <ShieldCheck className="h-4 w-4 text-yellow-600 dark:text-yellow-400" /> Pending Deviation Approvals ({pendingDevs.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -289,7 +289,7 @@ export default function RiskAssessmentWizard() {
                   <TableRow key={d.id}>
                     <TableCell className="font-mono text-sm">{d.customer_id}</TableCell>
                     <TableCell>{d.computed_risk_category} ({d.computed_risk_code})</TableCell>
-                    <TableCell><Badge variant="secondary" className="bg-orange-100 text-orange-800">{d.effective_risk_category} ({d.effective_risk_code})</Badge></TableCell>
+                    <TableCell><Badge variant="secondary" className="bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200">{d.effective_risk_category} ({d.effective_risk_code})</Badge></TableCell>
                     <TableCell className="text-sm text-muted-foreground">{new Date(d.assessment_date).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <Button size="sm" onClick={() => { setSelDeviationId(d.id); setApprovalDialogOpen(true); }}>
@@ -335,9 +335,9 @@ export default function RiskAssessmentWizard() {
                         <TableCell>{a.computed_risk_category} ({a.computed_risk_code})</TableCell>
                         <TableCell>{a.effective_risk_category} ({a.effective_risk_code})</TableCell>
                         <TableCell className="font-mono">{a.total_score}</TableCell>
-                        <TableCell>{a.is_deviated ? <Badge variant="secondary" className="bg-orange-100 text-orange-800">Yes</Badge> : <span className="text-muted-foreground">No</span>}</TableCell>
+                        <TableCell>{a.is_deviated ? <Badge variant="secondary" className="bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200">Yes</Badge> : <span className="text-muted-foreground">No</span>}</TableCell>
                         <TableCell className="text-sm">{new Date(a.expiry_date).toLocaleDateString()}</TableCell>
-                        <TableCell><Badge variant="secondary" className={a.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>{a.is_active ? 'Active' : 'Inactive'}</Badge></TableCell>
+                        <TableCell><Badge variant="secondary" className={a.is_active ? 'bg-green-100 dark:bg-green-900 text-green-800' : 'bg-gray-100 text-gray-800'}>{a.is_active ? 'Active' : 'Inactive'}</Badge></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -418,7 +418,7 @@ export default function RiskAssessmentWizard() {
                     <div><span className="text-muted-foreground">Questions:</span> {fullQ.questions.length}</div>
                   </div>
                   {fullQ.warning_text && (
-                    <div className="mt-3 flex items-start gap-2 rounded-md bg-yellow-50 p-3 text-sm text-yellow-800">
+                    <div className="mt-3 flex items-start gap-2 rounded-md bg-yellow-50 dark:bg-yellow-950 p-3 text-sm text-yellow-800 dark:text-yellow-200">
                       <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />{fullQ.warning_text}
                     </div>
                   )}
@@ -440,7 +440,7 @@ export default function RiskAssessmentWizard() {
                 questions.map((q, qIdx) => {
                   const sel = responses[q.id] ?? new Set<number>();
                   return (
-                    <div key={q.id} className={`rounded-lg border p-4 ${q.is_mandatory && sel.size === 0 ? 'border-orange-300 bg-orange-50/30' : ''}`}>
+                    <div key={q.id} className={`rounded-lg border p-4 ${q.is_mandatory && sel.size === 0 ? 'border-orange-300 dark:border-orange-700 bg-orange-50/30' : ''}`}>
                       <div className="flex items-start gap-3 mb-3">
                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-bold flex-shrink-0">{qIdx + 1}</span>
                         <div>
@@ -509,7 +509,7 @@ export default function RiskAssessmentWizard() {
                   {/* Client deviation acknowledgement (G-022 — FR-019.AC1) */}
                   <div>
                     {deviationAcknowledged ? (
-                      <div className="flex items-center gap-2 text-green-700 text-sm">
+                      <div className="flex items-center gap-2 text-green-700 dark:text-green-300 text-sm">
                         <CheckCircle className="h-4 w-4" />
                         <span>Client acknowledges the product risk deviation</span>
                         <Button
@@ -525,7 +525,7 @@ export default function RiskAssessmentWizard() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="border-amber-300 text-amber-700"
+                        className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300"
                         onClick={() => setDeviationConfirmOpen(true)}
                       >
                         Confirm Client Acknowledgement
@@ -534,7 +534,7 @@ export default function RiskAssessmentWizard() {
                   </div>
                   {isDeviating && (
                     <div className="space-y-4 pl-7">
-                      <div className="flex items-start gap-2 rounded-md bg-yellow-50 p-3 text-sm text-yellow-800">
+                      <div className="flex items-start gap-2 rounded-md bg-yellow-50 dark:bg-yellow-950 p-3 text-sm text-yellow-800 dark:text-yellow-200">
                         <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" /> This deviation requires supervisor approval before the profile becomes effective.
                       </div>
                       <div>

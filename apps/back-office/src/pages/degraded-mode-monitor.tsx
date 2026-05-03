@@ -35,16 +35,16 @@ export default function DegradedModeMonitor() {
   });
 
   const statusIcon = (status: string) => status === 'UP' ? <CheckCircle className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-red-500" />;
-  const statusColor = (status: string) => status === 'UP' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+  const statusColor = (status: string) => status === 'UP' ? 'bg-green-100 dark:bg-green-900 text-green-800' : 'bg-red-100 dark:bg-red-900 text-red-800';
 
   return (
     <div className="space-y-6">
       {activeIncidents?.hasActiveIncident && (
-        <div className="rounded-lg border-2 border-red-500 bg-red-50 p-4 flex items-center gap-3">
-          <AlertTriangle className="h-6 w-6 text-red-600 animate-pulse" />
+        <div className="rounded-lg border-2 border-red-500 bg-red-50 dark:bg-red-950 p-4 flex items-center gap-3">
+          <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400 animate-pulse" />
           <div>
-            <p className="font-semibold text-red-800">DEGRADED MODE ACTIVE</p>
-            <p className="text-sm text-red-600">{activeIncidents.data.length} active incident(s) — some feeds may be unavailable</p>
+            <p className="font-semibold text-red-800 dark:text-red-200">DEGRADED MODE ACTIVE</p>
+            <p className="text-sm text-red-600 dark:text-red-400">{activeIncidents.data.length} active incident(s) — some feeds may be unavailable</p>
           </div>
         </div>
       )}
@@ -76,10 +76,10 @@ export default function DegradedModeMonitor() {
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-        <Card><CardContent className="flex items-center gap-3 pt-6"><Radio className="h-8 w-8 text-green-600" /><div><p className="text-2xl font-bold">{feedHealth?.feeds?.filter((f: any) => f.status === 'UP').length || 0}/{feedHealth?.feeds?.length || 5}</p><p className="text-sm text-muted-foreground">Feeds Online</p></div></CardContent></Card>
-        <Card><CardContent className="flex items-center gap-3 pt-6"><AlertTriangle className="h-8 w-8 text-red-600" /><div><p className="text-2xl font-bold">{activeIncidents?.data?.length || 0}</p><p className="text-sm text-muted-foreground">Active Incidents</p></div></CardContent></Card>
-        <Card><CardContent className="flex items-center gap-3 pt-6"><Gauge className="h-8 w-8 text-blue-600" /><div><p className="text-2xl font-bold">{kpi?.degradedModeDays || 0}</p><p className="text-sm text-muted-foreground">Degraded Days ({new Date().getFullYear()})</p></div></CardContent></Card>
-        <Card><CardContent className="flex items-center gap-3 pt-6"><CheckCircle className="h-8 w-8 text-green-600" /><div><p className="text-2xl font-bold">{kpi?.target || 3}</p><p className="text-sm text-muted-foreground">Target (Max Days)</p></div></CardContent></Card>
+        <Card><CardContent className="flex items-center gap-3 pt-6"><Radio className="h-8 w-8 text-green-600 dark:text-green-400" /><div><p className="text-2xl font-bold">{feedHealth?.feeds?.filter((f: any) => f.status === 'UP').length || 0}/{feedHealth?.feeds?.length || 5}</p><p className="text-sm text-muted-foreground">Feeds Online</p></div></CardContent></Card>
+        <Card><CardContent className="flex items-center gap-3 pt-6"><AlertTriangle className="h-8 w-8 text-red-600 dark:text-red-400" /><div><p className="text-2xl font-bold">{activeIncidents?.data?.length || 0}</p><p className="text-sm text-muted-foreground">Active Incidents</p></div></CardContent></Card>
+        <Card><CardContent className="flex items-center gap-3 pt-6"><Gauge className="h-8 w-8 text-blue-600 dark:text-blue-400" /><div><p className="text-2xl font-bold">{kpi?.degradedModeDays || 0}</p><p className="text-sm text-muted-foreground">Degraded Days ({new Date().getFullYear()})</p></div></CardContent></Card>
+        <Card><CardContent className="flex items-center gap-3 pt-6"><CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" /><div><p className="text-2xl font-bold">{kpi?.target || 3}</p><p className="text-sm text-muted-foreground">Target (Max Days)</p></div></CardContent></Card>
       </div>
 
       <Tabs defaultValue="feeds">
@@ -112,7 +112,7 @@ export default function DegradedModeMonitor() {
               {activeIncidents?.data?.map((inc: any) => (
                 <TableRow key={inc.incident_id}>
                   <TableCell className="font-mono text-sm">{inc.incident_id}</TableCell>
-                  <TableCell><Badge className="bg-red-100 text-red-800">{inc.failed_component}</Badge></TableCell>
+                  <TableCell><Badge className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200">{inc.failed_component}</Badge></TableCell>
                   <TableCell>{inc.started_at ? new Date(inc.started_at).toLocaleString() : '—'}</TableCell>
                   <TableCell>{inc.fallback_path}</TableCell>
                   <TableCell><Button variant="outline" size="sm" onClick={() => resolveMutation.mutate(inc.incident_id)}>Resolve</Button></TableCell>
@@ -133,7 +133,7 @@ export default function DegradedModeMonitor() {
                   <TableCell><Badge>{inc.failed_component}</Badge></TableCell>
                   <TableCell>{inc.started_at ? new Date(inc.started_at).toLocaleString() : '—'}</TableCell>
                   <TableCell>{inc.ended_at ? new Date(inc.ended_at).toLocaleString() : 'Ongoing'}</TableCell>
-                  <TableCell><Badge className={inc.rca_completed ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>{inc.rca_completed ? 'Complete' : 'Pending'}</Badge></TableCell>
+                  <TableCell><Badge className={inc.rca_completed ? 'bg-green-100 dark:bg-green-900 text-green-800' : 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800'}>{inc.rca_completed ? 'Complete' : 'Pending'}</Badge></TableCell>
                 </TableRow>
               ))}
             </TableBody>

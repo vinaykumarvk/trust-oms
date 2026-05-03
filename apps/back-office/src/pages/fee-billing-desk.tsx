@@ -29,11 +29,11 @@ interface PortfolioOption { id: string; name: string; }
 
 /* ---------- Helpers ---------- */
 const FEE_COLORS: Record<string, string> = {
-  MANAGEMENT: "bg-blue-100 text-blue-800", TRUSTEE: "bg-purple-100 text-purple-800",
+  MANAGEMENT: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200", TRUSTEE: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200",
   CUSTODIAN: "bg-indigo-100 text-indigo-800", ADMIN: "bg-cyan-100 text-cyan-800",
-  PERFORMANCE: "bg-green-100 text-green-800", AUDIT: "bg-orange-100 text-orange-800", OTHER: "bg-muted text-foreground",
+  PERFORMANCE: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200", AUDIT: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200", OTHER: "bg-muted text-foreground",
 };
-const INV_COLORS: Record<string, string> = { DRAFT: "bg-yellow-100 text-yellow-800", ISSUED: "bg-blue-100 text-blue-800", PAID: "bg-green-100 text-green-800", WAIVED: "bg-muted text-foreground" };
+const INV_COLORS: Record<string, string> = { DRAFT: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200", ISSUED: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200", PAID: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200", WAIVED: "bg-muted text-foreground" };
 const fmtPHP = (n: number) => n.toLocaleString("en-PH", { style: "currency", currency: "PHP", minimumFractionDigits: 2 });
 const fmtDate = (d: string) => { try { return new Date(d).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }); } catch { return d; } };
 const fmtPct = (v: number) => `${v.toFixed(4)}%`;

@@ -58,20 +58,20 @@ function fetcher(url: string) {
 
 const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-800',
-  INVESTIGATING: 'bg-blue-100 text-blue-800',
-  PENDING_APPROVAL: 'bg-yellow-100 text-yellow-800',
-  APPROVED: 'bg-green-100 text-green-800',
+  INVESTIGATING: 'bg-blue-100 dark:bg-blue-900 text-blue-800',
+  PENDING_APPROVAL: 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800',
+  APPROVED: 'bg-green-100 dark:bg-green-900 text-green-800',
   PAID: 'bg-emerald-100 text-emerald-800',
-  REJECTED: 'bg-red-100 text-red-800',
-  WITHDRAWN: 'bg-orange-100 text-orange-800',
-  DISCLOSED: 'bg-purple-100 text-purple-800',
+  REJECTED: 'bg-red-100 dark:bg-red-900 text-red-800',
+  WITHDRAWN: 'bg-orange-100 dark:bg-orange-900 text-orange-800',
+  DISCLOSED: 'bg-purple-100 dark:bg-purple-900 text-purple-800',
 };
 
 const tierColors: Record<string, string> = {
-  AUTO: 'bg-green-50 text-green-700',
-  MANAGER: 'bg-blue-50 text-blue-700',
-  HEAD: 'bg-yellow-50 text-yellow-700',
-  EXEC_COMMITTEE: 'bg-red-50 text-red-700',
+  AUTO: 'bg-green-50 dark:bg-green-950 text-green-700',
+  MANAGER: 'bg-blue-50 dark:bg-blue-950 text-blue-700',
+  HEAD: 'bg-yellow-50 dark:bg-yellow-950 text-yellow-700',
+  EXEC_COMMITTEE: 'bg-red-50 dark:bg-red-950 text-red-700',
 };
 
 const ROOT_CAUSES = [
@@ -285,10 +285,10 @@ export default function ClaimsWorkbench() {
     const deadline = new Date(claim.investigation_sla_deadline).getTime();
     const now = Date.now();
     const daysRemaining = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
-    let color = 'bg-green-100 text-green-800'; // plenty of time
-    if (daysRemaining <= 0) color = 'bg-red-100 text-red-800';
-    else if (daysRemaining <= 2) color = 'bg-orange-100 text-orange-800';
-    else if (daysRemaining <= 5) color = 'bg-yellow-100 text-yellow-800';
+    let color = 'bg-green-100 dark:bg-green-900 text-green-800'; // plenty of time
+    if (daysRemaining <= 0) color = 'bg-red-100 dark:bg-red-900 text-red-800';
+    else if (daysRemaining <= 2) color = 'bg-orange-100 dark:bg-orange-900 text-orange-800';
+    else if (daysRemaining <= 5) color = 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800';
     const label = daysRemaining <= 0 ? `${Math.abs(daysRemaining)}d overdue` : `${daysRemaining}d left`;
     return { daysRemaining, color, label };
   }
@@ -343,7 +343,7 @@ export default function ClaimsWorkbench() {
             <Button
               size="sm"
               variant="outline"
-              className="border-orange-300 text-orange-700 hover:bg-orange-50"
+              className="border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-300 hover:bg-orange-50"
               onClick={() => { setSelectedClaimId(claim.id); setEscalateReason(''); setEscalateDialogOpen(true); }}
             >
               <ArrowUpCircle className="mr-1 h-3 w-3" /> Escalate

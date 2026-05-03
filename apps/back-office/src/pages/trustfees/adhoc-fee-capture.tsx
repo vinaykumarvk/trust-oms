@@ -58,10 +58,10 @@ const FEE_TYPES = [
 const CURRENCIES = ["PHP", "USD", "EUR", "GBP", "JPY", "SGD", "HKD"];
 
 const STATUS_COLORS: Record<string, string> = {
-  OPEN: "bg-blue-100 text-blue-800",
-  ACCOUNTED: "bg-green-100 text-green-800",
-  INVOICED: "bg-purple-100 text-purple-800",
-  REVERSED: "bg-red-100 text-red-800",
+  OPEN: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  ACCOUNTED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  INVOICED: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200",
+  REVERSED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
 };
 
 /* ---------- Helpers ---------- */
@@ -300,9 +300,9 @@ export default function AdhocFeeCapture() {
           )}
 
           {successMsg && (
-            <div className="flex items-center gap-2 rounded-md border border-green-500/30 bg-green-50 p-3">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <p className="text-sm text-green-700">{successMsg}</p>
+            <div className="flex items-center gap-2 rounded-md border border-green-500/30 bg-green-50 dark:bg-green-950 p-3">
+              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <p className="text-sm text-green-700 dark:text-green-300">{successMsg}</p>
             </div>
           )}
         </CardContent>

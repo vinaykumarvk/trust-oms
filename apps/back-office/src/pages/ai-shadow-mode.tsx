@@ -112,10 +112,10 @@ interface PredictionHistory {
 // ---------------------------------------------------------------------------
 
 const RISK_COLORS: Record<string, string> = {
-  CONSERVATIVE: "bg-blue-100 text-blue-800 border-blue-200",
-  MODERATE: "bg-green-100 text-green-800 border-green-200",
-  AGGRESSIVE: "bg-orange-100 text-orange-800 border-orange-200",
-  SPECULATIVE: "bg-red-100 text-red-800 border-red-200",
+  CONSERVATIVE: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-blue-200",
+  MODERATE: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-200",
+  AGGRESSIVE: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border-orange-200",
+  SPECULATIVE: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border-red-200",
 };
 
 const EXPERIENCE_OPTIONS = [
@@ -145,9 +145,9 @@ const HORIZON_OPTIONS = [
 ];
 
 const IMPACT_COLORS: Record<string, string> = {
-  HIGH: "bg-red-100 text-red-700 border-red-200",
-  MEDIUM: "bg-yellow-100 text-yellow-700 border-yellow-200",
-  LOW: "bg-green-100 text-green-700 border-green-200",
+  HIGH: "bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 border-red-200",
+  MEDIUM: "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300 border-yellow-200",
+  LOW: "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 border-green-200",
 };
 
 // ---------------------------------------------------------------------------
@@ -470,7 +470,7 @@ export default function AiShadowModePage() {
                 <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
                   <CheckCircle className="h-3 w-3 mr-1" /> {agreementCount} Agreements
                 </Badge>
-                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                <Badge variant="outline" className="bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200">
                   <XCircle className="h-3 w-3 mr-1" /> {divergenceCount} Divergences
                 </Badge>
               </div>
@@ -510,7 +510,7 @@ export default function AiShadowModePage() {
                               <CheckCircle className="h-3 w-3 mr-1" /> Match
                             </Badge>
                           ) : (
-                            <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                            <Badge variant="outline" className="bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200">
                               <XCircle className="h-3 w-3 mr-1" /> Diverged
                             </Badge>
                           )}
@@ -529,13 +529,13 @@ export default function AiShadowModePage() {
 
           {/* Recommendation Section */}
           {divergenceCount > 0 && (
-            <Card className="border-amber-200 bg-amber-50/30">
+            <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/30">
               <CardContent className="pt-6">
                 <div className="flex items-start gap-3">
-                  <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
                   <div>
-                    <p className="font-semibold text-amber-900">Divergence Alert</p>
-                    <p className="text-sm text-amber-800 mt-1">
+                    <p className="font-semibold text-amber-900 dark:text-amber-100">Divergence Alert</p>
+                    <p className="text-sm text-amber-800 dark:text-amber-200 mt-1">
                       {divergenceCount} client{divergenceCount > 1 ? "s" : ""} show disagreement between the AI model
                       and the questionnaire-based assessment. Per BSP 1108 Section 4.2.3, these cases require
                       manual review by a licensed relationship manager before the AI prediction can be applied.

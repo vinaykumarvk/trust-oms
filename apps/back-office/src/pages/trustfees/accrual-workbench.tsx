@@ -59,10 +59,10 @@ import {
 /* ---------- Constants ---------- */
 
 const STATUS_COLORS: Record<string, string> = {
-  OPEN: "bg-blue-100 text-blue-800",
-  ACCOUNTED: "bg-green-100 text-green-800",
-  INVOICED: "bg-purple-100 text-purple-800",
-  REVERSED: "bg-red-100 text-red-800",
+  OPEN: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  ACCOUNTED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  INVOICED: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200",
+  REVERSED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
 };
 
 const STATUS_OPTIONS = ["ALL", "OPEN", "ACCOUNTED", "INVOICED", "REVERSED"];
@@ -619,7 +619,7 @@ export default function AccrualWorkbench() {
             {/* Result summary */}
             {runResult && (
               <div className="rounded-md border bg-muted/30 p-4">
-                <h4 className="mb-2 text-sm font-semibold text-green-700">
+                <h4 className="mb-2 text-sm font-semibold text-green-700 dark:text-green-300">
                   Accrual Run Complete
                 </h4>
                 <div className="grid grid-cols-2 gap-3">
@@ -629,7 +629,7 @@ export default function AccrualWorkbench() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Accruals Created</p>
-                    <p className="text-lg font-bold text-green-600">
+                    <p className="text-lg font-bold text-green-600 dark:text-green-400">
                       {runResult.created}
                     </p>
                   </div>
@@ -639,7 +639,7 @@ export default function AccrualWorkbench() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Exceptions Raised</p>
-                    <p className={`text-lg font-bold ${runResult.exceptions > 0 ? "text-amber-600" : "text-muted-foreground"}`}>
+                    <p className={`text-lg font-bold ${runResult.exceptions > 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
                       {runResult.exceptions}
                     </p>
                   </div>

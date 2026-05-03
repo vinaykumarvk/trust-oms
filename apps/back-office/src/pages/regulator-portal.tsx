@@ -184,11 +184,11 @@ const MOCK_COMPLAINTS: ComplaintEntry[] = [
 function riskBadge(rating: string) {
   switch (rating) {
     case "HIGH":
-      return <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">High</Badge>;
+      return <Badge className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900/30 dark:text-red-400">High</Badge>;
     case "MEDIUM":
-      return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">Medium</Badge>;
+      return <Badge className="bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400">Medium</Badge>;
     case "LOW":
-      return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">Low</Badge>;
+      return <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900/30 dark:text-green-400">Low</Badge>;
     default:
       return <Badge variant="outline">{rating}</Badge>;
   }
@@ -197,15 +197,15 @@ function riskBadge(rating: string) {
 function statusBadge(status: string) {
   switch (status) {
     case "OPEN":
-      return <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">Open</Badge>;
+      return <Badge className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900/30 dark:text-red-400">Open</Badge>;
     case "UNDER_REVIEW":
     case "IN_PROGRESS":
-      return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">{status === "UNDER_REVIEW" ? "Under Review" : "In Progress"}</Badge>;
+      return <Badge className="bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400">{status === "UNDER_REVIEW" ? "Under Review" : "In Progress"}</Badge>;
     case "CLEARED":
     case "RESOLVED":
-      return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">{status === "CLEARED" ? "Cleared" : "Resolved"}</Badge>;
+      return <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900/30 dark:text-green-400">{status === "CLEARED" ? "Cleared" : "Resolved"}</Badge>;
     case "ESCALATED":
-      return <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400">Escalated</Badge>;
+      return <Badge className="bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 dark:bg-orange-900/30 dark:text-orange-400">Escalated</Badge>;
     default:
       return <Badge variant="outline">{status}</Badge>;
   }
@@ -213,8 +213,8 @@ function statusBadge(status: string) {
 
 function limitBadge(withinLimit: boolean) {
   return withinLimit
-    ? <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">Within Limit</Badge>
-    : <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">Breach</Badge>;
+    ? <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900/30 dark:text-green-400">Within Limit</Badge>
+    : <Badge className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900/30 dark:text-red-400">Breach</Badge>;
 }
 
 // ---------------------------------------------------------------------------
@@ -405,10 +405,10 @@ function ComplianceTab() {
                     <Badge
                       className={
                         row.status === "PASS"
-                          ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                          ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900/30 dark:text-green-400"
                           : row.status === "WARNING"
-                          ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
-                          : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                          ? "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400"
+                          : "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900/30 dark:text-red-400"
                       }
                     >
                       {row.status}
@@ -799,7 +799,7 @@ export default function RegulatorPortal() {
             Bangko Sentral ng Pilipinas -- Regulatory Examination Portal (Read-Only)
           </p>
         </div>
-        <Badge className="ml-auto bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 text-xs">
+        <Badge className="ml-auto bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900/30 dark:text-blue-400 text-xs">
           <Eye className="h-3 w-3 mr-1" aria-hidden="true" />
           Read-Only Access
         </Badge>

@@ -60,10 +60,10 @@ interface OrderListResponse {
 
 const statusColors: Record<string, string> = {
   DRAFT: 'bg-muted text-foreground',
-  PENDING_AUTH: 'bg-yellow-100 text-yellow-800',
-  AUTHORIZED: 'bg-blue-100 text-blue-800',
-  REJECTED: 'bg-red-100 text-red-800',
-  SETTLED: 'bg-green-100 text-green-800',
+  PENDING_AUTH: 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800',
+  AUTHORIZED: 'bg-blue-100 dark:bg-blue-900 text-blue-800',
+  REJECTED: 'bg-red-100 dark:bg-red-900 text-red-800',
+  SETTLED: 'bg-green-100 dark:bg-green-900 text-green-800',
   CANCELLED: 'bg-muted text-muted-foreground',
 };
 

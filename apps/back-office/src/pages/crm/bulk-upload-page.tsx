@@ -482,11 +482,11 @@ export default function BulkUploadPage() {
                       </TableCell>
                       <TableCell>
                         {row.valid ? (
-                          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                          <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200">
                             Valid
                           </Badge>
                         ) : (
-                          <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                          <Badge className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900 dark:text-red-200">
                             Invalid
                           </Badge>
                         )}
@@ -506,7 +506,7 @@ export default function BulkUploadPage() {
                       </TableCell>
                       <TableCell>
                         {row.has_active_delegation && (
-                          <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                          <Badge className="bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900 dark:text-yellow-200">
                             Active
                           </Badge>
                         )}
@@ -697,10 +697,10 @@ export default function BulkUploadPage() {
                         variant="secondary"
                         className={
                           logData.status === "COMPLETED"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                            ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200"
                             : logData.status === "FAILED"
-                              ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                              : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+                              ? "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900 dark:text-red-200"
+                              : "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900 dark:text-yellow-200"
                         }
                       >
                         {logData.status}
@@ -745,8 +745,8 @@ export default function BulkUploadPage() {
                                   variant="secondary"
                                   className={
                                     row.status === "SUCCESS"
-                                      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                                      : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                                      ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200"
+                                      : "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900 dark:text-red-200"
                                   }
                                 >
                                   {row.status}

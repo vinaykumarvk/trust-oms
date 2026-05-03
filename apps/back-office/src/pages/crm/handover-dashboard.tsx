@@ -90,9 +90,9 @@ interface DashboardResponse {
 const API = "/api/v1/ham";
 
 const ENTITY_TYPE_COLORS: Record<string, string> = {
-  lead: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-  prospect: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300",
-  client: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+  lead: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900 dark:text-blue-300",
+  prospect: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 dark:bg-orange-900 dark:text-orange-300",
+  client: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-300",
 };
 
 /* ---------- Helpers ---------- */
@@ -182,19 +182,19 @@ export default function HandoverDashboardPage() {
       label: "Pending Leads",
       value: pending?.lead ?? 0,
       description: "Lead handovers awaiting authorization",
-      accent: "text-blue-600",
+      accent: "text-blue-600 dark:text-blue-400",
     },
     {
       label: "Pending Prospects",
       value: pending?.prospect ?? 0,
       description: "Prospect handovers awaiting authorization",
-      accent: "text-orange-600",
+      accent: "text-orange-600 dark:text-orange-400",
     },
     {
       label: "Pending Clients",
       value: pending?.client ?? 0,
       description: "Client handovers awaiting authorization",
-      accent: "text-green-600",
+      accent: "text-green-600 dark:text-green-400",
     },
     {
       label: "Recent Transfers",
@@ -206,13 +206,13 @@ export default function HandoverDashboardPage() {
       label: "Active Delegations",
       value: dashboard?.active_delegations ?? 0,
       description: "Currently active RM delegations",
-      accent: "text-purple-600",
+      accent: "text-purple-600 dark:text-purple-400",
     },
     {
       label: "Expiring Soon",
       value: dashboard?.expiring_soon ?? 0,
       description: "Delegations expiring within 7 days",
-      accent: "text-red-600",
+      accent: "text-red-600 dark:text-red-400",
     },
     {
       label: "Total AUM Pending",

@@ -77,10 +77,10 @@ interface AssetAllocationConfig {
 const API_BASE = "/api/v1/risk-profiling/asset-allocation";
 
 const STATUS_COLORS: Record<string, string> = {
-  UNAUTHORIZED: "bg-yellow-100 text-yellow-800",
-  MODIFIED: "bg-blue-100 text-blue-800",
-  AUTHORIZED: "bg-green-100 text-green-800",
-  REJECTED: "bg-red-100 text-red-800",
+  UNAUTHORIZED: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+  MODIFIED: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  AUTHORIZED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  REJECTED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
 };
 
 const RISK_CATEGORIES = [
@@ -478,7 +478,7 @@ export default function AssetAllocationConfigPage() {
                                 onClick={() => authorizeMut.mutate(cfg.id)}
                                 disabled={authorizeMut.isPending}
                                 title="Authorize"
-                                className="text-green-700 hover:text-green-800"
+                                className="text-green-700 dark:text-green-300 hover:text-green-800 dark:text-green-200"
                               >
                                 <CheckCircle2 className="h-4 w-4" />
                               </Button>
@@ -488,7 +488,7 @@ export default function AssetAllocationConfigPage() {
                                 onClick={() => rejectMut.mutate(cfg.id)}
                                 disabled={rejectMut.isPending}
                                 title="Reject"
-                                className="text-red-700 hover:text-red-800"
+                                className="text-red-700 dark:text-red-300 hover:text-red-800 dark:text-red-200"
                               >
                                 <XCircle className="h-4 w-4" />
                               </Button>
@@ -584,15 +584,15 @@ export default function AssetAllocationConfigPage() {
                           variant="outline"
                           className={
                             isValid
-                              ? "border-green-300 text-green-700"
-                              : "border-red-300 text-red-700"
+                              ? "border-green-300 dark:border-green-700 text-green-700 dark:text-green-300"
+                              : "border-red-300 dark:border-red-700 text-red-700 dark:text-red-300"
                           }
                         >
                           {total.toFixed(1)}%
                         </Badge>
                       )}
                       {warning && (
-                        <span className="flex items-center gap-1 text-xs text-red-600">
+                        <span className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
                           <AlertTriangle className="h-3 w-3" />
                           {warning}
                         </span>
@@ -713,9 +713,9 @@ export default function AssetAllocationConfigPage() {
             })}
 
             {hasWarnings && (
-              <div className="flex items-center gap-2 rounded-md border border-yellow-300 bg-yellow-50 p-3">
-                <AlertTriangle className="h-4 w-4 text-yellow-600 shrink-0" />
-                <p className="text-sm text-yellow-800">
+              <div className="flex items-center gap-2 rounded-md border border-yellow-300 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-950 p-3">
+                <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
                   Some risk categories do not sum to 100%. Please review before saving.
                 </p>
               </div>

@@ -126,12 +126,12 @@ const ENTITY_TYPE_OPTIONS = [
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING_AUTHORIZATION:
-    "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+    "bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 dark:bg-amber-900 dark:text-amber-200",
   AUTHORIZED:
-    "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  REJECTED: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+    "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200",
+  REJECTED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900 dark:text-red-200",
   PENDING:
-    "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+    "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900 dark:text-yellow-200",
 };
 
 /* ---------- Helpers ---------- */

@@ -129,30 +129,30 @@ interface ReversalSummary {
 // ---------------------------------------------------------------------------
 
 const SEVERITY_COLORS: Record<string, string> = {
-  HIGH: "bg-red-100 text-red-800",
-  MEDIUM: "bg-yellow-100 text-yellow-800",
-  LOW: "bg-green-100 text-green-800",
+  HIGH: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+  MEDIUM: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+  LOW: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
 };
 
 const PATTERN_COLORS: Record<string, string> = {
-  LAYERING: "bg-red-100 text-red-800",
-  SPOOFING: "bg-orange-100 text-orange-800",
-  WASH_TRADING: "bg-red-100 text-red-800",
-  FRONT_RUNNING: "bg-purple-100 text-purple-800",
+  LAYERING: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+  SPOOFING: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200",
+  WASH_TRADING: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+  FRONT_RUNNING: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200",
   INSIDER_TRADING: "bg-rose-100 text-rose-800",
 };
 
 const DISPOSITION_COLORS: Record<string, string> = {
-  PENDING: "bg-yellow-100 text-yellow-800",
-  ESCALATED: "bg-red-100 text-red-800",
+  PENDING: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+  ESCALATED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
   DISMISSED: "bg-muted text-foreground",
-  CONFIRMED: "bg-blue-100 text-blue-800",
+  CONFIRMED: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
 };
 
 const STR_STATUS_COLORS: Record<string, string> = {
-  PENDING: "bg-yellow-100 text-yellow-800",
-  FILED: "bg-green-100 text-green-800",
-  REJECTED: "bg-red-100 text-red-800",
+  PENDING: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+  FILED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  REJECTED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
 };
 
 // ---------------------------------------------------------------------------
@@ -183,9 +183,9 @@ function formatCurrency(n: number, currency: string): string {
 }
 
 function scoreColor(score: number): string {
-  if (score >= 80) return "text-green-600";
-  if (score >= 60) return "text-yellow-600";
-  return "text-red-600";
+  if (score >= 80) return "text-green-600 dark:text-green-400";
+  if (score >= 60) return "text-yellow-600 dark:text-yellow-400";
+  return "text-red-600 dark:text-red-400";
 }
 
 function scoreBg(score: number): string {
@@ -561,7 +561,7 @@ export default function ComplianceWorkbench() {
           <TabsTrigger value="breaches">
             Breaches
             {(summary?.active_breaches ?? 0) > 0 && (
-              <Badge className="ml-2 bg-red-100 text-red-800 text-xs">
+              <Badge className="ml-2 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs">
                 {summary?.active_breaches}
               </Badge>
             )}
@@ -571,7 +571,7 @@ export default function ComplianceWorkbench() {
           <TabsTrigger value="str">
             STR Queue
             {(summary?.pending_strs ?? 0) > 0 && (
-              <Badge className="ml-2 bg-blue-100 text-blue-800 text-xs">
+              <Badge className="ml-2 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs">
                 {summary?.pending_strs}
               </Badge>
             )}
@@ -676,9 +676,9 @@ export default function ComplianceWorkbench() {
                       </TableCell>
                       <TableCell>
                         {breach.status === "OPEN" ? (
-                          <Badge className="bg-red-100 text-red-800">Open</Badge>
+                          <Badge className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200">Open</Badge>
                         ) : (
-                          <Badge className="bg-green-100 text-green-800">Resolved</Badge>
+                          <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">Resolved</Badge>
                         )}
                       </TableCell>
                       <TableCell className="text-right">
@@ -708,7 +708,7 @@ export default function ComplianceWorkbench() {
           {breachesQ.isError && (
             <Card>
               <CardContent className="pt-6">
-                <p className="text-sm text-red-600">
+                <p className="text-sm text-red-600 dark:text-red-400" role="alert">
                   Failed to load breaches. Please try refreshing.
                 </p>
               </CardContent>
@@ -772,9 +772,9 @@ export default function ComplianceWorkbench() {
                       <TableCell>
                         <Badge
                           className={badgeClass(flag.risk_rating?.toUpperCase(), {
-                            HIGH: "bg-red-100 text-red-800",
-                            MEDIUM: "bg-yellow-100 text-yellow-800",
-                            LOW: "bg-green-100 text-green-800",
+                            HIGH: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+                            MEDIUM: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+                            LOW: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
                           })}
                         >
                           {flag.risk_rating}
@@ -783,9 +783,9 @@ export default function ComplianceWorkbench() {
                       <TableCell>
                         <Badge
                           className={badgeClass(flag.status, {
-                            FLAGGED: "bg-red-100 text-red-800",
-                            CLEARED: "bg-green-100 text-green-800",
-                            UNDER_REVIEW: "bg-yellow-100 text-yellow-800",
+                            FLAGGED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+                            CLEARED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+                            UNDER_REVIEW: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
                           })}
                         >
                           {flag.status.replace("_", " ")}
@@ -812,7 +812,7 @@ export default function ComplianceWorkbench() {
           {amlQ.isError && (
             <Card>
               <CardContent className="pt-6">
-                <p className="text-sm text-red-600">
+                <p className="text-sm text-red-600 dark:text-red-400" role="alert">
                   Failed to load AML flags. Please try refreshing.
                 </p>
               </CardContent>
@@ -944,7 +944,7 @@ export default function ComplianceWorkbench() {
           {surveillanceQ.isError && (
             <Card>
               <CardContent className="pt-6">
-                <p className="text-sm text-red-600">
+                <p className="text-sm text-red-600 dark:text-red-400" role="alert">
                   Failed to load surveillance alerts. Please try refreshing.
                 </p>
               </CardContent>
@@ -1042,7 +1042,7 @@ export default function ComplianceWorkbench() {
                           </Button>
                         )}
                         {report.status === "FILED" && (
-                          <Badge className="bg-green-100 text-green-800">
+                          <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
                             <CheckCircle className="h-3 w-3 mr-1" />
                             Filed
                           </Badge>
@@ -1058,7 +1058,7 @@ export default function ComplianceWorkbench() {
           {strQ.isError && (
             <Card>
               <CardContent className="pt-6">
-                <p className="text-sm text-red-600">
+                <p className="text-sm text-red-600 dark:text-red-400" role="alert">
                   Failed to load STR queue. Please try refreshing.
                 </p>
               </CardContent>
@@ -1076,11 +1076,11 @@ export default function ComplianceWorkbench() {
                     <p className="text-sm font-medium text-muted-foreground">
                       Pending
                     </p>
-                    <p className="mt-1 text-2xl font-bold text-yellow-600">
+                    <p className="mt-1 text-2xl font-bold text-yellow-600 dark:text-yellow-400">
                       {reversalSummary?.pending ?? 0}
                     </p>
                   </div>
-                  <RotateCcw className="h-5 w-5 text-yellow-600" />
+                  <RotateCcw className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
                 </div>
               </CardContent>
             </Card>
@@ -1091,11 +1091,11 @@ export default function ComplianceWorkbench() {
                     <p className="text-sm font-medium text-muted-foreground">
                       Approved
                     </p>
-                    <p className="mt-1 text-2xl font-bold text-green-600">
+                    <p className="mt-1 text-2xl font-bold text-green-600 dark:text-green-400">
                       {reversalSummary?.approved ?? 0}
                     </p>
                   </div>
-                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
                 </div>
               </CardContent>
             </Card>
@@ -1106,11 +1106,11 @@ export default function ComplianceWorkbench() {
                     <p className="text-sm font-medium text-muted-foreground">
                       Rejected
                     </p>
-                    <p className="mt-1 text-2xl font-bold text-red-600">
+                    <p className="mt-1 text-2xl font-bold text-red-600 dark:text-red-400">
                       {reversalSummary?.rejected ?? 0}
                     </p>
                   </div>
-                  <XCircle className="h-5 w-5 text-red-600" />
+                  <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
                 </div>
               </CardContent>
             </Card>
@@ -1161,7 +1161,7 @@ export default function ComplianceWorkbench() {
           {reversalSummaryQ.isError && (
             <Card>
               <CardContent className="pt-6">
-                <p className="text-sm text-red-600">
+                <p className="text-sm text-red-600 dark:text-red-400" role="alert">
                   Failed to load reversal summary. Please try refreshing.
                 </p>
               </CardContent>
@@ -1234,7 +1234,7 @@ export default function ComplianceWorkbench() {
           </DialogFooter>
 
           {resolveMut.isError && (
-            <p className="text-sm text-red-600 mt-2">
+            <p className="text-sm text-red-600 dark:text-red-400 mt-2">
               Failed to resolve breach. Please try again.
             </p>
           )}

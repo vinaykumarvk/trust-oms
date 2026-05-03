@@ -733,7 +733,7 @@ export default function TaxManagement() {
                 <FileText className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-orange-600">{ttraSummary?.expiringSoon ?? 0}</div>
+                <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{ttraSummary?.expiringSoon ?? 0}</div>
                 <p className="text-xs text-muted-foreground mt-1">Require renewal action</p>
               </CardContent>
             </Card>

@@ -335,7 +335,7 @@ export default function RuleBuilderModal({
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-6 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                      className="h-6 text-red-600 dark:text-red-400 hover:text-red-700 dark:text-red-300 dark:text-red-400 dark:hover:text-red-300"
                       onClick={() => removeGroup(group.id)}
                     >
                       <Trash2 className="h-3 w-3 mr-1" /> Remove Group
@@ -413,7 +413,7 @@ export default function RuleBuilderModal({
                             size="sm"
                             variant="ghost"
                             aria-label="Remove condition"
-                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                            className="h-8 w-8 p-0 text-red-600 dark:text-red-400 hover:text-red-700 dark:text-red-300 dark:text-red-400 dark:hover:text-red-300"
                             onClick={() => removeCondition(group.id, condition.id)}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -444,13 +444,13 @@ export default function RuleBuilderModal({
 
           {/* Preview result */}
           {previewCount !== null && (
-            <div className="flex items-center gap-3 rounded-md border border-blue-300 bg-blue-50 px-4 py-3 dark:border-blue-800 dark:bg-blue-950/30">
+            <div className="flex items-center gap-3 rounded-md border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950 px-4 py-3 dark:border-blue-800 dark:bg-blue-950/30">
               <Eye className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
               <div>
-                <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                <p className="text-sm font-medium text-blue-800 dark:text-blue-200 dark:text-blue-300">
                   Preview Result
                 </p>
-                <p className="text-sm text-blue-700 dark:text-blue-400">
+                <p className="text-sm text-blue-700 dark:text-blue-300 dark:text-blue-400">
                   <span className="font-bold">{previewCount.toLocaleString()}</span> matching leads found
                 </p>
               </div>

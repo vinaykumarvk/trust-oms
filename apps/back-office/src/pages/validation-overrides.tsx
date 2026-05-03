@@ -213,7 +213,7 @@ export default function ValidationOverrides() {
                   <TableCell className="font-mono text-xs">{o.order_id}</TableCell>
                   <TableCell className="font-mono text-xs">{o.rule}</TableCell>
                   <TableCell>
-                    <Badge className={o.severity === "hard" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}>
+                    <Badge className={o.severity === "hard" ? "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200" : "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200"}>
                       {o.severity.toUpperCase()}
                     </Badge>
                   </TableCell>
@@ -223,9 +223,9 @@ export default function ValidationOverrides() {
                   <TableCell className="text-sm">{o.approved_by ?? "-"}</TableCell>
                   <TableCell>
                     <Badge className={
-                      o.status === "APPROVED" ? "bg-green-100 text-green-800" :
-                      o.status === "PENDING" ? "bg-yellow-100 text-yellow-800" :
-                      o.status === "REJECTED" ? "bg-red-100 text-red-800" :
+                      o.status === "APPROVED" ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200" :
+                      o.status === "PENDING" ? "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200" :
+                      o.status === "REJECTED" ? "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200" :
                       "bg-muted text-foreground"
                     }>
                       {o.status}

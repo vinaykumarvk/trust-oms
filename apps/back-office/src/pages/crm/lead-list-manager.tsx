@@ -115,16 +115,16 @@ const API_LEADS = '/api/v1/leads';
 const API_CAMPAIGN = '/api/v1/campaign-mgmt/lead-lists';
 
 const SOURCE_BADGE_COLORS: Record<SourceType, string> = {
-  MANUAL: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  IMPORT: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  RULE_BASED: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+  MANUAL: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900 dark:text-blue-200',
+  IMPORT: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200',
+  RULE_BASED: 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 dark:bg-purple-900 dark:text-purple-200',
 };
 
 const STATUS_BADGE_COLORS: Record<string, string> = {
-  ACTIVE: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  DRAFT: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
-  ARCHIVED: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-  REFRESHING: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+  ACTIVE: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200',
+  DRAFT: 'bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-900 dark:text-gray-200',
+  ARCHIVED: 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900 dark:text-yellow-200',
+  REFRESHING: 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 dark:bg-orange-900 dark:text-orange-200',
 };
 
 const SOURCE_TYPES: SourceType[] = ['MANUAL', 'IMPORT', 'RULE_BASED'];

@@ -105,17 +105,17 @@ interface CreateHandoverPayload {
 const HANDOVER_TYPES = ['PERMANENT', 'TEMPORARY', 'DELEGATION'] as const;
 
 const typeColors: Record<string, string> = {
-  PERMANENT: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  TEMPORARY: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  DELEGATION: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  PERMANENT: 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900 dark:text-red-200',
+  TEMPORARY: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900 dark:text-blue-200',
+  DELEGATION: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200',
 };
 
 const statusColors: Record<string, string> = {
-  PENDING: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-  APPROVED: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  ACTIVE: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  COMPLETED: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
-  CANCELLED: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  PENDING: 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900 dark:text-yellow-200',
+  APPROVED: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900 dark:text-blue-200',
+  ACTIVE: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200',
+  COMPLETED: 'bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-800 dark:text-gray-200',
+  CANCELLED: 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900 dark:text-red-200',
 };
 
 const API = '/api/v1/rm-handovers';

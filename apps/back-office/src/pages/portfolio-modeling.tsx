@@ -86,10 +86,10 @@ interface ProposedTrade {
 /* ---------- Helpers ---------- */
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: "bg-muted text-foreground",
-  PENDING: "bg-yellow-100 text-yellow-800",
-  APPROVED: "bg-blue-100 text-blue-800",
-  EXECUTED: "bg-green-100 text-green-800",
-  CANCELLED: "bg-red-100 text-red-800",
+  PENDING: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+  APPROVED: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  EXECUTED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  CANCELLED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
 };
 
 const fmtPct = (v: number) => `${v.toFixed(2)}%`;
@@ -382,7 +382,7 @@ export default function PortfolioModeling() {
                           </TableCell>
                           <TableCell className="font-mono">{m.allocations?.length ?? 0}</TableCell>
                           <TableCell>
-                            <Badge className={m.active ? "bg-green-100 text-green-800" : "bg-muted text-foreground"}>
+                            <Badge className={m.active ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200" : "bg-muted text-foreground"}>
                               {m.active ? "Active" : "Inactive"}
                             </Badge>
                           </TableCell>
@@ -472,7 +472,7 @@ export default function PortfolioModeling() {
                           <TableCell className="text-right font-mono">{fmtPct(d.actual_pct)}</TableCell>
                           <TableCell className="text-right font-mono">{fmtPct(d.deviation_pct)}</TableCell>
                           <TableCell>
-                            <Badge className={d.deviation_pct > 0 ? "bg-red-100 text-red-800" : d.deviation_pct < 0 ? "bg-green-100 text-green-800" : "bg-muted text-foreground"}>
+                            <Badge className={d.deviation_pct > 0 ? "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200" : d.deviation_pct < 0 ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200" : "bg-muted text-foreground"}>
                               {d.deviation_pct > 0 ? "Over" : d.deviation_pct < 0 ? "Under" : "On Target"}
                             </Badge>
                           </TableCell>
@@ -645,7 +645,7 @@ export default function PortfolioModeling() {
                             <TableCell className="font-mono text-sm">{a.ticker}</TableCell>
                             <TableCell>{a.asset_class}</TableCell>
                             <TableCell>
-                              <Badge className={a.side === "BUY" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+                              <Badge className={a.side === "BUY" ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200" : "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200"}>
                                 {a.side}
                               </Badge>
                             </TableCell>
@@ -680,10 +680,10 @@ export default function PortfolioModeling() {
                 <CardDescription>Rebalancing run submitted. Approve and execute from the History tab or manage below.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="rounded-lg border bg-green-50 p-4 text-center">
-                  <CheckCircle className="mx-auto h-8 w-8 text-green-600" />
-                  <p className="mt-2 text-sm font-medium text-green-800">Rebalancing run created successfully</p>
-                  <p className="mt-1 text-xs text-green-600">Navigate to the History tab to approve and execute, or start a new rebalance.</p>
+                <div className="rounded-lg border bg-green-50 dark:bg-green-950 p-4 text-center">
+                  <CheckCircle className="mx-auto h-8 w-8 text-green-600 dark:text-green-400" />
+                  <p className="mt-2 text-sm font-medium text-green-800 dark:text-green-200">Rebalancing run created successfully</p>
+                  <p className="mt-1 text-xs text-green-600 dark:text-green-400">Navigate to the History tab to approve and execute, or start a new rebalance.</p>
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => { setRebalStep(1); setTab("history"); }}>
@@ -807,7 +807,7 @@ export default function PortfolioModeling() {
                             <ArrowRight className="h-4 w-4 text-muted-foreground" />
                             <div className="text-center">
                               <p className="text-xs text-muted-foreground">Projected</p>
-                              <p className={`font-mono text-sm font-bold ${projected >= current ? "text-green-700" : "text-red-700"}`}>
+                              <p className={`font-mono text-sm font-bold ${projected >= current ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}`}>
                                 {metric === "trading_pnl" ? fmtPHP(projected) : fmtPct(projected)}
                               </p>
                             </div>
@@ -877,7 +877,7 @@ export default function PortfolioModeling() {
                             <TableCell className="text-right font-mono">{fmtPHP(r.current_value)}</TableCell>
                             <TableCell className="text-right font-mono">{fmtPHP(r.stressed_value)}</TableCell>
                             <TableCell className="text-right">
-                              <Badge className={r.impact_pct < 0 ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}>
+                              <Badge className={r.impact_pct < 0 ? "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200" : "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"}>
                                 {r.impact_pct >= 0 ? "+" : ""}{fmtPct(r.impact_pct)}
                               </Badge>
                             </TableCell>

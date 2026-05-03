@@ -161,13 +161,13 @@ const ENTITY_ENDPOINTS: Record<EntityTab, string> = {
 };
 
 const statusColors: Record<string, string> = {
-  ACTIVE: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  ACTIVE: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200",
   PENDING:
-    "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  EXPIRED: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
-  CANCELLED: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+    "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900 dark:text-yellow-200",
+  EXPIRED: "bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-800 dark:text-gray-200",
+  CANCELLED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900 dark:text-red-200",
   EXTENDED:
-    "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+    "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900 dark:text-blue-200",
 };
 
 /* ---------- Helpers ---------- */
@@ -660,8 +660,8 @@ export default function DelegationPage() {
             <div
               className={`flex items-center gap-2 rounded-md border px-4 py-3 text-sm ${
                 durationExceeded
-                  ? "border-yellow-300 bg-yellow-50 text-yellow-800 dark:border-yellow-700 dark:bg-yellow-950 dark:text-yellow-200"
-                  : "border-green-300 bg-green-50 text-green-800 dark:border-green-700 dark:bg-green-950 dark:text-green-200"
+                  ? "border-yellow-300 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-950 text-yellow-800 dark:text-yellow-200 dark:border-yellow-700 dark:bg-yellow-950 dark:text-yellow-200"
+                  : "border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950 text-green-800 dark:text-green-200 dark:border-green-700 dark:bg-green-950 dark:text-green-200"
               }`}
             >
               <span className="font-medium">Duration: {durationDays} day(s)</span>
@@ -675,7 +675,7 @@ export default function DelegationPage() {
           )}
 
           {startDate && endDate && durationDays <= 0 && (
-            <div className="flex items-center gap-2 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200">
+            <div className="flex items-center gap-2 rounded-md border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm text-red-800 dark:text-red-200 dark:border-red-700 dark:bg-red-950 dark:text-red-200">
               <span className="font-medium">
                 Invalid date range. End date must be after start date.
               </span>

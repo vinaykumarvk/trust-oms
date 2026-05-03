@@ -255,7 +255,7 @@ export default function RiskProfilingCompletionReport() {
               <div className="h-6 w-6 animate-spin rounded-full border-4 border-teal-600 border-t-transparent" />
             </div>
           ) : isError ? (
-            <div className="rounded-md border border-red-200 bg-red-50 dark:bg-red-900/20 p-4 text-sm text-red-700 dark:text-red-400">
+            <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 dark:bg-red-900/20 p-4 text-sm text-red-700 dark:text-red-300 dark:text-red-400">
               Failed to load completion report. Please try refreshing.
             </div>
           ) : rows.length === 0 ? (
@@ -270,9 +270,9 @@ export default function RiskProfilingCompletionReport() {
                     <TableHead className="text-xs font-semibold">RM Name</TableHead>
                     <TableHead className="text-xs font-semibold">RM ID</TableHead>
                     <TableHead className="text-xs font-semibold text-right">Total</TableHead>
-                    <TableHead className="text-xs font-semibold text-right text-green-600">Profiled</TableHead>
-                    <TableHead className="text-xs font-semibold text-right text-amber-600">Pending</TableHead>
-                    <TableHead className="text-xs font-semibold text-right text-red-600">Expired</TableHead>
+                    <TableHead className="text-xs font-semibold text-right text-green-600 dark:text-green-400">Profiled</TableHead>
+                    <TableHead className="text-xs font-semibold text-right text-amber-600 dark:text-amber-400">Pending</TableHead>
+                    <TableHead className="text-xs font-semibold text-right text-red-600 dark:text-red-400">Expired</TableHead>
                     <TableHead className="text-xs font-semibold text-right">Completion %</TableHead>
                     <TableHead className="text-xs font-semibold text-center">Progress</TableHead>
                   </TableRow>
@@ -328,15 +328,15 @@ export default function RiskProfilingCompletionReport() {
                 <p className="text-xs text-muted-foreground">Total Clients</p>
               </div>
               <div>
-                <p className="text-lg font-bold text-green-600">{drillDownRm.profiled}</p>
+                <p className="text-lg font-bold text-green-600 dark:text-green-400">{drillDownRm.profiled}</p>
                 <p className="text-xs text-muted-foreground">Profiled</p>
               </div>
               <div>
-                <p className="text-lg font-bold text-amber-600">{drillDownRm.pending}</p>
+                <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{drillDownRm.pending}</p>
                 <p className="text-xs text-muted-foreground">Pending</p>
               </div>
               <div>
-                <p className="text-lg font-bold text-red-600">{drillDownRm.expired}</p>
+                <p className="text-lg font-bold text-red-600 dark:text-red-400">{drillDownRm.expired}</p>
                 <p className="text-xs text-muted-foreground">Expired</p>
               </div>
             </div>

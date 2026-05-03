@@ -108,15 +108,15 @@ const PIPELINE_COLUMNS = [
 
 /* ---------- Helpers ---------- */
 const CA_TYPE_COLORS: Record<string, string> = {
-  DIVIDEND: "bg-green-100 text-green-800", STOCK_SPLIT: "bg-blue-100 text-blue-800",
-  RIGHTS: "bg-orange-100 text-orange-800", BONUS: "bg-purple-100 text-purple-800", MERGER: "bg-red-100 text-red-800",
+  DIVIDEND: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200", STOCK_SPLIT: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  RIGHTS: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200", BONUS: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200", MERGER: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
 };
 const STATUS_COLORS: Record<string, string> = {
-  PENDING: "bg-yellow-100 text-yellow-800", CALCULATED: "bg-blue-100 text-blue-800",
-  ELECTED: "bg-indigo-100 text-indigo-800", POSTED: "bg-green-100 text-green-800", CANCELLED: "bg-muted text-foreground",
-  ANNOUNCED: "bg-yellow-100 text-yellow-800", SCRUBBED: "bg-orange-100 text-orange-800",
-  GOLDEN_COPY: "bg-blue-100 text-blue-800", ENTITLED: "bg-indigo-100 text-indigo-800",
-  SETTLED: "bg-green-100 text-green-800", REVERSED: "bg-red-100 text-red-800",
+  PENDING: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200", CALCULATED: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  ELECTED: "bg-indigo-100 text-indigo-800", POSTED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200", CANCELLED: "bg-muted text-foreground",
+  ANNOUNCED: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200", SCRUBBED: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200",
+  GOLDEN_COPY: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200", ENTITLED: "bg-indigo-100 text-indigo-800",
+  SETTLED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200", REVERSED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
 };
 const fmtDate = (d: string) => { try { return new Date(d).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }); } catch { return d; } };
 const fmtPHP = (n: number) => n.toLocaleString("en-PH", { style: "currency", currency: "PHP", minimumFractionDigits: 2 });
@@ -404,8 +404,8 @@ export default function CorporateActions() {
                       <TableCell>
                         {(e.position_change != null || e.cash_change != null) && (
                           <div className="text-xs space-y-0.5">
-                            {e.position_change != null && <div className="flex items-center gap-1"><TrendingUp className="h-3 w-3 text-muted-foreground" /><span className={e.position_change >= 0 ? "text-green-700" : "text-red-700"}>{e.position_change >= 0 ? "+" : ""}{fmtQty(e.position_change)} shares</span></div>}
-                            {e.cash_change != null && <div><span className={e.cash_change >= 0 ? "text-green-700" : "text-red-700"}>{e.cash_change >= 0 ? "+" : ""}{fmtPHP(e.cash_change)}</span></div>}
+                            {e.position_change != null && <div className="flex items-center gap-1"><TrendingUp className="h-3 w-3 text-muted-foreground" /><span className={e.position_change >= 0 ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}>{e.position_change >= 0 ? "+" : ""}{fmtQty(e.position_change)} shares</span></div>}
+                            {e.cash_change != null && <div><span className={e.cash_change >= 0 ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}>{e.cash_change >= 0 ? "+" : ""}{fmtPHP(e.cash_change)}</span></div>}
                           </div>
                         )}
                       </TableCell>
@@ -431,9 +431,9 @@ export default function CorporateActions() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="rounded-lg border border-yellow-300 bg-yellow-50 p-3 flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 shrink-0" />
-                  <p className="text-xs text-yellow-800 font-medium">SIMULATION ONLY -- no data persisted</p>
+                <div className="rounded-lg border border-yellow-300 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-950 p-3 flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 mt-0.5 shrink-0" />
+                  <p className="text-xs text-yellow-800 dark:text-yellow-200 font-medium">SIMULATION ONLY -- no data persisted</p>
                 </div>
 
                 <div className="space-y-1">
@@ -489,7 +489,7 @@ export default function CorporateActions() {
               </CardHeader>
               <CardContent>
                 {simulateMut.isError && (
-                  <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+                  <div className="rounded-lg border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950 p-4 text-sm text-red-800 dark:text-red-200">
                     Simulation failed: {(simulateMut.error as Error)?.message ?? "Unknown error"}
                   </div>
                 )}
@@ -501,8 +501,8 @@ export default function CorporateActions() {
                 )}
                 {simResult && (
                   <div className="space-y-4">
-                    <div className="rounded-lg border border-yellow-300 bg-yellow-50 p-2 text-center">
-                      <span className="text-xs font-semibold text-yellow-800">SIMULATION ONLY -- no data persisted</span>
+                    <div className="rounded-lg border border-yellow-300 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-950 p-2 text-center">
+                      <span className="text-xs font-semibold text-yellow-800 dark:text-yellow-200">SIMULATION ONLY -- no data persisted</span>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="rounded-lg border p-3">
@@ -519,7 +519,7 @@ export default function CorporateActions() {
                       </div>
                       <div className="rounded-lg border p-3">
                         <p className="text-xs text-muted-foreground">Estimated WHT</p>
-                        <p className="text-sm font-semibold font-mono text-red-600">{fmtPHP(simResult.estimated_tax)}</p>
+                        <p className="text-sm font-semibold font-mono text-red-600 dark:text-red-400">{fmtPHP(simResult.estimated_tax)}</p>
                       </div>
                     </div>
                     <div className="rounded-lg border bg-primary/5 p-4 text-center">

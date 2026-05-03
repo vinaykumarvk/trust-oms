@@ -62,12 +62,12 @@ import {
 /* ---------- Constants ---------- */
 
 const STATUS_COLORS: Record<string, string> = {
-  DRAFT: "bg-gray-100 text-gray-800",
-  ISSUED: "bg-blue-100 text-blue-800",
-  PAID: "bg-green-100 text-green-800",
-  PARTIALLY_PAID: "bg-amber-100 text-amber-800",
-  OVERDUE: "bg-red-100 text-red-800",
-  DISPUTED: "bg-orange-100 text-orange-800",
+  DRAFT: "bg-gray-100 text-gray-800 dark:text-gray-200",
+  ISSUED: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  PAID: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  PARTIALLY_PAID: "bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200",
+  OVERDUE: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+  DISPUTED: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200",
   CANCELLED: "bg-slate-100 text-slate-800",
 };
 
@@ -424,11 +424,11 @@ export default function InvoiceWorkbench() {
           <CardContent>
             <div className="grid grid-cols-5 gap-4">
               {[
-                { label: "Current", data: ageing.buckets.current, color: "text-green-600" },
-                { label: "1-30 Days", data: ageing.buckets["1_30"], color: "text-yellow-600" },
-                { label: "31-60 Days", data: ageing.buckets["31_60"], color: "text-orange-600" },
+                { label: "Current", data: ageing.buckets.current, color: "text-green-600 dark:text-green-400" },
+                { label: "1-30 Days", data: ageing.buckets["1_30"], color: "text-yellow-600 dark:text-yellow-400" },
+                { label: "31-60 Days", data: ageing.buckets["31_60"], color: "text-orange-600 dark:text-orange-400" },
                 { label: "61-90 Days", data: ageing.buckets["61_90"], color: "text-red-500" },
-                { label: "90+ Days", data: ageing.buckets["90_plus"], color: "text-red-700" },
+                { label: "90+ Days", data: ageing.buckets["90_plus"], color: "text-red-700 dark:text-red-300" },
               ].map((bucket) => (
                 <div key={bucket.label} className="rounded-lg border p-3">
                   <p className="text-xs font-medium text-muted-foreground">{bucket.label}</p>
@@ -741,8 +741,8 @@ export default function InvoiceWorkbench() {
                             <Badge
                               className={
                                 pmt.payment_status === "POSTED"
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-red-100 text-red-800"
+                                  ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
+                                  : "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200"
                               }
                             >
                               {pmt.payment_status}
@@ -799,13 +799,13 @@ export default function InvoiceWorkbench() {
             {/* Result summary */}
             {genResult && (
               <div className="rounded-md border bg-muted/30 p-4">
-                <h4 className="mb-2 text-sm font-semibold text-green-700">
+                <h4 className="mb-2 text-sm font-semibold text-green-700 dark:text-green-300">
                   Generation Complete
                 </h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <p className="text-xs text-muted-foreground">Invoices Created</p>
-                    <p className="text-lg font-bold text-green-600">
+                    <p className="text-lg font-bold text-green-600 dark:text-green-400">
                       {genResult.invoices_created}
                     </p>
                   </div>
@@ -818,7 +818,7 @@ export default function InvoiceWorkbench() {
                 </div>
                 {genResult.exceptions.length > 0 && (
                   <div className="mt-3">
-                    <p className="text-xs font-medium text-amber-600">
+                    <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
                       Exceptions ({genResult.exceptions.length}):
                     </p>
                     <ul className="mt-1 text-xs text-muted-foreground">

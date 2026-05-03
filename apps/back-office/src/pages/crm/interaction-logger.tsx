@@ -126,12 +126,12 @@ const MEETING_TYPES = [
 ] as const;
 
 const responseTypeBadgeColors: Record<string, string> = {
-  INTERESTED: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  NOT_INTERESTED: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  MAYBE: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-  CONVERTED: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-  CALLBACK_REQUESTED: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  NO_RESPONSE: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
+  INTERESTED: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200',
+  NOT_INTERESTED: 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900 dark:text-red-200',
+  MAYBE: 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900 dark:text-yellow-200',
+  CONVERTED: 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 dark:bg-purple-900 dark:text-purple-200',
+  CALLBACK_REQUESTED: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900 dark:text-blue-200',
+  NO_RESPONSE: 'bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-700 dark:text-gray-200',
 };
 
 /* ---------- Skeleton helpers ---------- */
@@ -755,7 +755,7 @@ export default function InteractionLogger() {
                           <TableCell>{interaction.channel.replace(/_/g, ' ')}</TableCell>
                           <TableCell>
                             {interaction.has_action_item ? (
-                              <Badge variant="outline" className="bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-200">
+                              <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 dark:bg-blue-900 dark:text-blue-200">
                                 Yes
                               </Badge>
                             ) : (
@@ -764,7 +764,7 @@ export default function InteractionLogger() {
                           </TableCell>
                           <TableCell>
                             {interaction.has_meeting ? (
-                              <Badge variant="outline" className="bg-purple-50 text-purple-700 dark:bg-purple-900 dark:text-purple-200">
+                              <Badge variant="outline" className="bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 dark:bg-purple-900 dark:text-purple-200">
                                 Yes
                               </Badge>
                             ) : (

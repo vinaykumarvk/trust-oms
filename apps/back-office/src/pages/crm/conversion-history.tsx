@@ -98,8 +98,8 @@ const CONVERSION_TYPES = [
 ] as const;
 
 const conversionBadgeColors: Record<string, string> = {
-  LEAD_TO_PROSPECT: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-  PROSPECT_TO_CUSTOMER: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+  LEAD_TO_PROSPECT: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900 dark:text-blue-300',
+  PROSPECT_TO_CUSTOMER: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-300',
 };
 
 /* ---------- Funnel Stage Config ---------- */

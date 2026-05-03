@@ -33,12 +33,12 @@ function fmt(v: string | number | null | undefined): string {
 
 function statusColor(s: string) {
   const m: Record<string, string> = {
-    DRAFT: "bg-gray-100 text-gray-800", PENDING_APPROVAL: "bg-yellow-100 text-yellow-800",
-    APPROVED: "bg-blue-100 text-blue-800", ACTIVE: "bg-green-100 text-green-800",
-    MATURED: "bg-purple-100 text-purple-800", DEFAULTED: "bg-red-100 text-red-800",
-    CLOSED: "bg-gray-200 text-gray-600", SCHEDULED: "bg-gray-100 text-gray-700",
-    DUE: "bg-yellow-100 text-yellow-700", OVERDUE: "bg-red-100 text-red-700",
-    PAID: "bg-green-100 text-green-700", CANCELLED: "bg-gray-200 text-gray-500",
+    DRAFT: "bg-gray-100 text-gray-800 dark:text-gray-200", PENDING_APPROVAL: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+    APPROVED: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200", ACTIVE: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+    MATURED: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200", DEFAULTED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+    CLOSED: "bg-gray-200 text-gray-600 dark:text-gray-400", SCHEDULED: "bg-gray-100 text-gray-700 dark:text-gray-300",
+    DUE: "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300", OVERDUE: "bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300",
+    PAID: "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300", CANCELLED: "bg-gray-200 text-gray-500",
   };
   return <Badge className={m[s] ?? "bg-gray-100"}>{s.replace(/_/g, " ")}</Badge>;
 }
@@ -131,7 +131,7 @@ export default function LoanDetail() {
   const f = facilityQ.data;
 
   if (facilityQ.isLoading) return <div className="space-y-4 p-6">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>;
-  if (!f || f.error) return <div className="p-6 text-red-600">Facility not found</div>;
+  if (!f || f.error) return <div className="p-6 text-red-600 dark:text-red-400">Facility not found</div>;
 
   return (
     <div className="space-y-6">

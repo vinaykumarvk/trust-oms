@@ -75,28 +75,28 @@ const summaryCards = [
     value: "1,248",
     description: "Active trust portfolios",
     icon: Briefcase,
-    color: "text-blue-600",
+    color: "text-blue-600 dark:text-blue-400",
   },
   {
     title: "Pending Approvals",
     value: "23",
     description: "Awaiting review",
     icon: CheckCircle,
-    color: "text-amber-600",
+    color: "text-amber-600 dark:text-amber-400",
   },
   {
     title: "Today's Orders",
     value: "156",
     description: "Buy/sell transactions",
     icon: ArrowLeftRight,
-    color: "text-green-600",
+    color: "text-green-600 dark:text-green-400",
   },
   {
     title: "AUM",
     value: "PHP 84.5B",
     description: "Assets under management",
     icon: TrendingUp,
-    color: "text-purple-600",
+    color: "text-purple-600 dark:text-purple-400",
   },
 ];
 
@@ -105,11 +105,11 @@ const summaryCards = [
 function alertSeverityMeta(severity: BriefingAlert["severity"]) {
   switch (severity) {
     case "critical":
-      return { icon: AlertTriangle, className: "text-red-600",    badge: "destructive" as const };
+      return { icon: AlertTriangle, className: "text-red-600 dark:text-red-400",    badge: "destructive" as const };
     case "warning":
-      return { icon: AlertTriangle, className: "text-amber-600",  badge: "secondary"   as const };
+      return { icon: AlertTriangle, className: "text-amber-600 dark:text-amber-400",  badge: "secondary"   as const };
     default:
-      return { icon: Info,          className: "text-blue-600",   badge: "outline"     as const };
+      return { icon: Info,          className: "text-blue-600 dark:text-blue-400",   badge: "outline"     as const };
   }
 }
 
@@ -189,7 +189,7 @@ function NBAPanel({ actions }: { actions: NBAction[] }) {
               {action.description}
             </p>
             {action.due_date && (
-              <p className="text-xs text-amber-600 mt-0.5">
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
                 Due {new Date(action.due_date).toLocaleDateString("en-PH")}
               </p>
             )}
@@ -327,7 +327,7 @@ export default function DashboardPage() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
-                <BellRing className="h-4 w-4 text-amber-600" />
+                <BellRing className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                 Alerts
               </CardTitle>
               <Badge variant="outline" className="text-xs">

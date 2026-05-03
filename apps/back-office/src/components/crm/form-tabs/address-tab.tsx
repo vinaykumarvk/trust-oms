@@ -37,7 +37,7 @@ export function AddressTab({ addresses, onAdd, onRemove, onUpdate }: AddressTabP
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary">{addr.address_type || 'Address'} {idx + 1}</Badge>
                     {addr.is_primary && (
-                      <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" variant="secondary">Primary</Badge>
+                      <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-300" variant="secondary">Primary</Badge>
                     )}
                   </div>
                   <div className="flex items-center gap-2">

@@ -428,10 +428,10 @@ export default function ClientOnboarding() {
           <Badge
             className={
               data.calculated_risk === 'HIGH'
-                ? 'bg-red-100 text-red-800'
+                ? 'bg-red-100 dark:bg-red-900 text-red-800'
                 : data.calculated_risk === 'MEDIUM'
-                  ? 'bg-yellow-100 text-yellow-800'
-                  : 'bg-green-100 text-green-800'
+                  ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800'
+                  : 'bg-green-100 dark:bg-green-900 text-green-800'
             }
           >
             {data.calculated_risk}
@@ -652,14 +652,14 @@ export default function ClientOnboarding() {
         </div>
       ) : data.screening_result === 'NO_HIT' ? (
         <div className="py-12 space-y-3">
-          <CheckCircle className="h-12 w-12 mx-auto text-green-600" />
-          <p className="text-lg text-green-600 font-semibold">No Sanctions Hits</p>
+          <CheckCircle className="h-12 w-12 mx-auto text-green-600 dark:text-green-400" />
+          <p className="text-lg text-green-600 dark:text-green-400 font-semibold">No Sanctions Hits</p>
           <p className="text-sm text-muted-foreground">{data.screening_details}</p>
         </div>
       ) : (
         <div className="py-12 space-y-3">
-          <ShieldAlert className="h-12 w-12 mx-auto text-red-600" />
-          <p className="text-lg text-red-600 font-semibold">Potential Match Found</p>
+          <ShieldAlert className="h-12 w-12 mx-auto text-red-600 dark:text-red-400" />
+          <p className="text-lg text-red-600 dark:text-red-400 font-semibold">Potential Match Found</p>
           <p className="text-sm text-muted-foreground">{data.screening_details}</p>
         </div>
       )}
@@ -707,8 +707,8 @@ export default function ClientOnboarding() {
           <Badge
             className={
               data.screening_result === 'NO_HIT'
-                ? 'bg-green-100 text-green-800'
-                : 'bg-red-100 text-red-800'
+                ? 'bg-green-100 dark:bg-green-900 text-green-800'
+                : 'bg-red-100 dark:bg-red-900 text-red-800'
             }
           >
             {data.screening_result ?? 'Pending'}
@@ -757,7 +757,7 @@ export default function ClientOnboarding() {
                   isActive
                     ? 'bg-primary text-primary-foreground'
                     : isCompleted
-                      ? 'bg-green-100 text-green-800 cursor-pointer hover:bg-green-200'
+                      ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 cursor-pointer hover:bg-green-200'
                       : 'bg-muted text-muted-foreground'
                 }`}
               >
@@ -803,7 +803,7 @@ export default function ClientOnboarding() {
       </div>
 
       {createClientMutation.isError && (
-        <p className="text-sm text-red-600">
+        <p className="text-sm text-red-600 dark:text-red-400" role="alert">
           Error: {createClientMutation.error?.message}
         </p>
       )}

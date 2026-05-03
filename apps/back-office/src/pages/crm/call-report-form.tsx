@@ -361,12 +361,12 @@ export default function CallReportForm() {
           <h1 className="text-2xl font-bold flex items-center gap-3">
             {isEditMode ? 'Edit Call Report' : 'New Call Report'}
             {reportType === 'STANDALONE' && !isEditMode && (
-              <Badge variant="secondary" className="bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200">
+              <Badge variant="secondary" className="bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-900 dark:text-gray-200">
                 STANDALONE
               </Badge>
             )}
             {reportType === 'SCHEDULED' && !isEditMode && (
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+              <Badge variant="secondary" className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900 dark:text-blue-200">
                 SCHEDULED
               </Badge>
             )}
@@ -390,7 +390,7 @@ export default function CallReportForm() {
 
       {/* 5-Day Warning Banner */}
       {showLateWarning && (
-        <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 text-orange-800 dark:text-orange-300 p-3 rounded-md flex items-start gap-2">
+        <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 text-orange-800 dark:text-orange-200 dark:text-orange-300 p-3 rounded-md flex items-start gap-2">
           <AlertTriangle className="h-5 w-5 mt-0.5 flex-shrink-0" />
           <span>
             This call report is being filed more than 5 business days after the meeting. It will require supervisor approval.
@@ -400,14 +400,14 @@ export default function CallReportForm() {
 
       {/* Rejected Banner */}
       {showRejectedBanner && existingReport?.rejection_reason && (
-        <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 p-3 rounded-md">
+        <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 dark:text-red-300 p-3 rounded-md">
           This report was returned: {existingReport.rejection_reason}. Please revise and re-submit.
         </div>
       )}
 
       {/* Not editable notice */}
       {isEditMode && !isEditable && (
-        <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300 p-3 rounded-md">
+        <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200 dark:text-blue-300 p-3 rounded-md">
           This report is in <strong>{existingReport?.report_status}</strong> status and cannot be edited.
         </div>
       )}
@@ -417,7 +417,7 @@ export default function CallReportForm() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <svg className="h-4 w-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-4 w-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.001 3.001 0 01-2.121.879H9.375a3 3 0 01-2.121-.879l-.347-.347z" />
               </svg>
@@ -433,9 +433,9 @@ export default function CallReportForm() {
                 keywords?: string[];
               };
               const sentimentColor =
-                tags.sentiment === 'POSITIVE' ? 'text-green-600 bg-green-50 border-green-200' :
-                tags.sentiment === 'NEGATIVE' ? 'text-red-600 bg-red-50 border-red-200' :
-                'text-gray-600 bg-gray-50 border-gray-200';
+                tags.sentiment === 'POSITIVE' ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950 border-green-200' :
+                tags.sentiment === 'NEGATIVE' ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950 border-red-200' :
+                'text-gray-600 dark:text-gray-400 bg-gray-50 border-gray-200';
               return (
                 <div className="space-y-3">
                   {tags.sentiment && (
@@ -802,7 +802,7 @@ export default function CallReportForm() {
                             size="sm"
                             variant="ghost"
                             aria-label="Remove action item"
-                            className="text-red-600 hover:text-red-700 dark:text-red-400"
+                            className="text-red-600 dark:text-red-400 hover:text-red-700 dark:text-red-300 dark:text-red-400"
                             onClick={() => removeActionItem(item._key)}
                           >
                             <Trash2 className="h-4 w-4" />

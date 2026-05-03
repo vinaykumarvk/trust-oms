@@ -66,10 +66,10 @@ interface AnomalyScoreResult {
 // Constants
 // ---------------------------------------------------------------------------
 const PATTERN_COLORS: Record<string, string> = {
-  LAYERING: "bg-red-100 text-red-800 border-red-200",
-  SPOOFING: "bg-orange-100 text-orange-800 border-orange-200",
-  WASH_TRADING: "bg-red-100 text-red-800 border-red-200",
-  FRONT_RUNNING: "bg-purple-100 text-purple-800 border-purple-200",
+  LAYERING: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border-red-200",
+  SPOOFING: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border-orange-200",
+  WASH_TRADING: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border-red-200",
+  FRONT_RUNNING: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 border-purple-200",
 };
 
 const PATTERN_OPTIONS = [
@@ -111,21 +111,21 @@ function formatDate(d: string | null): string {
 }
 
 function scoreColor(score: number): string {
-  if (score >= 80) return "text-red-700 bg-red-50 border-red-200";
-  if (score >= 60) return "text-orange-700 bg-orange-50 border-orange-200";
-  if (score >= 40) return "text-yellow-700 bg-yellow-50 border-yellow-200";
-  return "text-green-700 bg-green-50 border-green-200";
+  if (score >= 80) return "text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950 border-red-200";
+  if (score >= 60) return "text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950 border-orange-200";
+  if (score >= 40) return "text-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-950 border-yellow-200";
+  return "text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950 border-green-200";
 }
 
 function dispositionBadge(disposition: string | null): { label: string; className: string } {
   if (!disposition) return { label: "PENDING", className: "bg-muted text-foreground border-border" };
   switch (disposition) {
     case "FALSE_POSITIVE":
-      return { label: "FALSE POSITIVE", className: "bg-green-100 text-green-700 border-green-200" };
+      return { label: "FALSE POSITIVE", className: "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 border-green-200" };
     case "INVESTIGATE":
-      return { label: "INVESTIGATE", className: "bg-yellow-100 text-yellow-700 border-yellow-200" };
+      return { label: "INVESTIGATE", className: "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300 border-yellow-200" };
     case "ESCALATE":
-      return { label: "ESCALATED", className: "bg-red-100 text-red-700 border-red-200" };
+      return { label: "ESCALATED", className: "bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 border-red-200" };
     default:
       return { label: disposition, className: "bg-muted text-foreground border-border" };
   }
@@ -440,7 +440,7 @@ export default function TradeSurveillance() {
                 <TableCell colSpan={8} className="py-8 text-center">
                   <div className="flex flex-col items-center gap-2">
                     <FileWarning className="h-8 w-8 text-red-400" />
-                    <p className="text-sm text-red-600">
+                    <p className="text-sm text-red-600 dark:text-red-400" role="alert">
                       Failed to load alerts. Please try again.
                     </p>
                     <Button variant="outline" size="sm" onClick={() => alertsQ.refetch()}>
@@ -585,8 +585,8 @@ export default function TradeSurveillance() {
           </div>
 
           {anomalyMut.isError && (
-            <div className="rounded-md border border-red-200 bg-red-50 p-4">
-              <p className="text-sm text-red-700">
+            <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 p-4" role="alert">
+              <p className="text-sm text-red-700 dark:text-red-300" role="alert">
                 Failed to compute anomaly score. Please verify the RM ID and try again.
               </p>
             </div>
@@ -607,10 +607,10 @@ export default function TradeSurveillance() {
                     <span
                       className={`text-2xl font-bold ${
                         anomalyResult.anomaly_score >= 80
-                          ? "text-red-600"
+                          ? "text-red-600 dark:text-red-400"
                           : anomalyResult.anomaly_score >= 50
-                            ? "text-orange-600"
-                            : "text-green-600"
+                            ? "text-orange-600 dark:text-orange-400"
+                            : "text-green-600 dark:text-green-400"
                       }`}
                     >
                       {anomalyResult.anomaly_score.toFixed(1)}
@@ -674,10 +674,10 @@ export default function TradeSurveillance() {
                       {anomalyResult.flags.map((flag, idx) => (
                         <div
                           key={idx}
-                          className="flex items-center gap-2 rounded-md border border-orange-200 bg-orange-50 px-3 py-2"
+                          className="flex items-center gap-2 rounded-md border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950 px-3 py-2"
                         >
-                          <AlertTriangle className="h-4 w-4 text-orange-600 shrink-0" />
-                          <span className="text-sm text-orange-800">{flag}</span>
+                          <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400 shrink-0" />
+                          <span className="text-sm text-orange-800 dark:text-orange-200">{flag}</span>
                         </div>
                       ))}
                     </div>
@@ -788,8 +788,8 @@ export default function TradeSurveillance() {
               </div>
 
               {dispositionMut.isError && (
-                <div className="rounded-md border border-red-200 bg-red-50 p-3">
-                  <p className="text-sm text-red-700">
+                <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 p-3" role="alert">
+                  <p className="text-sm text-red-700 dark:text-red-300" role="alert">
                     Failed to submit disposition. Please try again.
                   </p>
                 </div>

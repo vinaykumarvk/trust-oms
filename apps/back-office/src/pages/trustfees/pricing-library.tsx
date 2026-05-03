@@ -92,10 +92,10 @@ const PRICING_TYPES = [
 ] as const;
 
 const STATUS_COLORS: Record<string, string> = {
-  DRAFT: "bg-gray-100 text-gray-800",
-  PENDING_APPROVAL: "bg-amber-100 text-amber-800",
-  ACTIVE: "bg-green-100 text-green-800",
-  RETIRED: "bg-red-100 text-red-800",
+  DRAFT: "bg-gray-100 text-gray-800 dark:text-gray-200",
+  PENDING_APPROVAL: "bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200",
+  ACTIVE: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  RETIRED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
 };
 
 const STATUS_OPTIONS = ["ALL", "DRAFT", "PENDING_APPROVAL", "ACTIVE", "RETIRED"];
@@ -751,7 +751,7 @@ export default function PricingLibrary() {
 
       {/* Error display for mutations */}
       {(submitMut.error || retireMut.error) && (
-        <Card className="border-destructive">
+        <Card className="border-destructive" role="alert">
           <CardContent className="pt-4">
             <p className="text-sm text-destructive">
               {(submitMut.error as any)?.message || (retireMut.error as any)?.message}

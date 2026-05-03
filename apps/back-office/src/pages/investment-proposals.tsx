@@ -39,15 +39,15 @@ const STATUSES = [
 ] as const;
 
 const STATUS_COLORS: Record<string, string> = {
-  DRAFT: "bg-gray-100 text-gray-800",
-  SUBMITTED: "bg-blue-100 text-blue-800",
+  DRAFT: "bg-gray-100 text-gray-800 dark:text-gray-200",
+  SUBMITTED: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
   L1_APPROVED: "bg-indigo-100 text-indigo-800",
-  L1_REJECTED: "bg-red-100 text-red-800",
-  COMPLIANCE_APPROVED: "bg-green-100 text-green-800",
-  COMPLIANCE_REJECTED: "bg-red-100 text-red-800",
-  SENT_TO_CLIENT: "bg-purple-100 text-purple-800",
+  L1_REJECTED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+  COMPLIANCE_APPROVED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  COMPLIANCE_REJECTED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+  SENT_TO_CLIENT: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200",
   CLIENT_ACCEPTED: "bg-emerald-100 text-emerald-800",
-  CLIENT_REJECTED: "bg-orange-100 text-orange-800",
+  CLIENT_REJECTED: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200",
   EXPIRED: "bg-gray-100 text-gray-500",
 };
 
@@ -608,9 +608,9 @@ export default function InvestmentProposals() {
                           {p.suitability_pass === null ? (
                             <span className="text-xs text-muted-foreground">--</span>
                           ) : p.suitability_pass ? (
-                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
                           ) : (
-                            <AlertTriangle className="h-4 w-4 text-red-600" />
+                            <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
                           )}
                         </TableCell>
                         <TableCell className="text-sm">{p.created_by}</TableCell>
@@ -807,9 +807,9 @@ export default function InvestmentProposals() {
                       {detail.suitability_pass === null ? (
                         <span className="text-muted-foreground">Not checked</span>
                       ) : detail.suitability_pass ? (
-                        <Badge className="bg-green-100 text-green-800">PASS</Badge>
+                        <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">PASS</Badge>
                       ) : (
-                        <Badge className="bg-red-100 text-red-800">FAIL</Badge>
+                        <Badge className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200">FAIL</Badge>
                       )}
                     </div>
                     {detail.suitability_details && (
@@ -845,7 +845,7 @@ export default function InvestmentProposals() {
                       <BarChart3 className="h-4 w-4" /> Line Items
                     </CardTitle>
                     <div className="flex items-center gap-2">
-                      <span className={`text-xs font-medium ${Math.abs(totalAllocation - 100) < 0.01 ? "text-green-600" : "text-orange-600"}`}>
+                      <span className={`text-xs font-medium ${Math.abs(totalAllocation - 100) < 0.01 ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"}`}>
                         Total: {fmtPct(totalAllocation)}
                       </span>
                       {detail.status === "DRAFT" && (
@@ -877,7 +877,7 @@ export default function InvestmentProposals() {
                         </TableHeader>
                         <TableBody>
                           {lineItems.map((li) => (
-                            <TableRow key={li.id} className={li.risk_deviation_flagged ? "bg-amber-50 dark:bg-amber-900/20" : ""}>
+                            <TableRow key={li.id} className={li.risk_deviation_flagged ? "bg-amber-50 dark:bg-amber-950 dark:bg-amber-900/20" : ""}>
                               <TableCell className="text-sm">{li.asset_class}</TableCell>
                               <TableCell className="text-sm">{li.product_name}</TableCell>
                               <TableCell className="font-mono text-sm">{li.product_risk_code}</TableCell>
@@ -999,7 +999,7 @@ export default function InvestmentProposals() {
       <Dialog open={deviationAlert.open} onOpenChange={(open) => setDeviationAlert((s) => ({ ...s, open }))}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-amber-700">
+            <DialogTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
               <AlertTriangle className="h-5 w-5" />
               Product Risk Rating Alert
             </DialogTitle>
@@ -1008,15 +1008,15 @@ export default function InvestmentProposals() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm">
-              <p className="font-medium text-amber-800 mb-2">Client Risk Profile</p>
-              <p className="text-amber-700">Risk Category: <span className="font-semibold">{deviationAlert.customerRiskCategory ?? "—"}</span></p>
-              <p className="text-amber-700">Risk Code: <span className="font-semibold">{deviationAlert.customerRiskCode ?? "—"}</span></p>
+            <div className="rounded-md bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 p-3 text-sm">
+              <p className="font-medium text-amber-800 dark:text-amber-200 mb-2">Client Risk Profile</p>
+              <p className="text-amber-700 dark:text-amber-300">Risk Category: <span className="font-semibold">{deviationAlert.customerRiskCategory ?? "—"}</span></p>
+              <p className="text-amber-700 dark:text-amber-300">Risk Code: <span className="font-semibold">{deviationAlert.customerRiskCode ?? "—"}</span></p>
             </div>
-            <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm">
-              <p className="font-medium text-red-800 mb-2">Product Details</p>
-              <p className="text-red-700">Product: <span className="font-semibold">{lineItemForm.product_name}</span></p>
-              <p className="text-red-700">Product Risk Code: <span className="font-semibold">{deviationAlert.productRiskCode ?? lineItemForm.product_risk_code}</span></p>
+            <div className="rounded-md bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 p-3 text-sm">
+              <p className="font-medium text-red-800 dark:text-red-200 mb-2">Product Details</p>
+              <p className="text-red-700 dark:text-red-300">Product: <span className="font-semibold">{lineItemForm.product_name}</span></p>
+              <p className="text-red-700 dark:text-red-300">Product Risk Code: <span className="font-semibold">{deviationAlert.productRiskCode ?? lineItemForm.product_risk_code}</span></p>
             </div>
             <p className="text-xs text-muted-foreground italic">
               This product has a higher risk rating than the client's risk profile. Confirmation of client notification is required before proceeding.
@@ -1086,7 +1086,7 @@ export default function InvestmentProposals() {
             <div>
               <label htmlFor="ip-li-risk-code" className="text-sm font-medium">Product Risk Code *</label>
               {/* Risk Rating guidance */}
-              <div className="rounded-md bg-blue-50 border border-blue-200 p-2 text-xs text-blue-700 mb-1">
+              <div className="rounded-md bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 p-2 text-xs text-blue-700 dark:text-blue-300 mb-1">
                 Risk Code Reference: 1=Very Low, 2=Low, 3=Moderate, 4=Moderately High, 5=High, 6=Very High
               </div>
               <Input
@@ -1189,7 +1189,7 @@ function MetricCard({ label, value, negative }: { label: string; value: string; 
   return (
     <div className="rounded-lg border bg-muted/30 p-3 text-center">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={`text-lg font-bold ${negative ? "text-red-600" : "text-primary"}`}>{value}</p>
+      <p className={`text-lg font-bold ${negative ? "text-red-600 dark:text-red-400" : "text-primary"}`}>{value}</p>
     </div>
   );
 }

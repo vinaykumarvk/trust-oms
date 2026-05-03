@@ -257,7 +257,7 @@ export default function CashFxDashboard() {
                         return (
                           <TableCell key={idx}>
                             <div className="space-y-1">
-                              <span className={`font-mono text-sm ${positive ? "text-green-700" : "text-red-700"}`}>
+                              <span className={`font-mono text-sm ${positive ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}`}>
                                 {val.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                               </span>
                               <div className="h-2 w-full rounded-full bg-muted">
@@ -367,7 +367,7 @@ export default function CashFxDashboard() {
                         <TableCell className="font-medium">{fx.pair}</TableCell>
                         <TableCell className="text-right font-mono">{fx.rate}</TableCell>
                         <TableCell className="text-right">
-                          <span className={fx.change.startsWith("+") ? "text-green-600" : "text-red-600"}>
+                          <span className={fx.change.startsWith("+") ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
                             {fx.change}
                           </span>
                         </TableCell>

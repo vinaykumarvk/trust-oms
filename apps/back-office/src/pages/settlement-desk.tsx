@@ -95,10 +95,10 @@ interface LiquidityRow {
 // ---------------------------------------------------------------------------
 
 const STATUS_COLORS: Record<string, string> = {
-  PENDING: "bg-yellow-100 text-yellow-800",
-  MATCHED: "bg-blue-100 text-blue-800",
-  SETTLED: "bg-green-100 text-green-800",
-  FAILED: "bg-red-100 text-red-800",
+  PENDING: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+  MATCHED: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  SETTLED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  FAILED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
 };
 
 function formatPHP(amount: number): string {
@@ -146,9 +146,9 @@ function formatCountdown(totalSeconds: number): string {
 }
 
 function countdownColor(totalSeconds: number): string {
-  if (totalSeconds > 3600) return "text-green-600";
-  if (totalSeconds > 1800) return "text-yellow-600";
-  return "text-red-600";
+  if (totalSeconds > 3600) return "text-green-600 dark:text-green-400";
+  if (totalSeconds > 1800) return "text-yellow-600 dark:text-yellow-400";
+  return "text-red-600 dark:text-red-400";
 }
 
 // ---------------------------------------------------------------------------
@@ -389,10 +389,10 @@ export default function SettlementDesk() {
           <div className="grid gap-4 sm:grid-cols-4">
             {(
               [
-                { label: "Pending", count: swiftCounts.pending, color: "bg-yellow-100 text-yellow-800" },
-                { label: "Sent", count: swiftCounts.sent, color: "bg-blue-100 text-blue-800" },
-                { label: "Confirmed", count: swiftCounts.confirmed, color: "bg-green-100 text-green-800" },
-                { label: "Failed", count: swiftCounts.failed, color: "bg-red-100 text-red-800" },
+                { label: "Pending", count: swiftCounts.pending, color: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200" },
+                { label: "Sent", count: swiftCounts.sent, color: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200" },
+                { label: "Confirmed", count: swiftCounts.confirmed, color: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200" },
+                { label: "Failed", count: swiftCounts.failed, color: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200" },
               ] as const
             ).map((s) => (
               <div key={s.label} className="flex items-center justify-between rounded-lg border p-3">
@@ -558,7 +558,7 @@ export default function SettlementDesk() {
                       {[row.t0_balance, row.t1_projected, row.t2_projected].map((val, idx) => (
                         <TableCell key={idx} className="text-right">
                           <div className="flex flex-col items-end gap-1">
-                            <span className={`font-mono text-sm ${val >= 0 ? "text-green-700" : "text-red-700"}`}>
+                            <span className={`font-mono text-sm ${val >= 0 ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}`}>
                               {val.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                             </span>
                             <div className="h-2 w-24 rounded-full bg-muted">

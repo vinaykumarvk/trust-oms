@@ -109,29 +109,29 @@ const DOMAIN_META: Record<string, DomainMeta> = {
     key: "clients",
     label: "Clients",
     icon: Users,
-    color: "text-blue-600",
-    bgColor: "bg-blue-100",
+    color: "text-blue-600 dark:text-blue-400",
+    bgColor: "bg-blue-100 dark:bg-blue-900",
   },
   portfolios: {
     key: "portfolios",
     label: "Portfolios",
     icon: Briefcase,
-    color: "text-purple-600",
-    bgColor: "bg-purple-100",
+    color: "text-purple-600 dark:text-purple-400",
+    bgColor: "bg-purple-100 dark:bg-purple-900",
   },
   positions: {
     key: "positions",
     label: "Positions",
     icon: BarChart3,
-    color: "text-green-600",
-    bgColor: "bg-green-100",
+    color: "text-green-600 dark:text-green-400",
+    bgColor: "bg-green-100 dark:bg-green-900",
   },
   prices: {
     key: "prices",
     label: "Prices",
     icon: DollarSign,
-    color: "text-amber-600",
-    bgColor: "bg-amber-100",
+    color: "text-amber-600 dark:text-amber-400",
+    bgColor: "bg-amber-100 dark:bg-amber-900",
   },
   transactions: {
     key: "transactions",
@@ -144,8 +144,8 @@ const DOMAIN_META: Record<string, DomainMeta> = {
     key: "securities",
     label: "Securities",
     icon: Shield,
-    color: "text-red-600",
-    bgColor: "bg-red-100",
+    color: "text-red-600 dark:text-red-400",
+    bgColor: "bg-red-100 dark:bg-red-900",
   },
 };
 
@@ -155,22 +155,22 @@ const SEVERITY_CONFIG: Record<
 > = {
   critical: {
     label: "Critical",
-    color: "bg-red-100 text-red-800",
+    color: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
     badgeVariant: "destructive",
   },
   high: {
     label: "High",
-    color: "bg-orange-100 text-orange-800",
+    color: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200",
     badgeVariant: "destructive",
   },
   medium: {
     label: "Medium",
-    color: "bg-yellow-100 text-yellow-800",
+    color: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
     badgeVariant: "secondary",
   },
   low: {
     label: "Low",
-    color: "bg-blue-100 text-blue-800",
+    color: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
     badgeVariant: "outline",
   },
 };
@@ -180,15 +180,15 @@ const SEVERITY_CONFIG: Record<
 // ---------------------------------------------------------------------------
 
 function scoreColor(score: number): string {
-  if (score >= 90) return "text-green-600";
-  if (score >= 70) return "text-yellow-600";
-  return "text-red-600";
+  if (score >= 90) return "text-green-600 dark:text-green-400";
+  if (score >= 70) return "text-yellow-600 dark:text-yellow-400";
+  return "text-red-600 dark:text-red-400";
 }
 
 function scoreBgColor(score: number): string {
-  if (score >= 90) return "bg-green-50 border-green-200";
-  if (score >= 70) return "bg-yellow-50 border-yellow-200";
-  return "bg-red-50 border-red-200";
+  if (score >= 90) return "bg-green-50 dark:bg-green-950 border-green-200";
+  if (score >= 70) return "bg-yellow-50 dark:bg-yellow-950 border-yellow-200";
+  return "bg-red-50 dark:bg-red-950 border-red-200";
 }
 
 function progressColor(score: number): string {
@@ -214,10 +214,10 @@ function formatDateTime(dateStr: string | null): string {
 
 function TrendIndicator({ trend, className }: { trend: string; className?: string }) {
   if (trend === "up") {
-    return <TrendingUp className={`h-4 w-4 text-green-600 ${className ?? ""}`} />;
+    return <TrendingUp className={`h-4 w-4 text-green-600 dark:text-green-400 ${className ?? ""}`} />;
   }
   if (trend === "down") {
-    return <TrendingDown className={`h-4 w-4 text-red-600 ${className ?? ""}`} />;
+    return <TrendingDown className={`h-4 w-4 text-red-600 dark:text-red-400 ${className ?? ""}`} />;
   }
   return <Activity className={`h-4 w-4 text-muted-foreground ${className ?? ""}`} />;
 }
@@ -274,9 +274,9 @@ function OverallScoreCard({
                     <span
                       className={`text-sm font-medium ${
                         delta > 0
-                          ? "text-green-600"
+                          ? "text-green-600 dark:text-green-400"
                           : delta < 0
-                          ? "text-red-600"
+                          ? "text-red-600 dark:text-red-400"
                           : "text-muted-foreground"
                       }`}
                     >
@@ -291,7 +291,7 @@ function OverallScoreCard({
 
           <div className="text-right space-y-2">
             <div className="flex items-center gap-2 justify-end">
-              <AlertTriangle className="h-4 w-4 text-yellow-600" />
+              <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
               <span className="text-sm font-medium">
                 {isLoading ? (
                   <Skeleton className="h-4 w-8 inline-block" />
@@ -303,8 +303,8 @@ function OverallScoreCard({
             </div>
             {criticalIssues > 0 && (
               <div className="flex items-center gap-2 justify-end">
-                <XCircle className="h-4 w-4 text-red-600" />
-                <span className="text-sm font-medium text-red-600">
+                <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                <span className="text-sm font-medium text-red-600 dark:text-red-400">
                   {criticalIssues} critical
                 </span>
               </div>
@@ -366,7 +366,7 @@ function DomainCard({ domain, meta, isExpanded, onToggle }: DomainCardProps) {
                   {domain.issue_count === 0 && (
                     <Badge
                       variant="outline"
-                      className="text-green-700 border-green-300"
+                      className="text-green-700 dark:text-green-300 border-green-300"
                     >
                       <CheckCircle2 className="h-3 w-3 mr-1" />
                       Clean
@@ -576,7 +576,7 @@ function SummaryStats({ data }: SummaryStatsProps) {
               <p className="text-xs font-medium text-muted-foreground">
                 Clean Domains
               </p>
-              <p className="text-2xl font-bold mt-1 text-green-600">
+              <p className="text-2xl font-bold mt-1 text-green-600 dark:text-green-400">
                 {cleanDomains}
               </p>
             </div>
@@ -591,7 +591,7 @@ function SummaryStats({ data }: SummaryStatsProps) {
               <p className="text-xs font-medium text-muted-foreground">
                 Critical Issues
               </p>
-              <p className="text-2xl font-bold mt-1 text-red-600">
+              <p className="text-2xl font-bold mt-1 text-red-600 dark:text-red-400">
                 {severityCounts.critical}
               </p>
             </div>
@@ -606,7 +606,7 @@ function SummaryStats({ data }: SummaryStatsProps) {
               <p className="text-xs font-medium text-muted-foreground">
                 High Issues
               </p>
-              <p className="text-2xl font-bold mt-1 text-orange-600">
+              <p className="text-2xl font-bold mt-1 text-orange-600 dark:text-orange-400">
                 {severityCounts.high}
               </p>
             </div>
@@ -621,7 +621,7 @@ function SummaryStats({ data }: SummaryStatsProps) {
               <p className="text-xs font-medium text-muted-foreground">
                 Medium / Low
               </p>
-              <p className="text-2xl font-bold mt-1 text-yellow-600">
+              <p className="text-2xl font-bold mt-1 text-yellow-600 dark:text-yellow-400">
                 {severityCounts.medium + severityCounts.low}
               </p>
             </div>
@@ -809,7 +809,7 @@ export default function DataQualityDashboardPage() {
 
       {/* Error state */}
       {qualityQuery.isError && (
-        <Card className="border-destructive">
+        <Card className="border-destructive" role="alert">
           <CardContent className="py-8">
             <div className="text-center">
               <XCircle className="h-10 w-10 text-destructive mx-auto mb-3" />

@@ -72,17 +72,17 @@ interface PeraTransactionsResponse {
 // ---------------------------------------------------------------------------
 
 const STATUS_COLORS: Record<string, string> = {
-  ACTIVE: "bg-green-100 text-green-800",
-  PENDING: "bg-yellow-100 text-yellow-800",
-  SUSPENDED: "bg-red-100 text-red-800",
+  ACTIVE: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  PENDING: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+  SUSPENDED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
   CLOSED: "bg-muted text-foreground",
 };
 
 const TX_TYPE_COLORS: Record<string, string> = {
-  CONTRIBUTION: "bg-blue-100 text-blue-800",
-  QUALIFIED_WITHDRAWAL: "bg-green-100 text-green-800",
-  UNQUALIFIED_WITHDRAWAL: "bg-orange-100 text-orange-800",
-  PRODUCT_TRANSFER: "bg-purple-100 text-purple-800",
+  CONTRIBUTION: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  QUALIFIED_WITHDRAWAL: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  UNQUALIFIED_WITHDRAWAL: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200",
+  PRODUCT_TRANSFER: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200",
   ADMIN_TRANSFER: "bg-indigo-100 text-indigo-800",
 };
 
@@ -567,11 +567,11 @@ export default function PeraConsole() {
                 return (
                   <>
                     {over ? (
-                      <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                      <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
                     ) : (
-                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
                     )}
-                    <span className={over ? "text-yellow-700" : "text-muted-foreground"}>
+                    <span className={over ? "text-yellow-700 dark:text-yellow-300" : "text-muted-foreground"}>
                       Remaining annual capacity: {formatPHP(remaining)}
                       {over && " — Amount exceeds annual maximum!"}
                     </span>
@@ -582,10 +582,10 @@ export default function PeraConsole() {
           )}
 
           {contributeMut.isError && (
-            <p className="text-sm text-red-600">{(contributeMut.error as Error).message}</p>
+            <p className="text-sm text-red-600 dark:text-red-400" role="alert">{(contributeMut.error as Error).message}</p>
           )}
           {contributeMut.isSuccess && (
-            <p className="text-sm text-green-600">Contribution processed successfully.</p>
+            <p className="text-sm text-green-600 dark:text-green-400">Contribution processed successfully.</p>
           )}
 
           <Separator />
@@ -677,18 +677,18 @@ export default function PeraConsole() {
 
           {wdType === "unqualified" && (
             <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <AlertTriangle className="h-3 w-3 text-yellow-600" />
+              <AlertTriangle className="h-3 w-3 text-yellow-600 dark:text-yellow-400" />
               Unqualified withdrawals incur a {wdPenaltyPct}% early withdrawal penalty.
             </p>
           )}
 
           {(qualifiedWdMut.isError || unqualifiedWdMut.isError) && (
-            <p className="text-sm text-red-600">
+            <p className="text-sm text-red-600 dark:text-red-400" role="alert">
               {((qualifiedWdMut.error ?? unqualifiedWdMut.error) as Error)?.message}
             </p>
           )}
           {(qualifiedWdMut.isSuccess || unqualifiedWdMut.isSuccess) && (
-            <p className="text-sm text-green-600">Withdrawal processed successfully.</p>
+            <p className="text-sm text-green-600 dark:text-green-400">Withdrawal processed successfully.</p>
           )}
 
           <Separator />
@@ -782,12 +782,12 @@ export default function PeraConsole() {
           </div>
 
           {(productTransferMut.isError || adminTransferMut.isError) && (
-            <p className="text-sm text-red-600">
+            <p className="text-sm text-red-600 dark:text-red-400" role="alert">
               {((productTransferMut.error ?? adminTransferMut.error) as Error)?.message}
             </p>
           )}
           {(productTransferMut.isSuccess || adminTransferMut.isSuccess) && (
-            <p className="text-sm text-green-600">Transfer processed successfully.</p>
+            <p className="text-sm text-green-600 dark:text-green-400">Transfer processed successfully.</p>
           )}
 
           <Separator />
@@ -865,7 +865,7 @@ export default function PeraConsole() {
           </div>
 
           {(bspContributorFileMut.isError || bspTransactionFileMut.isError) && (
-            <p className="text-sm text-red-600">
+            <p className="text-sm text-red-600 dark:text-red-400" role="alert">
               {((bspContributorFileMut.error ?? bspTransactionFileMut.error) as Error)?.message}
             </p>
           )}
@@ -898,10 +898,10 @@ export default function PeraConsole() {
           </div>
 
           {tccMut.isError && (
-            <p className="text-sm text-red-600">{(tccMut.error as Error).message}</p>
+            <p className="text-sm text-red-600 dark:text-red-400" role="alert">{(tccMut.error as Error).message}</p>
           )}
           {tccMut.isSuccess && (
-            <p className="text-sm text-green-600">TCC processed successfully.</p>
+            <p className="text-sm text-green-600 dark:text-green-400">TCC processed successfully.</p>
           )}
         </TabsContent>
       </Tabs>
@@ -929,7 +929,7 @@ export default function PeraConsole() {
               <Input type="number" value={obMaxAnnual} onChange={(e) => setObMaxAnnual(e.target.value)} />
             </FormField>
             {onboardMut.isError && (
-              <p className="text-sm text-red-600">{(onboardMut.error as Error).message}</p>
+              <p className="text-sm text-red-600 dark:text-red-400" role="alert">{(onboardMut.error as Error).message}</p>
             )}
           </div>
           <DialogFooter>

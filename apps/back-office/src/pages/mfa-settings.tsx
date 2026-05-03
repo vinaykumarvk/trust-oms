@@ -184,11 +184,11 @@ export default function MFASettings() {
               </div>
             </div>
 
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-3 rounded-md">
+            <div className="bg-yellow-50 dark:bg-yellow-950 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-3 rounded-md">
               <p className="text-sm font-medium mb-2">Save your backup codes:</p>
               <div className="grid grid-cols-2 gap-1">
                 {enrollData.backupCodes.map((code, i) => (
-                  <code key={i} className="text-sm font-mono bg-white dark:bg-gray-800 px-2 py-1 rounded">{code}</code>
+                  <code key={i} className="text-sm font-mono bg-white dark:bg-gray-900 dark:bg-gray-800 px-2 py-1 rounded">{code}</code>
                 ))}
               </div>
               <p className="text-xs text-muted-foreground mt-2">Store these codes safely. Each can be used once if you lose access to your authenticator.</p>

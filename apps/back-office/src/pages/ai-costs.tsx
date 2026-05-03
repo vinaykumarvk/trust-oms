@@ -111,17 +111,17 @@ interface BrokerOption {
 
 const OUTCOME_STYLES: Record<string, { label: string; className: string }> = {
   PENDING: { label: "Pending", className: "bg-muted text-foreground border-border" },
-  FILLED: { label: "Filled", className: "bg-green-100 text-green-700 border-green-200" },
-  PARTIAL: { label: "Partial", className: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-  REJECTED: { label: "Rejected", className: "bg-red-100 text-red-700 border-red-200" },
+  FILLED: { label: "Filled", className: "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 border-green-200" },
+  PARTIAL: { label: "Partial", className: "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300 border-yellow-200" },
+  REJECTED: { label: "Rejected", className: "bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 border-red-200" },
 };
 
 const SIDE_STYLES: Record<string, string> = {
   BUY: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  SELL: "bg-red-100 text-red-800 border-red-200",
+  SELL: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border-red-200",
 };
 
-const RANK_COLORS = ["text-yellow-600", "text-muted-foreground", "text-orange-700"];
+const RANK_COLORS = ["text-yellow-600 dark:text-yellow-400", "text-muted-foreground", "text-orange-700 dark:text-orange-300"];
 
 const PERIOD_OPTIONS = [
   { value: "1M", label: "1 Month" },
@@ -469,7 +469,7 @@ export default function AiCostsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <Trophy className="h-4 w-4 text-yellow-600" />
+                <Trophy className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
                 Broker Leaderboard — Composite Score Ranking
               </CardTitle>
             </CardHeader>
@@ -515,7 +515,7 @@ export default function AiCostsPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          <span className={`font-bold ${b.compositeScore >= 90 ? "text-green-700" : b.compositeScore >= 80 ? "text-blue-700" : "text-muted-foreground"}`}>
+                          <span className={`font-bold ${b.compositeScore >= 90 ? "text-green-700 dark:text-green-300" : b.compositeScore >= 80 ? "text-blue-700 dark:text-blue-300" : "text-muted-foreground"}`}>
                             {b.compositeScore}
                           </span>
                         </TableCell>
@@ -644,11 +644,11 @@ export default function AiCostsPage() {
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                     <div className="border rounded-lg p-3 text-center">
                       <p className="text-xs text-muted-foreground">Fill Rate</p>
-                      <p className="text-xl font-bold text-green-700">{formatPct(quality.fillRate)}</p>
+                      <p className="text-xl font-bold text-green-700 dark:text-green-300">{formatPct(quality.fillRate)}</p>
                     </div>
                     <div className="border rounded-lg p-3 text-center">
                       <p className="text-xs text-muted-foreground">Avg Slippage</p>
-                      <p className="text-xl font-bold text-orange-700">{formatPct(quality.avgSlippage, 3)}</p>
+                      <p className="text-xl font-bold text-orange-700 dark:text-orange-300">{formatPct(quality.avgSlippage, 3)}</p>
                     </div>
                     <div className="border rounded-lg p-3 text-center">
                       <p className="text-xs text-muted-foreground">Avg Latency</p>
@@ -660,7 +660,7 @@ export default function AiCostsPage() {
                     </div>
                     <div className="border rounded-lg p-3 text-center">
                       <p className="text-xs text-muted-foreground">Rejection Rate</p>
-                      <p className="text-xl font-bold text-red-700">{formatPct(quality.rejectionRate)}</p>
+                      <p className="text-xl font-bold text-red-700 dark:text-red-300">{formatPct(quality.rejectionRate)}</p>
                     </div>
                   </div>
 
@@ -712,11 +712,11 @@ export default function AiCostsPage() {
                                 {i === 0 ? (
                                   <Minus className="h-3 w-3 text-muted-foreground inline" />
                                 ) : fillChange >= 0 ? (
-                                  <span className="text-green-700 text-xs flex items-center justify-end gap-0.5">
+                                  <span className="text-green-700 dark:text-green-300 text-xs flex items-center justify-end gap-0.5">
                                     <TrendingUp className="h-3 w-3" /> +{formatPct(fillChange, 2)}
                                   </span>
                                 ) : (
-                                  <span className="text-red-700 text-xs flex items-center justify-end gap-0.5">
+                                  <span className="text-red-700 dark:text-red-300 text-xs flex items-center justify-end gap-0.5">
                                     <TrendingDown className="h-3 w-3" /> {formatPct(fillChange, 2)}
                                   </span>
                                 )}
@@ -725,11 +725,11 @@ export default function AiCostsPage() {
                                 {i === 0 ? (
                                   <Minus className="h-3 w-3 text-muted-foreground inline" />
                                 ) : slipChange <= 0 ? (
-                                  <span className="text-green-700 text-xs flex items-center justify-end gap-0.5">
+                                  <span className="text-green-700 dark:text-green-300 text-xs flex items-center justify-end gap-0.5">
                                     <TrendingDown className="h-3 w-3" /> {formatPct(slipChange, 3)}
                                   </span>
                                 ) : (
-                                  <span className="text-red-700 text-xs flex items-center justify-end gap-0.5">
+                                  <span className="text-red-700 dark:text-red-300 text-xs flex items-center justify-end gap-0.5">
                                     <TrendingUp className="h-3 w-3" /> +{formatPct(slipChange, 3)}
                                   </span>
                                 )}

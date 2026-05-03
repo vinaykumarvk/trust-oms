@@ -62,19 +62,19 @@ function fmt(n: string | number | null | undefined): string {
 }
 
 const statusColors: Record<string, string> = {
-  ACTIVE: "bg-green-100 text-green-800",
-  INACTIVE: "bg-gray-100 text-gray-800",
-  SEPARATED: "bg-red-100 text-red-800",
-  RETIRED: "bg-blue-100 text-blue-800",
-  REINSTATED: "bg-purple-100 text-purple-800",
-  DRAFT: "bg-gray-100 text-gray-800",
-  SUBMITTED: "bg-yellow-100 text-yellow-800",
-  UNDER_REVIEW: "bg-orange-100 text-orange-800",
-  APPROVED: "bg-green-100 text-green-800",
-  PROCESSING: "bg-blue-100 text-blue-800",
+  ACTIVE: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  INACTIVE: "bg-gray-100 text-gray-800 dark:text-gray-200",
+  SEPARATED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+  RETIRED: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  REINSTATED: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200",
+  DRAFT: "bg-gray-100 text-gray-800 dark:text-gray-200",
+  SUBMITTED: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+  UNDER_REVIEW: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200",
+  APPROVED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  PROCESSING: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
   RELEASED: "bg-emerald-100 text-emerald-800",
-  CANCELLED: "bg-red-100 text-red-800",
-  ON_HOLD: "bg-amber-100 text-amber-800",
+  CANCELLED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+  ON_HOLD: "bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200",
 };
 
 export default function EbtDashboard() {
@@ -225,7 +225,7 @@ export default function EbtDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-amber-600">
+              <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
                 {summary.pending_claims ?? 0}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -240,7 +240,7 @@ export default function EbtDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                 PHP {fmt(summary.released_amount)}
               </div>
             </CardContent>
@@ -566,7 +566,7 @@ function SeparationsView() {
                       : "No"}
                   </TableCell>
                   <TableCell>
-                    <Badge className={r.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+                    <Badge className={r.is_active ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200" : "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200"}>
                       {r.is_active ? "Active" : "Inactive"}
                     </Badge>
                   </TableCell>

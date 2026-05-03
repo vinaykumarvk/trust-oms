@@ -80,10 +80,10 @@ const fmtNum = (n: number) =>
   n.toLocaleString("en-PH");
 
 const STATUS_COLORS: Record<string, string> = {
-  ACTIVE: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  ACTIVE: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900/30 dark:text-green-400",
   INACTIVE: "bg-muted text-muted-foreground",
-  SUSPENDED: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-  UNDER_REVIEW: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+  SUSPENDED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900/30 dark:text-red-400",
+  UNDER_REVIEW: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400",
 };
 
 const REGION_OPTIONS = ["ALL", "NCR", "Luzon", "Visayas", "Mindanao", "International"];
@@ -312,7 +312,7 @@ export default function BranchDashboard() {
 
       {/* Error State */}
       {isError && (
-        <Card className="border-destructive">
+        <Card className="border-destructive" role="alert">
           <CardContent className="py-6">
             <div className="flex items-center gap-3 text-destructive" role="alert">
               <AlertTriangle className="h-5 w-5 flex-shrink-0" />
@@ -388,22 +388,22 @@ export default function BranchDashboard() {
                         <PipelineBadge
                           label="Pending"
                           count={summary?.settlement_pipeline?.pending ?? 0}
-                          variant="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+                          variant="bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400"
                         />
                         <PipelineBadge
                           label="In Progress"
                           count={summary?.settlement_pipeline?.in_progress ?? 0}
-                          variant="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
+                          variant="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900/30 dark:text-blue-400"
                         />
                         <PipelineBadge
                           label="Completed"
                           count={summary?.settlement_pipeline?.completed ?? 0}
-                          variant="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                          variant="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900/30 dark:text-green-400"
                         />
                         <PipelineBadge
                           label="Failed"
                           count={summary?.settlement_pipeline?.failed ?? 0}
-                          variant="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                          variant="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900/30 dark:text-red-400"
                         />
                       </div>
                     </div>
@@ -427,17 +427,17 @@ export default function BranchDashboard() {
                         <PipelineBadge
                           label="Computed"
                           count={summary?.nav_computation?.computed ?? 0}
-                          variant="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                          variant="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900/30 dark:text-green-400"
                         />
                         <PipelineBadge
                           label="Pending"
                           count={summary?.nav_computation?.pending ?? 0}
-                          variant="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+                          variant="bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400"
                         />
                         <PipelineBadge
                           label="Stale"
                           count={summary?.nav_computation?.stale ?? 0}
-                          variant="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                          variant="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900/30 dark:text-red-400"
                         />
                       </div>
                     </div>

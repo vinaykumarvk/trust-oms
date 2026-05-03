@@ -603,7 +603,7 @@ export default function MeetingsCalendar() {
             <Button
               size="sm"
               variant="ghost"
-              className="text-purple-600 hover:text-purple-700 h-7 px-2"
+              className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:text-purple-300 h-7 px-2"
               onClick={(e) => { e.stopPropagation(); openMeetingPrep(meeting); }}
               title="AI meeting prep brief"
             >
@@ -614,7 +614,7 @@ export default function MeetingsCalendar() {
           <Button
             size="sm"
             variant="ghost"
-            className="text-green-600 hover:text-green-700 h-7 px-2"
+            className="text-green-600 dark:text-green-400 hover:text-green-700 dark:text-green-300 h-7 px-2"
             onClick={(e) => {
               e.stopPropagation();
               completeMutation.mutate(meeting.id);
@@ -633,7 +633,7 @@ export default function MeetingsCalendar() {
         <Button
           size="sm"
           variant="ghost"
-          className="text-purple-600 hover:text-purple-700 h-7 px-2"
+          className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:text-purple-300 h-7 px-2"
           onClick={(e) => { e.stopPropagation(); openMeetingPrep(meeting); }}
           title="AI meeting prep brief"
         >
@@ -649,7 +649,7 @@ export default function MeetingsCalendar() {
             <Button
               size="sm"
               variant="ghost"
-              className="text-purple-600 hover:text-purple-700 h-7 px-2"
+              className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:text-purple-300 h-7 px-2"
               onClick={(e) => { e.stopPropagation(); openMeetingPrep(meeting); }}
               title="AI meeting prep brief"
             >
@@ -660,7 +660,7 @@ export default function MeetingsCalendar() {
           <Button
             size="sm"
             variant="ghost"
-            className="text-blue-600 hover:text-blue-700 h-7 px-2"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:text-blue-300 h-7 px-2"
             onClick={(e) => {
               e.stopPropagation();
               navigate(`/crm/call-reports/new?meetingId=${meeting.id}`);
@@ -819,7 +819,7 @@ export default function MeetingsCalendar() {
                                   href={m.virtual_link}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="flex items-center gap-1 text-blue-600 hover:underline"
+                                  className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   <LinkIcon className="h-3 w-3" /> Join
@@ -1060,7 +1060,7 @@ export default function MeetingsCalendar() {
                               href={m.virtual_link}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-1 text-blue-600 hover:underline"
+                              className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
                             >
                               <LinkIcon className="h-3 w-3" /> Join
                             </a>
@@ -1226,7 +1226,7 @@ export default function MeetingsCalendar() {
                             href={meeting.virtual_link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline text-sm"
+                            className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
                           >
                             Virtual Link
                           </a>
@@ -1407,10 +1407,10 @@ export default function MeetingsCalendar() {
                 <TableRow key={item.id} className={isOverdue ? 'bg-red-50 dark:bg-red-950/20' : ''}>
                   <TableCell className="font-medium">{item.description}</TableCell>
                   <TableCell>
-                    <span className={isOverdue ? 'text-red-600 font-medium' : 'text-sm'}>
+                    <span className={isOverdue ? 'text-red-600 dark:text-red-400 font-medium' : 'text-sm'}>
                       {new Date(item.due_date).toLocaleDateString()}
                       {isOverdue && (
-                        <Badge className="ml-2 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" variant="secondary">
+                        <Badge className="ml-2 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900 dark:text-red-200" variant="secondary">
                           Overdue
                         </Badge>
                       )}
@@ -1800,7 +1800,7 @@ export default function MeetingsCalendar() {
         <DialogContent className="max-w-xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-purple-600" />
+              <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
               Meeting Prep — {prepMeeting?.title}
             </DialogTitle>
           </DialogHeader>
@@ -1813,7 +1813,7 @@ export default function MeetingsCalendar() {
           )}
 
           {prepError && (
-            <div className="rounded-md border border-orange-200 bg-orange-50 p-4 text-sm text-orange-800">
+            <div className="rounded-md border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950 p-4 text-sm text-orange-800 dark:text-orange-200">
               {prepError}
             </div>
           )}
@@ -1839,12 +1839,12 @@ export default function MeetingsCalendar() {
               {prepContent.compliance_notes.length > 0 && (
                 <div>
                   <h3 className="text-sm font-semibold mb-1 flex items-center gap-1">
-                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
                     Compliance Notes
                   </h3>
                   <ul className="list-disc pl-4 space-y-1">
                     {prepContent.compliance_notes.map((note, i) => (
-                      <li key={i} className="text-sm text-amber-700">{note}</li>
+                      <li key={i} className="text-sm text-amber-700 dark:text-amber-300">{note}</li>
                     ))}
                   </ul>
                 </div>

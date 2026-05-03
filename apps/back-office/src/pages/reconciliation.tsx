@@ -167,16 +167,16 @@ function formatNumber(val: number | string | null): string {
 }
 
 const BREAK_STATUS_CONFIG: Record<BreakStatus, { label: string; color: string }> = {
-  OPEN: { label: "Open", color: "bg-yellow-100 text-yellow-800" },
-  INVESTIGATING: { label: "Investigating", color: "bg-blue-100 text-blue-800" },
-  RESOLVED: { label: "Resolved", color: "bg-green-100 text-green-800" },
-  ESCALATED: { label: "Escalated", color: "bg-red-100 text-red-800" },
+  OPEN: { label: "Open", color: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200" },
+  INVESTIGATING: { label: "Investigating", color: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200" },
+  RESOLVED: { label: "Resolved", color: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200" },
+  ESCALATED: { label: "Escalated", color: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200" },
 };
 
 const RUN_STATUS_COLORS: Record<string, string> = {
-  COMPLETED: "bg-green-100 text-green-800",
-  RUNNING: "bg-yellow-100 text-yellow-800",
-  FAILED: "bg-red-100 text-red-800",
+  COMPLETED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  RUNNING: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+  FAILED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
   PENDING: "bg-muted text-foreground",
 };
 
@@ -807,12 +807,12 @@ function InternalReconTab() {
             </Button>
           </div>
           {triggerMutation.isSuccess && (
-            <p className="mt-3 text-sm text-green-600">
+            <p className="mt-3 text-sm text-green-600 dark:text-green-400">
               Internal triad reconciliation completed successfully.
             </p>
           )}
           {triggerMutation.isError && (
-            <p className="mt-3 text-sm text-red-600">
+            <p className="mt-3 text-sm text-red-600 dark:text-red-400">
               Failed to run internal triad reconciliation. Please try again.
             </p>
           )}

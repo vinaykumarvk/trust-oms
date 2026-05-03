@@ -357,7 +357,7 @@ function UsersTab() {
                         variant="outline"
                         className={`text-xs ${
                           user.status === "Active"
-                            ? "bg-green-50 text-green-700 border-green-200"
+                            ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200"
                             : "bg-muted text-muted-foreground border-border"
                         }`}
                       >
@@ -385,8 +385,8 @@ function UsersTab() {
                           size="sm"
                           className={`h-7 px-2 ${
                             user.status === "Active"
-                              ? "text-red-600 hover:text-red-700"
-                              : "text-green-600 hover:text-green-700"
+                              ? "text-red-600 dark:text-red-400 hover:text-red-700 dark:text-red-300"
+                              : "text-green-600 dark:text-green-400 hover:text-green-700 dark:text-green-300"
                           }`}
                           onClick={() => toggleUserStatus(user.id)}
                         >
@@ -606,7 +606,7 @@ function RolesTab() {
                       {role.description}
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge className="text-xs bg-blue-50 text-blue-700 border-blue-200" variant="outline">
+                      <Badge className="text-xs bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200" variant="outline">
                         <Key className="h-3 w-3 mr-1" />
                         {role.permissionCount}
                       </Badge>
@@ -664,7 +664,7 @@ function RolesTab() {
               <Badge variant="outline" className="text-xs">
                 {selectedRole?.office}
               </Badge>
-              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+              <Badge variant="outline" className="text-xs bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200">
                 {selectedRole?.permissionCount} permissions
               </Badge>
             </div>
@@ -806,7 +806,7 @@ function ConfigTab() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 px-2 text-green-600"
+                          className="h-7 px-2 text-green-600 dark:text-green-400"
                           onClick={saveEdit}
                         >
                           <Save className="h-3 w-3" />
@@ -914,7 +914,7 @@ function FeatureFlagsTab() {
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   {flag.enabled ? (
-                    <Unlock className="h-4 w-4 text-green-600" />
+                    <Unlock className="h-4 w-4 text-green-600 dark:text-green-400" />
                   ) : (
                     <Lock className="h-4 w-4 text-muted-foreground" />
                   )}
@@ -944,9 +944,9 @@ function FeatureFlagsTab() {
 
         {/* Summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="text-center p-3 bg-green-50 rounded-lg border border-green-100">
-            <div className="text-lg font-bold text-green-700">{enabledCount}</div>
-            <div className="text-[10px] text-green-600 uppercase tracking-wider">Enabled</div>
+          <div className="text-center p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-100">
+            <div className="text-lg font-bold text-green-700 dark:text-green-300">{enabledCount}</div>
+            <div className="text-[10px] text-green-600 dark:text-green-400 uppercase tracking-wider">Enabled</div>
           </div>
           <div className="text-center p-3 bg-muted rounded-lg border border-border">
             <div className="text-lg font-bold text-foreground">
@@ -954,9 +954,9 @@ function FeatureFlagsTab() {
             </div>
             <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Disabled</div>
           </div>
-          <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
-            <div className="text-lg font-bold text-blue-700">{flags.length}</div>
-            <div className="text-[10px] text-blue-600 uppercase tracking-wider">Total Flags</div>
+          <div className="text-center p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-100">
+            <div className="text-lg font-bold text-blue-700 dark:text-blue-300">{flags.length}</div>
+            <div className="text-[10px] text-blue-600 dark:text-blue-400 uppercase tracking-wider">Total Flags</div>
           </div>
           <div className="text-center p-3 bg-violet-50 rounded-lg border border-violet-100">
             <div className="text-lg font-bold text-violet-700">

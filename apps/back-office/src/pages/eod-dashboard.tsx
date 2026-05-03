@@ -135,17 +135,17 @@ const JOB_STATUS_CONFIG: Record<
   },
   RUNNING: {
     label: "Running",
-    color: "bg-yellow-100 text-yellow-800",
+    color: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
     borderColor: "border-yellow-400",
   },
   COMPLETED: {
     label: "Completed",
-    color: "bg-green-100 text-green-800",
+    color: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
     borderColor: "border-green-400",
   },
   FAILED: {
     label: "Failed",
-    color: "bg-red-100 text-red-800",
+    color: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
     borderColor: "border-red-400",
   },
   SKIPPED: {
@@ -157,9 +157,9 @@ const JOB_STATUS_CONFIG: Record<
 
 const RUN_STATUS_CONFIG: Record<RunStatus, { label: string; color: string }> = {
   PENDING: { label: "Pending", color: "bg-muted text-foreground" },
-  RUNNING: { label: "Running", color: "bg-yellow-100 text-yellow-800" },
-  COMPLETED: { label: "Completed", color: "bg-green-100 text-green-800" },
-  FAILED: { label: "Failed", color: "bg-red-100 text-red-800" },
+  RUNNING: { label: "Running", color: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200" },
+  COMPLETED: { label: "Completed", color: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200" },
+  FAILED: { label: "Failed", color: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200" },
 };
 
 // ---------------------------------------------------------------------------
@@ -173,14 +173,14 @@ const JOB_CATEGORY_COLORS: Record<
   { bg: string; text: string; border: string }
 > = {
   ca: {
-    bg: "bg-orange-100",
-    text: "text-orange-800",
-    border: "border-orange-300",
+    bg: "bg-orange-100 dark:bg-orange-900",
+    text: "text-orange-800 dark:text-orange-200",
+    border: "border-orange-300 dark:border-orange-700",
   },
   ttra: {
-    bg: "bg-purple-100",
-    text: "text-purple-800",
-    border: "border-purple-300",
+    bg: "bg-purple-100 dark:bg-purple-900",
+    text: "text-purple-800 dark:text-purple-200",
+    border: "border-purple-300 dark:border-purple-700",
   },
   default: {
     bg: "",
@@ -310,7 +310,7 @@ function JobCard({ job, onRetry, onSkip, retrying, skipping }: JobCardProps) {
         )}
 
         {job.status === "FAILED" && job.error_message && (
-          <p className="text-xs text-red-600 bg-red-50 p-2 rounded">
+          <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950 p-2 rounded">
             {job.error_message}
           </p>
         )}

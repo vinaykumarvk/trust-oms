@@ -116,30 +116,30 @@ interface HistoryEntry {
 /* ---------- Constants ---------- */
 
 const statusColors: Record<string, string> = {
-  NEW: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  NEW: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900 dark:text-blue-200',
   CONTACTED: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
-  QUALIFIED: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-  PROPOSAL_SENT: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-  ONBOARDING: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-  WON: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  LOST: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  QUALIFIED: 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900 dark:text-yellow-200',
+  PROPOSAL_SENT: 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 dark:bg-orange-900 dark:text-orange-200',
+  ONBOARDING: 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 dark:bg-purple-900 dark:text-purple-200',
+  WON: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200',
+  LOST: 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900 dark:text-red-200',
 };
 
 const sanctionsStatusColors: Record<string, string> = {
-  CLEARED: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  FLAGGED: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  PENDING: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-  NOT_SCREENED: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
+  CLEARED: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200',
+  FLAGGED: 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900 dark:text-red-200',
+  PENDING: 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900 dark:text-yellow-200',
+  NOT_SCREENED: 'bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-800 dark:text-gray-200',
 };
 
 const historyEventColors: Record<string, string> = {
-  STATUS_CHANGE: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  NOTE_ADDED: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
-  MEETING: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+  STATUS_CHANGE: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900 dark:text-blue-200',
+  NOTE_ADDED: 'bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-800 dark:text-gray-200',
+  MEETING: 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 dark:bg-purple-900 dark:text-purple-200',
   CALL: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
-  EMAIL: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  SCREENING: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-  DOCUMENT: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  EMAIL: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900 dark:text-blue-200',
+  SCREENING: 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 dark:bg-orange-900 dark:text-orange-200',
+  DOCUMENT: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200',
 };
 
 // Status transitions: which statuses can be reached from the current status
@@ -588,7 +588,7 @@ export default function ProspectDetailPage() {
                           <TableCell>{member.contact ?? <span className="text-muted-foreground">-</span>}</TableCell>
                           <TableCell>
                             {member.is_beneficiary ? (
-                              <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" variant="secondary">
+                              <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200" variant="secondary">
                                 Yes
                               </Badge>
                             ) : (
@@ -641,18 +641,18 @@ export default function ProspectDetailPage() {
                       <div key={entry.id} className="flex gap-4 items-start relative">
                         {/* Timeline dot */}
                         <div className="z-10 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-background border-2 border-border">
-                          {entry.event_type === 'STATUS_CHANGE' && <ArrowRight className="h-3 w-3 text-blue-600" />}
-                          {entry.event_type === 'MEETING' && <Users className="h-3 w-3 text-purple-600" />}
+                          {entry.event_type === 'STATUS_CHANGE' && <ArrowRight className="h-3 w-3 text-blue-600 dark:text-blue-400" />}
+                          {entry.event_type === 'MEETING' && <Users className="h-3 w-3 text-purple-600 dark:text-purple-400" />}
                           {entry.event_type === 'CALL' && <Phone className="h-3 w-3 text-cyan-600" />}
-                          {entry.event_type === 'EMAIL' && <Mail className="h-3 w-3 text-blue-600" />}
-                          {entry.event_type === 'SCREENING' && <Shield className="h-3 w-3 text-orange-600" />}
-                          {entry.event_type === 'DOCUMENT' && <FileText className="h-3 w-3 text-green-600" />}
-                          {entry.event_type === 'NOTE_ADDED' && <FileText className="h-3 w-3 text-gray-600" />}
+                          {entry.event_type === 'EMAIL' && <Mail className="h-3 w-3 text-blue-600 dark:text-blue-400" />}
+                          {entry.event_type === 'SCREENING' && <Shield className="h-3 w-3 text-orange-600 dark:text-orange-400" />}
+                          {entry.event_type === 'DOCUMENT' && <FileText className="h-3 w-3 text-green-600 dark:text-green-400" />}
+                          {entry.event_type === 'NOTE_ADDED' && <FileText className="h-3 w-3 text-gray-600 dark:text-gray-400" />}
                         </div>
                         <div className="flex-1 pb-2">
                           <div className="flex items-center gap-2 flex-wrap">
                             <Badge
-                              className={historyEventColors[entry.event_type] || 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'}
+                              className={historyEventColors[entry.event_type] || 'bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-800 dark:text-gray-200'}
                               variant="secondary"
                             >
                               {entry.event_type.replace(/_/g, ' ')}
@@ -711,11 +711,11 @@ export default function ProspectDetailPage() {
                     {prospect.negative_list_cleared === null ? (
                       <span className="text-muted-foreground">Not checked</span>
                     ) : prospect.negative_list_cleared ? (
-                      <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" variant="secondary">
+                      <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200" variant="secondary">
                         <CheckCircle className="mr-1 h-3 w-3" /> Cleared
                       </Badge>
                     ) : (
-                      <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" variant="secondary">
+                      <Badge className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900 dark:text-red-200" variant="secondary">
                         <AlertTriangle className="mr-1 h-3 w-3" /> Flagged
                       </Badge>
                     )}
@@ -735,13 +735,13 @@ export default function ProspectDetailPage() {
               )}
 
               {prospect.sanctions_status === 'FLAGGED' && (
-                <div className="flex items-center gap-3 rounded-md border border-red-300 bg-red-50 px-4 py-3 dark:border-red-800 dark:bg-red-950/30">
-                  <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-500 flex-shrink-0" />
+                <div className="flex items-center gap-3 rounded-md border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950 px-4 py-3 dark:border-red-800 dark:bg-red-950/30">
+                  <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 dark:text-red-500 flex-shrink-0" />
                   <div>
-                    <p className="text-sm font-medium text-red-800 dark:text-red-300">
+                    <p className="text-sm font-medium text-red-800 dark:text-red-200 dark:text-red-300">
                       Sanctions Flag Detected
                     </p>
-                    <p className="text-sm text-red-700 dark:text-red-400">
+                    <p className="text-sm text-red-700 dark:text-red-300 dark:text-red-400">
                       This prospect has been flagged during sanctions screening. Please review before proceeding
                       with any status changes.
                     </p>

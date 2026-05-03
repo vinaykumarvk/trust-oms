@@ -975,7 +975,7 @@ export default function ReportBuilderPage() {
 
       {/* Error */}
       {runQueryMutation.isError && (
-        <Card className="border-destructive">
+        <Card className="border-destructive" role="alert">
           <CardContent className="py-6">
             <div className="text-center">
               <p className="text-sm font-medium text-destructive">

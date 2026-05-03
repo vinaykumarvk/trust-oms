@@ -46,12 +46,12 @@ import {
 const REFETCH_INTERVAL = 60_000;
 
 const INVOICE_STATUS_COLORS: Record<string, string> = {
-  DRAFT: "bg-gray-200 text-gray-800",
-  ISSUED: "bg-blue-100 text-blue-800",
-  PARTIALLY_PAID: "bg-amber-100 text-amber-800",
-  PAID: "bg-green-100 text-green-800",
-  OVERDUE: "bg-red-100 text-red-800",
-  CANCELLED: "bg-gray-300 text-gray-600",
+  DRAFT: "bg-gray-200 text-gray-800 dark:text-gray-200",
+  ISSUED: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  PARTIALLY_PAID: "bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200",
+  PAID: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  OVERDUE: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+  CANCELLED: "bg-gray-300 text-gray-600 dark:text-gray-400",
 };
 
 /* ---------- Helpers ---------- */
@@ -335,19 +335,19 @@ export default function FeeDashboard() {
     slaAdherence === null
       ? "text-muted-foreground"
       : slaAdherence >= 90
-        ? "text-green-600"
+        ? "text-green-600 dark:text-green-400"
         : slaAdherence >= 70
-          ? "text-amber-600"
-          : "text-red-600";
+          ? "text-amber-600 dark:text-amber-400"
+          : "text-red-600 dark:text-red-400";
 
   const slaBg =
     slaAdherence === null
       ? "bg-muted"
       : slaAdherence >= 90
-        ? "bg-green-50 border-green-200"
+        ? "bg-green-50 dark:bg-green-950 border-green-200"
         : slaAdherence >= 70
-          ? "bg-amber-50 border-amber-200"
-          : "bg-red-50 border-red-200";
+          ? "bg-amber-50 dark:bg-amber-950 border-amber-200"
+          : "bg-red-50 dark:bg-red-950 border-red-200";
 
   return (
     <div className="space-y-6">

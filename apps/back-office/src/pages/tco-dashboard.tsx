@@ -79,7 +79,7 @@ interface MonthlySummary {
 const REFETCH_INTERVAL = 60_000;
 
 const trendColor = (v: number) =>
-  v > 0 ? "text-red-600" : v < 0 ? "text-green-600" : "text-muted-foreground";
+  v > 0 ? "text-red-600 dark:text-red-400" : v < 0 ? "text-green-600 dark:text-green-400" : "text-muted-foreground";
 
 const trendIcon = (v: number) =>
   v > 0 ? <TrendingUp className="h-3 w-3" /> : v < 0 ? <TrendingDown className="h-3 w-3" /> : null;
@@ -91,9 +91,9 @@ const fmtNumber = (v: number) =>
   new Intl.NumberFormat("en-US").format(v);
 
 const feedStatusBadge: Record<string, string> = {
-  active: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  degraded: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  inactive: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  active: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200",
+  degraded: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900 dark:text-yellow-200",
+  inactive: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900 dark:text-red-200",
 };
 
 /* ---------- Fallback / mock data for development ---------- */
@@ -272,7 +272,7 @@ export default function TcoDashboard() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Budget Variance</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className={`text-2xl font-bold ${latestSummary.variance <= 0 ? "text-green-600" : "text-red-600"}`}>
+              <div className={`text-2xl font-bold ${latestSummary.variance <= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
                 {latestSummary.variance <= 0 ? "" : "+"}{fmtCurrency(latestSummary.variance)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -575,7 +575,7 @@ export default function TcoDashboard() {
                       <TableCell className="text-right">{fmtCurrency(s.support)}</TableCell>
                       <TableCell className="text-right font-semibold">{fmtCurrency(s.total)}</TableCell>
                       <TableCell className="text-right">{fmtCurrency(s.budget)}</TableCell>
-                      <TableCell className={`text-right font-medium ${s.variance <= 0 ? "text-green-600" : "text-red-600"}`}>
+                      <TableCell className={`text-right font-medium ${s.variance <= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
                         {s.variance <= 0 ? "" : "+"}{fmtCurrency(s.variance)}
                       </TableCell>
                     </TableRow>
@@ -613,7 +613,7 @@ export default function TcoDashboard() {
                   </div>
                   <div>
                     <span className="text-muted-foreground">Net Variance</span>
-                    <div className={`text-lg font-semibold ${summary.reduce((a, s) => a + s.variance, 0) <= 0 ? "text-green-600" : "text-red-600"}`}>
+                    <div className={`text-lg font-semibold ${summary.reduce((a, s) => a + s.variance, 0) <= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
                       {fmtCurrency(summary.reduce((a, s) => a + s.variance, 0))}
                     </div>
                   </div>

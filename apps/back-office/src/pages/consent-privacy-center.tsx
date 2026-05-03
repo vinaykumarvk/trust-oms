@@ -52,10 +52,10 @@ export default function ConsentPrivacyCenter() {
   });
 
   const purposeColors: Record<string, string> = {
-    OPERATIONAL: 'bg-blue-100 text-blue-800',
-    MARKETING: 'bg-purple-100 text-purple-800',
-    AUTOMATED_DECISION: 'bg-orange-100 text-orange-800',
-    RESEARCH_AGGREGATE: 'bg-green-100 text-green-800',
+    OPERATIONAL: 'bg-blue-100 dark:bg-blue-900 text-blue-800',
+    MARKETING: 'bg-purple-100 dark:bg-purple-900 text-purple-800',
+    AUTOMATED_DECISION: 'bg-orange-100 dark:bg-orange-900 text-orange-800',
+    RESEARCH_AGGREGATE: 'bg-green-100 dark:bg-green-900 text-green-800',
   };
 
   return (
@@ -99,10 +99,10 @@ export default function ConsentPrivacyCenter() {
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-        <Card><CardContent className="flex items-center gap-3 pt-6"><Shield className="h-8 w-8 text-blue-600" /><div><p className="text-2xl font-bold">{consents?.data?.length || 0}</p><p className="text-sm text-muted-foreground">Active Consents</p></div></CardContent></Card>
-        <Card><CardContent className="flex items-center gap-3 pt-6"><UserX className="h-8 w-8 text-red-600" /><div><p className="text-2xl font-bold">{erasureQueue?.total || 0}</p><p className="text-sm text-muted-foreground">Erasure Queue</p></div></CardContent></Card>
-        <Card><CardContent className="flex items-center gap-3 pt-6"><FileCheck className="h-8 w-8 text-green-600" /><div><p className="text-2xl font-bold">{consents?.data?.filter((c: any) => c.purpose === 'MARKETING' && c.granted).length || 0}</p><p className="text-sm text-muted-foreground">Marketing Consents</p></div></CardContent></Card>
-        <Card><CardContent className="flex items-center gap-3 pt-6"><Clock className="h-8 w-8 text-orange-600" /><div><p className="text-2xl font-bold">{erasureQueue?.data?.filter((e: any) => e.overdue).length || 0}</p><p className="text-sm text-muted-foreground">Overdue Erasures</p></div></CardContent></Card>
+        <Card><CardContent className="flex items-center gap-3 pt-6"><Shield className="h-8 w-8 text-blue-600 dark:text-blue-400" /><div><p className="text-2xl font-bold">{consents?.data?.length || 0}</p><p className="text-sm text-muted-foreground">Active Consents</p></div></CardContent></Card>
+        <Card><CardContent className="flex items-center gap-3 pt-6"><UserX className="h-8 w-8 text-red-600 dark:text-red-400" /><div><p className="text-2xl font-bold">{erasureQueue?.total || 0}</p><p className="text-sm text-muted-foreground">Erasure Queue</p></div></CardContent></Card>
+        <Card><CardContent className="flex items-center gap-3 pt-6"><FileCheck className="h-8 w-8 text-green-600 dark:text-green-400" /><div><p className="text-2xl font-bold">{consents?.data?.filter((c: any) => c.purpose === 'MARKETING' && c.granted).length || 0}</p><p className="text-sm text-muted-foreground">Marketing Consents</p></div></CardContent></Card>
+        <Card><CardContent className="flex items-center gap-3 pt-6"><Clock className="h-8 w-8 text-orange-600 dark:text-orange-400" /><div><p className="text-2xl font-bold">{erasureQueue?.data?.filter((e: any) => e.overdue).length || 0}</p><p className="text-sm text-muted-foreground">Overdue Erasures</p></div></CardContent></Card>
       </div>
 
       <Tabs defaultValue="consents">
@@ -139,7 +139,7 @@ export default function ConsentPrivacyCenter() {
                   <TableCell><Badge className={purposeColors[c.purpose] || ''}>{c.purpose}</Badge></TableCell>
                   <TableCell>{Array.isArray(c.channel_scope) ? c.channel_scope.join(', ') : '—'}</TableCell>
                   <TableCell>{c.legal_basis}</TableCell>
-                  <TableCell><Badge className={c.granted ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>{c.granted ? 'Active' : 'Withdrawn'}</Badge></TableCell>
+                  <TableCell><Badge className={c.granted ? 'bg-green-100 dark:bg-green-900 text-green-800' : 'bg-red-100 dark:bg-red-900 text-red-800'}>{c.granted ? 'Active' : 'Withdrawn'}</Badge></TableCell>
                   <TableCell>{c.granted_at ? new Date(c.granted_at).toLocaleDateString() : '—'}</TableCell>
                   <TableCell>{c.granted && <Button variant="outline" size="sm" onClick={() => withdrawMutation.mutate(c.consent_id)}>Withdraw</Button>}</TableCell>
                 </TableRow>
@@ -169,8 +169,8 @@ export default function ConsentPrivacyCenter() {
                   <TableCell>{e.clientId}</TableCell>
                   <TableCell>{new Date(e.requestedAt).toLocaleDateString()}</TableCell>
                   <TableCell>{new Date(e.deadline).toLocaleDateString()}</TableCell>
-                  <TableCell><Badge className={e.overdue ? 'bg-red-100 text-red-800' : e.daysRemaining <= 7 ? 'bg-orange-100 text-orange-800' : 'bg-green-100 text-green-800'}>{e.overdue ? 'OVERDUE' : `${e.daysRemaining}d`}</Badge></TableCell>
-                  <TableCell><Badge className={e.overdue ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}>{e.overdue ? 'Overdue' : 'Pending'}</Badge></TableCell>
+                  <TableCell><Badge className={e.overdue ? 'bg-red-100 dark:bg-red-900 text-red-800' : e.daysRemaining <= 7 ? 'bg-orange-100 dark:bg-orange-900 text-orange-800' : 'bg-green-100 dark:bg-green-900 text-green-800'}>{e.overdue ? 'OVERDUE' : `${e.daysRemaining}d`}</Badge></TableCell>
+                  <TableCell><Badge className={e.overdue ? 'bg-red-100 dark:bg-red-900 text-red-800' : 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800'}>{e.overdue ? 'Overdue' : 'Pending'}</Badge></TableCell>
                   <TableCell><Button variant="outline" size="sm" onClick={() => processErasureMutation.mutate(e.clientId)}>Process Erasure</Button></TableCell>
                 </TableRow>
               ))}

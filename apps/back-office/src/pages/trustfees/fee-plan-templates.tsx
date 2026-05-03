@@ -48,12 +48,12 @@ const CATEGORY_LABELS: Record<string, string> = {
   ADHOC: "Ad Hoc",
 };
 const CATEGORY_COLORS: Record<string, string> = {
-  TRUST_DISC: "bg-blue-100 text-blue-800",
+  TRUST_DISC: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
   TRUST_DIR: "bg-indigo-100 text-indigo-800",
-  RETIREMENT: "bg-purple-100 text-purple-800",
+  RETIREMENT: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200",
   ESCROW: "bg-cyan-100 text-cyan-800",
-  TXN: "bg-orange-100 text-orange-800",
-  ADHOC: "bg-gray-100 text-gray-600",
+  TXN: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200",
+  ADHOC: "bg-gray-100 text-gray-600 dark:text-gray-400",
 };
 
 /* ---------- Helpers ---------- */
@@ -291,7 +291,7 @@ export default function FeePlanTemplates() {
                       <TableCell className="text-sm">{t.jurisdiction_id ?? "\u2014"}</TableCell>
                       <TableCell>
                         {t.is_active ? (
-                          <Badge className="bg-green-100 text-green-800">Active</Badge>
+                          <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">Active</Badge>
                         ) : (
                           <Badge variant="outline" className="text-muted-foreground">Inactive</Badge>
                         )}
@@ -376,7 +376,7 @@ export default function FeePlanTemplates() {
                     }}
                     spellCheck={false}
                   />
-                  {jsonError && <p className="text-sm text-red-600">{jsonError}</p>}
+                  {jsonError && <p className="text-sm text-red-600 dark:text-red-400">{jsonError}</p>}
                 </div>
 
                 {/* Active Toggle */}

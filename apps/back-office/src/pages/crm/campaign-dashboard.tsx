@@ -68,21 +68,21 @@ const CAMPAIGN_TYPES = [
 type CampaignType = typeof CAMPAIGN_TYPES[number];
 
 const statusColors: Record<string, string> = {
-  DRAFT: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
-  PENDING_APPROVAL: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
-  ACTIVE: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-  COMPLETED: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-  PAUSED: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
+  DRAFT: 'bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-800 dark:text-gray-300',
+  PENDING_APPROVAL: 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900 dark:text-yellow-300',
+  ACTIVE: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-300',
+  COMPLETED: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900 dark:text-blue-300',
+  PAUSED: 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 dark:bg-orange-900 dark:text-orange-300',
   ARCHIVED: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
 };
 
 const typeColors: Record<string, string> = {
-  PRODUCT_LAUNCH: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
-  EVENT_INVITATION: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+  PRODUCT_LAUNCH: 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 dark:bg-purple-900 dark:text-purple-300',
+  EVENT_INVITATION: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900 dark:text-blue-300',
   EDUCATIONAL: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-300',
-  REFERRAL: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-  CROSS_SELL: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
-  UP_SELL: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',
+  REFERRAL: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-300',
+  CROSS_SELL: 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 dark:bg-orange-900 dark:text-orange-300',
+  UP_SELL: 'bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 dark:bg-amber-900 dark:text-amber-300',
   RETENTION: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300',
   RE_ENGAGEMENT: 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-300',
 };
@@ -501,7 +501,7 @@ export default function CampaignDashboard() {
         <Button
           size="sm"
           variant="ghost"
-          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950/30"
+          className="text-red-600 dark:text-red-400 hover:text-red-700 dark:text-red-300 hover:bg-red-50 dark:bg-red-950 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950/30"
           onClick={() => {
             setSelectedCampaignId(campaign.id);
             setDeleteConfirmOpen(true);

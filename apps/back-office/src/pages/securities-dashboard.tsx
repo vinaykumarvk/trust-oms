@@ -32,11 +32,11 @@ function fmt(n: string | number | null | undefined): string {
 }
 
 const statusColors: Record<string, string> = {
-  PENDING: "bg-yellow-100 text-yellow-800",
-  PROCESSING: "bg-blue-100 text-blue-800",
-  COMPLETED: "bg-green-100 text-green-800",
-  CANCELLED: "bg-red-100 text-red-800",
-  REJECTED: "bg-red-100 text-red-800",
+  PENDING: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+  PROCESSING: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  COMPLETED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  CANCELLED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+  REJECTED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
 };
 
 export default function SecuritiesDashboard() {
@@ -249,7 +249,7 @@ export default function SecuritiesDashboard() {
                     <TableCell>{m.venue}</TableCell>
                     <TableCell className="text-right font-mono">{fmt(m.total_voted_shares)}</TableCell>
                     <TableCell>
-                      <Badge className={m.quorum_reached ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+                      <Badge className={m.quorum_reached ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200" : "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200"}>
                         {m.quorum_reached ? "Yes" : "No"}
                       </Badge>
                     </TableCell>

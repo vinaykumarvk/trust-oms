@@ -79,10 +79,10 @@ interface RiskAppetiteMapping {
 /* ========== Constants ========== */
 
 const STATUS_COLORS: Record<string, string> = {
-  UNAUTHORIZED: "bg-yellow-100 text-yellow-800",
-  MODIFIED: "bg-blue-100 text-blue-800",
-  AUTHORIZED: "bg-green-100 text-green-800",
-  REJECTED: "bg-red-100 text-red-800",
+  UNAUTHORIZED: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+  MODIFIED: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  AUTHORIZED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  REJECTED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
 };
 
 const DEFAULT_BANDS: RiskBand[] = [
@@ -334,13 +334,13 @@ export default function RiskAppetiteMapping() {
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm font-medium text-muted-foreground">Authorized</p>
-            <p className="mt-1 text-2xl font-bold text-green-600">{summary.authorized}</p>
+            <p className="mt-1 text-2xl font-bold text-green-600 dark:text-green-400">{summary.authorized}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm font-medium text-muted-foreground">Pending Review</p>
-            <p className="mt-1 text-2xl font-bold text-yellow-600">{summary.pending}</p>
+            <p className="mt-1 text-2xl font-bold text-yellow-600 dark:text-yellow-400">{summary.pending}</p>
           </CardContent>
         </Card>
       </div>

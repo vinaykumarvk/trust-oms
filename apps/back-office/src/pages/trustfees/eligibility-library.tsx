@@ -96,9 +96,9 @@ interface EligibilityExpression {
 /* ========== Constants ========== */
 
 const STATUS_COLORS: Record<string, string> = {
-  DRAFT: "bg-yellow-100 text-yellow-800",
-  PENDING_APPROVAL: "bg-blue-100 text-blue-800",
-  ACTIVE: "bg-green-100 text-green-800",
+  DRAFT: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+  PENDING_APPROVAL: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  ACTIVE: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
   RETIRED: "bg-muted text-muted-foreground",
 };
 
@@ -501,9 +501,9 @@ function TraceTree({ node, depth = 0 }: { node: TraceNode; depth?: number }) {
         )}
         {!hasChildren && <span className="w-5" />}
         {node.result ? (
-          <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+          <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
         ) : (
-          <XCircle className="h-4 w-4 text-red-600 shrink-0" />
+          <XCircle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0" />
         )}
         <span className="font-mono text-sm">{node.op}</span>
         {node.field && (
@@ -524,8 +524,8 @@ function TraceTree({ node, depth = 0 }: { node: TraceNode; depth?: number }) {
           variant="outline"
           className={
             node.result
-              ? "text-green-700 border-green-300"
-              : "text-red-700 border-red-300"
+              ? "text-green-700 dark:text-green-300 border-green-300"
+              : "text-red-700 dark:text-red-300 border-red-300"
           }
         >
           {node.result ? "TRUE" : "FALSE"}
@@ -1114,14 +1114,14 @@ export default function EligibilityLibrary() {
                 <div
                   className={`flex items-center gap-3 rounded-lg border p-4 ${
                     testResult.result
-                      ? "border-green-300 bg-green-50"
-                      : "border-red-300 bg-red-50"
+                      ? "border-green-300 dark:border-green-700 bg-green-50"
+                      : "border-red-300 dark:border-red-700 bg-red-50"
                   }`}
                 >
                   {testResult.result ? (
-                    <CheckCircle2 className="h-6 w-6 text-green-600" />
+                    <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
                   ) : (
-                    <XCircle className="h-6 w-6 text-red-600" />
+                    <XCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
                   )}
                   <div>
                     <p className="font-semibold">

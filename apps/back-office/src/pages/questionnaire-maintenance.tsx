@@ -35,10 +35,10 @@ import {
 const API = "/api/v1/risk-profiling";
 
 const STATUS_COLORS: Record<string, string> = {
-  UNAUTHORIZED: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
-  MODIFIED: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
-  AUTHORIZED: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  REJECTED: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  UNAUTHORIZED: "bg-gray-100 text-gray-700 dark:text-gray-300 dark:bg-gray-700 dark:text-gray-300",
+  MODIFIED: "bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 dark:bg-amber-900/30 dark:text-amber-400",
+  AUTHORIZED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900/30 dark:text-green-400",
+  REJECTED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900/30 dark:text-red-400",
 };
 
 const CUSTOMER_CATEGORIES = ["Individual", "Non-Individual", "Both"] as const;

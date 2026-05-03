@@ -147,53 +147,53 @@ const API = "/api/v1/ham";
 
 const statusBadgeClasses: Record<string, string> = {
   pending_auth:
-    "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+    "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900 dark:text-yellow-200",
   authorized:
-    "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  rejected: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-  cancelled: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
-  draft: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+    "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200",
+  rejected: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900 dark:text-red-200",
+  cancelled: "bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-800 dark:text-gray-200",
+  draft: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900 dark:text-blue-200",
   pending_reversal:
-    "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+    "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 dark:bg-orange-900 dark:text-orange-200",
   bulk_pending_review:
-    "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+    "bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 dark:bg-amber-900 dark:text-amber-200",
 };
 
 const entityTypeBadgeClasses: Record<string, string> = {
-  lead: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  lead: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900 dark:text-blue-200",
   prospect:
-    "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+    "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 dark:bg-purple-900 dark:text-purple-200",
   client:
     "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
 };
 
 const checklistStatusClasses: Record<string, string> = {
   pending:
-    "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+    "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900 dark:text-yellow-200",
   completed:
-    "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+    "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200",
   not_applicable:
-    "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+    "bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-800 dark:text-gray-200",
   work_in_progress:
-    "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+    "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900 dark:text-blue-200",
 };
 
 const auditEventColors: Record<string, string> = {
   handover_created:
-    "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+    "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900 dark:text-blue-200",
   handover_authorized:
-    "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+    "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200",
   handover_rejected:
-    "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+    "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900 dark:text-red-200",
   handover_cancelled:
-    "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+    "bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-800 dark:text-gray-200",
   handover_amended:
-    "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+    "bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 dark:bg-amber-900 dark:text-amber-200",
   batch_authorize:
-    "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  batch_reject: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+    "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200",
+  batch_reject: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900 dark:text-red-200",
   delegation_early_terminated:
-    "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+    "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 dark:bg-orange-900 dark:text-orange-200",
 };
 
 /* ---------- Helpers ---------- */
@@ -503,7 +503,7 @@ export default function HandoverDetailPage() {
 
       {/* Reject reason input */}
       {showRejectInput && (
-        <Card className="border-red-300 dark:border-red-800">
+        <Card className="border-red-300 dark:border-red-700 dark:border-red-800">
           <CardContent className="pt-4 space-y-3">
             <label className="text-sm font-medium">Rejection Reason *</label>
             <textarea
@@ -543,9 +543,9 @@ export default function HandoverDetailPage() {
 
       {/* Rejection reason display (if already rejected) */}
       {request.status === "rejected" && request.rejection_reason && (
-        <Card className="border-red-300 dark:border-red-800">
+        <Card className="border-red-300 dark:border-red-700 dark:border-red-800">
           <CardContent className="pt-4">
-            <p className="text-sm font-medium text-red-800 dark:text-red-300 mb-1">
+            <p className="text-sm font-medium text-red-800 dark:text-red-200 dark:text-red-300 mb-1">
               Rejection Reason
             </p>
             <p className="text-sm">{request.rejection_reason}</p>
@@ -782,7 +782,7 @@ export default function HandoverDetailPage() {
                         <Badge
                           className={
                             auditEventColors[entry.event_type] ||
-                            "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
+                            "bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-800 dark:text-gray-200"
                           }
                           variant="secondary"
                         >

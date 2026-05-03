@@ -287,7 +287,7 @@ export default function CallReportList() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm">
-                      <span className={days > 5 ? 'text-orange-600 font-medium' : ''}>
+                      <span className={days > 5 ? 'text-orange-600 dark:text-orange-400 font-medium' : ''}>
                         {days}d
                       </span>
                     </TableCell>

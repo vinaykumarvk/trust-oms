@@ -496,7 +496,7 @@ export default function RiskAnalytics() {
           {computeVarMut.isError && (
             <Card>
               <CardContent className="pt-6">
-                <p className="text-sm text-red-600">VAR computation failed. Check the portfolio ID and try again.</p>
+                <p className="text-sm text-red-600 dark:text-red-400" role="alert">VAR computation failed. Check the portfolio ID and try again.</p>
               </CardContent>
             </Card>
           )}
@@ -510,7 +510,7 @@ export default function RiskAnalytics() {
                 <div className="grid gap-4 md:grid-cols-5">
                   <div>
                     <p className="text-xs font-medium text-muted-foreground">VAR Amount</p>
-                    <p className="text-lg font-bold text-red-600">{formatNumber(latestVar.var_amount)}</p>
+                    <p className="text-lg font-bold text-red-600 dark:text-red-400">{formatNumber(latestVar.var_amount)}</p>
                   </div>
                   <div>
                     <p className="text-xs font-medium text-muted-foreground">VAR %</p>
@@ -552,11 +552,11 @@ export default function RiskAnalytics() {
                     {varHistory.map((v, idx) => (
                       <TableRow key={idx}>
                         <TableCell>
-                          <Badge className="bg-blue-100 text-blue-800 capitalize">
+                          <Badge className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 capitalize">
                             {v.method.replace("_", " ")}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right font-mono text-sm text-red-600">
+                        <TableCell className="text-right font-mono text-sm text-red-600 dark:text-red-400">
                           {formatNumber(v.var_amount)}
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">
@@ -609,7 +609,7 @@ export default function RiskAnalytics() {
           {(macaulayMut.isError || modifiedMut.isError) && (
             <Card>
               <CardContent className="pt-6">
-                <p className="text-sm text-red-600">Duration computation failed. Check the portfolio ID and try again.</p>
+                <p className="text-sm text-red-600 dark:text-red-400" role="alert">Duration computation failed. Check the portfolio ID and try again.</p>
               </CardContent>
             </Card>
           )}
@@ -689,7 +689,7 @@ export default function RiskAnalytics() {
               </div>
 
               {benchmarkMut.isError && (
-                <p className="mt-3 text-sm text-red-600">Failed to load benchmark duration.</p>
+                <p className="mt-3 text-sm text-red-600 dark:text-red-400">Failed to load benchmark duration.</p>
               )}
 
               {benchmarkResult && durResult?.modified_duration != null && (
@@ -705,7 +705,7 @@ export default function RiskAnalytics() {
                   <div className="rounded-lg border p-4">
                     <p className="text-xs font-medium text-muted-foreground">Difference</p>
                     <p className={`mt-1 text-2xl font-bold ${
-                      durResult.modified_duration - benchmarkResult.duration > 0 ? "text-red-600" : "text-green-600"
+                      durResult.modified_duration - benchmarkResult.duration > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"
                     }`}>
                       {(durResult.modified_duration - benchmarkResult.duration).toFixed(4)}
                     </p>
@@ -735,7 +735,7 @@ export default function RiskAnalytics() {
                   <div className="grid gap-4 md:grid-cols-3">
                     <div className="rounded-lg border p-4">
                       <p className="text-xs font-medium text-muted-foreground">Flagged Securities</p>
-                      <p className="mt-1 text-2xl font-bold text-red-600">{irepDashboard.flagged_count}</p>
+                      <p className="mt-1 text-2xl font-bold text-red-600 dark:text-red-400">{irepDashboard.flagged_count}</p>
                     </div>
                     <div className="rounded-lg border p-4">
                       <p className="text-xs font-medium text-muted-foreground">Total Monitored</p>
@@ -769,8 +769,8 @@ export default function RiskAnalytics() {
                               </TableCell>
                               <TableCell>
                                 <Badge className={
-                                  d.disposition === "SELL" ? "bg-red-100 text-red-800" :
-                                  d.disposition === "BUY_MORE" ? "bg-green-100 text-green-800" :
+                                  d.disposition === "SELL" ? "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200" :
+                                  d.disposition === "BUY_MORE" ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200" :
                                   "bg-muted text-foreground"
                                 }>
                                   {d.disposition}
@@ -826,7 +826,7 @@ export default function RiskAnalytics() {
               </div>
 
               {priceMovementMut.isError && (
-                <p className="mt-3 text-sm text-red-600">Failed to check price movement.</p>
+                <p className="mt-3 text-sm text-red-600 dark:text-red-400">Failed to check price movement.</p>
               )}
 
               {priceMovement && (
@@ -842,7 +842,7 @@ export default function RiskAnalytics() {
                   <div className="rounded-lg border p-4">
                     <p className="text-xs font-medium text-muted-foreground">Change %</p>
                     <p className={`mt-1 text-xl font-bold ${
-                      priceMovement.change_pct >= 0 ? "text-green-600" : "text-red-600"
+                      priceMovement.change_pct >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
                     }`}>
                       {priceMovement.change_pct.toFixed(2)}%
                     </p>
@@ -851,12 +851,12 @@ export default function RiskAnalytics() {
                     <p className="text-xs font-medium text-muted-foreground">Breached</p>
                     <div className="mt-1">
                       {priceMovement.breached ? (
-                        <Badge className="bg-red-100 text-red-800">
+                        <Badge className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200">
                           <AlertTriangle className="h-3 w-3 mr-1" />
                           BREACHED
                         </Badge>
                       ) : (
-                        <Badge className="bg-green-100 text-green-800">
+                        <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
                           <CheckCircle className="h-3 w-3 mr-1" />
                           WITHIN LIMIT
                         </Badge>
@@ -918,11 +918,11 @@ export default function RiskAnalytics() {
               </div>
 
               {dispositionMut.isError && (
-                <p className="mt-3 text-sm text-red-600">Failed to record disposition.</p>
+                <p className="mt-3 text-sm text-red-600 dark:text-red-400">Failed to record disposition.</p>
               )}
 
               {dispositionMut.isSuccess && (
-                <p className="mt-3 text-sm text-green-600">Disposition recorded successfully.</p>
+                <p className="mt-3 text-sm text-green-600 dark:text-green-400">Disposition recorded successfully.</p>
               )}
             </CardContent>
           </Card>
@@ -971,7 +971,7 @@ export default function RiskAnalytics() {
           {backtestMut.isError && (
             <Card>
               <CardContent className="pt-6">
-                <p className="text-sm text-red-600">Back-test failed. Check the portfolio ID and try again.</p>
+                <p className="text-sm text-red-600 dark:text-red-400" role="alert">Back-test failed. Check the portfolio ID and try again.</p>
               </CardContent>
             </Card>
           )}
@@ -982,7 +982,7 @@ export default function RiskAnalytics() {
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="rounded-lg border p-4">
                   <p className="text-xs font-medium text-muted-foreground">Breach Count</p>
-                  <p className="mt-1 text-2xl font-bold text-red-600">{btResult.breach_count} / {btResult.total_days}</p>
+                  <p className="mt-1 text-2xl font-bold text-red-600 dark:text-red-400">{btResult.breach_count} / {btResult.total_days}</p>
                 </div>
                 <div className="rounded-lg border p-4">
                   <p className="text-xs font-medium text-muted-foreground">Breach %</p>
@@ -992,12 +992,12 @@ export default function RiskAnalytics() {
                   <p className="text-xs font-medium text-muted-foreground">Result</p>
                   <div className="mt-1">
                     {btResult.breach_pct > 5 ? (
-                      <Badge className="bg-red-100 text-red-800 text-base px-3 py-1">
+                      <Badge className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-base px-3 py-1">
                         <XCircle className="h-4 w-4 mr-1" />
                         FAIL
                       </Badge>
                     ) : (
-                      <Badge className="bg-green-100 text-green-800 text-base px-3 py-1">
+                      <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-base px-3 py-1">
                         <CheckCircle className="h-4 w-4 mr-1" />
                         PASS
                       </Badge>
@@ -1024,22 +1024,22 @@ export default function RiskAnalytics() {
                       btResult.rows.map((row, idx) => (
                         <TableRow key={idx}>
                           <TableCell className="text-sm">{formatDate(row.date)}</TableCell>
-                          <TableCell className="text-right font-mono text-sm text-red-600">
+                          <TableCell className="text-right font-mono text-sm text-red-600 dark:text-red-400">
                             {formatNumber(row.predicted_var)}
                           </TableCell>
                           <TableCell className={`text-right font-mono text-sm ${
-                            row.actual_pnl < 0 ? "text-red-600" : "text-green-600"
+                            row.actual_pnl < 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"
                           }`}>
                             {formatNumber(row.actual_pnl)}
                           </TableCell>
                           <TableCell>
                             {row.breached ? (
-                              <Badge className="bg-red-100 text-red-800">
+                              <Badge className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200">
                                 <XCircle className="h-3 w-3 mr-1" />
                                 Breached
                               </Badge>
                             ) : (
-                              <Badge className="bg-green-100 text-green-800">
+                              <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
                                 <CheckCircle className="h-3 w-3 mr-1" />
                                 OK
                               </Badge>
@@ -1058,7 +1058,7 @@ export default function RiskAnalytics() {
           {backtestIncomeMut.isError && (
             <Card>
               <CardContent className="pt-6">
-                <p className="text-sm text-red-600">Income back-test failed. Check the portfolio ID and try again.</p>
+                <p className="text-sm text-red-600 dark:text-red-400" role="alert">Income back-test failed. Check the portfolio ID and try again.</p>
               </CardContent>
             </Card>
           )}
@@ -1081,7 +1081,7 @@ export default function RiskAnalytics() {
                   <div className="rounded-lg border p-4">
                     <p className="text-xs font-medium text-muted-foreground">Variance</p>
                     <p className={`mt-1 text-xl font-bold ${
-                      btIncomeResult.variance < 0 ? "text-red-600" : "text-green-600"
+                      btIncomeResult.variance < 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"
                     }`}>
                       {formatNumber(btIncomeResult.variance)}
                     </p>
@@ -1089,7 +1089,7 @@ export default function RiskAnalytics() {
                   <div className="rounded-lg border p-4">
                     <p className="text-xs font-medium text-muted-foreground">Variance %</p>
                     <p className={`mt-1 text-xl font-bold ${
-                      btIncomeResult.variance_pct < 0 ? "text-red-600" : "text-green-600"
+                      btIncomeResult.variance_pct < 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"
                     }`}>
                       {btIncomeResult.variance_pct.toFixed(2)}%
                     </p>

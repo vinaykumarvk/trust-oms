@@ -367,19 +367,19 @@ function SlaComplianceReport() {
           <Card>
             <CardContent className="pt-4 text-center">
               <p className="text-sm text-muted-foreground">Within SLA</p>
-              <p className="text-2xl font-bold text-green-600">—</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">—</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-4 text-center">
               <p className="text-sm text-muted-foreground">Near Breach</p>
-              <p className="text-2xl font-bold text-yellow-600">—</p>
+              <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">—</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-4 text-center">
               <p className="text-sm text-muted-foreground">Breached</p>
-              <p className="text-2xl font-bold text-red-600">—</p>
+              <p className="text-2xl font-bold text-red-600 dark:text-red-400">—</p>
             </CardContent>
           </Card>
         </div>

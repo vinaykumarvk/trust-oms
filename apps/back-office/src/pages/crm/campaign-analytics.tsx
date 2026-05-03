@@ -125,19 +125,19 @@ const RESPONSE_BAR_COLORS: Record<string, string> = {
 };
 
 const RESPONSE_TEXT_COLORS: Record<string, string> = {
-  INTERESTED: 'text-green-700 dark:text-green-400',
-  NOT_INTERESTED: 'text-red-700 dark:text-red-400',
-  MAYBE: 'text-yellow-700 dark:text-yellow-400',
-  CONVERTED: 'text-purple-700 dark:text-purple-400',
+  INTERESTED: 'text-green-700 dark:text-green-300 dark:text-green-400',
+  NOT_INTERESTED: 'text-red-700 dark:text-red-300 dark:text-red-400',
+  MAYBE: 'text-yellow-700 dark:text-yellow-300 dark:text-yellow-400',
+  CONVERTED: 'text-purple-700 dark:text-purple-300 dark:text-purple-400',
   NO_RESPONSE: 'text-gray-600 dark:text-gray-400',
 };
 
 const RESPONSE_BADGE_COLORS: Record<string, string> = {
-  INTERESTED: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  NOT_INTERESTED: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  MAYBE: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-  CONVERTED: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-  NO_RESPONSE: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
+  INTERESTED: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200',
+  NOT_INTERESTED: 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900 dark:text-red-200',
+  MAYBE: 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900 dark:text-yellow-200',
+  CONVERTED: 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 dark:bg-purple-900 dark:text-purple-200',
+  NO_RESPONSE: 'bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-800 dark:text-gray-200',
 };
 
 const TIMELINE_ICONS: Record<string, typeof CheckCircle> = {
@@ -538,10 +538,10 @@ export default function CampaignAnalytics() {
                           variant="secondary"
                           className={
                             rm.response_rate >= 70
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                              ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200'
                               : rm.response_rate >= 40
-                                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                                : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                                ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900 dark:text-yellow-200'
+                                : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900 dark:text-red-200'
                           }
                         >
                           {rm.response_rate.toFixed(1)}%
@@ -552,10 +552,10 @@ export default function CampaignAnalytics() {
                           variant="secondary"
                           className={
                             rm.conversion_rate >= 30
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                              ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200'
                               : rm.conversion_rate >= 15
-                                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                                : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                                ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 dark:bg-yellow-900 dark:text-yellow-200'
+                                : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900 dark:text-red-200'
                           }
                         >
                           {rm.conversion_rate.toFixed(1)}%
@@ -682,13 +682,13 @@ export default function CampaignAnalytics() {
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Delivered</p>
-                        <p className="text-2xl font-bold text-green-600">
+                        <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                           {campaignAnalytics.dispatch.delivered.toLocaleString()}
                         </p>
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Bounced</p>
-                        <p className="text-2xl font-bold text-red-600">
+                        <p className="text-2xl font-bold text-red-600 dark:text-red-400">
                           {campaignAnalytics.dispatch.bounced.toLocaleString()}
                         </p>
                       </div>
@@ -822,11 +822,11 @@ export default function CampaignAnalytics() {
                             variant="secondary"
                             className={
                               c.campaign_status === 'ACTIVE'
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-200'
                                 : c.campaign_status === 'DRAFT'
-                                  ? 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+                                  ? 'bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-800 dark:text-gray-200'
                                   : c.campaign_status === 'COMPLETED'
-                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900 dark:text-blue-200'
                                     : ''
                             }
                           >

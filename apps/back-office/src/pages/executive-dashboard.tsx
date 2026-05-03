@@ -101,9 +101,9 @@ const FEE_TYPE_COLORS: Record<string, string> = {
 };
 
 const STATUS_BADGE: Record<string, string> = {
-  ON_TIME: "bg-green-100 text-green-800 border-green-200",
-  OVERDUE: "bg-red-100 text-red-800 border-red-200",
-  UPCOMING: "bg-blue-100 text-blue-800 border-blue-200",
+  ON_TIME: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-200",
+  OVERDUE: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border-red-200",
+  UPCOMING: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-blue-200",
 };
 
 // ---------------------------------------------------------------------------
@@ -253,9 +253,9 @@ function Sparkline({
 
 function ScoreCircle({ score }: { score: number }) {
   const color =
-    score >= 80 ? "text-green-600" : score >= 60 ? "text-yellow-600" : "text-red-600";
+    score >= 80 ? "text-green-600 dark:text-green-400" : score >= 60 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400";
   const bgColor =
-    score >= 80 ? "bg-green-50" : score >= 60 ? "bg-yellow-50" : "bg-red-50";
+    score >= 80 ? "bg-green-50 dark:bg-green-950" : score >= 60 ? "bg-yellow-50 dark:bg-yellow-950" : "bg-red-50 dark:bg-red-950";
   const ringColor =
     score >= 80 ? "border-green-500" : score >= 60 ? "border-yellow-500" : "border-red-500";
 
@@ -322,10 +322,10 @@ export default function ExecutiveDashboard() {
 
   const stpColor = ops
     ? ops.stpRate >= 0.92
-      ? "text-green-600"
+      ? "text-green-600 dark:text-green-400"
       : ops.stpRate >= 0.85
-        ? "text-yellow-600"
-        : "text-red-600"
+        ? "text-yellow-600 dark:text-yellow-400"
+        : "text-red-600 dark:text-red-400"
     : "text-muted-foreground";
 
   // -- Render ---------------------------------------------------------------
@@ -374,7 +374,7 @@ export default function ExecutiveDashboard() {
                 )}
                 <span
                   className={`text-xs font-medium ${
-                    aumChangeFromLastMonth >= 0 ? "text-green-600" : "text-red-600"
+                    aumChangeFromLastMonth >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
                   }`}
                 >
                   {aumChangeFromLastMonth >= 0 ? "+" : ""}
@@ -452,11 +452,11 @@ export default function ExecutiveDashboard() {
                   Target: {formatPct(ops?.stpTarget ?? 0.92)}
                 </span>
                 {ops && ops.stpRate >= ops.stpTarget ? (
-                  <Badge variant="outline" className="text-[10px] bg-green-50 text-green-700 border-green-200">
+                  <Badge variant="outline" className="text-[10px] bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200">
                     Meeting
                   </Badge>
                 ) : (
-                  <Badge variant="outline" className="text-[10px] bg-red-50 text-red-700 border-red-200">
+                  <Badge variant="outline" className="text-[10px] bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200">
                     Below Target
                   </Badge>
                 )}
@@ -626,36 +626,36 @@ export default function ExecutiveDashboard() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 bg-red-50 rounded-lg border border-red-100">
+              <div className="text-center p-4 bg-red-50 dark:bg-red-950 rounded-lg border border-red-100">
                 <AlertOctagon className="h-6 w-6 text-red-500 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-red-700">
+                <div className="text-2xl font-bold text-red-700 dark:text-red-300">
                   {risk?.openBreaches ?? 0}
                 </div>
-                <div className="text-xs text-red-600 mt-1">Open Breaches</div>
+                <div className="text-xs text-red-600 dark:text-red-400 mt-1">Open Breaches</div>
               </div>
 
-              <div className="text-center p-4 bg-orange-50 rounded-lg border border-orange-100">
+              <div className="text-center p-4 bg-orange-50 dark:bg-orange-950 rounded-lg border border-orange-100">
                 <AlertTriangle className="h-6 w-6 text-orange-500 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-orange-700">
+                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   {risk?.oreEvents ?? 0}
                 </div>
-                <div className="text-xs text-orange-600 mt-1">ORE Events</div>
+                <div className="text-xs text-orange-600 dark:text-orange-400 mt-1">ORE Events</div>
               </div>
 
-              <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-100">
+              <div className="text-center p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-100">
                 <Eye className="h-6 w-6 text-blue-500 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-blue-700">
+                <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
                   {risk?.pendingSurveillance ?? 0}
                 </div>
-                <div className="text-xs text-blue-600 mt-1">Pending Surveillance</div>
+                <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">Pending Surveillance</div>
               </div>
 
-              <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-100">
+              <div className="text-center p-4 bg-purple-50 dark:bg-purple-950 rounded-lg border border-purple-100">
                 <FileText className="h-6 w-6 text-purple-500 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-purple-700">
+                <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
                   {risk?.mandateBreaches ?? 0}
                 </div>
-                <div className="text-xs text-purple-600 mt-1">Mandate Breaches</div>
+                <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">Mandate Breaches</div>
               </div>
             </div>
           </CardContent>

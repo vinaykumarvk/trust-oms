@@ -144,7 +144,7 @@ export default function LoginPage() {
             <CardContent>
               {forgotSent ? (
                 <div className="space-y-4">
-                  <div className="flex items-start gap-3 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-200" role="alert">
+                  <div className="flex items-start gap-3 rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 p-3 text-sm text-green-800 dark:text-green-200 dark:border-green-800 dark:bg-green-900/20 dark:text-green-200" role="alert">
                     <Mail className="h-4 w-4 mt-0.5 flex-shrink-0" />
                     <span>If an account exists for <strong>{forgotEmail}</strong>, a reset link has been sent. Please check your inbox.</span>
                   </div>

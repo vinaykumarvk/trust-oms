@@ -659,8 +659,8 @@ export default function LeadRuleBuilder() {
                 </span>
                 {previewCount !== null && (
                   <div className="flex items-center gap-1">
-                    <Users className="h-3.5 w-3.5 text-green-600" />
-                    <span className="text-xs font-medium text-green-700 dark:text-green-400">
+                    <Users className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                    <span className="text-xs font-medium text-green-700 dark:text-green-300 dark:text-green-400">
                       {previewCount.toLocaleString()} matching leads
                     </span>
                   </div>

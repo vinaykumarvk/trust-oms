@@ -474,7 +474,7 @@ export function OpsMaintenanceForm({
         )}
 
         {/* Error */}
-        {error && <p className="text-xs font-medium text-destructive">{error}</p>}
+        {error && <p className="text-xs font-medium text-destructive" role="alert">{error}</p>}
       </div>
     );
   }

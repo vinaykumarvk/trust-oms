@@ -69,12 +69,12 @@ function fmt(n: string | number | null | undefined): string {
 }
 
 const statusColors: Record<string, string> = {
-  ACTIVE: "bg-green-100 text-green-800",
-  INACTIVE: "bg-gray-100 text-gray-800",
-  SEPARATED: "bg-red-100 text-red-800",
-  RETIRED: "bg-blue-100 text-blue-800",
-  REINSTATED: "bg-purple-100 text-purple-800",
-  DECEASED: "bg-gray-200 text-gray-600",
+  ACTIVE: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  INACTIVE: "bg-gray-100 text-gray-800 dark:text-gray-200",
+  SEPARATED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+  RETIRED: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  REINSTATED: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200",
+  DECEASED: "bg-gray-200 text-gray-600 dark:text-gray-400",
 };
 
 export default function EbtPlanDetail() {
@@ -341,7 +341,7 @@ export default function EbtPlanDetail() {
                         <TableCell>{r.base_type?.replace(/_/g, " ")}</TableCell>
                         <TableCell>{r.cap_amount ? fmt(r.cap_amount) : "None"}</TableCell>
                         <TableCell>
-                          <Badge className={r.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+                          <Badge className={r.is_active ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200" : "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200"}>
                             {r.is_active ? "Yes" : "No"}
                           </Badge>
                         </TableCell>
@@ -390,7 +390,7 @@ export default function EbtPlanDetail() {
                         <TableCell>{r.threshold_amount ? fmt(r.threshold_amount) : "—"}</TableCell>
                         <TableCell>
                           {r.is_exempt ? (
-                            <Badge className="bg-green-100 text-green-800">Exempt</Badge>
+                            <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">Exempt</Badge>
                           ) : "No"}
                         </TableCell>
                         <TableCell>{r.min_years_for_exemption ?? "—"}</TableCell>

@@ -183,53 +183,53 @@ const REFRESH_INTERVAL = 30_000;
 const CONNECTOR_STATUS_CONFIG: Record<string, { dot: string; badge: string; label: string }> = {
   CONNECTED: {
     dot: "bg-green-500",
-    badge: "bg-green-100 text-green-800 border-green-300",
+    badge: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-300",
     label: "Connected",
   },
   DEGRADED: {
     dot: "bg-yellow-500",
-    badge: "bg-yellow-100 text-yellow-800 border-yellow-300",
+    badge: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border-yellow-300",
     label: "Degraded",
   },
   DISCONNECTED: {
     dot: "bg-red-500",
-    badge: "bg-red-100 text-red-800 border-red-300",
+    badge: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border-red-300",
     label: "Disconnected",
   },
 };
 
 const CONNECTOR_TYPE_COLORS: Record<string, string> = {
-  EXCHANGE: "bg-blue-100 text-blue-800",
-  CUSTODIAN: "bg-purple-100 text-purple-800",
+  EXCHANGE: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  CUSTODIAN: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200",
   BROKER: "bg-indigo-100 text-indigo-800",
   MARKET_DATA: "bg-teal-100 text-teal-800",
-  SWIFT: "bg-amber-100 text-amber-800",
+  SWIFT: "bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200",
   REGISTRY: "bg-pink-100 text-pink-800",
 };
 
 const PROTOCOL_COLORS: Record<string, string> = {
   FIX: "bg-cyan-100 text-cyan-800",
   REST: "bg-emerald-100 text-emerald-800",
-  SWIFT: "bg-orange-100 text-orange-800",
+  SWIFT: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200",
   SFTP: "bg-muted text-foreground",
   WEBSOCKET: "bg-violet-100 text-violet-800",
   AMQP: "bg-rose-100 text-rose-800",
 };
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
-  ORDER_SENT: "bg-blue-100 text-blue-800",
-  ORDER_ACK: "bg-green-100 text-green-800",
+  ORDER_SENT: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  ORDER_ACK: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
   EXECUTION: "bg-emerald-100 text-emerald-800",
-  REJECTION: "bg-red-100 text-red-800",
+  REJECTION: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
   HEARTBEAT: "bg-muted text-foreground",
-  ERROR: "bg-red-100 text-red-800",
-  RECONNECT: "bg-yellow-100 text-yellow-800",
+  ERROR: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+  RECONNECT: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
 };
 
 const LOG_STATUS_COLORS: Record<string, string> = {
-  SUCCESS: "bg-green-100 text-green-800",
-  FAILURE: "bg-red-100 text-red-800",
-  TIMEOUT: "bg-yellow-100 text-yellow-800",
+  SUCCESS: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  FAILURE: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+  TIMEOUT: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
   PENDING: "bg-muted text-foreground",
 };
 
@@ -291,15 +291,15 @@ function formatPct(value: number): string {
 }
 
 function latencyColor(ms: number): string {
-  if (ms < 100) return "text-green-600";
-  if (ms < 500) return "text-yellow-600";
-  return "text-red-600";
+  if (ms < 100) return "text-green-600 dark:text-green-400";
+  if (ms < 500) return "text-yellow-600 dark:text-yellow-400";
+  return "text-red-600 dark:text-red-400";
 }
 
 function successRateColor(rate: number): string {
-  if (rate >= 0.99) return "text-green-600";
-  if (rate >= 0.95) return "text-yellow-600";
-  return "text-red-600";
+  if (rate >= 0.99) return "text-green-600 dark:text-green-400";
+  if (rate >= 0.95) return "text-yellow-600 dark:text-yellow-400";
+  return "text-red-600 dark:text-red-400";
 }
 
 // ---------------------------------------------------------------------------
@@ -334,7 +334,7 @@ function ConnectorCard({
               {connector.status === "CONNECTED" ? (
                 <Wifi className="h-5 w-5 text-primary" />
               ) : connector.status === "DEGRADED" ? (
-                <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
               ) : (
                 <WifiOff className="h-5 w-5 text-red-500" />
               )}
@@ -404,7 +404,7 @@ function ConnectorCard({
             Last checked: {formatTimestamp(connector.last_checked)}
           </span>
           {connector.errors_today > 0 && (
-            <span className="flex items-center gap-1 text-red-600">
+            <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
               <XCircle className="h-3 w-3" />
               {connector.errors_today} errors today
             </span>
@@ -499,13 +499,13 @@ function ConnectorDetailPanel({
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="flex justify-between p-2 rounded bg-muted/30">
               <span className="text-muted-foreground">Uptime</span>
-              <span className={`font-bold ${metrics.uptime_pct >= 99.9 ? "text-green-600" : "text-yellow-600"}`}>
+              <span className={`font-bold ${metrics.uptime_pct >= 99.9 ? "text-green-600 dark:text-green-400" : "text-yellow-600 dark:text-yellow-400"}`}>
                 {metrics.uptime_pct.toFixed(2)}%
               </span>
             </div>
             <div className="flex justify-between p-2 rounded bg-muted/30">
               <span className="text-muted-foreground">Error Rate</span>
-              <span className={`font-bold ${metrics.error_rate < 0.01 ? "text-green-600" : "text-red-600"}`}>
+              <span className={`font-bold ${metrics.error_rate < 0.01 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
                 {(metrics.error_rate * 100).toFixed(2)}%
               </span>
             </div>
@@ -528,9 +528,9 @@ function ConnectorDetailPanel({
           </div>
 
           {metrics.last_error && (
-            <div className="p-2 rounded bg-red-50 border border-red-200 text-xs">
-              <span className="font-medium text-red-800">Last Error: </span>
-              <span className="text-red-700">{metrics.last_error}</span>
+            <div className="p-2 rounded bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-xs">
+              <span className="font-medium text-red-800 dark:text-red-200">Last Error: </span>
+              <span className="text-red-700 dark:text-red-300">{metrics.last_error}</span>
               {metrics.last_error_time && (
                 <span className="text-red-500 ml-2">
                   ({formatTimestamp(metrics.last_error_time)})
@@ -649,7 +649,7 @@ function ConnectorsTab() {
 
   if (connectorsQuery.isError) {
     return (
-      <Card className="border-destructive">
+      <Card className="border-destructive" role="alert">
         <CardContent className="py-8">
           <div className="text-center">
             <XCircle className="h-10 w-10 text-destructive mx-auto mb-3" />
@@ -682,7 +682,7 @@ function ConnectorsTab() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground">Connected</p>
-                <p className="text-2xl font-bold text-green-600 mt-1">
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
                   {statusCounts.CONNECTED}
                 </p>
               </div>
@@ -695,7 +695,7 @@ function ConnectorsTab() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground">Degraded</p>
-                <p className="text-2xl font-bold text-yellow-600 mt-1">
+                <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mt-1">
                   {statusCounts.DEGRADED}
                 </p>
               </div>
@@ -708,7 +708,7 @@ function ConnectorsTab() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground">Disconnected</p>
-                <p className="text-2xl font-bold text-red-600 mt-1">
+                <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">
                   {statusCounts.DISCONNECTED}
                 </p>
               </div>
@@ -978,7 +978,7 @@ function RoutingRulesTab() {
                   </TableCell>
                   <TableCell className="text-center">
                     {rule.is_active ? (
-                      <Badge className="bg-green-100 text-green-800 text-[10px]">Active</Badge>
+                      <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-[10px]">Active</Badge>
                     ) : (
                       <Badge variant="outline" className="text-[10px] text-muted-foreground">
                         Inactive
@@ -1262,7 +1262,7 @@ function ActivityLogTab() {
 
   if (logQuery.isError) {
     return (
-      <Card className="border-destructive">
+      <Card className="border-destructive" role="alert">
         <CardContent className="py-8">
           <div className="text-center">
             <XCircle className="h-10 w-10 text-destructive mx-auto mb-3" />
@@ -1567,21 +1567,21 @@ function SimulationTab() {
               <div
                 className={`flex items-center gap-2 p-3 rounded-lg border ${
                   simulationResult.compliance_check === "PASSED"
-                    ? "bg-green-50 border-green-200"
-                    : "bg-red-50 border-red-200"
+                    ? "bg-green-50 dark:bg-green-950 border-green-200"
+                    : "bg-red-50 dark:bg-red-950 border-red-200"
                 }`}
               >
                 {simulationResult.compliance_check === "PASSED" ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
                 ) : (
-                  <XCircle className="h-5 w-5 text-red-600" />
+                  <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
                 )}
                 <div>
                   <span
                     className={`text-sm font-medium ${
                       simulationResult.compliance_check === "PASSED"
-                        ? "text-green-800"
-                        : "text-red-800"
+                        ? "text-green-800 dark:text-green-200"
+                        : "text-red-800 dark:text-red-200"
                     }`}
                   >
                     Compliance: {simulationResult.compliance_check}
@@ -1628,7 +1628,7 @@ function SimulationTab() {
                 <div className="p-4 rounded-lg border bg-muted/20">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-yellow-100">
-                      <Shield className="h-4 w-4 text-yellow-700" />
+                      <Shield className="h-4 w-4 text-yellow-700 dark:text-yellow-300" />
                     </div>
                     <div>
                       <p className="text-sm font-semibold">Fallback Route</p>
@@ -1734,7 +1734,7 @@ export default function IntegrationHub() {
                 <p className="text-2xl font-bold mt-1">{totalCount}</p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-                <Globe className="h-5 w-5 text-blue-600" />
+                <Globe className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
           </CardContent>
@@ -1744,12 +1744,12 @@ export default function IntegrationHub() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground">Connected</p>
-                <p className="text-2xl font-bold mt-1 text-green-600">
+                <p className="text-2xl font-bold mt-1 text-green-600 dark:text-green-400">
                   {connectedCount}/{totalCount}
                 </p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100">
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
               </div>
             </div>
           </CardContent>
@@ -1779,7 +1779,7 @@ export default function IntegrationHub() {
                 </p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100">
-                <Timer className="h-5 w-5 text-amber-600" />
+                <Timer className="h-5 w-5 text-amber-600 dark:text-amber-400" />
               </div>
             </div>
           </CardContent>

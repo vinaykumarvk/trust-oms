@@ -698,7 +698,7 @@ export default function HandoverListPage() {
       {totalSelectedCount > 0 && (
         <div className="flex items-center justify-between rounded-lg border bg-muted/40 px-5 py-4">
           <div className="flex items-center gap-3">
-            <DollarSign className="h-5 w-5 text-blue-600" />
+            <DollarSign className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             <div>
               <p className="text-sm font-medium">AUM Impact Summary</p>
               <p className="text-xs text-muted-foreground">

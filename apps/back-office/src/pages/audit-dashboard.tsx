@@ -339,32 +339,32 @@ export default function AuditDashboardPage() {
         <SummaryCard
           title="Events Today"
           value={summary?.today}
-          icon={<FileText className="h-5 w-5 text-blue-600" />}
+          icon={<FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
           loading={summaryQuery.isLoading}
         />
         <SummaryCard
           title="Creates"
           value={createCount}
-          icon={<Plus className="h-5 w-5 text-green-600" />}
+          icon={<Plus className="h-5 w-5 text-green-600 dark:text-green-400" />}
           loading={summaryQuery.isLoading}
         />
         <SummaryCard
           title="Updates"
           value={updateCount}
-          icon={<Pencil className="h-5 w-5 text-amber-600" />}
+          icon={<Pencil className="h-5 w-5 text-amber-600 dark:text-amber-400" />}
           loading={summaryQuery.isLoading}
         />
         <SummaryCard
           title="Deletes"
           value={deleteCount}
-          icon={<Trash2 className="h-5 w-5 text-red-600" />}
+          icon={<Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />}
           loading={summaryQuery.isLoading}
         />
         <SummaryCard
           title="Most Active User"
           value={mostActiveUser?.count}
           subtitle={mostActiveUser?.actorId ?? '-'}
-          icon={<User className="h-5 w-5 text-purple-600" />}
+          icon={<User className="h-5 w-5 text-purple-600 dark:text-purple-400" />}
           loading={summaryQuery.isLoading}
         />
       </div>
@@ -669,14 +669,14 @@ export default function AuditDashboardPage() {
               <div
                 className={`flex items-start gap-3 rounded-md border p-4 ${
                   verifyResult.valid
-                    ? 'border-green-300 bg-green-50'
-                    : 'border-red-300 bg-red-50'
+                    ? 'border-green-300 dark:border-green-700 bg-green-50'
+                    : 'border-red-300 dark:border-red-700 bg-red-50'
                 }`}
               >
                 {verifyResult.valid ? (
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 text-green-600" />
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 text-green-600 dark:text-green-400" />
                 ) : (
-                  <XCircle className="mt-0.5 h-5 w-5 text-red-600" />
+                  <XCircle className="mt-0.5 h-5 w-5 text-red-600 dark:text-red-400" />
                 )}
                 <div className="space-y-1">
                   <p

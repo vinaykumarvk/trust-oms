@@ -75,10 +75,10 @@ const SCOPE_TYPES = [
 ] as const;
 
 const SCOPE_BADGE_COLORS: Record<string, string> = {
-  MARKET: "bg-red-100 text-red-800 border-red-200",
-  ASSET_CLASS: "bg-orange-100 text-orange-800 border-orange-200",
-  PORTFOLIO: "bg-purple-100 text-purple-800 border-purple-200",
-  DESK: "bg-blue-100 text-blue-800 border-blue-200",
+  MARKET: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border-red-200",
+  ASSET_CLASS: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border-orange-200",
+  PORTFOLIO: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 border-purple-200",
+  DESK: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-blue-200",
 };
 
 // ---------------------------------------------------------------------------
@@ -130,7 +130,7 @@ function LiveTimer({ since }: { since: string }) {
   }, []);
 
   return (
-    <span className="font-mono text-sm font-bold tabular-nums text-red-700">
+    <span className="font-mono text-sm font-bold tabular-nums text-red-700 dark:text-red-300">
       {formatDuration(since)}
     </span>
   );
@@ -310,7 +310,7 @@ export default function KillSwitchConsole() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100">
-            <OctagonX className="h-5 w-5 text-red-700" />
+            <OctagonX className="h-5 w-5 text-red-700 dark:text-red-300" />
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Kill-Switch Console</h1>
@@ -343,26 +343,26 @@ export default function KillSwitchConsole() {
           </CardContent>
         </Card>
       ) : activeQ.isError ? (
-        <div className="rounded-lg border border-red-300 bg-red-50 p-4">
+        <div className="rounded-lg border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950 p-4">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-red-600" />
-            <p className="text-sm font-medium text-red-800">
+            <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+            <p className="text-sm font-medium text-red-800 dark:text-red-200">
               Failed to load active halts. Please refresh.
             </p>
           </div>
         </div>
       ) : activeHalts.length === 0 ? (
         /* All Clear Banner */
-        <div className="rounded-lg border-2 border-green-300 bg-green-50 p-6">
+        <div className="rounded-lg border-2 border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950 p-6">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-200">
-              <ShieldCheck className="h-6 w-6 text-green-700" />
+              <ShieldCheck className="h-6 w-6 text-green-700 dark:text-green-300" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-green-800">
+              <h2 className="text-lg font-bold text-green-800 dark:text-green-200">
                 All Clear -- No Active Trading Halts
               </h2>
-              <p className="text-sm text-green-700">
+              <p className="text-sm text-green-700 dark:text-green-300">
                 All trading scopes are operating normally.
               </p>
             </div>
@@ -374,32 +374,32 @@ export default function KillSwitchConsole() {
           {activeHalts.map((halt) => (
             <div
               key={halt.id}
-              className="rounded-lg border-2 border-red-400 bg-red-50 p-4 animate-in fade-in"
+              className="rounded-lg border-2 border-red-400 bg-red-50 dark:bg-red-950 p-4 animate-in fade-in"
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-red-200 animate-pulse">
-                    <ShieldOff className="h-5 w-5 text-red-700" />
+                    <ShieldOff className="h-5 w-5 text-red-700 dark:text-red-300" />
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-lg font-bold text-red-800">TRADING HALTED</h3>
+                      <h3 className="text-lg font-bold text-red-800 dark:text-red-200">TRADING HALTED</h3>
                       <Badge variant="outline" className={SCOPE_BADGE_COLORS[halt.scope_type] ?? "bg-muted text-foreground"}>
                         {halt.scope_type}
                       </Badge>
                     </div>
-                    <p className="text-sm text-red-700">
+                    <p className="text-sm text-red-700 dark:text-red-300" role="alert">
                       <span className="font-medium">Scope:</span>{" "}
                       <span className="font-mono">{halt.scope_value}</span>
                     </p>
-                    <p className="text-sm text-red-700">
+                    <p className="text-sm text-red-700 dark:text-red-300" role="alert">
                       <span className="font-medium">Reason:</span> {halt.reason}
                     </p>
-                    <p className="text-sm text-red-700">
+                    <p className="text-sm text-red-700 dark:text-red-300" role="alert">
                       <span className="font-medium">Invoked by:</span>{" "}
                       <span className="font-mono">{halt.invoked_by}</span>
                     </p>
-                    <div className="flex items-center gap-2 text-sm text-red-700">
+                    <div className="flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
                       <Clock className="h-4 w-4" />
                       <span className="font-medium">Duration:</span>
                       <LiveTimer since={halt.invoked_at} />
@@ -411,7 +411,7 @@ export default function KillSwitchConsole() {
                 </div>
                 <Button
                   variant="outline"
-                  className="border-red-300 text-red-700 hover:bg-red-100"
+                  className="border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 hover:bg-red-100"
                   onClick={() => openResume(halt)}
                 >
                   <Play className="h-4 w-4 mr-2" />
@@ -429,7 +429,7 @@ export default function KillSwitchConsole() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Zap className="h-5 w-5 text-red-600" />
+            <Zap className="h-5 w-5 text-red-600 dark:text-red-400" />
             Invoke Kill-Switch
           </CardTitle>
         </CardHeader>
@@ -491,7 +491,7 @@ export default function KillSwitchConsole() {
           </div>
 
           {/* MFA Verification */}
-          <div className="flex items-center gap-3 rounded-md border border-yellow-200 bg-yellow-50 p-3">
+          <div className="flex items-center gap-3 rounded-md border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950 p-3">
             <Checkbox
               id="mfa-verify"
               checked={invokeForm.mfa_verified}
@@ -504,25 +504,25 @@ export default function KillSwitchConsole() {
             />
             <label
               htmlFor="mfa-verify"
-              className="text-sm font-medium text-yellow-800 cursor-pointer select-none"
+              className="text-sm font-medium text-yellow-800 dark:text-yellow-200 cursor-pointer select-none"
             >
               I confirm MFA verification has been completed for this action
             </label>
           </div>
 
           {invokeMut.isError && (
-            <div className="rounded-md border border-red-200 bg-red-50 p-3">
-              <p className="text-sm text-red-700">
+            <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 p-3" role="alert">
+              <p className="text-sm text-red-700 dark:text-red-300" role="alert">
                 Failed to invoke kill-switch. Please try again or contact support.
               </p>
             </div>
           )}
 
           {invokeMut.isSuccess && (
-            <div className="rounded-md border border-green-200 bg-green-50 p-3">
+            <div className="rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 p-3">
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <p className="text-sm text-green-700">
+                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <p className="text-sm text-green-700 dark:text-green-300">
                   Kill-switch invoked successfully. Trading has been halted for the selected scope.
                 </p>
               </div>
@@ -547,12 +547,12 @@ export default function KillSwitchConsole() {
       <AlertDialog open={confirmInvokeOpen} onOpenChange={setConfirmInvokeOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-red-700">
+            <AlertDialogTitle className="flex items-center gap-2 text-red-700 dark:text-red-300">
               <OctagonX className="h-5 w-5" />
               Confirm Kill-Switch Invocation
             </AlertDialogTitle>
             <AlertDialogDescription className="space-y-3">
-              <p className="font-medium text-red-700">
+              <p className="font-medium text-red-700 dark:text-red-300">
                 This will halt all trading for the selected scope. Are you sure?
               </p>
               <div className="rounded-md border bg-muted/50 p-3 space-y-1 text-sm text-foreground">
@@ -594,7 +594,7 @@ export default function KillSwitchConsole() {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Play className="h-5 w-5 text-green-600" />
+              <Play className="h-5 w-5 text-green-600 dark:text-green-400" />
               Resume Trading
             </DialogTitle>
           </DialogHeader>
@@ -627,9 +627,9 @@ export default function KillSwitchConsole() {
               </div>
 
               {/* Dual Approval Notice */}
-              <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 p-3">
-                <UserCheck className="h-5 w-5 text-blue-600 shrink-0" />
-                <p className="text-sm text-blue-800">
+              <div className="flex items-center gap-2 rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 p-3">
+                <UserCheck className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0" />
+                <p className="text-sm text-blue-800 dark:text-blue-200">
                   Resuming trading requires dual approval. Two different authorized approver IDs must be provided.
                 </p>
               </div>
@@ -664,15 +664,15 @@ export default function KillSwitchConsole() {
 
               {/* Validation Error */}
               {resumeValidationError && (
-                <div className="rounded-md border border-red-200 bg-red-50 p-3">
-                  <p className="text-sm text-red-700">{resumeValidationError}</p>
+                <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 p-3" role="alert">
+                  <p className="text-sm text-red-700 dark:text-red-300" role="alert">{resumeValidationError}</p>
                 </div>
               )}
 
               {/* Mutation Error */}
               {resumeMut.isError && (
-                <div className="rounded-md border border-red-200 bg-red-50 p-3">
-                  <p className="text-sm text-red-700">
+                <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 p-3" role="alert">
+                  <p className="text-sm text-red-700 dark:text-red-300" role="alert">
                     Failed to resume trading. Please verify approver IDs and try again.
                   </p>
                 </div>
@@ -734,7 +734,7 @@ export default function KillSwitchConsole() {
                     <TableCell colSpan={8} className="py-8 text-center">
                       <div className="flex flex-col items-center gap-2">
                         <AlertTriangle className="h-8 w-8 text-red-400" />
-                        <p className="text-sm text-red-600">
+                        <p className="text-sm text-red-600 dark:text-red-400" role="alert">
                           Failed to load history. Please try again.
                         </p>
                         <Button variant="outline" size="sm" onClick={() => historyQ.refetch()}>
@@ -787,11 +787,11 @@ export default function KillSwitchConsole() {
                       </TableCell>
                       <TableCell>
                         {evt.is_active ? (
-                          <Badge className="bg-red-100 text-red-800 border-red-200">
+                          <Badge className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border-red-200">
                             ACTIVE
                           </Badge>
                         ) : (
-                          <Badge className="bg-green-100 text-green-800 border-green-200">
+                          <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-200">
                             RESUMED
                           </Badge>
                         )}

@@ -90,16 +90,16 @@ interface StandingInstructionsResponse {
 // ---------------------------------------------------------------------------
 
 const STATUS_COLORS: Record<string, string> = {
-  ACTIVE: "bg-green-100 text-green-800",
-  PAUSED: "bg-yellow-100 text-yellow-800",
-  CANCELLED: "bg-red-100 text-red-800",
+  ACTIVE: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  PAUSED: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+  CANCELLED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
   COMPLETED: "bg-muted text-foreground",
 };
 
 const SI_TYPE_COLORS: Record<string, string> = {
-  AUTO_ROLL: "bg-blue-100 text-blue-800",
-  AUTO_CREDIT: "bg-green-100 text-green-800",
-  AUTO_WITHDRAWAL: "bg-orange-100 text-orange-800",
+  AUTO_ROLL: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  AUTO_CREDIT: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  AUTO_WITHDRAWAL: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200",
 };
 
 function formatPHP(amount: number): string {
@@ -703,7 +703,7 @@ export default function ScheduledPlans() {
                         {JSON.stringify(si.params)}
                       </TableCell>
                       <TableCell>
-                        <Badge className={si.isActive ? "bg-green-100 text-green-800" : "bg-muted text-foreground"}>
+                        <Badge className={si.isActive ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200" : "bg-muted text-foreground"}>
                           {si.isActive ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>
@@ -760,7 +760,7 @@ export default function ScheduledPlans() {
               {dueEip.length > 0 && (
                 <>
                   <h3 className="text-base font-medium flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-yellow-600" />EIP Plans Due ({dueEip.length})
+                    <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />EIP Plans Due ({dueEip.length})
                   </h3>
                   <div className="overflow-x-auto rounded-md border">
                     <Table>
@@ -802,7 +802,7 @@ export default function ScheduledPlans() {
               {dueErp.length > 0 && (
                 <>
                   <h3 className="text-base font-medium flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-yellow-600" />ERP Plans Due ({dueErp.length})
+                    <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />ERP Plans Due ({dueErp.length})
                   </h3>
                   <div className="overflow-x-auto rounded-md border">
                     <Table>
@@ -844,7 +844,7 @@ export default function ScheduledPlans() {
               {dueSi.length > 0 && (
                 <>
                   <h3 className="text-base font-medium flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-yellow-600" />Standing Instructions Due ({dueSi.length})
+                    <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />Standing Instructions Due ({dueSi.length})
                   </h3>
                   <div className="overflow-x-auto rounded-md border">
                     <Table>
@@ -921,7 +921,7 @@ export default function ScheduledPlans() {
               <Input placeholder="e.g. CA-12345" value={eipCaAccount} onChange={(e) => setEipCaAccount(e.target.value)} />
             </FormField>
             {(enrollEipMut.isError || modifyEipMut.isError) && (
-              <p className="text-sm text-red-600">
+              <p className="text-sm text-red-600 dark:text-red-400" role="alert">
                 {((enrollEipMut.error ?? modifyEipMut.error) as Error)?.message}
               </p>
             )}
@@ -969,7 +969,7 @@ export default function ScheduledPlans() {
               <Input placeholder="e.g. CA-12345" value={erpCaAccount} onChange={(e) => setErpCaAccount(e.target.value)} />
             </FormField>
             {enrollErpMut.isError && (
-              <p className="text-sm text-red-600">{(enrollErpMut.error as Error).message}</p>
+              <p className="text-sm text-red-600 dark:text-red-400" role="alert">{(enrollErpMut.error as Error).message}</p>
             )}
           </div>
           <DialogFooter>
@@ -1013,7 +1013,7 @@ export default function ScheduledPlans() {
               />
             </FormField>
             {createSiMut.isError && (
-              <p className="text-sm text-red-600">{(createSiMut.error as Error).message}</p>
+              <p className="text-sm text-red-600 dark:text-red-400" role="alert">{(createSiMut.error as Error).message}</p>
             )}
           </div>
           <DialogFooter>
@@ -1039,7 +1039,7 @@ export default function ScheduledPlans() {
               <Input placeholder="e.g. Client request" value={unsubReason} onChange={(e) => setUnsubReason(e.target.value)} />
             </FormField>
             {(unsubEipMut.isError || unsubErpMut.isError) && (
-              <p className="text-sm text-red-600">
+              <p className="text-sm text-red-600 dark:text-red-400" role="alert">
                 {((unsubEipMut.error ?? unsubErpMut.error) as Error)?.message}
               </p>
             )}

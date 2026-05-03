@@ -39,9 +39,9 @@ import {
 /* ---------- Constants ---------- */
 
 const DIFF_COLORS: Record<string, string> = {
-  MATCH: "bg-green-100 text-green-800",
-  ZERO_ACCRUAL: "bg-yellow-100 text-yellow-800",
-  MISMATCH: "bg-red-100 text-red-800",
+  MATCH: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  ZERO_ACCRUAL: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+  MISMATCH: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
 };
 
 const DIFF_ICONS: Record<string, React.ElementType> = {
@@ -220,7 +220,7 @@ export default function ReconciliationReport() {
 
       {/* Error */}
       {generateMutation.error && (
-        <Card className="border-destructive">
+        <Card className="border-destructive" role="alert">
           <CardContent className="pt-4">
             <p className="text-sm text-destructive">
               {(generateMutation.error as any)?.message ??
@@ -250,7 +250,7 @@ export default function ReconciliationReport() {
               <CheckCircle className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                 {summary.match}
               </div>
               <p className="text-xs text-muted-foreground">Fully reconciled</p>
@@ -263,7 +263,7 @@ export default function ReconciliationReport() {
               <AlertTriangle className="h-4 w-4 text-yellow-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">
+              <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
                 {summary.zeroAccrual}
               </div>
               <p className="text-xs text-muted-foreground">No accruals found</p>
@@ -276,7 +276,7 @@ export default function ReconciliationReport() {
               <XCircle className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">
+              <div className="text-2xl font-bold text-red-600 dark:text-red-400">
                 {summary.mismatch}
               </div>
               <p className="text-xs text-muted-foreground">

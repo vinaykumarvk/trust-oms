@@ -62,22 +62,22 @@ const REFRESH_INTERVAL = 30_000; // 30 seconds
 
 const SLA_STATUS_STYLES: Record<string, { bg: string; text: string; border: string; badge: string }> = {
   MEETING: {
-    bg: "bg-green-50",
-    text: "text-green-700",
-    border: "border-green-200",
-    badge: "bg-green-100 text-green-800 border-green-300",
+    bg: "bg-green-50 dark:bg-green-950",
+    text: "text-green-700 dark:text-green-300",
+    border: "border-green-200 dark:border-green-800",
+    badge: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-300",
   },
   AT_RISK: {
-    bg: "bg-yellow-50",
-    text: "text-yellow-700",
-    border: "border-yellow-200",
-    badge: "bg-yellow-100 text-yellow-800 border-yellow-300",
+    bg: "bg-yellow-50 dark:bg-yellow-950",
+    text: "text-yellow-700 dark:text-yellow-300",
+    border: "border-yellow-200 dark:border-yellow-800",
+    badge: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border-yellow-300",
   },
   BREACHING: {
-    bg: "bg-red-50",
-    text: "text-red-700",
-    border: "border-red-200",
-    badge: "bg-red-100 text-red-800 border-red-300",
+    bg: "bg-red-50 dark:bg-red-950",
+    text: "text-red-700 dark:text-red-300",
+    border: "border-red-200 dark:border-red-800",
+    badge: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border-red-300",
   },
 };
 
@@ -90,8 +90,8 @@ const SERVICE_ICONS: Record<string, typeof Activity> = {
 };
 
 const EOD_STATUS_STYLES: Record<string, { bg: string; text: string; icon: typeof CheckCircle2 }> = {
-  COMPLETED: { bg: "bg-green-50 border-green-200", text: "text-green-700", icon: CheckCircle2 },
-  IN_PROGRESS: { bg: "bg-yellow-50 border-yellow-200", text: "text-yellow-700", icon: RefreshCw },
+  COMPLETED: { bg: "bg-green-50 dark:bg-green-950 border-green-200", text: "text-green-700 dark:text-green-300", icon: CheckCircle2 },
+  IN_PROGRESS: { bg: "bg-yellow-50 dark:bg-yellow-950 border-yellow-200", text: "text-yellow-700 dark:text-yellow-300", icon: RefreshCw },
   NOT_STARTED: { bg: "bg-muted border-border", text: "text-muted-foreground", icon: Clock },
 };
 
@@ -188,15 +188,15 @@ function StpGauge({ rate, target }: { rate: number; target: number }) {
   let bgRing: string;
   let label: string;
   if (pct >= 92) {
-    color = "text-green-600";
+    color = "text-green-600 dark:text-green-400";
     bgRing = "border-green-500";
     label = "Excellent";
   } else if (pct >= 85) {
-    color = "text-yellow-600";
+    color = "text-yellow-600 dark:text-yellow-400";
     bgRing = "border-yellow-500";
     label = "Needs Attention";
   } else {
-    color = "text-red-600";
+    color = "text-red-600 dark:text-red-400";
     bgRing = "border-red-500";
     label = "Critical";
   }
@@ -255,10 +255,10 @@ function StpGauge({ rate, target }: { rate: number; target: number }) {
           variant="outline"
           className={`text-xs ${
             pct >= 92
-              ? "bg-green-50 text-green-700 border-green-200"
+              ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200"
               : pct >= 85
-                ? "bg-yellow-50 text-yellow-700 border-yellow-200"
-                : "bg-red-50 text-red-700 border-red-200"
+                ? "bg-yellow-50 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-300 border-yellow-200"
+                : "bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200"
           }`}
         >
           {label}
@@ -337,9 +337,9 @@ function SlaCard({ sla }: { sla: ServiceSla }) {
 
 function SeverityBadge({ severity }: { severity: string }) {
   const styles: Record<string, string> = {
-    HIGH: "bg-red-100 text-red-800 border-red-200",
-    MEDIUM: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    LOW: "bg-blue-100 text-blue-800 border-blue-200",
+    HIGH: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border-red-200",
+    MEDIUM: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border-yellow-200",
+    LOW: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-blue-200",
   };
   return (
     <Badge variant="outline" className={`text-[10px] ${styles[severity] ?? "bg-muted text-muted-foreground"}`}>
@@ -350,9 +350,9 @@ function SeverityBadge({ severity }: { severity: string }) {
 
 function IncidentStatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    INVESTIGATING: "bg-orange-100 text-orange-800 border-orange-200",
-    RESOLVED: "bg-green-100 text-green-800 border-green-200",
-    ESCALATED: "bg-red-100 text-red-800 border-red-200",
+    INVESTIGATING: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border-orange-200",
+    RESOLVED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-200",
+    ESCALATED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border-red-200",
   };
   return (
     <Badge variant="outline" className={`text-[10px] ${styles[status] ?? "bg-muted text-muted-foreground"}`}>
@@ -453,7 +453,7 @@ export default function OperationsControlTower() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-orange-700">
+                <div className="text-3xl font-bold text-orange-700 dark:text-orange-300">
                   {ops?.pendingSettlements ?? 0}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -477,7 +477,7 @@ export default function OperationsControlTower() {
               </CardHeader>
               <CardContent>
                 <div className={`text-3xl font-bold ${
-                  (ops?.reconBreaks ?? 0) === 0 ? "text-green-600" : "text-red-700"
+                  (ops?.reconBreaks ?? 0) === 0 ? "text-green-600 dark:text-green-400" : "text-red-700 dark:text-red-300"
                 }`}>
                   {ops?.reconBreaks ?? 0}
                 </div>
@@ -485,12 +485,12 @@ export default function OperationsControlTower() {
                   Open reconciliation breaks
                 </p>
                 {(ops?.reconBreaks ?? 0) === 0 ? (
-                  <Badge variant="outline" className="mt-2 text-[10px] bg-green-50 text-green-700 border-green-200">
+                  <Badge variant="outline" className="mt-2 text-[10px] bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200">
                     <CheckCircle2 className="h-3 w-3 mr-1" />
                     All Reconciled
                   </Badge>
                 ) : (
-                  <Badge variant="outline" className="mt-2 text-[10px] bg-red-50 text-red-700 border-red-200">
+                  <Badge variant="outline" className="mt-2 text-[10px] bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200">
                     <AlertTriangle className="h-3 w-3 mr-1" />
                     Action Required
                   </Badge>

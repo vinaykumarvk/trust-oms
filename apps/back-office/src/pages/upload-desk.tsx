@@ -52,12 +52,12 @@ interface ErrorReportResponse { data: { batchId: number; filename: string | null
 // -- Constants & Helpers --
 const STATUS_CFG: Record<string, { label: string; color: string }> = {
   CREATED: { label: "Created", color: "bg-muted text-foreground" },
-  VALIDATING: { label: "Validating", color: "bg-blue-100 text-blue-800" },
+  VALIDATING: { label: "Validating", color: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200" },
   VALIDATED: { label: "Validated", color: "bg-cyan-100 text-cyan-800" },
-  SUBMITTED: { label: "Submitted", color: "bg-yellow-100 text-yellow-800" },
-  AUTHORIZED: { label: "Authorized", color: "bg-green-100 text-green-800" },
-  ROLLED_BACK: { label: "Rolled Back", color: "bg-red-100 text-red-800" },
-  ERROR: { label: "Error", color: "bg-red-100 text-red-800" },
+  SUBMITTED: { label: "Submitted", color: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200" },
+  AUTHORIZED: { label: "Authorized", color: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200" },
+  ROLLED_BACK: { label: "Rolled Back", color: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200" },
+  ERROR: { label: "Error", color: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200" },
 };
 const ACTIVE_STATUSES = ["CREATED", "VALIDATING", "VALIDATED", "SUBMITTED"];
 const HISTORY_STATUSES = ["AUTHORIZED", "ROLLED_BACK", "ERROR"];
@@ -307,7 +307,7 @@ export default function UploadDesk() {
               <TableCell className="font-mono text-sm">{b.row_count ?? 0}</TableCell>
               <TableCell>
                 <StatusBadge s={b.upload_status ?? "CREATED"} />
-                {b.rollback_status && <Badge className="ml-1 bg-orange-100 text-orange-800">{b.rollback_status}</Badge>}
+                {b.rollback_status && <Badge className="ml-1 bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200">{b.rollback_status}</Badge>}
               </TableCell>
               <TableCell className="text-sm">{b.uploaded_by ? `User #${b.uploaded_by}` : "-"}</TableCell>
               <TableCell className="text-xs text-muted-foreground">{fmtDateTime(b.created_at)}</TableCell>
@@ -423,7 +423,7 @@ export default function UploadDesk() {
                     </Button>
                   </div>
                   {createM.isError && (
-                    <p className="mt-3 text-sm text-red-600 flex items-center gap-1">
+                    <p className="mt-3 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
                       <AlertTriangle className="h-4 w-4" />Failed to create batch.
                     </p>
                   )}
@@ -433,7 +433,7 @@ export default function UploadDesk() {
                   {/* Success banner */}
                   <div className="flex items-center justify-between rounded-lg border p-4 bg-green-50">
                     <div className="flex items-center gap-3">
-                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
                       <div>
                         <p className="text-sm font-medium">Batch #{createdId} created</p>
                         <p className="text-xs text-muted-foreground">{fname} — {rowCnt} rows — {entType}</p>
@@ -453,11 +453,11 @@ export default function UploadDesk() {
                       </div>
                       <div className="rounded-lg border p-3">
                         <p className="text-xs text-muted-foreground">Accepted</p>
-                        <p className="text-lg font-bold text-green-700">{statusQ.data.acceptedRows}</p>
+                        <p className="text-lg font-bold text-green-700 dark:text-green-300">{statusQ.data.acceptedRows}</p>
                       </div>
                       <div className="rounded-lg border p-3">
                         <p className="text-xs text-muted-foreground">Rejected</p>
-                        <p className="text-lg font-bold text-red-700">{statusQ.data.rejectedRows}</p>
+                        <p className="text-lg font-bold text-red-700 dark:text-red-300">{statusQ.data.rejectedRows}</p>
                       </div>
                     </div>
                   )}
@@ -496,8 +496,8 @@ export default function UploadDesk() {
                           {validateM.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                           <CheckCircle className="mr-2 h-4 w-4" />Validate Batch
                         </Button>
-                        {validateM.isSuccess && <span className="text-sm text-green-600 flex items-center gap-1"><CheckCircle className="h-4 w-4" />Validation submitted</span>}
-                        {validateM.isError && <span className="text-sm text-red-600 flex items-center gap-1"><AlertTriangle className="h-4 w-4" />Validation failed</span>}
+                        {validateM.isSuccess && <span className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1"><CheckCircle className="h-4 w-4" />Validation submitted</span>}
+                        {validateM.isError && <span className="text-sm text-red-600 dark:text-red-400 flex items-center gap-1"><AlertTriangle className="h-4 w-4" />Validation failed</span>}
                       </div>
                     </CardContent>
                   </Card>

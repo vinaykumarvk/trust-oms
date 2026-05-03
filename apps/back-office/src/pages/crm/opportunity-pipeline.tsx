@@ -87,11 +87,11 @@ const STAGES = [
 
 const STAGE_COLORS: Record<string, string> = {
   IDENTIFIED: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
-  QUALIFYING: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-  PROPOSAL: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
-  NEGOTIATION: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',
-  WON: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-  LOST: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+  QUALIFYING: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 dark:bg-blue-900 dark:text-blue-300',
+  PROPOSAL: 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 dark:bg-purple-900 dark:text-purple-300',
+  NEGOTIATION: 'bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 dark:bg-amber-900 dark:text-amber-300',
+  WON: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 dark:bg-green-900 dark:text-green-300',
+  LOST: 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 dark:bg-red-900 dark:text-red-300',
 };
 
 const STAGE_BORDER_COLORS: Record<string, string> = {
@@ -661,7 +661,7 @@ export default function OpportunityPipeline() {
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  className="h-7 text-xs text-red-600 hover:text-red-700 dark:text-red-400"
+                                  className="h-7 text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:text-red-300 dark:text-red-400"
                                   disabled={moveStageMutation.isPending}
                                   onClick={() => handleMoveToStage(opp, 'LOST')}
                                 >

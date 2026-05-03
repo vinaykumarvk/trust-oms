@@ -50,9 +50,9 @@ import {
 /* ---------- Constants ---------- */
 
 const STATUS_COLORS: Record<string, string> = {
-  STAGED: "bg-yellow-100 text-yellow-800",
-  ACTIVE: "bg-green-100 text-green-800",
-  ARCHIVED: "bg-gray-100 text-gray-800",
+  STAGED: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+  ACTIVE: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  ARCHIVED: "bg-gray-100 text-gray-800 dark:text-gray-200",
 };
 
 /* ---------- Helpers ---------- */
@@ -281,8 +281,8 @@ export default function ContentPackAdmin() {
                             variant="outline"
                             className={
                               pack.signature_valid
-                                ? "text-green-700 border-green-300"
-                                : "text-red-700 border-red-300"
+                                ? "text-green-700 dark:text-green-300 border-green-300"
+                                : "text-red-700 dark:text-red-300 border-red-300"
                             }
                           >
                             {pack.signature_valid ? (
@@ -312,7 +312,7 @@ export default function ContentPackAdmin() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-7 text-xs text-amber-600 border-amber-300"
+                            className="h-7 text-xs text-amber-600 dark:text-amber-400 border-amber-300"
                             onClick={() => setRollbackDialog(pack)}
                           >
                             <RotateCcw className="mr-1 h-3 w-3" />

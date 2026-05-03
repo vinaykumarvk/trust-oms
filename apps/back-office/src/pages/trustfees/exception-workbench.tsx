@@ -70,17 +70,17 @@ import {
 /* ---------- Constants ---------- */
 
 const SEVERITY_COLORS: Record<string, string> = {
-  P1: "bg-red-100 text-red-800",
-  P2: "bg-amber-100 text-amber-800",
-  P3: "bg-blue-100 text-blue-800",
+  P1: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+  P2: "bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200",
+  P3: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  OPEN: "bg-blue-100 text-blue-800",
-  IN_PROGRESS: "bg-amber-100 text-amber-800",
-  ESCALATED: "bg-red-100 text-red-800",
-  RESOLVED: "bg-green-100 text-green-800",
-  WONT_FIX: "bg-gray-100 text-gray-800",
+  OPEN: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  IN_PROGRESS: "bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200",
+  ESCALATED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+  RESOLVED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  WONT_FIX: "bg-gray-100 text-gray-800 dark:text-gray-200",
 };
 
 const TYPE_OPTIONS = [
@@ -132,7 +132,7 @@ function getSlaCountdown(slaDueAt: string | null, status: string): { text: strin
     const hoursOverdue = Math.abs(diff) / (1000 * 60 * 60);
     return {
       text: `BREACHED (${hoursOverdue.toFixed(1)}h overdue)`,
-      color: "text-red-600 font-bold",
+      color: "text-red-600 dark:text-red-400 font-bold",
     };
   }
 
@@ -148,11 +148,11 @@ function getSlaCountdown(slaDueAt: string | null, status: string): { text: strin
 
   let color: string;
   if (pctRemaining > 0.5) {
-    color = "text-green-600";
+    color = "text-green-600 dark:text-green-400";
   } else if (pctRemaining > 0.25) {
-    color = "text-amber-600";
+    color = "text-amber-600 dark:text-amber-400";
   } else {
-    color = "text-red-600 font-semibold";
+    color = "text-red-600 dark:text-red-400 font-semibold";
   }
 
   return {
@@ -534,8 +534,8 @@ export default function ExceptionWorkbench() {
 
       {/* Bulk Actions Toolbar */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 rounded-md border border-blue-200 bg-blue-50 p-3">
-          <span className="text-sm font-medium text-blue-700">
+        <div className="flex items-center gap-3 rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 p-3">
+          <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
             {selectedIds.size} selected
           </span>
           <Separator orientation="vertical" className="h-5" />
@@ -838,7 +838,7 @@ export default function ExceptionWorkbench() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="text-amber-600 border-amber-300"
+                          className="text-amber-600 dark:text-amber-400 border-amber-300"
                           onClick={() => setEscalateDialog(selectedExc)}
                         >
                           <ArrowUpCircle className="mr-1 h-3 w-3" />
@@ -848,7 +848,7 @@ export default function ExceptionWorkbench() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-gray-600 border-gray-300"
+                        className="text-gray-600 dark:text-gray-400 border-gray-300"
                         onClick={() => setWontFixDialog(selectedExc)}
                       >
                         <XOctagon className="mr-1 h-3 w-3" />

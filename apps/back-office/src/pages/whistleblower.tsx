@@ -79,10 +79,10 @@ const CHANNELS = ["HOTLINE", "EMAIL", "WEB_PORTAL", "WALK_IN"] as const;
 const STATUSES = ["SUBMITTED", "UNDER_REVIEW", "INVESTIGATING", "RESOLVED", "CLOSED"] as const;
 
 const CHANNEL_COLORS: Record<string, string> = {
-  HOTLINE: "bg-red-100 text-red-800",
-  EMAIL: "bg-blue-100 text-blue-800",
-  WEB_PORTAL: "bg-purple-100 text-purple-800",
-  WALK_IN: "bg-green-100 text-green-800",
+  HOTLINE: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+  EMAIL: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  WEB_PORTAL: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200",
+  WALK_IN: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
 };
 
 const CHANNEL_ICONS: Record<string, React.ElementType> = {
@@ -93,10 +93,10 @@ const CHANNEL_ICONS: Record<string, React.ElementType> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  SUBMITTED: "bg-yellow-100 text-yellow-800",
-  UNDER_REVIEW: "bg-blue-100 text-blue-800",
-  INVESTIGATING: "bg-orange-100 text-orange-800",
-  RESOLVED: "bg-green-100 text-green-800",
+  SUBMITTED: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+  UNDER_REVIEW: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  INVESTIGATING: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200",
+  RESOLVED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
   CLOSED: "bg-muted text-foreground",
 };
 
@@ -566,12 +566,12 @@ export default function Whistleblower() {
                 </div>
 
                 {createMut.isError && (
-                  <p className="text-sm text-red-600">
+                  <p className="text-sm text-red-600 dark:text-red-400" role="alert">
                     Failed to submit case. Please try again.
                   </p>
                 )}
                 {createMut.isSuccess && (
-                  <p className="text-sm text-green-600">Case submitted successfully.</p>
+                  <p className="text-sm text-green-600 dark:text-green-400">Case submitted successfully.</p>
                 )}
               </CardContent>
             </Card>
@@ -614,7 +614,7 @@ export default function Whistleblower() {
                         </TableCell>
                         <TableCell>
                           {c.anonymous ? (
-                            <Badge className="bg-purple-100 text-purple-800">Anonymous</Badge>
+                            <Badge className="bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200">Anonymous</Badge>
                           ) : (
                             <Badge className="bg-muted text-muted-foreground">Named</Badge>
                           )}
@@ -629,7 +629,7 @@ export default function Whistleblower() {
                         </TableCell>
                         <TableCell>
                           {c.dpo_notified ? (
-                            <Badge className="bg-green-100 text-green-800">Yes</Badge>
+                            <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">Yes</Badge>
                           ) : (
                             <Badge className="bg-muted text-muted-foreground">No</Badge>
                           )}
@@ -663,7 +663,7 @@ export default function Whistleblower() {
                                 variant="ghost"
                                 size="sm"
                                 title="Notify DPO"
-                                className="text-orange-600 hover:text-orange-700"
+                                className="text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:text-orange-300"
                                 onClick={() => openDpo(c)}
                               >
                                 <Bell className="h-4 w-4" />
@@ -713,7 +713,7 @@ export default function Whistleblower() {
           {casesQ.isError && (
             <Card>
               <CardContent className="pt-6">
-                <p className="text-sm text-red-600">
+                <p className="text-sm text-red-600 dark:text-red-400" role="alert">
                   Failed to load whistleblower cases. Please try again.
                 </p>
               </CardContent>
@@ -736,7 +736,7 @@ export default function Whistleblower() {
           ) : conductQ.isError ? (
             <Card>
               <CardContent className="pt-6">
-                <p className="text-sm text-red-600">
+                <p className="text-sm text-red-600 dark:text-red-400" role="alert">
                   Failed to load conduct risk data. Please try again.
                 </p>
               </CardContent>
@@ -810,7 +810,7 @@ export default function Whistleblower() {
                 <CardContent className="space-y-4">
                   <div className="flex items-center gap-4">
                     <div className="flex-1 text-center">
-                      <p className="text-3xl font-bold text-purple-700">
+                      <p className="text-3xl font-bold text-purple-700 dark:text-purple-300">
                         {conduct.anonymous_count}
                       </p>
                       <p className="text-sm text-muted-foreground mt-1">Anonymous</p>

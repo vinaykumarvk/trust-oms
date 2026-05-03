@@ -119,7 +119,7 @@ const REGULATOR_SECTIONS: RegulatorSection[] = [
     id: "bsp",
     name: "BSP Reports",
     icon: Landmark,
-    color: "text-blue-600",
+    color: "text-blue-600 dark:text-blue-400",
     reports: [
       {
         id: "bsp-ctf",
@@ -148,7 +148,7 @@ const REGULATOR_SECTIONS: RegulatorSection[] = [
     id: "bir",
     name: "BIR Reports",
     icon: Building2,
-    color: "text-green-600",
+    color: "text-green-600 dark:text-green-400",
     reports: [
       {
         id: "bir-2307",
@@ -170,7 +170,7 @@ const REGULATOR_SECTIONS: RegulatorSection[] = [
     id: "amlc",
     name: "AMLC Reports",
     icon: Shield,
-    color: "text-red-600",
+    color: "text-red-600 dark:text-red-400",
     reports: [
       {
         id: "amlc-str",
@@ -192,7 +192,7 @@ const REGULATOR_SECTIONS: RegulatorSection[] = [
     id: "sec",
     name: "SEC Reports",
     icon: Scale,
-    color: "text-purple-600",
+    color: "text-purple-600 dark:text-purple-400",
     reports: [
       {
         id: "sec-17a",
@@ -214,7 +214,7 @@ const REGULATOR_SECTIONS: RegulatorSection[] = [
     id: "internal",
     name: "Internal Reports",
     icon: BarChart3,
-    color: "text-amber-600",
+    color: "text-amber-600 dark:text-amber-400",
     reports: [
       {
         id: "int-portfolio-summary",
@@ -896,7 +896,7 @@ export default function ReportsHubPage() {
 
               {/* Error state */}
               {generateMutation.isError && (
-                <Card className="border-destructive">
+                <Card className="border-destructive" role="alert">
                   <CardContent className="py-6">
                     <div className="text-center">
                       <p className="text-sm font-medium text-destructive">

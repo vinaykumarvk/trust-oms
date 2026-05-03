@@ -95,17 +95,17 @@ const STALENESS_CONFIG: Record<
   StalenessLevel,
   { label: string; color: string }
 > = {
-  current: { label: "Current", color: "bg-green-100 text-green-800" },
-  "1day": { label: "1 Day", color: "bg-yellow-100 text-yellow-800" },
-  "2plus": { label: "2+ Days", color: "bg-orange-100 text-orange-800" },
-  missing: { label: "Missing", color: "bg-red-100 text-red-800" },
+  current: { label: "Current", color: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200" },
+  "1day": { label: "1 Day", color: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200" },
+  "2plus": { label: "2+ Days", color: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200" },
+  missing: { label: "Missing", color: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200" },
 };
 
 const STATUS_COLORS: Record<string, string> = {
   NOT_STARTED: "bg-muted text-foreground",
-  DRAFT: "bg-yellow-100 text-yellow-800",
-  VALIDATED: "bg-blue-100 text-blue-800",
-  PUBLISHED: "bg-green-100 text-green-800",
+  DRAFT: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+  VALIDATED: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  PUBLISHED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
 };
 
 // ---------------------------------------------------------------------------

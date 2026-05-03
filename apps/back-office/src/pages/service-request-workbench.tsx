@@ -82,19 +82,19 @@ function fetcher(url: string) {
 }
 
 const statusColors: Record<string, string> = {
-  NEW: "bg-gray-100 text-gray-800",
-  APPROVED: "bg-blue-100 text-blue-800",
-  READY_FOR_TELLER: "bg-yellow-100 text-yellow-800",
-  COMPLETED: "bg-green-100 text-green-800",
-  INCOMPLETE: "bg-orange-100 text-orange-800",
-  REJECTED: "bg-red-100 text-red-800",
-  CLOSED: "bg-purple-100 text-purple-800",
+  NEW: "bg-gray-100 text-gray-800 dark:text-gray-200",
+  APPROVED: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+  READY_FOR_TELLER: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200",
+  COMPLETED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+  INCOMPLETE: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200",
+  REJECTED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+  CLOSED: "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200",
 };
 
 const priorityColors: Record<string, string> = {
-  HIGH: "bg-red-100 text-red-700",
-  MEDIUM: "bg-yellow-100 text-yellow-700",
-  LOW: "bg-green-100 text-green-700",
+  HIGH: "bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300",
+  MEDIUM: "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300",
+  LOW: "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300",
 };
 
 interface ServiceRequest {
@@ -219,10 +219,10 @@ export default function ServiceRequestWorkbench() {
     const daysRemaining = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
     const isOpen = ["NEW", "APPROVED", "READY_FOR_TELLER", "INCOMPLETE"].includes(sr.sr_status);
     if (!isOpen) return null;
-    let color = "bg-green-100 text-green-800";
-    if (daysRemaining <= 0) color = "bg-red-100 text-red-800";
-    else if (daysRemaining <= 1) color = "bg-orange-100 text-orange-800";
-    else if (daysRemaining <= 3) color = "bg-yellow-100 text-yellow-800";
+    let color = "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200";
+    if (daysRemaining <= 0) color = "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200";
+    else if (daysRemaining <= 1) color = "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200";
+    else if (daysRemaining <= 3) color = "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200";
     const label = daysRemaining <= 0 ? `${Math.abs(daysRemaining)}d overdue` : `${daysRemaining}d left`;
     return { color, label };
   }
@@ -294,11 +294,11 @@ export default function ServiceRequestWorkbench() {
   }
 
   const kpiCards = [
-    { label: "Total", value: summary?.total ?? 0, icon: ClipboardList, color: "text-gray-600" },
-    { label: "Approved", value: summary?.byStatus.approved ?? 0, icon: CheckCircle, color: "text-blue-600" },
-    { label: "Ready for Teller", value: summary?.byStatus.readyForTeller ?? 0, icon: Send, color: "text-yellow-600" },
-    { label: "Completed", value: summary?.byStatus.completed ?? 0, icon: CheckCircle, color: "text-green-600" },
-    { label: "Overdue SLA", value: summary?.overdueSla ?? 0, icon: AlertTriangle, color: "text-red-600" },
+    { label: "Total", value: summary?.total ?? 0, icon: ClipboardList, color: "text-gray-600 dark:text-gray-400" },
+    { label: "Approved", value: summary?.byStatus.approved ?? 0, icon: CheckCircle, color: "text-blue-600 dark:text-blue-400" },
+    { label: "Ready for Teller", value: summary?.byStatus.readyForTeller ?? 0, icon: Send, color: "text-yellow-600 dark:text-yellow-400" },
+    { label: "Completed", value: summary?.byStatus.completed ?? 0, icon: CheckCircle, color: "text-green-600 dark:text-green-400" },
+    { label: "Overdue SLA", value: summary?.overdueSla ?? 0, icon: AlertTriangle, color: "text-red-600 dark:text-red-400" },
   ];
 
   return (
