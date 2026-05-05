@@ -11,6 +11,135 @@ import { eq, desc, and, sql, type InferSelectModel } from 'drizzle-orm';
 
 type Trade = InferSelectModel<typeof schema.trades>;
 
+interface CaEntitlementReconLine {
+  entitlementId: number;
+  portfolioId: string;
+  entitledQty: number;
+  electedOption: string | null;
+  posted: boolean;
+}
+
+interface CaExternalReconLine {
+  portfolioId: string;
+  entitledQty: number;
+  electedOption: string | null;
+  sourceId?: number | string | null;
+}
+
+interface ReconBreakDraft {
+  type: string;
+  entity_id: string;
+  break_type: string;
+  internal_value: string | null;
+  external_value: string | null;
+  difference: string | null;
+}
+
+function normalizeOption(option: string | null | undefined): string {
+  return String(option ?? 'CASH').trim().toUpperCase();
+}
+
+function qtyDifference(left: number, right: number): number {
+  return Math.round((left - right) * 10000) / 10000;
+}
+
+export function buildCorporateActionEntitlementReconBreaks(
+  entitlements: CaEntitlementReconLine[],
+  custodyLines: CaExternalReconLine[],
+  statementLines: CaExternalReconLine[],
+): ReconBreakDraft[] {
+  const custodyByPortfolio = new Map(custodyLines.map((line) => [line.portfolioId, line]));
+  const statementByPortfolio = new Map(statementLines.map((line) => [line.portfolioId, line]));
+  const breaks: ReconBreakDraft[] = [];
+
+  for (const entitlement of entitlements) {
+    const entityId = `${entitlement.entitlementId}:${entitlement.portfolioId}`;
+    const custody = custodyByPortfolio.get(entitlement.portfolioId);
+    const statement = statementByPortfolio.get(entitlement.portfolioId);
+
+    if (!custody) {
+      breaks.push({
+        type: 'CA_ENTITLEMENT_TRIAD',
+        entity_id: entityId,
+        break_type: 'MISSING_CUSTODY_CONFIRMATION',
+        internal_value: String(entitlement.entitledQty),
+        external_value: null,
+        difference: null,
+      });
+    } else {
+      const diff = qtyDifference(entitlement.entitledQty, custody.entitledQty);
+      if (Math.abs(diff) > 0.0001) {
+        breaks.push({
+          type: 'CA_ENTITLEMENT_TRIAD',
+          entity_id: entityId,
+          break_type: 'ENTITLEMENT_CUSTODY_QTY_MISMATCH',
+          internal_value: String(entitlement.entitledQty),
+          external_value: String(custody.entitledQty),
+          difference: String(diff),
+        });
+      }
+
+      if (normalizeOption(entitlement.electedOption) !== normalizeOption(custody.electedOption)) {
+        breaks.push({
+          type: 'CA_ENTITLEMENT_TRIAD',
+          entity_id: entityId,
+          break_type: 'ELECTION_CUSTODY_MISMATCH',
+          internal_value: normalizeOption(entitlement.electedOption),
+          external_value: normalizeOption(custody.electedOption),
+          difference: null,
+        });
+      }
+    }
+
+    if (!statement) {
+      breaks.push({
+        type: 'CA_ENTITLEMENT_TRIAD',
+        entity_id: entityId,
+        break_type: 'MISSING_CLIENT_STATEMENT_LINE',
+        internal_value: String(entitlement.entitledQty),
+        external_value: null,
+        difference: null,
+      });
+    } else {
+      const diff = qtyDifference(entitlement.entitledQty, statement.entitledQty);
+      if (Math.abs(diff) > 0.0001) {
+        breaks.push({
+          type: 'CA_ENTITLEMENT_TRIAD',
+          entity_id: entityId,
+          break_type: 'ENTITLEMENT_STATEMENT_QTY_MISMATCH',
+          internal_value: String(entitlement.entitledQty),
+          external_value: String(statement.entitledQty),
+          difference: String(diff),
+        });
+      }
+
+      if (normalizeOption(entitlement.electedOption) !== normalizeOption(statement.electedOption)) {
+        breaks.push({
+          type: 'CA_ENTITLEMENT_TRIAD',
+          entity_id: entityId,
+          break_type: 'ELECTION_STATEMENT_MISMATCH',
+          internal_value: normalizeOption(entitlement.electedOption),
+          external_value: normalizeOption(statement.electedOption),
+          difference: null,
+        });
+      }
+    }
+
+    if (!entitlement.posted) {
+      breaks.push({
+        type: 'CA_ENTITLEMENT_TRIAD',
+        entity_id: entityId,
+        break_type: 'ACCOUNTING_NOT_POSTED',
+        internal_value: 'posted=false',
+        external_value: 'expected_posted=true',
+        difference: null,
+      });
+    }
+  }
+
+  return breaks;
+}
+
 export const reconciliationService = {
   // -------------------------------------------------------------------------
   // Run transaction reconciliation for a date
@@ -324,6 +453,119 @@ export const reconciliationService = {
       };
     } catch (err) {
       // Mark run as failed
+      await db
+        .update(schema.reconRuns)
+        .set({
+          recon_status: 'FAILED',
+          completed_at: new Date(),
+        })
+        .where(eq(schema.reconRuns.id, run.id));
+
+      throw err;
+    }
+  },
+
+  // -------------------------------------------------------------------------
+  // Run CA entitlement/election reconciliation for a corporate action
+  // -------------------------------------------------------------------------
+  async runCorporateActionEntitlementRecon(
+    corporateActionId: number,
+    date: string,
+    triggeredBy?: number,
+  ) {
+    const [run] = await db
+      .insert(schema.reconRuns)
+      .values({
+        type: 'CA_ENTITLEMENT_TRIAD',
+        run_date: date,
+        recon_status: 'RUNNING',
+        started_at: new Date(),
+        triggered_by: triggeredBy ?? null,
+      })
+      .returning();
+
+    try {
+      const entitlements = await db
+        .select()
+        .from(schema.corporateActionEntitlements)
+        .where(eq(schema.corporateActionEntitlements.corporate_action_id, corporateActionId));
+
+      const custodyConfirmations = await db
+        .select()
+        .from(schema.corporateActionCustodyConfirmations)
+        .where(eq(schema.corporateActionCustodyConfirmations.corporate_action_id, corporateActionId));
+
+      const statementLines = await db
+        .select()
+        .from(schema.corporateActionStatementLines)
+        .where(eq(schema.corporateActionStatementLines.corporate_action_id, corporateActionId));
+
+      const entitlementLines: CaEntitlementReconLine[] = entitlements
+        .filter((ent: typeof entitlements[number]) => Boolean(ent.portfolio_id))
+        .map((ent: typeof entitlements[number]) => ({
+          entitlementId: ent.id,
+          portfolioId: ent.portfolio_id!,
+          entitledQty: parseFloat(ent.entitled_qty ?? '0'),
+          electedOption: ent.elected_option ?? null,
+          posted: ent.posted === true,
+        }));
+
+      const custodyLines: CaExternalReconLine[] = custodyConfirmations.map((line: typeof custodyConfirmations[number]) => ({
+        portfolioId: line.portfolio_id,
+        entitledQty: parseFloat(line.entitled_qty ?? '0'),
+        electedOption: line.elected_option ?? null,
+        sourceId: line.id,
+      }));
+
+      const clientStatementLines: CaExternalReconLine[] = statementLines.map((line: typeof statementLines[number]) => ({
+        portfolioId: line.portfolio_id,
+        entitledQty: parseFloat(line.entitled_qty ?? '0'),
+        electedOption: line.elected_option ?? null,
+        sourceId: line.id,
+      }));
+
+      const breaks = buildCorporateActionEntitlementReconBreaks(
+        entitlementLines,
+        custodyLines,
+        clientStatementLines,
+      );
+
+      for (const brk of breaks) {
+        await db.insert(schema.reconBreaks).values({
+          run_id: run.id,
+          type: brk.type,
+          entity_id: brk.entity_id,
+          break_type: brk.break_type,
+          internal_value: brk.internal_value,
+          external_value: brk.external_value,
+          difference: brk.difference,
+          break_status: 'OPEN',
+        });
+      }
+
+      const totalRecords = entitlementLines.length;
+      const matchedRecords = totalRecords - new Set(breaks.map((brk) => brk.entity_id)).size;
+      const [updatedRun] = await db
+        .update(schema.reconRuns)
+        .set({
+          recon_status: 'COMPLETED',
+          completed_at: new Date(),
+          total_records: totalRecords,
+          matched_records: Math.max(matchedRecords, 0),
+          breaks_found: breaks.length,
+        })
+        .where(eq(schema.reconRuns.id, run.id))
+        .returning();
+
+      return {
+        run: updatedRun,
+        corporateActionId,
+        entitlementsChecked: totalRecords,
+        custodyConfirmations: custodyLines.length,
+        clientStatementLines: clientStatementLines.length,
+        breaks_created: breaks.length,
+      };
+    } catch (err) {
       await db
         .update(schema.reconRuns)
         .set({

@@ -11,6 +11,8 @@ import { eq, and, sql, desc, count, inArray, gte, lte } from 'drizzle-orm';
 import crypto from 'crypto';
 import { DEFAULT_CURRENCY } from '../constants/crm';
 import { negativeListService } from './negative-list-service';
+import { dedupeService } from './dedupe-service';
+import { DedupeOnboardingDecision } from './dedupe-decision-policy';
 
 // ============================================================================
 // Types & Constants
@@ -179,6 +181,20 @@ export const prospectService = {
       throw new Error(`Prospect creation blocked: entity matched negative list (${screenResult.matches.map((m: { list_type: string }) => m.list_type).join(', ')})`);
     }
 
+    const dedupeDecision: DedupeOnboardingDecision = await dedupeService.evaluateOnboardingDedupe(
+      {
+        ...data,
+        entity_name: data.company_name ? String(data.company_name) : undefined,
+        tin: data.tin ? String(data.tin) : undefined,
+        tax_id: data.tax_id ? String(data.tax_id) : undefined,
+        tin_number: data.tin_number ? String(data.tin_number) : undefined,
+      },
+      String(data.entity_type ?? 'INDIVIDUAL'),
+      'PROSPECT',
+      userId,
+      data.dedupe_override as any,
+    );
+
     const prospect_code = generateProspectNumber();
 
     const aum = data.total_aum ? Number(data.total_aum) : 0;
@@ -245,6 +261,8 @@ export const prospectService = {
       actor_id: userId,
       changes: { marketing_consent: true, captured_at: new Date().toISOString() },
     } as any);
+
+    await dedupeService.recordOnboardingDedupeOverrides('PROSPECT', prospect.id, dedupeDecision, userId);
 
     return prospect;
   },

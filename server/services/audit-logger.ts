@@ -28,10 +28,36 @@ export interface AuditEvent {
   action: string;
   actorId?: string;
   actorRole?: string;
+  actorSource?: string;
+  source?: {
+    system?: string;
+    channel?: string;
+    component?: string;
+  };
+  before?: Record<string, unknown> | null;
+  after?: Record<string, unknown> | null;
   changes?: Record<string, unknown> | null;
   ipAddress?: string;
   correlationId?: string;
   metadata?: Record<string, unknown>;
+}
+
+export type NormalizedAuditAction =
+  | 'CREATE'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'LOGIN'
+  | 'LOGOUT'
+  | 'ACCESS'
+  | 'EXPORT'
+  | 'AUTHORIZE'
+  | 'REJECT'
+  | 'REVERSE';
+
+export interface AuditChangeEnvelope {
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  diff: Record<string, { old: unknown; new: unknown }> | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -58,6 +84,7 @@ function computeRecordHash(
   action: string,
   actorId: string | undefined,
   changes: Record<string, unknown> | null | undefined,
+  metadata: Record<string, unknown> | null | undefined,
   timestamp: string,
   previousHash: string,
 ): string {
@@ -67,9 +94,131 @@ function computeRecordHash(
     action,
     actorId: actorId ?? null,
     changes: changes ?? null,
+    metadata: metadata ?? null,
     timestamp,
   });
   return createHash('sha256').update(payload + previousHash).digest('hex');
+}
+
+export function normalizeAuditEventName(action: string): string {
+  const normalized = String(action || 'UPDATE')
+    .trim()
+    .replace(/([a-z])([A-Z])/g, '$1_$2')
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toUpperCase();
+  return normalized || 'UPDATE';
+}
+
+export function normalizeAuditAction(action: string): NormalizedAuditAction {
+  const eventType = normalizeAuditEventName(action);
+
+  if (eventType.includes('LOGIN')) return 'LOGIN';
+  if (eventType.includes('LOGOUT')) return 'LOGOUT';
+  if (eventType.includes('DELETE') || eventType.includes('DELETED') || eventType.includes('REMOVE')) return 'DELETE';
+  if (eventType.includes('REVERSE') || eventType.includes('REVERSAL') || eventType.includes('ROLLBACK')) return 'REVERSE';
+  if (
+    eventType.includes('REJECT') ||
+    eventType.includes('DENIED') ||
+    eventType.includes('DENY') ||
+    eventType.includes('FAILED') ||
+    eventType.includes('FAILURE') ||
+    eventType.includes('BLOCKED')
+  ) {
+    return 'REJECT';
+  }
+  if (
+    eventType.includes('AUTHORIZE') ||
+    eventType.includes('AUTHORIZED') ||
+    eventType.includes('APPROVE') ||
+    eventType.includes('APPROVED') ||
+    eventType.includes('ACKNOWLEDGE')
+  ) {
+    return 'AUTHORIZE';
+  }
+  if (eventType.includes('EXPORT') || eventType.includes('DOWNLOAD')) return 'EXPORT';
+  if (eventType.includes('ACCESS') || eventType.includes('VIEW') || eventType.includes('READ')) return 'ACCESS';
+  if (
+    eventType.includes('CREATE') ||
+    eventType.includes('CREATED') ||
+    eventType.includes('ADD') ||
+    eventType.includes('INSERT') ||
+    eventType.includes('IMPORT') ||
+    eventType.includes('UPLOAD') ||
+    eventType.includes('GENERATE') ||
+    eventType.includes('GENERATED') ||
+    eventType.includes('PARSE') ||
+    eventType.includes('INGEST') ||
+    eventType.includes('REPLY') ||
+    eventType.includes('REPLIED') ||
+    eventType.includes('SUBMIT') ||
+    eventType.includes('RUN') ||
+    eventType.includes('QUEUE')
+  ) {
+    return 'CREATE';
+  }
+
+  return 'UPDATE';
+}
+
+function isDiffMap(changes: Record<string, unknown>): changes is Record<string, { old: unknown; new: unknown }> {
+  const values = Object.values(changes);
+  return values.length > 0 && values.every((value) => (
+    Boolean(value) &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    Object.prototype.hasOwnProperty.call(value, 'old') &&
+    Object.prototype.hasOwnProperty.call(value, 'new')
+  ));
+}
+
+export function buildAuditChangeEnvelope(event: Pick<AuditEvent, 'before' | 'after' | 'changes'>): AuditChangeEnvelope | null {
+  if (event.before || event.after) {
+    const before = event.before ?? null;
+    const after = event.after ?? null;
+    return {
+      before,
+      after,
+      diff: before && after ? computeDiff(before, after) : null,
+    };
+  }
+
+  if (!event.changes) return null;
+
+  if (isDiffMap(event.changes)) {
+    return {
+      before: null,
+      after: null,
+      diff: event.changes,
+    };
+  }
+
+  return {
+    before: null,
+    after: event.changes,
+    diff: null,
+  };
+}
+
+export function buildAuditMetadata(
+  event: AuditEvent,
+  eventType: string = normalizeAuditEventName(event.action),
+): Record<string, unknown> {
+  const sourceSystem = event.source?.system ?? event.metadata?.source_system ?? 'TRUST_OMS';
+  const sourceChannel = event.source?.channel ?? event.metadata?.source_channel ?? null;
+  const sourceComponent = event.source?.component ?? event.metadata?.source_component ?? null;
+  const actorSource = event.actorSource ?? event.metadata?.actor_source ?? (event.actorId ? 'USER' : 'SYSTEM');
+
+  return {
+    ...(event.metadata ?? {}),
+    audit_schema_version: 1,
+    event_type: eventType,
+    normalized_action: normalizeAuditAction(event.action),
+    actor_source: actorSource,
+    source_system: sourceSystem,
+    source_channel: sourceChannel,
+    source_component: sourceComponent,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -99,15 +248,20 @@ export async function logAuditEvent(event: AuditEvent): Promise<void> {
   try {
     const timestamp = new Date().toISOString();
     const previousHash = await getLastHash(event.entityType, event.entityId);
+    const eventType = normalizeAuditEventName(event.action);
+    const normalizedAction = normalizeAuditAction(event.action);
 
-    const safeChanges = event.changes ? redactSensitive(event.changes) : null;
+    const changeEnvelope = buildAuditChangeEnvelope(event);
+    const safeChanges = changeEnvelope ? redactSensitive(changeEnvelope as unknown as Record<string, unknown>) : null;
+    const safeMetadata = redactSensitive(buildAuditMetadata(event, eventType));
 
     const recordHash = computeRecordHash(
       event.entityType,
       event.entityId,
-      event.action,
+      normalizedAction,
       event.actorId,
       safeChanges,
+      safeMetadata,
       timestamp,
       previousHash,
     );
@@ -115,15 +269,19 @@ export async function logAuditEvent(event: AuditEvent): Promise<void> {
     await db.insert(auditRecords).values({
       entity_type: event.entityType,
       entity_id: event.entityId,
-      action: event.action,
+      event_type: eventType,
+      action: normalizedAction,
       actor_id: event.actorId ?? null,
       actor_role: event.actorRole ?? null,
+      actor_source: String(safeMetadata.actor_source ?? 'SYSTEM'),
+      source_system: String(safeMetadata.source_system ?? 'TRUST_OMS'),
+      source_channel: safeMetadata.source_channel ? String(safeMetadata.source_channel) : null,
       changes: safeChanges as Record<string, unknown>,
       previous_hash: previousHash,
       record_hash: recordHash,
       ip_address: event.ipAddress ?? null,
       correlation_id: event.correlationId ?? null,
-      metadata: (event.metadata as Record<string, unknown>) ?? null,
+      metadata: safeMetadata,
     });
   } catch (err) {
     // Fire-and-forget: never throw. Log to stderr for observability.
@@ -145,9 +303,13 @@ export async function logAuditBatch(events: AuditEvent[]): Promise<void> {
     const records: Array<{
       entity_type: string;
       entity_id: string;
+      event_type: string;
       action: string;
       actor_id: string | null;
       actor_role: string | null;
+      actor_source: string | null;
+      source_system: string | null;
+      source_channel: string | null;
       changes: Record<string, unknown> | null;
       previous_hash: string;
       record_hash: string;
@@ -159,20 +321,25 @@ export async function logAuditBatch(events: AuditEvent[]): Promise<void> {
     for (const event of events) {
       const cacheKey = `${event.entityType}:${event.entityId}`;
       const timestamp = new Date().toISOString();
+      const eventType = normalizeAuditEventName(event.action);
+      const normalizedAction = normalizeAuditAction(event.action);
 
       let previousHash = hashCache.get(cacheKey);
       if (previousHash === undefined) {
         previousHash = await getLastHash(event.entityType, event.entityId);
       }
 
-      const safeChanges = event.changes ? redactSensitive(event.changes) : null;
+      const changeEnvelope = buildAuditChangeEnvelope(event);
+      const safeChanges = changeEnvelope ? redactSensitive(changeEnvelope as unknown as Record<string, unknown>) : null;
+      const safeMetadata = redactSensitive(buildAuditMetadata(event, eventType));
 
       const recordHash = computeRecordHash(
         event.entityType,
         event.entityId,
-        event.action,
+        normalizedAction,
         event.actorId,
         safeChanges,
+        safeMetadata,
         timestamp,
         previousHash,
       );
@@ -182,15 +349,19 @@ export async function logAuditBatch(events: AuditEvent[]): Promise<void> {
       records.push({
         entity_type: event.entityType,
         entity_id: event.entityId,
-        action: event.action,
+        event_type: eventType,
+        action: normalizedAction,
         actor_id: event.actorId ?? null,
         actor_role: event.actorRole ?? null,
+        actor_source: String(safeMetadata.actor_source ?? 'SYSTEM'),
+        source_system: String(safeMetadata.source_system ?? 'TRUST_OMS'),
+        source_channel: safeMetadata.source_channel ? String(safeMetadata.source_channel) : null,
         changes: safeChanges as Record<string, unknown> | null,
         previous_hash: previousHash,
         record_hash: recordHash,
         ip_address: event.ipAddress ?? null,
         correlation_id: event.correlationId ?? null,
-        metadata: (event.metadata as Record<string, unknown>) ?? null,
+        metadata: safeMetadata,
       });
     }
 

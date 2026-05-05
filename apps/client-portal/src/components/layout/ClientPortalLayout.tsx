@@ -81,6 +81,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
     // ignore malformed storage
   }
   const clientId = clientUser.clientId || "CLT-001";
+  const messageSessionKey = clientUser.clientId || "session";
 
   const { data: actionCountData } = useQuery({
     queryKey: ["sr-action-count", clientId],
@@ -91,7 +92,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const srActionCount = actionCountData?.data?.count || 0;
 
   const { data: unreadData } = useQuery<{ unread_count: number }>({
-    queryKey: ["client-portal", "messages-unread", clientId],
+    queryKey: ["client-portal", "messages-unread", messageSessionKey],
     queryFn: () =>
       apiRequest("GET", apiUrl("/api/v1/client-portal/messages/unread-count")),
     refetchInterval: 60000,
@@ -299,16 +300,16 @@ export function ClientPortalLayout() {
 
   // Fetch unread count at layout level so TopHeader bell badge stays in sync.
   // SidebarNav uses the same query key — React Query deduplicates the request.
-  let headerClientId = "CLT-001";
+  let headerMessageSessionKey = "session";
   try {
     const stored = localStorage.getItem("trustoms-client-user");
-    if (stored) headerClientId = JSON.parse(stored).clientId || "CLT-001";
+    if (stored) headerMessageSessionKey = JSON.parse(stored).clientId || "session";
   } catch {
     // ignore malformed storage
   }
 
   const { data: layoutUnreadData } = useQuery<{ unread_count: number }>({
-    queryKey: ["client-portal", "messages-unread", headerClientId],
+    queryKey: ["client-portal", "messages-unread", headerMessageSessionKey],
     queryFn: () =>
       apiRequest("GET", apiUrl("/api/v1/client-portal/messages/unread-count")),
     refetchInterval: 60000,

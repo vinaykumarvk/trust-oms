@@ -8,11 +8,78 @@
 
 import { db } from '../db';
 import * as schema from '@shared/schema';
-import { eq, and, sql, desc, or, count, lte } from 'drizzle-orm';
+import { eq, and, sql, desc, or, count } from 'drizzle-orm';
 import { NotFoundError, ForbiddenError, ValidationError } from './service-errors';
 import { notificationInboxService } from './notification-inbox-service';
+import { marketCalendarService } from './market-calendar-service';
+import {
+  computeApprovalClaimExpiryDate,
+  evaluateApprovalAutoUnclaim,
+  type ApprovalAutoUnclaimEvaluation,
+  type ApprovalAutoUnclaimPolicy,
+} from './approval-auto-unclaim-policy';
 
 const MIN_REJECTION_COMMENT_CHARS = 20;
+const DEFAULT_AUTO_UNCLAIM_DAYS = 2;
+const DEFAULT_AUTO_UNCLAIM_CALENDAR_KEY = 'PSE';
+const DEFAULT_AUTO_UNCLAIM_TIMEZONE = 'Asia/Manila';
+
+async function getConfigValue(configKey: string, fallback: string): Promise<string> {
+  try {
+    const [row] = await db
+      .select({ config_value: schema.systemConfig.config_value })
+      .from(schema.systemConfig)
+      .where(eq(schema.systemConfig.config_key, configKey))
+      .limit(1);
+    return row?.config_value?.trim() || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+async function resolveApprovalAutoUnclaimPolicy(input: {
+  branchId?: number | null;
+  calendarKey?: string | null;
+  timezone?: string | null;
+} = {}): Promise<ApprovalAutoUnclaimPolicy> {
+  const [thresholdRaw, defaultCalendarKey, defaultTimezone] = await Promise.all([
+    getConfigValue('CRM_APPROVAL_AUTO_UNCLAIM_BUSINESS_DAYS', String(DEFAULT_AUTO_UNCLAIM_DAYS)),
+    getConfigValue('CRM_APPROVAL_AUTO_UNCLAIM_CALENDAR_KEY', DEFAULT_AUTO_UNCLAIM_CALENDAR_KEY),
+    getConfigValue('CRM_APPROVAL_AUTO_UNCLAIM_TIMEZONE', DEFAULT_AUTO_UNCLAIM_TIMEZONE),
+  ]);
+
+  let branchCalendarKey: string | null = null;
+  let branchTimezone: string | null = null;
+  if (input.branchId) {
+    try {
+      const [branch] = await db
+        .select({ calendar_key: schema.branches.calendar_key, timezone: schema.branches.timezone })
+        .from(schema.branches)
+        .where(eq(schema.branches.id, input.branchId))
+        .limit(1);
+      branchCalendarKey = branch?.calendar_key ?? null;
+      branchTimezone = branch?.timezone ?? null;
+    } catch {
+      branchCalendarKey = null;
+      branchTimezone = null;
+    }
+  }
+
+  return {
+    thresholdBusinessDays: parseInt(thresholdRaw, 10) || DEFAULT_AUTO_UNCLAIM_DAYS,
+    calendarKey: input.calendarKey || branchCalendarKey || defaultCalendarKey,
+    timezone: input.timezone || branchTimezone || defaultTimezone,
+  };
+}
+
+function expiryDateToTimestamp(expiryDate: string): Date {
+  return new Date(`${expiryDate}T00:00:00.000Z`);
+}
+
+function appendClaimHistory(history: unknown, entry: Record<string, unknown>): Record<string, unknown>[] {
+  const current = Array.isArray(history) ? history as Record<string, unknown>[] : [];
+  return [...current.slice(-49), entry];
+}
 
 // ============================================================================
 // Service
@@ -97,7 +164,11 @@ export const approvalWorkflowService = {
 
     // CCR-GAP-005: Supervisor can only claim approvals within their branch (BO_HEAD/SYSTEM_ADMIN are exempt)
     const [callReport] = await db
-      .select({ branch_id: schema.callReports.branch_id, filed_by: schema.callReports.filed_by })
+      .select({
+        branch_id: schema.callReports.branch_id,
+        filed_by: schema.callReports.filed_by,
+        report_code: schema.callReports.report_code,
+      })
       .from(schema.callReports)
       .where(eq(schema.callReports.id, approval.call_report_id))
       .limit(1);
@@ -124,14 +195,34 @@ export const approvalWorkflowService = {
       throw new ValidationError('Supervisor already has 20 claimed approvals. Complete or release existing claims before claiming more.');
     }
 
+    const now = new Date();
+    const autoUnclaimPolicy = await resolveApprovalAutoUnclaimPolicy({ branchId: callReport?.branch_id });
+    const claimExpiresOn = await computeApprovalClaimExpiryDate({
+      claimedAt: now,
+      policy: autoUnclaimPolicy,
+      isBusinessDay: (calendarKey, date) => marketCalendarService.isBusinessDay(calendarKey, date),
+    });
+
     const [updated] = await db
       .update(schema.callReportApprovals)
       // Drizzle .set() requires exact column types; dynamic field map needs cast
       .set({
         action: 'CLAIMED',
-        claimed_at: new Date(),
+        claimed_at: now,
         supervisor_id: supervisorId,
-        updated_at: new Date(),
+        claim_calendar_key: autoUnclaimPolicy.calendarKey,
+        claim_timezone: autoUnclaimPolicy.timezone,
+        claim_expires_on: claimExpiresOn,
+        claim_expires_at: expiryDateToTimestamp(claimExpiresOn),
+        claim_history: appendClaimHistory(approval.claim_history, {
+          action: 'CLAIMED',
+          at: now.toISOString(),
+          supervisor_id: supervisorId,
+          calendar_key: autoUnclaimPolicy.calendarKey,
+          timezone: autoUnclaimPolicy.timezone,
+          expires_on: claimExpiresOn,
+        }),
+        updated_at: now,
       } as any)
       .where(eq(schema.callReportApprovals.id, approvalId))
       .returning();
@@ -348,33 +439,81 @@ export const approvalWorkflowService = {
    * Resets CLAIMED → PENDING and clears supervisor_id so another supervisor can pick it up.
    * Called by the nightly scheduler in routes.ts.
    */
-  async processExpiredClaims(): Promise<number> {
-    // 2 business days ≈ 2 * 24h; simple calendar-day approximation is acceptable here
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 2);
-
-    const expired = await db
-      .select({ id: schema.callReportApprovals.id, supervisor_id: schema.callReportApprovals.supervisor_id })
+  async processExpiredClaims(now = new Date()): Promise<number> {
+    const claimed = await db
+      .select({
+        id: schema.callReportApprovals.id,
+        supervisor_id: schema.callReportApprovals.supervisor_id,
+        call_report_id: schema.callReportApprovals.call_report_id,
+        claimed_at: schema.callReportApprovals.claimed_at,
+        claim_calendar_key: schema.callReportApprovals.claim_calendar_key,
+        claim_timezone: schema.callReportApprovals.claim_timezone,
+        claim_history: schema.callReportApprovals.claim_history,
+        auto_unclaim_count: schema.callReportApprovals.auto_unclaim_count,
+        branch_id: schema.callReports.branch_id,
+        report_code: schema.callReports.report_code,
+      })
       .from(schema.callReportApprovals)
+      .innerJoin(schema.callReports, eq(schema.callReportApprovals.call_report_id, schema.callReports.id))
       .where(and(
         eq(schema.callReportApprovals.action, 'CLAIMED'),
-        lte(schema.callReportApprovals.claimed_at, cutoff),
+        sql`${schema.callReportApprovals.claimed_at} IS NOT NULL`,
       ));
 
-    if (expired.length === 0) return 0;
+    if (!Array.isArray(claimed) || claimed.length === 0) return 0;
 
-    for (const rec of expired) {
+    let released = 0;
+    for (const rec of claimed) {
+      if (!rec.claimed_at) continue;
+      const policy = await resolveApprovalAutoUnclaimPolicy({
+        branchId: rec.branch_id,
+        calendarKey: rec.claim_calendar_key,
+        timezone: rec.claim_timezone,
+      });
+      const evaluation: ApprovalAutoUnclaimEvaluation = await evaluateApprovalAutoUnclaim({
+        claimedAt: rec.claimed_at,
+        now,
+        policy,
+        isBusinessDay: (calendarKey, date) => marketCalendarService.isBusinessDay(calendarKey, date),
+      });
+      if (!evaluation.expired) continue;
+
       await db
         .update(schema.callReportApprovals)
         .set({
           action: 'PENDING',
           supervisor_id: null,
           claimed_at: null,
-          updated_at: new Date(),
+          claim_expires_on: null,
+          claim_expires_at: null,
+          last_auto_unclaimed_at: now,
+          auto_unclaim_count: Number(rec.auto_unclaim_count ?? 0) + 1,
+          auto_unclaim_evidence: evaluation,
+          claim_history: appendClaimHistory(rec.claim_history, {
+            action: 'AUTO_UNCLAIMED',
+            at: now.toISOString(),
+            previous_supervisor_id: rec.supervisor_id,
+            evaluation,
+          }),
+          updated_at: now,
+          updated_by: 'APPROVAL_AUTO_UNCLAIM_JOB',
         } as any)
         .where(eq(schema.callReportApprovals.id, rec.id));
+
+      if (rec.supervisor_id) {
+        await notificationInboxService.notifyChannels({
+          recipient_user_id: rec.supervisor_id,
+          type: 'CALL_REPORT_PENDING_APPROVAL',
+          title: 'Call Report Claim Released',
+          message: `Call report ${rec.report_code} was released after ${evaluation.businessDaysElapsed} business days without a decision.`,
+          channels: ['IN_APP', 'EMAIL'],
+          related_entity_type: 'call_report_approval',
+          related_entity_id: rec.id,
+        });
+      }
+      released++;
     }
 
-    return expired.length;
+    return released;
   },
 };

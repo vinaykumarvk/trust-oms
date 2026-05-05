@@ -21,7 +21,13 @@ export const contentPackService = {
         jurisdiction_id: data.jurisdiction_id,
         category: data.category,
         payload: data.payload,
+        payload_hash: signatureHash,
         signature_hash: signatureHash,
+        signature_verification_evidence: {
+          algorithm: 'sha256',
+          computed_hash: signatureHash,
+          staged_at: new Date().toISOString(),
+        },
         pack_status: 'STAGED',
         created_by: 'system',
         updated_by: 'system',
@@ -54,6 +60,10 @@ export const contentPackService = {
 
     if (!pack.length) throw new Error(`Content pack not found: ${id}`);
     const target = pack[0];
+    const signature = await this.verifySignature(id, userId);
+    if (!signature.valid) {
+      throw new Error('Content pack signature verification failed; activation is blocked');
+    }
 
     // Supersede the currently active pack for same jurisdiction + category
     const activePacks = await db
@@ -73,6 +83,12 @@ export const contentPackService = {
         .set({
           pack_status: 'ARCHIVED',
           superseded_by: id,
+          archival_evidence: {
+            archived_at: new Date().toISOString(),
+            archived_by: userId,
+            reason: 'SUPERSEDED_BY_CONTENT_PACK_ACTIVATION',
+            superseded_by: id,
+          },
           updated_by: String(userId),
           updated_at: new Date(),
         })
@@ -87,6 +103,9 @@ export const contentPackService = {
         pack_status: 'ACTIVE',
         activated_at: now,
         activated_by: userId,
+        activation_approval_status: 'APPROVED',
+        activation_approved_by: userId,
+        activation_approved_at: now,
         updated_by: String(userId),
         updated_at: now,
       })
@@ -109,6 +128,10 @@ export const contentPackService = {
       .update(schema.contentPacks)
       .set({
         pack_status: 'ROLLED_BACK',
+        rollback_evidence: {
+          rolled_back_at: new Date().toISOString(),
+          reason: 'MANUAL_ROLLBACK',
+        },
         updated_by: 'system',
         updated_at: new Date(),
       })
@@ -136,6 +159,7 @@ export const contentPackService = {
           pack_status: 'ACTIVE',
           superseded_by: null,
           activated_at: new Date(),
+          activation_approval_status: 'RESTORED_BY_ROLLBACK',
           updated_by: 'system',
           updated_at: new Date(),
         })
@@ -148,7 +172,7 @@ export const contentPackService = {
     return { rolledBack: id, restored: null };
   },
 
-  async verifySignature(id: number) {
+  async verifySignature(id: number, verifiedBy?: number) {
     const pack = await db
       .select()
       .from(schema.contentPacks)
@@ -160,11 +184,31 @@ export const contentPackService = {
     const computedHash = createHash('sha256')
       .update(JSON.stringify(target.payload))
       .digest('hex');
+    const evidence = {
+      algorithm: 'sha256',
+      computed_hash: computedHash,
+      stored_hash: target.signature_hash,
+      valid: computedHash === target.signature_hash,
+      verified_at: new Date().toISOString(),
+      verified_by: verifiedBy ?? null,
+    };
+    await db
+      .update(schema.contentPacks)
+      .set({
+        payload_hash: computedHash,
+        signature_verified_at: computedHash === target.signature_hash ? new Date() : null,
+        signature_verified_by: verifiedBy ?? null,
+        signature_verification_evidence: evidence,
+        updated_by: verifiedBy ? String(verifiedBy) : 'system',
+        updated_at: new Date(),
+      } as any)
+      .where(eq(schema.contentPacks.id, id));
 
     return {
       valid: computedHash === target.signature_hash,
       computed_hash: computedHash,
       stored_hash: target.signature_hash,
+      evidence,
     };
   },
 

@@ -14,12 +14,22 @@
  */
 
 import { Router } from 'express';
-import { requireBackOfficeRole } from '../../middleware/role-auth';
+import { requireAnyRole, requireBackOfficeRole } from '../../middleware/role-auth';
 import { taxEngineService } from '../../services/tax-engine-service';
+import { taxAuthoritySubmissionService } from '../../services/tax-authority-submission-service';
 import { asyncHandler } from '../../middleware/async-handler';
 
 const router = Router();
 router.use(requireBackOfficeRole());
+
+function taxActor(req: any) {
+  return {
+    actorId: req.user?.id ?? req.userId ?? 'system',
+    actorRole: req.userRole ?? 'unknown',
+    ipAddress: req.ip,
+    correlationId: req.id,
+  };
+}
 
 // ============================================================================
 // Static routes (MUST come before parameterized routes)
@@ -63,6 +73,19 @@ router.get(
   }),
 );
 
+/** GET /authority-submissions -- eFPS/tax authority submission ledger */
+router.get(
+  '/authority-submissions',
+  asyncHandler(async (req, res) => {
+    const filingId = req.query.filingId ? parseInt(req.query.filingId as string, 10) : undefined;
+    const result = await taxAuthoritySubmissionService.listSubmissions({
+      filingId: Number.isFinite(filingId) ? filingId : undefined,
+      status: req.query.status as string | undefined,
+    });
+    res.json({ data: result });
+  }),
+);
+
 /** POST /calculate-wht -- Calculate WHT for a trade */
 router.post(
   '/calculate-wht',
@@ -76,6 +99,64 @@ router.post(
 
     const result = await taxEngineService.calculateWHT(tradeId);
     res.status(201).json({ data: result });
+  }),
+);
+
+/** POST /1601fq/:id/efps-submit -- Create an idempotent eFPS submission packet */
+router.post(
+  '/1601fq/:id/efps-submit',
+  requireAnyRole('TAX_SPECIALIST', 'BO_HEAD', 'SYSTEM_ADMIN'),
+  asyncHandler(async (req, res) => {
+    const filingId = parseInt(req.params.id, 10);
+    if (!Number.isInteger(filingId) || filingId <= 0) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'id must be a positive filing id' },
+      });
+    }
+
+    const result = await taxAuthoritySubmissionService.submitForm1601FqToEfps(
+      filingId,
+      {
+        submissionMode: req.body?.submission_mode ?? req.body?.submissionMode,
+        channel: req.body?.channel,
+        maxAttempts: req.body?.max_attempts ?? req.body?.maxAttempts,
+      },
+      taxActor(req),
+    );
+    res.status(result.reused ? 200 : 202).json({ data: result });
+  }),
+);
+
+/** POST /authority-submissions/:submissionId/acknowledge -- Capture eFPS acknowledgement */
+router.post(
+  '/authority-submissions/:submissionId/acknowledge',
+  requireAnyRole('TAX_SPECIALIST', 'BO_HEAD', 'SYSTEM_ADMIN'),
+  asyncHandler(async (req, res) => {
+    const result = await taxAuthoritySubmissionService.acknowledgeSubmission(
+      req.params.submissionId,
+      {
+        acknowledgementStatus: req.body?.acknowledgement_status ?? req.body?.acknowledgementStatus,
+        authorityReference: req.body?.authority_reference ?? req.body?.authorityReference,
+        acknowledgementPayload: req.body?.acknowledgement_payload ?? req.body?.acknowledgementPayload,
+        rejectionReason: req.body?.rejection_reason ?? req.body?.rejectionReason,
+      },
+      taxActor(req),
+    );
+    res.json({ data: result });
+  }),
+);
+
+/** POST /authority-submissions/:submissionId/retry -- Schedule a controlled retry */
+router.post(
+  '/authority-submissions/:submissionId/retry',
+  requireAnyRole('TAX_SPECIALIST', 'BO_HEAD', 'SYSTEM_ADMIN'),
+  asyncHandler(async (req, res) => {
+    const result = await taxAuthoritySubmissionService.scheduleRetry(
+      req.params.submissionId,
+      { reason: req.body?.reason },
+      taxActor(req),
+    );
+    res.json({ data: result });
   }),
 );
 

@@ -83,9 +83,33 @@ interface SidebarNavProps {
   onNavigate?: () => void;
 }
 
+function getCurrentUserRoles(): string[] {
+  try {
+    const stored = localStorage.getItem("trustoms-user");
+    if (!stored) return [];
+    const user = JSON.parse(stored);
+    const roles = Array.isArray(user.roles) ? user.roles : [user.role].filter(Boolean);
+    return roles.map((role: string) => String(role).toUpperCase());
+  } catch {
+    return [];
+  }
+}
+
+function canViewNavItem(item: NavItem, userRoles: string[]): boolean {
+  if (!item.roles || item.roles.length === 0) return true;
+  return item.roles.some((role) => userRoles.includes(role.toUpperCase()));
+}
+
 function SidebarNav({ collapsed, onNavigate }: SidebarNavProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const userRoles = getCurrentUserRoles();
+  const visibleSections = navSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => canViewNavItem(item, userRoles)),
+    }))
+    .filter((section) => section.items.length > 0);
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(
@@ -276,10 +300,10 @@ function SidebarNav({ collapsed, onNavigate }: SidebarNavProps) {
     >
       {dashboardElement}
       <Separator className={collapsed ? "w-9" : ""} />
-      {navSections.map((section, idx) => (
+      {visibleSections.map((section, idx) => (
         <div key={section.label}>
           {renderSection(section, idx)}
-          {idx < navSections.length - 1 && collapsed && (
+          {idx < visibleSections.length - 1 && collapsed && (
             <Separator className="w-9 my-1" />
           )}
         </div>

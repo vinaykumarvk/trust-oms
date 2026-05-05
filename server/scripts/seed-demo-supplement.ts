@@ -20,23 +20,43 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000);
 const rand = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 const pick = <T>(arr: T[]) => arr[rand(0, arr.length - 1)];
 
+type PortfolioRow = typeof s.portfolios.$inferSelect;
+type SecurityRow = typeof s.securities.$inferSelect;
+type ClientRow = typeof s.clients.$inferSelect;
+type UserRow = typeof s.users.$inferSelect;
+type GlHeadRow = typeof s.glHeads.$inferSelect;
+type TfpInvoiceRow = typeof s.tfpInvoices.$inferSelect;
+type AccountingUnitRow = typeof s.accountingUnits.$inferSelect;
+type TradeRow = typeof s.trades.$inferSelect;
+type GlJournalBatchRow = typeof s.glJournalBatches.$inferSelect;
+type EodRunRow = typeof s.eodRuns.$inferSelect;
+type ReconRunRow = typeof s.reconRuns.$inferSelect;
+
+interface DemoSeedRefs {
+  portfolios: PortfolioRow[];
+  securities: SecurityRow[];
+  clients: ClientRow[];
+  users: UserRow[];
+  glHeads: GlHeadRow[];
+}
+
 async function count(table: any): Promise<number> {
   const [row] = await db.select({ n: sql<number>`count(*)::int` }).from(table);
   return row?.n ?? 0;
 }
 
 // ─── Refs ───────────────────────────────────────────────────────────────────
-async function loadRefs() {
-  const portfolios = await db.select().from(s.portfolios).limit(11);
-  const securities = await db.select().from(s.securities).limit(16);
-  const clients = await db.select().from(s.clients).limit(10);
-  const users = await db.select().from(s.users).limit(15);
-  const glHeads = await db.select().from(s.glHeads).limit(20);
+async function loadRefs(): Promise<DemoSeedRefs> {
+  const portfolios = await db.select().from(s.portfolios).limit(11) as PortfolioRow[];
+  const securities = await db.select().from(s.securities).limit(16) as SecurityRow[];
+  const clients = await db.select().from(s.clients).limit(10) as ClientRow[];
+  const users = await db.select().from(s.users).limit(15) as UserRow[];
+  const glHeads = await db.select().from(s.glHeads).limit(20) as GlHeadRow[];
   return { portfolios, securities, clients, users, glHeads };
 }
 
 // ─── Orders & Trades ────────────────────────────────────────────────────────
-async function seedOrders(refs: Awaited<ReturnType<typeof loadRefs>>) {
+async function seedOrders(refs: DemoSeedRefs) {
   const existing = await count(s.orders);
   if (existing >= 25) { console.log(`  orders: ${existing} (sufficient)`); return; }
 
@@ -68,7 +88,7 @@ async function seedOrders(refs: Awaited<ReturnType<typeof loadRefs>>) {
   console.log(`  orders: ${existing} → ${existing + needed}`);
 }
 
-async function seedTrades(refs: Awaited<ReturnType<typeof loadRefs>>) {
+async function seedTrades(refs: DemoSeedRefs) {
   const existing = await count(s.trades);
   if (existing >= 15) { console.log(`  trades: ${existing} (sufficient)`); return; }
 
@@ -99,7 +119,7 @@ async function seedTrades(refs: Awaited<ReturnType<typeof loadRefs>>) {
 }
 
 // ─── Withdrawals & Transfers ────────────────────────────────────────────────
-async function seedWithdrawals(refs: Awaited<ReturnType<typeof loadRefs>>) {
+async function seedWithdrawals(refs: DemoSeedRefs) {
   const existing = await count(s.withdrawals);
   if (existing >= 5) { console.log(`  withdrawals: ${existing} (sufficient)`); return; }
 
@@ -125,7 +145,7 @@ async function seedWithdrawals(refs: Awaited<ReturnType<typeof loadRefs>>) {
   console.log(`  withdrawals: ${existing} → ${existing + needed}`);
 }
 
-async function seedTransfers(refs: Awaited<ReturnType<typeof loadRefs>>) {
+async function seedTransfers(refs: DemoSeedRefs) {
   const existing = await count(s.transfers);
   if (existing >= 4) { console.log(`  transfers: ${existing} (sufficient)`); return; }
 
@@ -151,7 +171,7 @@ async function seedTransfers(refs: Awaited<ReturnType<typeof loadRefs>>) {
 }
 
 // ─── Fee Management ─────────────────────────────────────────────────────────
-async function seedFeeInvoices(refs: Awaited<ReturnType<typeof loadRefs>>) {
+async function seedFeeInvoices(refs: DemoSeedRefs) {
   const existing = await count(s.feeInvoices);
   if (existing >= 8) { console.log(`  fee_invoices: ${existing} (sufficient)`); return; }
 
@@ -177,7 +197,7 @@ async function seedFeeInvoices(refs: Awaited<ReturnType<typeof loadRefs>>) {
   console.log(`  fee_invoices: ${existing} → ${existing + needed}`);
 }
 
-async function seedFeeAccruals(refs: Awaited<ReturnType<typeof loadRefs>>) {
+async function seedFeeAccruals(refs: DemoSeedRefs) {
   const existing = await count(s.feeAccruals);
   if (existing >= 8) { console.log(`  fee_accruals: ${existing} (sufficient)`); return; }
 
@@ -197,7 +217,7 @@ async function seedFeeAccruals(refs: Awaited<ReturnType<typeof loadRefs>>) {
   console.log(`  fee_accruals: ${existing} → ${existing + needed}`);
 }
 
-async function seedFeeSchedules(refs: Awaited<ReturnType<typeof loadRefs>>) {
+async function seedFeeSchedules(refs: DemoSeedRefs) {
   const existing = await count(s.feeSchedules);
   if (existing >= 5) { console.log(`  fee_schedules: ${existing} (sufficient)`); return; }
 
@@ -221,7 +241,7 @@ async function seedFeeSchedules(refs: Awaited<ReturnType<typeof loadRefs>>) {
 async function seedDisputes() {
   const existing = await count(s.disputes);
   if (existing >= 3) { console.log(`  disputes: ${existing} (sufficient)`); return; }
-  const invoices = await db.select().from(s.tfpInvoices).limit(10);
+  const invoices = await db.select().from(s.tfpInvoices).limit(10) as TfpInvoiceRow[];
   if (invoices.length === 0) { console.log(`  disputes: no invoices to reference`); return; }
   const needed = 5 - existing;
   for (let i = 0; i < needed; i++) {
@@ -243,11 +263,11 @@ async function seedDisputes() {
 }
 
 // ─── GL Transactions ────────────────────────────────────────────────────────
-async function seedGlJournals(refs: Awaited<ReturnType<typeof loadRefs>>) {
+async function seedGlJournals(refs: DemoSeedRefs) {
   const existing = await count(s.glJournalBatches);
   if (existing >= 8) { console.log(`  gl_journal_batches: ${existing} (sufficient)`); return; }
 
-  const [acctUnit] = await db.select().from(s.accountingUnits).limit(1);
+  const [acctUnit] = await db.select().from(s.accountingUnits).limit(1) as AccountingUnitRow[];
   if (!acctUnit) { console.log(`  gl_journal_batches: no accounting unit`); return; }
 
   const needed = 10 - existing;
@@ -276,7 +296,7 @@ async function seedGlJournals(refs: Awaited<ReturnType<typeof loadRefs>>) {
       ]),
       maker_id: pick(refs.users).id,
       created_by: SYSTEM, updated_by: SYSTEM,
-    } as any).returning();
+    } as any).returning() as GlJournalBatchRow[];
 
     // Add 2-4 journal lines per batch
     const lines = rand(2, 4);
@@ -316,7 +336,7 @@ async function seedEodRuns() {
       completed_jobs: status === 'COMPLETED' ? rand(8, 15) : rand(3, 7),
       failed_jobs: status === 'FAILED' ? rand(1, 3) : 0,
       created_by: SYSTEM, updated_by: SYSTEM,
-    } as any).returning();
+    } as any).returning() as EodRunRow[];
 
     // Add 3-5 jobs per run
     const jobNames = ['PRICING_UPDATE', 'NAV_COMPUTATION', 'FEE_ACCRUAL', 'COMPLIANCE_CHECK',
@@ -354,7 +374,7 @@ async function seedReconRuns() {
       started_at: day,
       completed_at: new Date(day.getTime() + rand(30, 300) * 1000),
       created_by: SYSTEM, updated_by: SYSTEM,
-    } as any).returning();
+    } as any).returning() as ReconRunRow[];
 
     const breakCount = rand(1, 3);
     for (let j = 0; j < breakCount; j++) {
@@ -373,7 +393,7 @@ async function seedReconRuns() {
 }
 
 // ─── Compliance & Risk ──────────────────────────────────────────────────────
-async function seedComplianceBreaches(refs: Awaited<ReturnType<typeof loadRefs>>) {
+async function seedComplianceBreaches(refs: DemoSeedRefs) {
   const existing = await count(s.complianceBreaches);
   if (existing >= 5) { console.log(`  compliance_breaches: ${existing} (sufficient)`); return; }
 
@@ -404,7 +424,7 @@ async function seedComplianceBreaches(refs: Awaited<ReturnType<typeof loadRefs>>
   console.log(`  compliance_breaches: ${existing} → ${existing + needed}`);
 }
 
-async function seedSurveillanceAlerts(refs: Awaited<ReturnType<typeof loadRefs>>) {
+async function seedSurveillanceAlerts(refs: DemoSeedRefs) {
   const existing = await count(s.tradeSurveillanceAlerts);
   if (existing >= 4) { console.log(`  trade_surveillance_alerts: ${existing} (sufficient)`); return; }
 
@@ -481,7 +501,7 @@ async function seedWhistleblowerCases() {
 }
 
 // ─── Audit & Notifications ──────────────────────────────────────────────────
-async function seedAuditRecords(refs: Awaited<ReturnType<typeof loadRefs>>) {
+async function seedAuditRecords(refs: DemoSeedRefs) {
   const existing = await count(s.auditRecords);
   if (existing >= 15) { console.log(`  audit_records: ${existing} (sufficient)`); return; }
 
@@ -501,7 +521,7 @@ async function seedAuditRecords(refs: Awaited<ReturnType<typeof loadRefs>>) {
   console.log(`  audit_records: ${existing} → ${existing + needed}`);
 }
 
-async function seedNotificationLog(refs: Awaited<ReturnType<typeof loadRefs>>) {
+async function seedNotificationLog(refs: DemoSeedRefs) {
   const existing = await count(s.notificationLog);
   if (existing >= 15) { console.log(`  notification_log: ${existing} (sufficient)`); return; }
 
@@ -527,7 +547,7 @@ async function seedNotificationLog(refs: Awaited<ReturnType<typeof loadRefs>>) {
 }
 
 // ─── Reversals & Tax ────────────────────────────────────────────────────────
-async function seedReversals(refs: Awaited<ReturnType<typeof loadRefs>>) {
+async function seedReversals(refs: DemoSeedRefs) {
   const existing = await count(s.reversalCases);
   if (existing >= 3) { console.log(`  reversal_cases: ${existing} (sufficient)`); return; }
 
@@ -554,11 +574,11 @@ async function seedReversals(refs: Awaited<ReturnType<typeof loadRefs>>) {
   console.log(`  reversal_cases: ${existing} → ${existing + needed}`);
 }
 
-async function seedTaxEvents(refs: Awaited<ReturnType<typeof loadRefs>>) {
+async function seedTaxEvents(refs: DemoSeedRefs) {
   const existing = await count(s.taxEvents);
   if (existing >= 4) { console.log(`  tax_events: ${existing} (sufficient)`); return; }
 
-  const trades = await db.select().from(s.trades).limit(20);
+  const trades = await db.select().from(s.trades).limit(20) as TradeRow[];
   const needed = 8 - existing;
   for (let i = 0; i < needed; i++) {
     const ptf = pick(refs.portfolios);
@@ -577,7 +597,7 @@ async function seedTaxEvents(refs: Awaited<ReturnType<typeof loadRefs>>) {
 }
 
 // ─── Sanctions & Reports ────────────────────────────────────────────────────
-async function seedSanctionsLog(refs: Awaited<ReturnType<typeof loadRefs>>) {
+async function seedSanctionsLog(refs: DemoSeedRefs) {
   const existing = await count(s.sanctionsScreeningLog);
   if (existing >= 4) { console.log(`  sanctions_screening_log: ${existing} (sufficient)`); return; }
 
@@ -597,7 +617,7 @@ async function seedSanctionsLog(refs: Awaited<ReturnType<typeof loadRefs>>) {
   console.log(`  sanctions_screening_log: ${existing} → ${existing + needed}`);
 }
 
-async function seedReportLog(refs: Awaited<ReturnType<typeof loadRefs>>) {
+async function seedReportLog(refs: DemoSeedRefs) {
   const existing = await count(s.reportGenerationLog);
   if (existing >= 4) { console.log(`  report_generation_log: ${existing} (sufficient)`); return; }
 

@@ -1,7 +1,7 @@
 /**
  * Exception Queue Routes (TrustFees Pro -- Phase 8)
  *
- *   GET    /               -- List exceptions (query: severity, exception_type, exception_status, assigned_to, sla_state, customer_id, search, page, pageSize)
+ *   GET    /               -- List exceptions (query: exception_domain, severity, exception_type, exception_status, assigned_to, sla_state, customer_id, search, page, pageSize)
  *   GET    /kpi            -- KPI dashboard
  *   GET    /:id            -- Single exception
  *   POST   /               -- Create exception
@@ -35,6 +35,7 @@ router.get(
   '/',
   asyncHandler(async (req, res) => {
     const filters = {
+      exception_domain: req.query.exception_domain as string | undefined,
       severity: req.query.severity as string | undefined,
       exception_type: req.query.exception_type as string | undefined,
       exception_status: req.query.exception_status as string | undefined,
@@ -129,6 +130,8 @@ router.post(
     const {
       exception_type, severity, title, description,
       customer_id, aggregate_type, aggregate_id,
+      exception_domain, source_system, source_object_uri,
+      assigned_to_team, assigned_to_user, client_impact, regulatory_impact,
     } = req.body;
 
     if (!exception_type || !title || !description || !aggregate_type || !aggregate_id) {
@@ -142,12 +145,19 @@ router.post(
 
     const record = await exceptionQueueService.createException({
       exception_type,
+      exception_domain,
       severity,
       title,
       description,
       customer_id,
+      source_system,
+      source_object_uri,
       aggregate_type,
       aggregate_id,
+      assigned_to_team,
+      assigned_to_user,
+      client_impact,
+      regulatory_impact,
     });
 
     res.status(201).json({ data: record });
@@ -203,7 +213,12 @@ router.post(
       });
     }
 
-    const { resolution_notes } = req.body;
+    const {
+      resolution_notes,
+      resolution_code,
+      resolution_evidence,
+      root_cause_code,
+    } = req.body;
     if (!resolution_notes) {
       return res.status(400).json({
         error: { code: 'INVALID_INPUT', message: 'resolution_notes is required' },
@@ -211,7 +226,12 @@ router.post(
     }
 
     try {
-      const record = await exceptionQueueService.resolveException(id, resolution_notes);
+      const record = await exceptionQueueService.resolveException(id, resolution_notes, {
+        resolution_code,
+        resolution_evidence,
+        root_cause_code,
+        resolved_by: req.userId ?? null,
+      });
       res.json({ data: record });
     } catch (err) {
       const msg = safeErrorMessage(err);

@@ -27,6 +27,13 @@ import { eq, and, sql, desc } from 'drizzle-orm';
 import { pricingDefinitionService } from './pricing-definition-service';
 import { eligibilityEngine, type ASTNode } from './eligibility-engine';
 import { fxRateService } from './fx-rate-service';
+import { tfpAuditService } from './tfp-audit-service';
+import {
+  resolveProductFeeFormula,
+  type ProductFeeFormulaPolicy,
+} from './tfp-fee-calculation-policy';
+import { tfpAccountingEventService } from './tfp-accounting-event-service';
+import { exceptionQueueService } from './exception-queue-service';
 
 /* ---------- Types ---------- */
 
@@ -52,6 +59,19 @@ interface AccrualComputeResult {
   breakdown: PricingBreakdown[];
   pricingType: string;
   formula: string;
+}
+
+interface PortfolioCandidate {
+  id: string;
+  customerId: string;
+  portfolioType?: string | null;
+}
+
+interface BaseAmountResult {
+  amount: number;
+  formula: string;
+  formulaPolicy: ProductFeeFormulaPolicy;
+  sourceEvidence: Record<string, unknown>;
 }
 
 /* ---------- Helper: Apply Pricing Tiers ---------- */
@@ -239,15 +259,46 @@ function applyPricingTiers(
   return { computedFee, breakdown };
 }
 
-/* ---------- Helper: Get ADB (Average Daily Balance) ---------- */
+/* ---------- Helpers: Base Amount Resolution ---------- */
+
+function toNumber(value: unknown): number {
+  const parsed = parseFloat(String(value ?? '0'));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+async function getPortfolioAum(portfolioId: string): Promise<{ amount: number; evidence: Record<string, unknown> }> {
+  const [portfolio] = await db
+    .select({
+      portfolio_id: schema.portfolios.portfolio_id,
+      type: schema.portfolios.type,
+      aum: schema.portfolios.aum,
+    })
+    .from(schema.portfolios)
+    .where(eq(schema.portfolios.portfolio_id, portfolioId))
+    .limit(1);
+
+  const amount = toNumber(portfolio?.aum);
+  if (amount <= 0) {
+    throw new Error(`No portfolio AUM available for ${portfolioId}`);
+  }
+
+  return {
+    amount,
+    evidence: {
+      source_table: 'portfolios',
+      source_field: 'aum',
+      portfolio_id: portfolio?.portfolio_id ?? portfolioId,
+      portfolio_type: portfolio?.type ?? null,
+    },
+  };
+}
 
 /**
- * Calculates Average Daily Balance for a portfolio.
- * Since real nav_computations data may not exist, falls back to a
- * reasonable default derived from available data.
+ * Calculates Average Daily Balance for a portfolio using month-to-date NAV.
+ * Falls back to latest NAV, then explicitly to portfolio AUM. It no longer
+ * uses synthetic values because fee accruals need auditable source evidence.
  */
-async function getADB(portfolioId: string, date: string): Promise<number> {
-  // Try to get NAV data for the current month
+async function getADB(portfolioId: string, date: string): Promise<{ amount: number; evidence: Record<string, unknown> }> {
   const monthStart = date.substring(0, 7) + '-01';
 
   const navResult = await db
@@ -265,7 +316,18 @@ async function getADB(portfolioId: string, date: string): Promise<number> {
 
   const avgNav = parseFloat(navResult[0]?.avgNav ?? '0');
 
-  if (avgNav > 0) return avgNav;
+  if (avgNav > 0) {
+    return {
+      amount: avgNav,
+      evidence: {
+        source_table: 'nav_computations',
+        source_field: 'avg(total_nav)',
+        portfolio_id: portfolioId,
+        from_date: monthStart,
+        to_date: date,
+      },
+    };
+  }
 
   // Fallback: try latest single NAV
   const [latestNav] = await db
@@ -276,27 +338,42 @@ async function getADB(portfolioId: string, date: string): Promise<number> {
     .limit(1);
 
   if (latestNav?.total_nav) {
-    return parseFloat(latestNav.total_nav);
+    return {
+      amount: parseFloat(latestNav.total_nav),
+      evidence: {
+        source_table: 'nav_computations',
+        source_field: 'latest(total_nav)',
+        portfolio_id: portfolioId,
+      },
+    };
   }
 
-  // No NAV data available -- return a synthetic default for demo
-  // In production this would raise an exception
-  return 10_000_000; // 10M PHP default ADB
+  const portfolioAum = await getPortfolioAum(portfolioId);
+  return {
+    amount: portfolioAum.amount,
+    evidence: {
+      ...portfolioAum.evidence,
+      fallback_reason: 'missing_nav_computations',
+    },
+  };
 }
 
-/* ---------- Helper: Get Position Value ---------- */
-
 /**
- * Get position value by basis type for a portfolio/security.
- * Queries the positions table for face_value, cost, or principal balance.
- * Falls back to ADB if no position data found.
+ * Get position value by basis type for a portfolio/security. Position-based
+ * fee plans must have a real source amount; falling back to ADB would create
+ * the wrong product formula.
  */
-async function getPositionValue(
+async function getPositionBase(
   portfolioId: string,
   securityId: string | null,
   valueBasis: string,
   date: string,
-): Promise<number> {
+): Promise<{
+  amount: number;
+  evidence: Record<string, unknown>;
+  securityAssetClass?: string | null;
+  securityInstrumentSubType?: string | null;
+}> {
   const conditions = [eq(schema.positions.portfolio_id, portfolioId)];
   if (securityId) {
     conditions.push(eq(schema.positions.security_id, parseInt(securityId, 10)));
@@ -304,47 +381,131 @@ async function getPositionValue(
 
   const [position] = await db
     .select({
+      id: schema.positions.id,
       quantity: schema.positions.quantity,
       market_value: schema.positions.market_value,
       cost_basis: schema.positions.cost_basis,
+      face_value: schema.positions.face_value,
+      principal_balance: schema.positions.principal_balance,
+      notional_amount: schema.positions.notional_amount,
+      acquisition_cost: schema.positions.acquisition_cost,
+      as_of_date: schema.positions.as_of_date,
+      security_id: schema.positions.security_id,
     })
     .from(schema.positions)
     .where(and(...conditions))
+    .orderBy(desc(schema.positions.as_of_date))
     .limit(1);
 
   if (!position) {
-    // Fallback to ADB
-    return getADB(portfolioId, date);
+    throw new Error(`No position source available for ${portfolioId} ${valueBasis} fee base on ${date}`);
   }
 
-  switch (valueBasis) {
-    case 'FACE_VALUE':
-      return parseFloat(String(position.quantity ?? '0')) * 1000; // par value assumption
-    case 'COST':
-      return parseFloat(String(position.cost_basis ?? position.market_value ?? '0'));
-    case 'PRINCIPAL':
-      return parseFloat(String(position.market_value ?? '0'));
-    default:
-      return getADB(portfolioId, date);
+  let security: {
+    id?: number | null;
+    asset_class?: string | null;
+    instrument_sub_type?: string | null;
+    par_value?: string | null;
+  } | null = null;
+
+  const resolvedSecurityId = securityId ? parseInt(securityId, 10) : position.security_id;
+  if (resolvedSecurityId) {
+    const [securityRow] = await db
+      .select({
+        id: schema.securities.id,
+        asset_class: schema.securities.asset_class,
+        instrument_sub_type: schema.securities.instrument_sub_type,
+        par_value: schema.securities.par_value,
+      })
+      .from(schema.securities)
+      .where(eq(schema.securities.id, resolvedSecurityId))
+      .limit(1);
+    security = securityRow ?? null;
   }
+
+  const normalizedBasis = String(valueBasis ?? '').toUpperCase();
+  const parValue = toNumber(security?.par_value) || 1000;
+  let amount = 0;
+  let sourceField = '';
+  let derivation: Record<string, unknown> = {};
+
+  switch (normalizedBasis) {
+    case 'FACE_VALUE':
+      amount = toNumber(position.face_value);
+      sourceField = 'positions.face_value';
+      if (amount <= 0) {
+        const quantity = toNumber(position.quantity);
+        amount = quantity * parValue;
+        sourceField = 'positions.quantity x securities.par_value';
+        derivation = { quantity, par_value: parValue, par_value_fallback_used: !security?.par_value };
+      }
+      break;
+    case 'COST':
+      amount = toNumber(position.acquisition_cost) || toNumber(position.cost_basis) || toNumber(position.market_value);
+      sourceField = position.acquisition_cost ? 'positions.acquisition_cost' : position.cost_basis ? 'positions.cost_basis' : 'positions.market_value';
+      break;
+    case 'PRINCIPAL':
+      amount = toNumber(position.principal_balance) || toNumber(position.market_value);
+      sourceField = position.principal_balance ? 'positions.principal_balance' : 'positions.market_value';
+      break;
+    case 'NOTIONAL':
+      amount = toNumber(position.notional_amount) || toNumber(position.market_value);
+      sourceField = position.notional_amount ? 'positions.notional_amount' : 'positions.market_value';
+      break;
+    default:
+      throw new Error(`Unsupported position value basis ${valueBasis}`);
+  }
+
+  if (amount <= 0) {
+    throw new Error(`Position ${position.id ?? 'unknown'} has no positive ${valueBasis} base amount`);
+  }
+
+  return {
+    amount,
+    evidence: {
+      source_table: 'positions',
+      source_field: sourceField,
+      portfolio_id: portfolioId,
+      position_id: position.id ?? null,
+      security_id: resolvedSecurityId ?? null,
+      as_of_date: position.as_of_date ?? null,
+      ...derivation,
+    },
+    securityAssetClass: security?.asset_class ?? null,
+    securityInstrumentSubType: security?.instrument_sub_type ?? null,
+  };
 }
 
-/* ---------- Helper: Day Count Factor ---------- */
+async function getCashOrTransactionBase(
+  portfolioId: string,
+  date: string,
+): Promise<{ amount: number; evidence: Record<string, unknown> }> {
+  const cashResult = await db
+    .select({
+      amount: sql<string>`COALESCE(SUM(${schema.cashLedger.balance}::numeric), 0)`,
+    })
+    .from(schema.cashLedger)
+    .where(
+      and(
+        eq(schema.cashLedger.portfolio_id, portfolioId),
+        sql`${schema.cashLedger.as_of_date} <= ${date}`,
+      ),
+    );
 
-/**
- * Get day count factor for fee calculation.
- * Returns appropriate day count based on fee type and instrument.
- * Default: 1 (daily accrual = annual / 360).
- */
-function getDayCountFactor(
-  feeType: string,
-  _securityId: string | null,
-  _date: string,
-): number {
-  // In production, this would query the security master for
-  // coupon_days, dividend_days, interest_payment_days, or term.
-  // For now, return 1 (standard daily accrual).
-  return 1;
+  const amount = toNumber(cashResult[0]?.amount);
+  if (amount <= 0) {
+    throw new Error(`No cash or transaction amount source available for ${portfolioId} on ${date}`);
+  }
+
+  return {
+    amount,
+    evidence: {
+      source_table: 'cash_ledger',
+      source_field: 'sum(balance)',
+      portfolio_id: portfolioId,
+      as_of_or_before: date,
+    },
+  };
 }
 
 /* ---------- Helper: Get Base Amount ---------- */
@@ -356,134 +517,86 @@ function getDayCountFactor(
  */
 async function getBaseAmount(
   feePlan: any,
-  portfolioId: string,
-  _securityId: string | null,
+  portfolio: PortfolioCandidate,
+  securityId: string | null,
   date: string,
-): Promise<{ amount: number; formula: string }> {
-  const feeType = feePlan.fee_type;
+): Promise<BaseAmountResult> {
+  let formulaPolicy = resolveProductFeeFormula(feePlan, {
+    portfolioId: portfolio.id,
+    businessDate: date,
+    portfolioType: portfolio.portfolioType,
+    securityId,
+  });
 
-  switch (feeType) {
-    case 'TRUST':
-    case 'CUSTODY':
-    case 'MANAGEMENT': {
-      // Discretionary Trust: use Average Daily Balance
-      const adb = await getADB(portfolioId, date);
-      return {
-        amount: adb,
-        formula: `ADB(${portfolioId}) x rate / 360`,
+  let amount = 0;
+  let sourceEvidence: Record<string, unknown> = {};
+
+  switch (formulaPolicy.baseSource) {
+    case 'NAV_MTD_AVERAGE':
+    case 'AVG_INVESTMENT': {
+      const adb = await getADB(portfolio.id, date);
+      amount = adb.amount;
+      sourceEvidence = adb.evidence;
+      break;
+    }
+    case 'PORTFOLIO_AUM':
+    case 'PORTFOLIO_BUM': {
+      const aum = await getPortfolioAum(portfolio.id);
+      amount = aum.amount;
+      sourceEvidence = {
+        ...aum.evidence,
+        requested_base_source: formulaPolicy.baseSource,
       };
+      break;
     }
-
-    case 'ESCROW': {
-      // Escrow: step function based on months since engagement
-      // Base amount is not relevant for STEP_FUNCTION pricing
-      return {
-        amount: 1, // placeholder; step function uses flat amount
-        formula: `STEP_FUNCTION(months_since_engagement)`,
+    case 'POSITION_FACE_VALUE':
+    case 'POSITION_COST':
+    case 'POSITION_PRINCIPAL':
+    case 'POSITION_NOTIONAL': {
+      const positionBase = await getPositionBase(
+        portfolio.id,
+        securityId,
+        formulaPolicy.expectedValueBasis,
+        date,
+      );
+      amount = positionBase.amount;
+      sourceEvidence = positionBase.evidence;
+      formulaPolicy = resolveProductFeeFormula(feePlan, {
+        portfolioId: portfolio.id,
+        businessDate: date,
+        portfolioType: portfolio.portfolioType,
+        securityId,
+        securityAssetClass: positionBase.securityAssetClass,
+        securityInstrumentSubType: positionBase.securityInstrumentSubType,
+      });
+      break;
+    }
+    case 'CASH_OR_TRANSACTION_AMOUNT': {
+      const cashBase = await getCashOrTransactionBase(portfolio.id, date);
+      amount = cashBase.amount;
+      sourceEvidence = cashBase.evidence;
+      break;
+    }
+    case 'ESCROW_STEP_WINDOW': {
+      amount = 1;
+      sourceEvidence = {
+        source_table: 'pricing_definitions',
+        source_field: 'step_windows',
+        portfolio_id: portfolio.id,
+        note: 'STEP_FUNCTION pricing supplies the fee amount; base amount is nominal',
       };
+      break;
     }
-
-    case 'PERFORMANCE': {
-      // Performance fee: base is the AUM
-      const adb = await getADB(portfolioId, date);
-      return {
-        amount: adb,
-        formula: `AUM(${portfolioId}) x performance_rate / 360`,
-      };
-    }
-
-    case 'SUBSCRIPTION':
-    case 'REDEMPTION': {
-      // Directional deposits: use transaction/deposit amount
-      // value_basis=TXN_AMOUNT
-      const adb = await getADB(portfolioId, date);
-      return {
-        amount: adb,
-        formula: `DEPOSIT(${portfolioId}) x rate x term / 360`,
-      };
-    }
-
-    case 'COMMISSION': {
-      // Bonds: face value basis
-      // value_basis=FACE_VALUE
-      if (feePlan.value_basis === 'FACE_VALUE') {
-        const faceValue = await getPositionValue(portfolioId, _securityId, 'FACE_VALUE', date);
-        return {
-          amount: faceValue,
-          formula: `FACE_VALUE(${portfolioId}) x rate x coupon_days / 360`,
-        };
-      }
-      // Preferred equities: cost basis
-      if (feePlan.value_basis === 'COST') {
-        const cost = await getPositionValue(portfolioId, _securityId, 'COST', date);
-        return {
-          amount: cost,
-          formula: `COST(${portfolioId}) x rate x dividend_days / 360`,
-        };
-      }
-      const adb = await getADB(portfolioId, date);
-      return {
-        amount: adb,
-        formula: `ADB(${portfolioId}) x rate / 360`,
-      };
-    }
-
-    case 'ADMIN': {
-      // Loans: principal balance
-      if (feePlan.value_basis === 'PRINCIPAL') {
-        const principal = await getPositionValue(portfolioId, _securityId, 'PRINCIPAL', date);
-        return {
-          amount: principal,
-          formula: `PRINCIPAL(${portfolioId}) x rate x interest_days / 360`,
-        };
-      }
-      // T-Bills/CPs: cost basis
-      if (feePlan.value_basis === 'COST') {
-        const cost = await getPositionValue(portfolioId, _securityId, 'COST', date);
-        return {
-          amount: cost,
-          formula: `COST(${portfolioId}) x rate x term / 360`,
-        };
-      }
-      const adb = await getADB(portfolioId, date);
-      return {
-        amount: adb,
-        formula: `ADB(${portfolioId}) x rate / 360`,
-      };
-    }
-
-    case 'TAX':
-    case 'OTHER': {
-      // Generic: check value_basis
-      if (feePlan.value_basis === 'FACE_VALUE') {
-        const val = await getPositionValue(portfolioId, _securityId, 'FACE_VALUE', date);
-        return { amount: val, formula: `FACE_VALUE(${portfolioId}) x rate / 360` };
-      }
-      if (feePlan.value_basis === 'COST') {
-        const val = await getPositionValue(portfolioId, _securityId, 'COST', date);
-        return { amount: val, formula: `COST(${portfolioId}) x rate / 360` };
-      }
-      if (feePlan.value_basis === 'PRINCIPAL') {
-        const val = await getPositionValue(portfolioId, _securityId, 'PRINCIPAL', date);
-        return { amount: val, formula: `PRINCIPAL(${portfolioId}) x rate / 360` };
-      }
-      if (feePlan.value_basis === 'TXN_AMOUNT') {
-        const adb = await getADB(portfolioId, date);
-        return { amount: adb, formula: `TXN_AMOUNT(${portfolioId}) x rate x term / 360` };
-      }
-      const adb = await getADB(portfolioId, date);
-      return { amount: adb, formula: `ADB(${portfolioId}) x rate / 360` };
-    }
-
-    default: {
-      // Generic: use ADB as default base
-      const adb = await getADB(portfolioId, date);
-      return {
-        amount: adb,
-        formula: `ADB(${portfolioId}) x rate / 360`,
-      };
-    }
+    default:
+      throw new Error(`Unsupported fee base source ${formulaPolicy.baseSource}`);
   }
+
+  return {
+    amount,
+    formula: `${formulaPolicy.formulaCode}: ${formulaPolicy.formulaDescription}`,
+    formulaPolicy,
+    sourceEvidence,
+  };
 }
 
 /* ---------- Helper: Compute Daily Accrual ---------- */
@@ -560,9 +673,7 @@ export const tfpAccrualEngine = {
           continue;
         }
 
-        // 2b. Resolve eligible portfolios
-        // For now, we generate a synthetic portfolio list since real
-        // portfolio-plan assignments may not exist yet.
+        // 2b. Resolve eligible portfolios.
         const portfolios = await resolveEligiblePortfolios(plan);
 
         if (portfolios.length === 0) {
@@ -591,9 +702,14 @@ export const tfpAccrualEngine = {
 
           try {
             // Compute base amount
-            const { amount: baseAmount, formula } = await getBaseAmount(
+            const {
+              amount: baseAmount,
+              formula,
+              formulaPolicy,
+              sourceEvidence,
+            } = await getBaseAmount(
               plan,
-              portfolioId,
+              portfolio,
               null,
               businessDate,
             );
@@ -679,7 +795,7 @@ export const tfpAccrualEngine = {
             }
 
             // Insert accrual record
-            await db.insert(schema.tfpAccruals).values({
+            const [accrual] = await db.insert(schema.tfpAccruals).values({
               fee_plan_id: plan.id,
               customer_id: customerId,
               portfolio_id: portfolioId,
@@ -695,7 +811,102 @@ export const tfpAccrualEngine = {
               override_id: override?.id ?? null,
               exception_id: null,
               idempotency_key: idempotencyKey,
-            });
+            }).returning();
+
+            try {
+              await tfpAuditService.logEvent(
+                'TFP_ACCRUAL',
+                String(accrual?.id ?? idempotencyKey),
+                'ACCRUAL_CALCULATED',
+                {
+                  fee_plan_id: plan.id,
+                  fee_plan_code: plan.fee_plan_code,
+                  portfolio_id: portfolioId,
+                  customer_id: customerId,
+                  product_family: formulaPolicy.productFamily,
+                  formula_code: formulaPolicy.formulaCode,
+                  formula,
+                  base_source: formulaPolicy.baseSource,
+                  base_amount: baseRounded,
+                  base_source_evidence: sourceEvidence,
+                  pricing_type: pricingDef.pricing_type,
+                  pricing_currency: planCurrency,
+                  pricing_breakdown: breakdown,
+                  period: {
+                    business_date: businessDate,
+                    period_source: formulaPolicy.periodSource,
+                    period_days: formulaPolicy.periodDays,
+                    annualization_base: formulaPolicy.annualizationBase,
+                  },
+                  tax: {
+                    treatment: formulaPolicy.taxTreatment,
+                    accrual_tax_amount: 0,
+                    note: 'Tax is computed at invoice generation from approved tax rules.',
+                  },
+                  override: {
+                    status: override?.id ? 'APPROVED_APPLIED' : 'NONE',
+                    override_id: override?.id ?? null,
+                  },
+                  amounts: {
+                    computed_fee: computedRounded,
+                    applied_fee: appliedRounded,
+                    min_charge_amount: minCharge,
+                    max_charge_amount: maxCharge,
+                  },
+                  fx: {
+                    fx_rate_locked: fxRateLocked,
+                  },
+                  idempotency_key: idempotencyKey,
+                },
+                null,
+              );
+            } catch (auditErr) {
+              const auditMessage = auditErr instanceof Error ? auditErr.message : String(auditErr);
+              await createException(
+                plan,
+                businessDate,
+                'ACCRUAL_MISMATCH',
+                `Accrual ${accrual?.id ?? idempotencyKey} created but calculation audit logging failed: ${auditMessage}`,
+                customerId,
+              );
+              summary.exceptions++;
+            }
+
+            try {
+              await tfpAccountingEventService.queueEvent({
+                eventType: 'TFP_ACCRUAL_CREATED',
+                sourceTransactionType: 'TFP_ACCRUAL',
+                sourceTransactionId: String(accrual?.id ?? idempotencyKey),
+                sourceEventId: idempotencyKey,
+                aggregateType: 'FEE_PLAN',
+                aggregateId: String(plan.id),
+                customerId,
+                portfolioId,
+                feePlanId: plan.id,
+                accrualId: accrual?.id ?? null,
+                amount: appliedRounded,
+                currency: planCurrency,
+                accountingDate: businessDate,
+                metadata: {
+                  fee_plan_code: plan.fee_plan_code,
+                  pricing_definition_id: plan.pricing_definition_id,
+                  formula_code: formulaPolicy.formulaCode,
+                  base_source: formulaPolicy.baseSource,
+                  computed_fee: computedRounded,
+                  idempotency_key: idempotencyKey,
+                },
+              });
+            } catch (eventErr) {
+              const eventMessage = eventErr instanceof Error ? eventErr.message : String(eventErr);
+              await createException(
+                plan,
+                businessDate,
+                'ACCRUAL_MISMATCH',
+                `Accrual ${accrual?.id ?? idempotencyKey} created but accounting event queueing failed: ${eventMessage}`,
+                customerId,
+              );
+              summary.exceptions++;
+            }
 
             summary.created++;
           } catch (err) {
@@ -938,7 +1149,7 @@ export const tfpAccrualEngine = {
  */
 async function resolveEligiblePortfolios(
   plan: any,
-): Promise<Array<{ id: string; customerId: string }>> {
+): Promise<PortfolioCandidate[]> {
   // Fetch portfolios from the database
   const portfolios = await db
     .select({
@@ -967,7 +1178,7 @@ async function resolveEligiblePortfolios(
 
       if (exprRecord?.expression) {
         const expression = exprRecord.expression as ASTNode;
-        const eligible: Array<{ id: string; customerId: string }> = [];
+        const eligible: PortfolioCandidate[] = [];
 
         for (const p of portfolios) {
           const context: Record<string, any> = {
@@ -981,6 +1192,7 @@ async function resolveEligiblePortfolios(
             eligible.push({
               id: p.id!,
               customerId: p.customerId ?? 'UNKNOWN',
+              portfolioType: p.portfolio_type ?? null,
             });
           }
         }
@@ -993,9 +1205,10 @@ async function resolveEligiblePortfolios(
   }
 
   // No eligibility filter -- all active portfolios are eligible
-  return portfolios.map((p: any) => ({
-    id: p.id ?? `PORT-${Math.random().toString(36).substring(7)}`,
+  return portfolios.map((p: any, index: number) => ({
+    id: p.id ?? `PORT-UNKNOWN-${index + 1}`,
     customerId: p.customerId ?? 'UNKNOWN',
+    portfolioType: p.portfolio_type ?? null,
   }));
 }
 
@@ -1009,21 +1222,19 @@ async function createException(
   details: string,
   customerId?: string,
 ): Promise<void> {
-  const slaDue = new Date();
-  slaDue.setHours(slaDue.getHours() + 4); // 4-hour SLA
-
-  await db.insert(schema.exceptionItems).values({
+  await exceptionQueueService.createException({
     exception_type: exceptionType,
+    exception_domain: 'TRUST_FEES',
     severity: 'P2',
-    customer_id: customerId ?? null,
-    source_aggregate_type: 'FEE_ACCRUAL',
-    source_aggregate_id: `${plan.id}:${businessDate}`,
     title: `Accrual failure: ${plan.fee_plan_code} on ${businessDate}`,
+    description: details,
+    customer_id: customerId,
+    source_system: 'TFP_ACCRUAL_ENGINE',
+    source_object_uri: `trust-fees://accruals/${plan.id}/${businessDate}`,
+    aggregate_type: 'FEE_ACCRUAL',
+    aggregate_id: `${plan.id}:${businessDate}`,
     details: { message: details, fee_plan_id: plan.id, business_date: businessDate },
     assigned_to_team: 'FEE_OPS',
-    assigned_to_user: null,
-    exception_status: 'OPEN',
-    sla_due_at: slaDue,
   });
 }
 

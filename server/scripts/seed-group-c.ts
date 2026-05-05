@@ -3,7 +3,7 @@
  * Seed Group C — all remaining operational / transactional tables.
  *
  * Usage (Cloud SQL via proxy):
- *   DATABASE_URL=postgresql://trust_banking:jSa55AvZDpdl0I24gzQQdhd0tg1bHvbS@127.0.0.1:15435/trust-banking-db?sslmode=disable \
+ *   DATABASE_URL='<connection string from .env or Secret Manager>' \
  *     npx tsx server/scripts/seed-group-c.ts
  */
 import 'dotenv/config';

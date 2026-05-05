@@ -120,17 +120,17 @@ export const tfpPaymentService = {
       if (totalPaidAfter > grandTotal) {
         const excess = Math.round((totalPaidAfter - grandTotal) * 10000) / 10000;
 
-        // Create exception item for excess reconciliation
-        const slaDue = new Date();
-        slaDue.setHours(slaDue.getHours() + 4);
-
-        await db.insert(schema.exceptionItems).values({
+        await exceptionQueueService.createException({
           exception_type: 'PAYMENT_AMBIGUITY',
+          exception_domain: 'TRUST_FEES',
           severity: 'P2',
-          customer_id: invoice.customer_id,
-          source_aggregate_type: 'PAYMENT',
-          source_aggregate_id: String(payment.id),
           title: `Over-payment on ${invoice.invoice_number}: excess ${data.currency} ${excess}`,
+          description: `Payment total exceeded invoice balance by ${data.currency} ${excess}`,
+          customer_id: invoice.customer_id,
+          source_system: 'TFP_PAYMENT_SERVICE',
+          source_object_uri: `trust-fees://payments/${payment.id}`,
+          aggregate_type: 'PAYMENT',
+          aggregate_id: String(payment.id),
           details: {
             invoice_id: invoice.id,
             invoice_number: invoice.invoice_number,
@@ -140,9 +140,6 @@ export const tfpPaymentService = {
             payment_id: payment.id,
           },
           assigned_to_team: 'FEE_OPS',
-          assigned_to_user: null,
-          exception_status: 'OPEN',
-          sla_due_at: slaDue,
         });
 
         exceptionCreated = true;

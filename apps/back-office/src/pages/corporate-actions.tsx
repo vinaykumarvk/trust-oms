@@ -172,6 +172,11 @@ export default function CorporateActions() {
   const [electOpen, setElectOpen] = useState(false);
   const [electEntId, setElectEntId] = useState<string | null>(null);
   const [electOption, setElectOption] = useState("CASH");
+  const [electChannel, setElectChannel] = useState("BACK_OFFICE");
+  const [electAuthorityRef, setElectAuthorityRef] = useState("");
+  const [electAssistedByUserId, setElectAssistedByUserId] = useState("");
+  const [electBranchCode, setElectBranchCode] = useState("");
+  const [electCaptureNotes, setElectCaptureNotes] = useState("");
   const [historyFrom, setHistoryFrom] = useState("");
   const [historyTo, setHistoryTo] = useState("");
 
@@ -238,7 +243,25 @@ export default function CorporateActions() {
     onSuccess: (data: { data: SimulationResult }) => { setSimResult(data.data); },
   });
   const electMut = useMutation({
-    mutationFn: ({ entId, option }: { entId: string; option: string }) => apiRequest("POST", apiUrl(`/api/v1/corporate-actions/entitlements/${entId}/elect`), { option }),
+    mutationFn: ({ entId, option, channel, authorityRef, assistedByUserId, branchCode, captureNotes }: {
+      entId: string;
+      option: string;
+      channel: string;
+      authorityRef: string;
+      assistedByUserId: string;
+      branchCode: string;
+      captureNotes: string;
+    }) => apiRequest("POST", apiUrl(`/api/v1/corporate-actions/entitlements/${entId}/elect`), {
+      option,
+      channel,
+      assistedByUserId: assistedByUserId || undefined,
+      branchCode: branchCode || undefined,
+      captureNotes: captureNotes || undefined,
+      authorityEvidence: {
+        client_instruction_ref: authorityRef,
+        notes: captureNotes || undefined,
+      },
+    }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["ca-entitlements"] }); qc.invalidateQueries({ queryKey: ["ca-summary"] }); setElectOpen(false); },
   });
   const postMut = useMutation({
@@ -246,7 +269,21 @@ export default function CorporateActions() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["ca-entitlements"] }); qc.invalidateQueries({ queryKey: ["ca-summary"] }); },
   });
 
-  const openElect = (id: string) => { setElectEntId(id); setElectOption("CASH"); setElectOpen(true); };
+  const openElect = (id: string) => {
+    setElectEntId(id);
+    setElectOption("CASH");
+    setElectChannel("BACK_OFFICE");
+    setElectAuthorityRef("");
+    setElectAssistedByUserId("");
+    setElectBranchCode("");
+    setElectCaptureNotes("");
+    setElectOpen(true);
+  };
+  const electNeedsBranch = electChannel === "BRANCH_ASSISTED" || electChannel === "RM_ASSISTED";
+  const electNeedsAssistedUser = electChannel === "BRANCH_ASSISTED" || electChannel === "RM_ASSISTED" || electChannel === "CALL_CENTER";
+  const electEvidenceReady = electAuthorityRef.trim().length > 0
+    && (!electNeedsBranch || electBranchCode.trim().length > 0)
+    && (!electNeedsAssistedUser || electAssistedByUserId.trim().length > 0);
 
   const ELECT_DESC: Record<string, string> = {
     CASH: "Cash proceeds credited to portfolio cash account on the payment date.",
@@ -574,10 +611,55 @@ export default function CorporateActions() {
               <p className="text-sm font-medium mb-1">Impact Preview</p>
               <p className="text-xs text-muted-foreground">{ELECT_DESC[electOption]}</p>
             </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Capture Channel</label>
+                <Select value={electChannel} onValueChange={setElectChannel}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="BACK_OFFICE">Back Office</SelectItem>
+                    <SelectItem value="BRANCH_ASSISTED">Branch Assisted</SelectItem>
+                    <SelectItem value="RM_ASSISTED">RM Assisted</SelectItem>
+                    <SelectItem value="CALL_CENTER">Call Center</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Instruction Reference</label>
+                <Input value={electAuthorityRef} onChange={(event) => setElectAuthorityRef(event.target.value)} />
+              </div>
+              {electNeedsAssistedUser && (
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Assisted By User ID</label>
+                  <Input value={electAssistedByUserId} onChange={(event) => setElectAssistedByUserId(event.target.value)} />
+                </div>
+              )}
+              {electNeedsBranch && (
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Branch Code</label>
+                  <Input value={electBranchCode} onChange={(event) => setElectBranchCode(event.target.value)} />
+                </div>
+              )}
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Capture Notes</label>
+              <Input value={electCaptureNotes} onChange={(event) => setElectCaptureNotes(event.target.value)} />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setElectOpen(false)}>Cancel</Button>
-            <Button onClick={() => electEntId && electMut.mutate({ entId: electEntId, option: electOption })} disabled={electMut.isPending}>
+            <Button
+              onClick={() => electEntId && electMut.mutate({
+                entId: electEntId,
+                option: electOption,
+                channel: electChannel,
+                authorityRef: electAuthorityRef,
+                assistedByUserId: electAssistedByUserId,
+                branchCode: electBranchCode,
+                captureNotes: electCaptureNotes,
+              })}
+              disabled={electMut.isPending || !electEvidenceReady}
+            >
               {electMut.isPending ? "Processing..." : "Confirm Election"}
             </Button>
           </DialogFooter>

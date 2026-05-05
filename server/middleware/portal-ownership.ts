@@ -73,11 +73,36 @@ export function validatePortalOwnership(req: Request, res: Response, next: NextF
     return;
   }
 
-  // -------------------------------------------------------------------------
-  // Ownership mismatch path
-  // -------------------------------------------------------------------------
+  rejectPortalOwnershipViolation(req, res, {
+    resourceType: 'CLIENT_PORTAL_ROUTE',
+    resourceId: routeClientId,
+    attemptedClientId: routeClientId,
+    actualClientId: sessionClientId,
+  });
+}
 
-  // Resolve a stable session key: prefer userId (JWT sub), fall back to 'unknown'
+export function requirePortalClientIdentity(req: Request, res: Response): string | null {
+  const sessionClientId = req.clientId as string | undefined;
+  if (!sessionClientId) {
+    res.status(401).json({
+      error: { code: 'UNAUTHENTICATED', message: 'Authentication required' },
+    });
+    return null;
+  }
+  return sessionClientId;
+}
+
+export function rejectPortalOwnershipViolation(
+  req: Request,
+  res: Response,
+  details: {
+    resourceType: string;
+    resourceId: string;
+    attemptedClientId?: string;
+    actualClientId?: string;
+  },
+): void {
+  const sessionClientId = (req.clientId as string | undefined) ?? details.actualClientId ?? 'unknown';
   const sessionKey: string = req.userId ?? 'unknown';
 
   const now = Date.now();
@@ -100,9 +125,9 @@ export function validatePortalOwnership(req: Request, res: Response, next: NextF
       event: 'PORTAL_OWNERSHIP_VIOLATION',
       actor_id: sessionClientId,
       action: 'PORTAL_OWNERSHIP_VIOLATION',
-      resource_type: 'CLIENT_PORTAL_ROUTE',
-      resource_id: routeClientId,
-      attempted_client_id: routeClientId,
+      resource_type: details.resourceType,
+      resource_id: details.resourceId,
+      attempted_client_id: details.attemptedClientId,
       actual_client_id: sessionClientId,
       path: req.path,
       ip: req.ip,
@@ -124,7 +149,7 @@ export function validatePortalOwnership(req: Request, res: Response, next: NextF
         title: `Client Portal repeated ownership violations (${state.count} in 15 min)`,
         description:
           `Session ${sessionKey} attempted to access resources belonging to other clients. ` +
-          `Violation count: ${state.count}. Last target: ${routeClientId}.`,
+          `Violation count: ${state.count}. Last target: ${details.resourceId}.`,
         aggregate_type: 'CLIENT_SESSION',
         aggregate_id: sessionKey,
       })
@@ -141,7 +166,7 @@ export function validatePortalOwnership(req: Request, res: Response, next: NextF
           .where(eq(schema.users.role, 'BO_HEAD'));
         const notifMsg =
           `Client ${sessionClientId} (session: ${sessionKey}) triggered ${state!.count} ` +
-          `ownership violations within 15 minutes. Last attempted resource: ${routeClientId}.`;
+          `ownership violations within 15 minutes. Last attempted resource: ${details.resourceId}.`;
         await notificationInboxService.notifyMultiple(
           boHeads.map((u: { id: number }) => u.id),
           {

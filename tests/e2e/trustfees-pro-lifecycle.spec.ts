@@ -72,7 +72,7 @@ vi.mock('@shared/schema', () => {
     // TFP tables
     'feePlans', 'tfpAccruals', 'tfpInvoices', 'tfpInvoiceLines', 'tfpPayments',
     'feeOverrides', 'exceptionItems', 'pricingDefinitions', 'eligibilityExpressions',
-    'accrualSchedules', 'feePlanTemplates', 'auditEvents', 'piiClassifications',
+    'accrualSchedules', 'feePlanTemplates', 'tfpAccountingEvents', 'auditEvents', 'piiClassifications',
     'taxRules', 'disputes', 'creditNotes', 'jurisdictions', 'contentPacks',
     'auditWindowSignatures', 'tfpAdhocFees',
   ];

@@ -15,7 +15,9 @@
 import { Router } from 'express';
 import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { reportGeneratorService } from '../../services/report-generator-service';
+import { reportPackService } from '../../services/report-pack-service';
 import { asyncHandler } from '../../middleware/async-handler';
+import { httpStatusFromError, safeErrorMessage } from '../../services/service-errors';
 
 const router = Router();
 router.use(requireBackOfficeRole());
@@ -292,6 +294,85 @@ router.post(
 
     const template = reportGeneratorService.saveTemplate(name.trim(), config);
     res.status(201).json({ data: template });
+  }),
+);
+
+// =============================================================================
+// Report Packs
+// =============================================================================
+
+/** GET /packs/runs -- List report pack runs */
+router.get(
+  '/packs/runs',
+  asyncHandler(async (req, res) => {
+    const result = await reportPackService.listRuns({
+      page: req.query.page ? parseInt(req.query.page as string, 10) : undefined,
+      pageSize: req.query.pageSize ? parseInt(req.query.pageSize as string, 10) : undefined,
+    });
+    res.json({ data: result });
+  }),
+);
+
+/** POST /packs/:id/generate -- Generate a durable report pack run */
+router.post(
+  '/packs/:id/generate',
+  asyncHandler(async (req: any, res) => {
+    const templateId = parseInt(req.params.id, 10);
+    if (isNaN(templateId)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Invalid report pack template ID' },
+      });
+    }
+
+    try {
+      const result = await reportPackService.generatePack(templateId, {
+        params: req.body.params ?? {},
+        requestedBy: req.userId ?? req.user?.id ?? null,
+        recipients: Array.isArray(req.body.recipients) ? req.body.recipients : undefined,
+        deliveryChannels: Array.isArray(req.body.deliveryChannels) ? req.body.deliveryChannels : undefined,
+        outputFormats: Array.isArray(req.body.outputFormats) ? req.body.outputFormats : undefined,
+      });
+      res.status(201).json({ data: result });
+    } catch (err) {
+      res.status(httpStatusFromError(err)).json({ error: { message: safeErrorMessage(err) } });
+    }
+  }),
+);
+
+/** POST /packs/runs/:runId/dispatch -- Dispatch generated report pack outputs */
+router.post(
+  '/packs/runs/:runId/dispatch',
+  asyncHandler(async (req: any, res) => {
+    try {
+      const result = await reportPackService.dispatchRun(req.params.runId, {
+        deliveryChannels: Array.isArray(req.body.deliveryChannels) ? req.body.deliveryChannels : undefined,
+        recipients: Array.isArray(req.body.recipients) ? req.body.recipients : undefined,
+        actorId: req.userId ?? req.user?.id ?? null,
+      });
+      res.json({ data: result });
+    } catch (err) {
+      res.status(httpStatusFromError(err)).json({ error: { message: safeErrorMessage(err) } });
+    }
+  }),
+);
+
+/** POST /packs/outputs/:outputId/retry -- Schedule delivery retry for an output */
+router.post(
+  '/packs/outputs/:outputId/retry',
+  asyncHandler(async (req: any, res) => {
+    const outputId = parseInt(req.params.outputId, 10);
+    if (isNaN(outputId)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Invalid report pack output ID' },
+      });
+    }
+
+    try {
+      const result = await reportPackService.retryOutputDelivery(outputId, req.userId ?? req.user?.id ?? null);
+      res.json({ data: result });
+    } catch (err) {
+      res.status(httpStatusFromError(err)).json({ error: { message: safeErrorMessage(err) } });
+    }
   }),
 );
 

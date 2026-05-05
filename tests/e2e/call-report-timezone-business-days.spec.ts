@@ -15,6 +15,7 @@ describe('call-report timezone business-day coverage', () => {
     expect(serviceSource).toContain("const DEFAULT_RM_TIMEZONE = 'Asia/Manila'");
     expect(serviceSource).toContain('function isoDateInTimezone');
     expect(serviceSource).toContain('async function getRmTimezone');
-    expect(serviceSource).toContain('calculateBusinessDaysPSE(report.meeting_date, now, rmTimezone)');
+    expect(serviceSource).toContain('evaluateLateFilingSla(report, now, userId)');
+    expect(serviceSource).toContain('marketCalendarService.isBusinessDay(key, date)');
   });
 });

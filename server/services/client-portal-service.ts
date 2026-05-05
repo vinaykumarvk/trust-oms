@@ -13,6 +13,7 @@
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, desc, and, sql } from 'drizzle-orm';
+import { clientPortalEvidenceService } from './client-portal-evidence-service';
 
 export const clientPortalService = {
   /**
@@ -297,6 +298,18 @@ export const clientPortalService = {
       )
       .orderBy(desc(schema.notificationLog.sent_at))
       .limit(50);
+
+    await Promise.all(
+      notifications.map((n: any) => clientPortalEvidenceService.recordNotificationEvent({
+        clientId,
+        notificationId: n.id,
+        eventType: n.event_type,
+        channel: n.channel,
+        notificationStatus: n.notification_status,
+        sentAt: n.sent_at ?? null,
+        deliveredAt: n.delivered_at ?? null,
+      }).catch(() => null)),
+    );
 
     return {
       notifications: notifications.map((n: any) => ({

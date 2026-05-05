@@ -9,13 +9,16 @@
  *
  * Auto-refreshes every 60 seconds.
  */
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { apiRequest } from "@ui/lib/queryClient";
 import { apiUrl } from "@ui/lib/api-url";
+import { useToast } from "@ui/components/ui/toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@ui/components/ui/card";
 import { Badge } from "@ui/components/ui/badge";
 import { Button } from "@ui/components/ui/button";
+import { Input } from "@ui/components/ui/input";
 import { Separator } from "@ui/components/ui/separator";
 import { Skeleton } from "@ui/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/components/ui/tabs";
@@ -30,6 +33,7 @@ import {
   BarChart3, RefreshCw, Database, Cpu,
   Rss, Calendar, ArrowUpDown, AlertTriangle,
   CheckCircle, Layers, PieChart, Download,
+  CalendarDays, ExternalLink, FileDown,
 } from "lucide-react";
 
 /* ---------- Types ---------- */
@@ -131,8 +135,41 @@ const MOCK_MONTHLY: MonthlySummary[] = [
 /* ---------- Component ---------- */
 
 export default function TcoDashboard() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [tab, setTab] = useState("overview");
   const [period, setPeriod] = useState("2026-Q1");
+  const [dateFrom, setDateFrom] = useState("2026-01-01");
+  const [dateTo, setDateTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+
+  // Update last refresh timestamp on each refetch cycle
+  useEffect(() => {
+    const interval = setInterval(() => setLastRefresh(new Date()), REFETCH_INTERVAL);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Drill-down navigation handler
+  const drillDown = useCallback((target: string) => {
+    navigate(target);
+  }, [navigate]);
+
+  // Export handler with actual CSV download trigger
+  const handleExport = useCallback(() => {
+    const params = new URLSearchParams({ period, from: dateFrom, to: dateTo, format: "csv" });
+    const url = apiUrl(`/api/v1/tco/export?${params.toString()}`);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `tco-report-${period}.csv`;
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    toast({
+      title: "Export initiated",
+      description: `Downloading TCO report for ${period} as CSV...`,
+    });
+  }, [period, dateFrom, dateTo, toast]);
 
   // ---- Data queries (fallback to mock until API is wired) ----
 
@@ -208,7 +245,7 @@ export default function TcoDashboard() {
   return (
     <div className="space-y-6 p-6" role="main" aria-label="TCO Dashboard">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <DollarSign className="h-6 w-6 text-primary" aria-hidden="true" />
@@ -218,9 +255,29 @@ export default function TcoDashboard() {
             Platform operational cost visibility and optimization insights
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Date Range Filter */}
+          <div className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="h-8 w-[130px] text-xs"
+              aria-label="Cost data from date"
+            />
+            <span className="text-xs text-muted-foreground">to</span>
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="h-8 w-[130px] text-xs"
+              aria-label="Cost data to date"
+            />
+          </div>
+
           <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-[160px]" aria-label="Select period">
+            <SelectTrigger className="w-[140px] h-8" aria-label="Select period">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -238,27 +295,50 @@ export default function TcoDashboard() {
               feedsQuery.refetch();
               trendsQuery.refetch();
               summaryQuery.refetch();
+              setLastRefresh(new Date());
             }}
             aria-label="Refresh all data"
           >
             <RefreshCw className="h-4 w-4 mr-1" aria-hidden="true" />
             Refresh
           </Button>
-          <Button variant="outline" size="sm" aria-label="Export cost report">
-            <Download className="h-4 w-4 mr-1" aria-hidden="true" />
+          <Button variant="outline" size="sm" onClick={handleExport} aria-label="Export cost report as CSV">
+            <FileDown className="h-4 w-4 mr-1" aria-hidden="true" />
             Export
           </Button>
+
+          {/* Auto-refresh indicator */}
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground border rounded-md px-2 py-1">
+            <RefreshCw className="h-3 w-3 animate-spin" aria-hidden="true" />
+            <span>Live</span>
+            <span className="text-[10px] opacity-70">{lastRefresh.toLocaleTimeString()}</span>
+          </div>
         </div>
       </div>
 
       <Separator />
 
       {/* Summary strip */}
-      {latestSummary && (
+      {isLoading && !latestSummary ? (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-28 rounded-lg" />
+          ))}
+        </div>
+      ) : latestSummary ? (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4" role="region" aria-label="Cost summary cards">
-          <Card>
+          <Card
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => { setTab("monthly"); }}
+            role="button"
+            tabIndex={0}
+            aria-label="View monthly cost breakdown"
+          >
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Monthly Cost</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+                Total Monthly Cost
+                <ExternalLink className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{fmtCurrency(latestSummary.total)}</div>
@@ -275,25 +355,50 @@ export default function TcoDashboard() {
               <div className={`text-2xl font-bold ${latestSummary.variance <= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
                 {latestSummary.variance <= 0 ? "" : "+"}{fmtCurrency(latestSummary.variance)}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {latestSummary.variance <= 0 ? "Under budget" : "Over budget"}
-              </p>
+              <div className="mt-1">
+                <Badge
+                  className={latestSummary.variance <= 0
+                    ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-[10px]"
+                    : "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-[10px]"
+                  }
+                >
+                  {latestSummary.variance <= 0 ? "Under budget" : "Over budget"}
+                </Badge>
+              </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => { setTab("feeds"); }}
+            role="button"
+            tabIndex={0}
+            aria-label="View feed cost details"
+          >
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Feed Cost</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+                Total Feed Cost
+                <ExternalLink className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{fmtCurrency(totalFeedCost)}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                {feeds.length} active feeds
+                {feeds.filter((f) => f.status === "active").length} active / {feeds.length} total feeds
               </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => { setTab("processing"); }}
+            role="button"
+            tabIndex={0}
+            aria-label="View processing cost details"
+          >
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Processing Cost</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+                Processing Cost
+                <ExternalLink className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{fmtCurrency(latestSummary.processing)}</div>
@@ -303,7 +408,7 @@ export default function TcoDashboard() {
             </CardContent>
           </Card>
         </div>
-      )}
+      ) : null}
 
       {/* Tabs */}
       <Tabs value={tab} onValueChange={setTab}>
@@ -387,11 +492,23 @@ export default function TcoDashboard() {
 
         {/* ---- Feed Costs Tab ---- */}
         <TabsContent value="feeds" className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="text-lg font-semibold">Feed Cost Breakdown</h2>
-            <Badge variant="outline" className="text-sm">
-              Total: {fmtCurrency(totalFeedCost)} / month
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-sm">
+                Total: {fmtCurrency(totalFeedCost)} / month
+              </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1 text-xs"
+                onClick={() => drillDown("/degraded-mode-monitor")}
+                aria-label="View feed health monitor"
+              >
+                <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                Feed Health
+              </Button>
+            </div>
           </div>
 
           {feedsQuery.isLoading ? (
@@ -412,14 +529,34 @@ export default function TcoDashboard() {
                 </TableHeader>
                 <TableBody>
                   {feeds.map((f) => (
-                    <TableRow key={f.feedName}>
-                      <TableCell className="font-medium">{f.feedName}</TableCell>
+                    <TableRow
+                      key={f.feedName}
+                      className={
+                        f.status === "degraded"
+                          ? "bg-yellow-50/50 dark:bg-yellow-950/20"
+                          : f.status === "inactive"
+                          ? "bg-red-50/50 dark:bg-red-950/20"
+                          : ""
+                      }
+                    >
+                      <TableCell className="font-medium">
+                        <button
+                          className="text-left hover:underline text-primary/80 hover:text-primary"
+                          onClick={() => drillDown("/degraded-mode-monitor")}
+                          aria-label={`View feed health for ${f.feedName}`}
+                        >
+                          {f.feedName}
+                        </button>
+                      </TableCell>
                       <TableCell>{f.provider}</TableCell>
                       <TableCell>
                         <Badge
                           className={feedStatusBadge[f.status]}
                           aria-label={`Feed status: ${f.status}`}
                         >
+                          {f.status === "active" && <CheckCircle className="h-3 w-3 mr-1" aria-hidden="true" />}
+                          {f.status === "degraded" && <AlertTriangle className="h-3 w-3 mr-1" aria-hidden="true" />}
+                          {f.status === "inactive" && <AlertTriangle className="h-3 w-3 mr-1" aria-hidden="true" />}
                           {f.status}
                         </Badge>
                       </TableCell>

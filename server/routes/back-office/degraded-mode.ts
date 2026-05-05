@@ -39,21 +39,32 @@ router.get('/kpi/:year', asyncHandler(async (req: any, res: any) => {
 }));
 
 router.post('/report', asyncHandler(async (req: any, res: any) => {
-  const { failedComponent, fallbackPath, impactedEventIds } = req.body;
+  const { failedComponent, fallbackPath } = req.body;
   if (!failedComponent || !fallbackPath) {
     return res.status(400).json({ error: 'Missing required fields: failedComponent, fallbackPath' });
   }
-  const result = await degradedModeService.reportIncident(req.body);
+  const result = await degradedModeService.reportIncident({
+    ...req.body,
+    actorId: req.userId ? String(req.userId) : undefined,
+    ownerUserId: req.body.ownerUserId ?? (req.userId ? String(req.userId) : undefined),
+  });
   res.status(201).json(result);
 }));
 
 router.put('/:incidentId/resolve', asyncHandler(async (req: any, res: any) => {
-  const result = await degradedModeService.resolveIncident(req.params.incidentId);
+  const result = await degradedModeService.resolveIncident(req.params.incidentId, {
+    resolutionNotes: req.body?.resolutionNotes,
+    resolutionEvidence: req.body?.resolutionEvidence,
+    resolvedBy: req.userId ? String(req.userId) : undefined,
+  });
   res.json(result);
 }));
 
 router.put('/:incidentId/rca', asyncHandler(async (req: any, res: any) => {
-  const result = await degradedModeService.completeRCA(req.params.incidentId);
+  const result = await degradedModeService.completeRCA(req.params.incidentId, {
+    actorId: req.userId ? String(req.userId) : undefined,
+    notes: req.body?.notes,
+  });
   res.json(result);
 }));
 

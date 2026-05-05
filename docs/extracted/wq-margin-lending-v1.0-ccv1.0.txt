@@ -1,0 +1,1155 @@
+
+
+	
+
+
+
+
+
+
+
+
+
+Journey of Defining Maintenance and Taking Loan/Leverage against Security/Portfolio
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT NOTICE
+Copyright © 2021 Intellect Design Arena Limited
+All rights reserved. These materials are confidential and proprietary and no part of these materials should be reproduced, published in any form by any means, electronic or mechanical including photocopy or any information storage or retrieval system nor should the materials be disclosed to third parties without the express written authorization of Intellect Design Arena Limited.
+
+
+Table of Contents
+1.	Introduction	3
+1.1.	Purpose	3
+1.2.	System Overview and Capabilities	3
+2.	Common Functions/Processes	4
+3.	Accessing ML	5
+3.1.	Login	5
+4.	Maintenance	8
+4.1.	Generic Maintenance	8
+4.2.	Exposure Maintenance	19
+4.3.	Cross Currency Haircut	22
+5.	Transactions	25
+5.1.	Facility Group	25
+5.2.	Facility	27
+5.3.	Portfolio Linking	29
+5.4.	Portfolio Linking with Cross Pledge	32
+5.5.	Credit View	36
+5.6.	Asset Settings	37
+6.	Reports	39
+6.1.	Margin Call Process	39
+6.2.	Product Details	43
+6.3.	Audit Trail	45
+6.4.	List of Facilities	45
+6.5.	Margin Call Portfolio	47
+6.6.	Margin Call Security	48
+6.7.	Rating Maintenance Report	49
+6.8.	Leveraged Client View	49
+7.	EOD	50
+7.1.	Screen Layout: EOD	50
+7.2.	Users Actions	50
+8.	Simulation	51
+8.1.	Screen Layout: Simulation	51
+8.2.	Users Actions	51
+
+
+
+
+Introduction
+Intellect Wealth is a platform that supports the wealth management and private banking business. Wealth supports the end to end life cycle.  There are multiple modules that make up the platform. The key modules and functionalities are:
+Module
+   Functionality
+CRM
+Prospecting
+CRM
+Client on boarding
+FABX
+Relationship Management
+FABX
+Portfolio view and Performance
+FABX
+Performance Attribution
+OMS
+Order management
+PMX
+Trade Management
+ML
+Margin Lending
+FNC
+Fees and Charges Management
+ML
+Asset and Exposure Management
+ML
+Margin call life cycle
+Purpose
+The user manual is created to facilitate the users in efficiently using the system. This document covers the functionality of the module Margin Lending (ML). 
+System Overview and Capabilities 
+ML module supports essentially the activities of maintaining maintenance units, facility group, portfolio linking, cross pledge, margin call process, EOD, simulation, and reports. The detailed coverage is mentioned below:   
+
+Chapter
+Section No
+Name of the Module
+Brief Description
+2
+2
+Common Functions
+Description of common functions that users will use
+4
+4.1, 4.2 & 4.3
+Maintenance
+Creating and managing maintenance units
+5
+5.1, 5.2, 5.3, 5.4, 5.5 & 5.6
+Transactions
+Description about facility group, facility, portfolio linking, portfolio linking with cross pledge and credit view
+6
+6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7 & 6.8
+Reports
+Description of margin call process and list of reports
+7
+7.1 & 7.2
+EOD
+Description about EOD
+8
+8.1 & 8.2
+Simulation
+Description about simulation
+
+
+
+Common Functions/Processes 
+ML provides the following functions for both front office and admin users to use the application:  
+
+Sl.No
+Process
+Name of Function
+Description of Process
+	•	
+ML
+Add
+A click on this will take the user to the page where user can add a new record
+	•	
+ML
+View
+A click on this will open the selected record and user can view the record.
+	•	
+ML
+Modify
+A click on this will open the selected record and user can modify the earlier data.
+	•	
+ML
+Save
+A click on this results in saving the data available in this page.
+	•	
+ML
+Authorize
+A click on this will result in a record being authorized. Authorized records are available for processing.
+	•	
+ML
+Copy
+A click on this will result in creating a copy of the selected record. 
+	•	
+ML
+Delete
+A click on this will delete a record. Only draft or unauthorized record can be deleted; authorized record cannot be deleted. 
+
+Apart from the above functions, the following describes the statuses that are common across the system. Every record is subject to a status based on the various stages of the life cycle of a process.   
+Sl.No
+Process Stage
+Record Status
+Functionality
+1
+Save as Draft
+Draft
+A record saved as draft is available for saving
+2
+Save
+Unauthorized
+A record saved is available for either authorization or rejection or deletion
+3
+Authorize
+Authorized
+A record authorized is available for further processing. Only authorized records are available for processing.
+4
+Reject
+Rejected
+If user does not want to authorize an unauthorized record, it can be rejected. The status shall be rejected in such cases. A rejected record will be available for modification.
+5
+Modify
+Modified
+User can modify a rejected record and the same will be available for authorization again. User can modify maker/authorized/rejected records. 
+
+Normally, all processes are subject to maker-checker which means two users are required for completion of a process. Same user cannot be both maker and checker for a process. The * represents the mandatory fields must be filled for a transaction. Users are mapped to multiple groups and a record can be selected by any user of a group for processing.
+
+Abbreviations - 
+Term
+Description
+ML
+Margin Lending
+NCMV
+Net Collateral Margin Value
+GCMV
+Gross Collateral Margin Value
+LTV
+Loan To Value
+Top Up
+Upper cut off value of Margin Call
+Sell Out
+Upper cut off value of Sell Out
+IC
+Issuer Concentration
+SC
+Security Concentration
+Accessing ML
+	•	
+	•	
+Login
+The ML application can be accessed by users who may belong to either Operations group or Relationship group. Apart from Relationship Manager and Customer service manager, an advisor also belongs to Relationship group. Based on the entitlements, a user can access the features of the application. 
+
+	•	Enter User Id and Password. Click Login. 
+
+Figure 1: Login Page
+	•	The Welcome screen appears.    
+
+Figure 2: Welcome Page
+
+Click Menu and you can perform the following actions:  
+
+Sl. No. 
+Field
+Input Type
+User’s Action
+1
+Change Password
+User Input
+User can change password.
+2
+Change Language
+Select
+User can change the language from English to any language available in the language list. 
+3
+Change Branch
+Select
+User can change Branch from one to another in case a user is mapped to more than one branch.  
+ 
+	•	Click the Intellect ML link. The following screen appears:  
+
+Figure 3: Main Page
+
+Maintenance
+The Maintenance menu of ML provides a complete support to back-office in generic maintenance, exposure maintenance and cross currency haircut.
+Using this module user can create, modify necessary details, authorize – wherever applicable, delete – depending on applicability of the entities maintained in Maintenance module.
+
+
+
+	•	
+	•	
+Generic Maintenance 
+This screen allows you to define the following:
+	•	Deposits - Attribute Level Setting
+	•	Fixed Income - Attribute Level Setting
+	•	Funds - Attribute Level Setting
+	•	Others - Attribute Level Setting
+	•	References
+	•	Scrip Settings
+Generic maintenance is a maker-checker process.  The following screen appears after clicking Maintenance -> Generic Maintenance -> Add/Modify: 
+
+    Figure 4: Add/Modify Generic Maintenance Screen
+Attribute Level Setting
+Attribute level setting allows you to define the attributes of a security at the level of asset and sub asset for defining loanable values definition. The following sections describe the attribute level settings for fixed income similarly you can define it for deposits, funds, and others.  
+Screen Layout: Fixed Income - Attribute Level Setting
+The following screen appears after selecting Maintenance Type as Fixed Income - Attribute Level Setting: 
+
+Figure 5: Fixed Income - Attribute Level Setting Screen
+Users Actions  
+In ML, you can perform the following actions on Attribute Level Setting: 
+	•	Add attribute level setting
+	•	View/Modify attribute level setting 
+	•	Copy attribute level setting 
+	•	Delete attribute level setting
+	•	Authorize attribute level setting 
+ 	
+Adding an Attribute Level Setting:
+	•	Click Maintenance -> Generic Maintenance -> Add/Modify.
+	•	Select Maintenance Type. For example, Fixed Income - Attribute Level Setting.
+	•	Click Add. The following screen appears:    
+
+
+Figure 6: Add Fixed Income - Attribute Level Setting
+	•	Enter the following mandatory fields:  
+
+Field Name
+Field Description
+Input Type
+User’s Action
+LTV%*
+Percentage of loan to value
+The loan-to-value (LTV) ratio is a financial term used by lenders to express the ratio of a loan to the value of an asset purchased. 
+Enter
+User enters the loan to value percentage
+Top Up %*
+Percentage of Top Up is cutoff for triggering Margin Call when the security price falls. TopUp% is defined as percentage of LTV%
+Enter
+User enters the Top Up percentage
+Sellout %*
+Percentage of Sell Out is cutoff for triggering Sell Out when the security price falls. SellOut% is defined as percentage of LTV%
+Enter
+User enters the Sell Out percentage
+Definition Type* 
+Type of the definition 
+Select
+User selects the type of the definition
+
+According to the selection of the Maintenance Type, other fields appear in the Attribute Level Setting - Add screen:
+ 
+Maintenance Type - Deposits - Attribute Level Setting - 	
+
+Field Name
+Field Description
+Input Type
+User’s Action
+Sub Asset Class*
+Name of the sub asset class. User can select multiple values in this field.
+Select
+User selects the name of the sub asset class
+Currency*
+Name of the currency. User can select multiple values in this field.
+Select
+User selects the name of the currency
+
+Maintenance Type - Fixed Income - Attribute Level Setting - 
+
+Field Name
+Field Description
+Input Type
+User’s Action
+Sub Asset Class
+Name of the sub asset class. User can select multiple values in this field.
+Select
+User selects the name of the sub asset class
+Industry Code
+Code of the industry. User can select multiple values in this field.
+Select
+User selects code of the industry
+Market Group
+Name of the market group. User can select multiple values in this field.
+Select
+User selects the name of the sub market group
+Security Domicile
+Name of the security domicile. User can select multiple values in this field.
+Select
+User selects the name of the security domicile 
+Security Issuer
+Name of the security issuer. User can select multiple values in this field.
+Select
+User selects the name of the security issuer
+Rating Agencies
+Name of the rating agencies. User can select multiple values in this field.
+Select
+User selects the name of the rating agencies 
+Rating
+Rating of the security given by the rating agency. User can select multiple values in this field.
+Select
+User selects the rating
+Residual Tenor
+Value of the residual tenor. User can select multiple values in this field.
+Select
+User selects the value of the residual tenor
+Issuer Category
+Category of the issuer. User can select multiple values in this field. 
+Select
+User selects the category of the issuer 
+Capital Protection
+Whether the capital is protected. The following are the values:
+	•	Yes
+	•	No
+	•	Partial
+Select
+User selects whether the capital is protected 
+
+Maintenance Type - Funds- Attribute Level Setting - 
+
+Field Name
+Field Description
+Input Type
+User’s Action
+Sub Asset Class
+Name of the sub asset class. User can select multiple values in this field.
+Select
+User selects the name of the sub asset class
+Fund Domicile
+Name of the fund domicile. User can select multiple values in this field.
+Select
+User selects the name of the fund domicile 
+Security Risk Profile
+Risk profile of the security. User can select multiple values in this field.
+Select
+User selects the risk profile of the security
+Fund House
+Name of the fund house. User can select multiple values in this field.
+Select
+User selects the name of the fund house
+
+ Maintenance Type - Others- Attribute Level Setting -  
+
+Field Name
+Field Description
+Input Type
+User’s Action
+Sub Asset Class
+Name of the sub asset class. User can select multiple values in this field.
+Select
+User selects the name of the sub asset class
+
+	•	Click Save As New.   
+
+Modifying a Fixed Income - Attribute Level Setting:
+	•	Click Maintenance -> Generic Maintenance -> Add/Modify.
+	•	Select Maintenance Type as Fixed Income - Attribute Level Setting.
+	•	Select a record and click Modify.
+	•	Modify the details and click Save/Modify.
+
+Copying a Fixed Income - Attribute Level Setting:
+	•	Click Maintenance -> Generic Maintenance -> Add/Modify.
+	•	Select Maintenance Type as Fixed Income - Attribute Level Setting.
+	•	Select a record and click Copy.
+	•	Modify the details and click Save as New.
+
+You can also view or delete a Fixed Income - Attribute Level Setting by selecting a record and clicking the View/Delete button.  
+
+Authorizing an Attribute Level Setting:
+	•	Click Maintenance -> Generic Maintenance -> Authorize/Reject.
+	•	Select Maintenance Type as Fixed Income - Attribute Level Setting.
+	•	Select a record and click Authorize/Reject. The following screen appears:   
+
+
+Figure 7: Authorizing Attribute Level Setting
+	•	View the details and click Authorize or Reject. 
+
+
+Figure 8: Authorize/Reject Attribute Level Setting
+References
+References allow you maintain additional attribute definitions at the global level like issuer concentration, security concentration and definitions based on deposit tenor. We can also maintain parameters for margin call notice triggers. 
+Deposit Tenor LTV: User can define the LTV% (Loanable Value) based on the tenor (residual maturity) of the deposit.
+Margin Call Notice Period: The number of days required to generate margin call notice, after customer came into Margin Call/Sell Out.
+Security Concentration: Banks can avoid higher exposure to particular security by defining the security concentration.
+Issuer Concentration: Banks can avoid higher exposure to particular issuer by defining the issuer concentration.
+
+Screen Layout: References
+The following screen appears after selecting Maintenance Type as References: 
+
+Figure 9: References Screen
+
+Users Actions 
+In ML, you can perform the following actions on References: 
+	•	Add a reference
+	•	View/Modify a reference 
+	•	Copy a reference
+	•	Delete a reference 
+	•	Authorize a reference
+ Adding a Reference:
+	•	Click Maintenance -> Generic Maintenance -> Add/Modify.
+	•	Select Maintenance Type as References.
+	•	Click Add. The following screen appears:
+   
+
+Figure 10: Add Reference
+	•	Enter the following fields:   
+
+Field Name
+Field Description
+Input Type
+User’s Action
+Reference Type
+Type of the reference:
+	•	Deposit Tenor LTV
+	•	Issuer Concentration
+	•	Margin Call Notice Period
+	•	Security Concentration
+Select
+User selects the type of the reference 
+	
+Code
+Code of the reference
+Enter
+User enters the code of the reference
+Reference Value
+Value of reference
+Enter
+User enters the reference value
+Reference ID
+ID of the reference
+Enter
+User enters the reference id
+
+	•	Click Save As New. 
+ 
+Modifying a Reference:
+	•	Click Maintenance -> Generic Maintenance -> Add/Modify.
+	•	Select Maintenance Type as References.
+	•	Select a record and click Modify. 
+	•	Modify the details and click Save/Modify.
+
+Copying a Reference:
+	•	Click Maintenance -> Generic Maintenance -> Add/Modify.
+	•	Select Maintenance Type as References.
+	•	Select a record and click Copy.
+	•	Modify the details and click Save as New.
+
+You can also view or delete a reference by selecting a record and clicking the View/Delete button. 
+
+Authorizing a Reference:
+	•	Click Maintenance -> Generic Maintenance -> Authorize/Reject.
+	•	Select Maintenance Type as References. 
+	•	Select a record and click Authorize/Reject.   
+	•	View the details and click Authorize or Reject. 
+
+Scrip Settings
+Scrip setting allows you to define loanable values at the security level. This definition overwrites the applicable definition at the attribute level. For example, if the applicable level LTV at global level is say 70% and if we define the LTV at security level as say 60% then the application considers 60% as the loanable value.   
+Screen Layout: Scrip Settings 
+The following screen appears after selecting Maintenance Type as Scrip Settings:  
+
+Figure 11: Scrip Settings Main Screen
+Users Actions 
+In ML, you can perform the following actions on Scrip Settings: 
+	•	Add a scrip setting
+	•	View/Modify a scrip setting
+	•	Copy a scrip setting
+	•	Delete a scrip setting 
+	•	Authorize a scrip setting 
+Adding a Scrip Setting:
+	•	Click Maintenance -> Generic Maintenance -> Add/Modify.
+	•	Select Maintenance Type as Scrip Settings. 
+	•	Click Add. The following screen appears:     
+
+
+Figure 12: Add Scrip Settings
+	•	Enter the following fields:     
+
+Field Name
+Field Description
+Input Type
+User’s Action
+Security Name*
+Name of the security
+Select
+User selects the type of the reference 
+Security Concentration Flag*
+Defines concentration of a security in the portfolio of the customer. 
+Enter
+User selects the flag as Yes or No
+Inheritance Flag*
+Inherits the values from the higher level. If the value Yes, the value is inherited and if the value is No then user can enter the required value.
+Enter
+User selects the flag as Yes or No 
+LTV%*
+Percentage used by the system while computation of the Gross Collateral Market Value.  
+Enter
+User enters the loan to value percentage
+Top Up %*
+Percentage of Top Up is cutoff for triggering Margin Call when the security price falls. TopUp% is defined as percentage of LTV%
+Enter
+User enters the Top Up percentage
+Sellout %*
+Percentage of Sell Out is cutoff for triggering Sell Out when the security price falls. SellOut% is defined as percentage of LTV%
+Enter
+User enters the Sell Out percentage  
+
+	•	Click Save As New. 
+
+Modifying a Scrip Setting: 
+	•	Click Maintenance -> Generic Maintenance -> Add/Modify.
+	•	Select Maintenance Type as Scrip Settings.
+	•	Select a record and click Modify. 
+	•	Modify the details and click Save/Modify. 
+
+Copying a Scrip Setting:
+	•	Click Maintenance -> Generic Maintenance -> Add/Modify.
+	•	Select Maintenance Type as Scrip Settings.
+	•	Select a record and click Copy.
+	•	Modify the details and click Save as New.    
+
+You can also view or delete scrip setting by selecting a record and clicking the View/Delete button.
+
+Authorizing Scrip Setting:
+	•	Click Maintenance -> Generic Maintenance -> Authorize/Reject.
+	•	Select Maintenance Type as Scrip Setting.
+	•	Select a record and click Authorize/Reject.    
+	•	View the details and click Authorize or Reject. 
+
+Exposure Maintenance
+Exposure limits can be maintained in absolute amount for any combination of the following:   
+	•	Asset/Sub Asset
+	•	Currency
+	•	Customer  (Nationality/Residency)
+	•	Security
+Validations will be done for each of the limits. To facilitate the monitoring of these limits and also to provide an early warning this maintenance allows user to define threshold limits. For example, if the exposure limit in USD is set at 100 million and the threshold limit is 90% system warns the user when the amount breaches 90 million. 
+
+Exposure maintenance is a maker-checker process.    
+
+Screen Layout: Exposure maintenance
+The following screen appears after clicking Maintenance -> Exposure maintenance -> Add/Modify. 
+
+Figure 13: Exposure Maintenance Screen 
+Users Actions
+In ML, you can perform the following actions in Exposure Maintenance: 
+	•	Add an Exposure Maintenance
+	•	Modify an Exposure Maintenance
+	•	View an Exposure Maintenance
+	•	Delete a Exposure Maintenance
+
+Adding Exposure Maintenance:  
+	•	Click Maintenance -> Exposure Maintenance. 
+	•	Click Add.  
+
+
+Figure 14: Add Exposure Maintenance 
+	•	Enter the following mandatory fields:     
+
+Field Name
+Field Description
+Input Type
+User’s Action
+Limit Code*
+Code of the exposure
+Enter
+User selects the code of the exposure
+Limit Name*
+Name of the exposure
+Enter
+User enters the name of the exposure
+Currency*
+Currency of the exposure
+System Populated
+NA 
+Amount*
+Amount for exposure
+Enter
+User enters the amount
+Effective From*
+Effective start date of the definition
+Select
+User selects the effective from date 
+Effective To*
+Effective end date of the definition
+Select
+User selects the effective to date
+Threshold Percentage*
+Threshold at which a warning of breach of limits is triggered. 
+Enter
+User enters the threshold percentage
+Category
+Category of the exposure
+Select
+User selects the category
+Sub Category
+Sub category of the exposure 
+Select
+User selects the sub category
+Category Value
+Value of the category
+Select
+User selects the category value
+Sub Category Value
+Value of the sub category
+Select
+User selects the sub category value
+
+	•	Click Add.
+	•	Enter Category and Category Value. 
+
+
+Figure 15: Add Category
+	•	Click Save.
+  	
+Modifying Exposure Maintenance:
+	•	Click Maintenance -> Exposure Maintenance.
+	•	Select a record and click Modify.
+	•	Modify the details and click Save. 
+
+You can also view or delete exposure maintenance by selecting a record and clicking the View/Delete button. 
+
+Authorizing Exposure Maintenance:
+	•	Click Maintenance -> Exposure Maintenance -> Authorize/Reject.
+	•	Select a record and click Authorize/Reject.    
+	•	View the details and click Authorize or Reject.  
+Cross Currency Haircut 
+When banks providing the facility other than security currency, there could be risk pertaining to FX rates volatility. If banks want to reduce loanable value when cross currency facility, they can define the cross currency haircut. Cross Currency Haircut is applied over and above LTV if the leverage currency is different from security currency. 
+Screen Layout: Cross Currency Haircut  
+The following screen appears after clicking Maintenance -> Cross Currency Haircut -> Add/Modify: 
+
+Figure 16: Cross Currency Haircut Screen
+Users Actions
+In ML, you can perform the following actions on Cross Currency Haircut: 
+	•	Add a Cross Currency Haircut
+	•	Modify a Cross Currency Haircut
+	•	View a Cross Currency Haircut 
+	•	Delete a Cross Currency Haircut
+Adding a Cross Currency Haircut:
+	•	Click Maintenance -> Cross Currency Haircut.
+	•	Click Add. 
+
+
+Figure 17: Add Cross Currency Haircut
+	•	Enter the following significant fields:      
+
+Field Name
+Field Description
+Input Type
+User’s Action
+Source Currency*
+Name of the source currency
+Enter
+User selects the name of the source currency
+Target Currency*
+Name of the target currency
+Enter
+User selects the name of the target currency
+Buffer%
+Buffer for cross currency conversion risk
+Enter
+User enters the buffer
+Volatility%
+Additional buffer for the volatility of the currency
+Enter
+User enters the volatility
+Haircut%
+Buffer % + Volatility %
+Enter
+User enters the haircut
+Remarks
+Additional description about the definition
+Enter
+User enters the remarks
+
+	•	Click Save. 
+
+Modifying a Cross Currency Haircut:
+	•	Click Maintenance -> Cross Currency Haircut -> Add/Modify.
+	•	Select a record and click Modify.
+	•	Modify the details and click Save. 
+
+You can also view or delete a cross currency haircut by selecting a record and clicking the View/Delete button. 
+
+Authorizing a Cross Currency Haircut:
+	•	Click Maintenance -> Cross Currency Haircut -> Authorize/Reject.
+	•	Select a record and click Authorize/Reject.
+	•	View the details and click Authorize or Reject.  
+
+
+Transactions
+The Transactions menu of ML provides a complete support to back-office in portfolio linking, portfolio linking with cross pledge, credit view, and asset settings. 
+Facility Group
+When banks want to set an exposure limit for a customer level, ML supports the Facility Group. It helps to track the total facilities limit, utilized limit and available drawing power for the customer. All facilities (Asset/Sub Assets) and their utilization will map to facility group. User can define the facility group limit with specified currency, start date and end date of the facility group limit.
+Screen Layout: Facility Group  
+The following screen appears after clicking Transactions -> Facility Group
+
+Figure 18: Facility Group Screen
+
+Users Actions
+In ML, you can perform the following actions on Facility Group: 
+	•	Add a Facility Group
+	•	Modify a Facility Group
+	•	View a Facility Group
+	•	Delete a Facility Group
+Adding a Facility Group:
+	•	Click Transactions -> Facility Group.
+	•	Click Add. 
+
+
+Figure 19: Add Facility Group
+
+	•	Enter the following significant fields:      
+
+Field Name
+Field Description
+Input Type
+User’s Action
+Base Name*
+Name of the customer
+Enter
+User selects the name of the customer
+Base Number
+Base number of the customer
+System populate
+NA
+Facility Group Description*
+Description of the facility group
+Enter
+User enters the facility group description
+Facility Start Date*
+Start date of the facility group
+Enter
+User enters the facility group start date
+Facility Maturity Date*
+End date of the facility group
+Enter
+User enters the facility group end date
+Facility Group Limit Amt*
+Exposure limit of the customer
+Enter
+User enters the facility group limit amount
+Facility Currency*
+Facility group limit currency
+Select
+User selects the facility group currency
+Remarks
+Remarks of the facility group
+Enter
+User enters the remarks
+
+	•	Click Save. 
+
+Modifying a Facility Group:
+	•	Click Transactions -> Facility Group -> Add/Modify.
+	•	Select a record and click Modify.
+	•	Modify the details and click Save. 
+
+You can also view or delete a facility group by selecting a record and clicking the View/Delete button. 
+
+Authorizing a Facility Group:
+	•	Click Transactions -> Facility Group -> Authorize/Reject.
+	•	Select a record and click Authorize/Reject.
+	•	View the details and click Authorize or Reject.  
+
+Facility
+After defined the customer level exposure limit, banks may define the exposure limit at Asset/ Sub Asset level. Facility is the exposure limit at Asset/Sub Asset level. In PMX, user can define the limit definition for Assets/Sub Assets, and the same will show in ML under Facility.
+Screen Layout: Facility  
+The following screen appears after clicking Transactions -> Facility
+
+Figure20: Facility Screen
+Users Actions
+In ML, you can only view Facility:
+	•	View a Facility Group
+View a Facility:
+	•	Click Transactions -> Facility.
+	•	Select a record and click View. 
+
+
+Figure21: View Facility
+
+Portfolio Linking
+The assets of the customer will be grouped as portfolios. These portfolios will be linked to facility group to form a combination. Multiple portfolios can be linked to multiple facility groups to form a many different combinations. Users will be able to link the portfolios through the portfolio-linking screen. The user will have to select the base first for which the portfolio would have to be linked. 
+Following are the types of portfolio linking combinations:
+	•	Portfolios linked to the facility group (displayed) of the base.
+	•	Portfolio linked to other facility group (or other facility group’s if multiple facility group’s exist) within the same base
+	•	Portfolios not linked to any facility group.
+	•	Portfolios linked to other base‘s facility group.
+Screen Layout: Portfolio Linking
+
+				Figure 22: Portfolio Linking Screen
+Users Actions
+In ML, you can perform the following actions on Portfolio Linking: 
+	•	Add Portfolio Linking
+	•	Modify Portfolio Linking 
+	•	View Portfolio Linking
+	•	Authorize/Reject Portfolio Linking
+	•	
+Adding Portfolio Linking:	
+	•	Click Transactions -> Portfolio Linking -> Add/Modify. 
+
+
+Figure 23: Add Portfolio Linking
+	•	Select Base Name and Facility Group. According to the selection details appear.     
+	•	Select Linked Flag as Yes or No. 
+	•	Click Save. 
+
+Viewing Portfolio Linking:		
+	•	Click Transactions -> Portfolio Linking -> View.
+	•	Select Base Name and Facility Group. According to the selection details appear.     
+
+
+Figure 24: View Portfolio Linking
+
+	•	View the details. 
+	•	Click Close. 
+
+Authorizing Portfolio Linking:		
+	•	Click Transactions -> Portfolio Linking -> Authorize/Reject.
+	•	Select Base Name and Facility Group. According to the selection details appear.     
+
+
+Figure 25: Authorize/Reject Portfolio Linking
+	•	View the details.  
+	•	Click Authorize or Reject. 
+	•	
+	•	
+	•	
+ Portfolio Linking with Cross Pledge
+Cross pledge functionality allows the user to pledge a portfolio of one customer to another customer. This comes into use when a customer having a shortfall amount to get additional exposure or to bring a customer portfolio out of margin call/sellout.
+Screen Layout: Portfolio Linking with Cross Pledge 
+
+			Figure 26: Portfolio Linking with Cross Pledge Screen
+Users Actions
+In ML, you can perform the following actions on Portfolio Linking: 
+	•	Add Portfolio Linking with Cross Pledge
+	•	Modify Portfolio Linking with Cross Pledge
+	•	View Portfolio Linking with Cross Pledge
+	•	Authorize/Reject Portfolio Linking with Cross Pledge 
+Adding Portfolio Linking with cross pledge:	
+	•	Click Transactions -> Portfolio Linking with Cross Pledge -> Add/Modify.
+
+
+Figure27: Add Portfolio Linking with Cross Pledge
+	•	Select Base Name and Facility Group. According to the selection details appear.      
+	•	Select Linked Flag as Yes or No. 
+	•	Click Cross Pledge. The Cross Pledge Details dialog box appears. 
+
+
+Figure 28: Cross Pledge Details
+	•	Select Base Number. 
+	•	Select a record and click Next. The record will be added to List of Portfolios. 
+	•	Click Save.   
+Viewing Portfolio Linking with Cross Pledge:		
+	•	Click Transactions -> Portfolio Linking with Cross Pledge -> View. 
+	•	Select Base Name and Facility Group. According to the selection details appear.     
+	•	View the details. 
+	•	Click Close. 
+
+Authorizing Portfolio Linking with Cross Pledge:		
+	•	Click Transactions -> Portfolio Linking with Cross Pledge -> Authorize/Reject.
+	•	Select Base Name and Facility Group. According to the selection details appear.      
+
+
+Figure 29: View Portfolio Linking with Cross Pledge
+	•	View the details.  
+	•	Click Authorize or Reject.  
+	•	
+	•	
+	•	
+	•	
+
+Credit View
+This view provides the complete details of Customer’s credit summary, including Base, Facility, Exposure, GCMV, NCMV, Top up, Sellout, Market Value and Status of the Customer. This view also displays Customer’s linked Portfolios and their holding details on click of PF link.
+Screen Layout: Credit View 
+
+Figure 30: Credit View screen
+Users Actions
+In ML, you can perform the following actions on Credit View: 
+	•	Use Credit View
+Viewing Credit View:	
+	•	Click Transactions -> Credit View.
+
+
+Figure 31: Credit View Screen
+	•	Select Base Name and Facility Group. According to the selection details appear. 
+
+Asset Settings
+Asset settings allow you to define the customer-security level LTV, Top Up, Sell Out, Security & Issuer Concentrations details.
+Screen Layout: Asset Settings 
+The following menu appears after clicking Transactions -> Asset Settings: 
+
+				Figure 32: Asset Settings
+Users Actions
+In ML, you can perform the following actions on Asset Settings: 
+	•	Add Asset Settings
+	•	Modify Asset Settings
+	•	View Asset Settings
+	•	Authorize/Reject Asset Settings 
+
+Adding Asset Settings:	
+	•	Click Transactions -> Asset Settings -> Add/Modify.
+
+
+Figure 33: Add Asset Settings
+	•	Select Base Name. According to the selection records appear.      
+	•	Update the Inherit column as Yes or No and Iss. Con%.
+	•	Click Save.
+
+Viewing Asset Settings:		
+	•	Click Transactions -> Asset Settings -> View. 
+	•	Select Base Name. According to the selection details appear.     
+	•	View the details.   
+	•	Click Close.   
+
+Authorizing Asset Settings:		
+	•	Click Transactions -> Asset Settings -> Authorize/Reject.
+	•	Select Base Name. According to the selection records appear.      
+	•	View the details.  
+	•	Click Authorize or Reject.    
+
+Reports
+The Reports menu is divided between Margin Call Process and Reports. 
+	•	
+	•	
+	•	
+Margin Call Process
+Margin call process is being tracked at portfolio level. When Customer’s portfolio Exposure exceeds the Top Up amount, the Customer comes into Margin Call. When the Customer’s portfolio exposure exceeds the Sell Out amount, then the Customer comes into Sell Out. In both the cases the customer needs to be intimated so that the Customer can bring in more collaterals value or decrease their exposure. After EOD process, ML module checks all the portfolios and their exposure. If portfolio falls into Margin Call or Sell Out, System generates Margin Call advice, mentioning the short fall amount required to bring the portfolio back to Normal.
+Screen Layout: Margin Call Process 
+The following screen appears after clicking Reports -> Margin Call Process: 
+
+Figure 34: Margin Call Process Menu 
+Users Actions
+In ML, you can perform the following actions in Margin Call Process:
+	•	View margin call process
+	•	Modify margin call process
+	•	Authorize margin call process
+View Margin Call Process: 
+	•	Click Reports -> Margin Call Process -> View. The following screen appears:
+
+
+Figure 35: Margin Call Process View 
+
+	•	Clickicon to view the details.
+
+
+Figure36: Update Status Screen
+	•	Click  to download the margin call advice. You can also click the History Details link to view the history. 
+  
+Modify Margin Call Process:   
+	•	Click Reports -> Margin Call Process -> Modify. The following screen appears:
+
+
+Figure37: Modify Margin Call Process Screen
+
+	•	Click icon to edit the details.
+
+
+Figure 38: Margin Call Modify
+	•	Select Update Type as Deferral, Due and Manual Closure. If Deferral, select Deferral Expiry Date and Deferral Reason.
+	•	Enter Remarks. Click Save. 
+	•	Click Close. The details will be updated in the grid columns. 
+
+
+Figure 39: Modified Details of Margin Call Process
+Authorize Margin Call Process: 
+	•	Click Reports -> Margin Call Process -> Authorize. The following screen appears: 
+
+
+Figure 40: Margin Call Authorization Screen
+
+	•	Click icon to authorize the record.
+
+
+Figure 41: Authorize Margin Call
+	•	Enter Remarks. 
+	•	Click Authorize or Reject. 
+Product Details
+Product details report shows the LTV, Top Up and Sell Out value for each security under Attribute Level, Security Level and Asset Settings Level. User can check the LTV definitions for any security in this report. If the LTV has been defined in all three levels for a security, the system displays LTV values in all three levels. 
+
+
+Figure 42: Product Details Attribute Level Settings
+
+
+You can click Product Detail Scrip Level to view the scrip level details - 
+
+
+Figure 43: Product Detail Scrip Level
+You can click Product Detail Asset Settings to view the asset settings - 
+
+
+Figure 44: Product Detail Asset Settings
+
+
+Audit Trail
+Audit Trail report captures and displays all the actions like Add, Modify, Authorize, Delete performed in the system. Audit Trail report is available for Maintenances, Transactions and Margin call process.
+
+
+Figure 45: Audit Trail Report
+List of Facilities
+This report shows all the facilities provided for customer portfolio at facility level. It displays facility wise market value of each security, Exposure, NCMV, Status of the Facility, Margin amount required if Facility into margin call/sell out. The market value will calculate based on the blocked quantity at the time of order placement. Blocked quantity will calculate based on exposure, market value and LTV of the security (((MV*LTV %) /Exposure)*Quantity/Nominal). This report can be downloaded into CSV format.
+
+
+Figure 46: List of Facilities Report
+
+
+Margin Call Portfolio
+This report displays the customer portfolio level details like total market value, total GCMV, total exposure, available drawing power (NCMV), status of the portfolio, margin amount required if the portfolio status into margin call/sell out and number of days overdue of margin call/sell out.
+
+
+Figure47: Margin Call Portfolio Report
+
+Margin Call Security
+This report shows the all facilities provided for customer portfolio at security level. It shows the each security market value, exposure, NCMV, status of the security, margin amount required if facility into margin call/sell out. This report generates the margin call intimation letter at security level when the statuses into margin call/sell out. This report can be downloaded into CSV format.
+
+
+Figure 48: Margin Call Security Report
+Rating Maintenance Report
+This report displays ratings maintained in the system of the securities against which exposure exists.
+
+
+Figure49: Rating Maintenance Report
+Leveraged Client View
+This report shows the Client Contribution, Facility limit of the customer, LTV Limit, Utilized LTV and available Drawing Power. 
+
+
+Figure50: Leveraged Client View Report
+
+EOD
+EOD refers to the end-of-day processes carried out every day to update the margin lending application with data from the product processor or external sources. EOD helps in processing the batch processes for the application. The following two processes are available in the application: 
+
+	•	LTV Logic calculation - Whenever a new attribute definition is created or modified, this EOD needs to executed so as to reflect the latest changes in the system.
+	•	Margin Call Process – Whenever any action is performed in the system which might result in change of Customer Status, this EOD needs to be executed to reflect latest statuses. 
+	•	
+	•	
+	•	
+	•	
+	•	
+	•	
+Screen Layout: EOD  
+The following screen appears after clicking EOD -> EOD Execution:     
+Figure 51: EOD Execution
+Figure 51: EOD Execution
+Users Actions
+EOD execution: 
+	•	Click EOD -> EOD Execution. 
+	•	Enter EOD Job Id and click Go.
+  
+
+Simulation 
+Simulation allows you to simulate and view the GCMV and Credit View for a Customer. You can compare the GCMV details before simulation and after simulation.
+	•	
+	•	
+	•	
+	•	
+	•	
+	•	
+Screen Layout: Simulation
+The following screen appears after clicking Simulation -> Margin Simulation:  
+
+Figure 52: Margin Simulation
+Users Actions
+Margin Simulation: 
+	•	Click Simulation -> Margin Simulation.
+	•	Select Simulation Type as Customer. Once Customer is selected list of Base Names and Facility Groups are enabled. 
+	•	Select Base and Facility Group.   
+	•	Once the Facility Group is selected information related to the customer, the following widgets  will be displayed:
+	•	Assets
+	•	Exposure
+	•	GCMV 
+	•	Credit View
+	•	You can add or delete records in the Assets and Exposure widgets by clicking Add or Delete.
+	•	Click Done, once additions and deletions of records are completed. The GCMV and Credit View widgets are refreshed and loaded with updated information of client.    
+	•	Make modifications in GCMV widget and click Simulate to refresh the Credit View with the updated details.
+	•	Click Compare in GCMV widget to view details before simulation and after simulation. 
+
+
+Figure 53: Compare Simulation
+	•	Click  in Credit View to view Grid View, Summary Chart View, or DetailsChart View. 
+
+
+Figure 54: Credit View Widget
+If you click Grid View, the following view appears: 
+
+Figure 55: Grid View
+
+If you click Summary Chart View, the following view appears: 
+
+Figure 56: Summary Chart View
+If you click Details Chart View, the following view appears:  
+
+
+Figure 57: Details Chart View
+ 

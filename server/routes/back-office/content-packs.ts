@@ -56,7 +56,8 @@ router.post('/:id/rollback', asyncHandler(async (req: any, res: any) => {
 
 /** POST /:id/verify — verify content pack signature */
 router.post('/:id/verify', asyncHandler(async (req: any, res: any) => {
-  const result = await contentPackService.verifySignature(Number(req.params.id));
+  const userId = req.body.verified_by ?? req.user?.id ?? req.userId;
+  const result = await contentPackService.verifySignature(Number(req.params.id), userId ? Number(userId) : undefined);
   res.json({ data: result });
 }));
 

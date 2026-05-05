@@ -9,8 +9,49 @@
 
 import { db } from '../db';
 import * as schema from '@shared/schema';
-import { eq, desc, and, sql } from 'drizzle-orm';
+import { eq, desc, and, or, sql } from 'drizzle-orm';
 import { trustAccountFoundationService } from './trust-account-foundation-service';
+import { exceptionQueueService } from './exception-queue-service';
+import {
+  contributionItemAgeDays,
+  selectBestContributionMatch,
+  type ContributionMatchDecision,
+} from './contribution-matching-policy';
+
+function actorToText(actor: string | number | null | undefined): string | null {
+  if (actor === null || actor === undefined || actor === '') return null;
+  return String(actor);
+}
+
+function buildSourceObjectUri(itemId: number | string): string {
+  return `contribution-match://items/${itemId}`;
+}
+
+async function closeContributionException(
+  exceptionId: number | null | undefined,
+  actor: string | number | null | undefined,
+  notes: string,
+  resolutionCode: string,
+  evidence: Record<string, unknown>,
+): Promise<void> {
+  if (!exceptionId) return;
+  const actorId = actorToText(actor) ?? 'SYSTEM';
+  try {
+    await exceptionQueueService.assignException(exceptionId, actorId);
+  } catch {
+    // The exception may already be assigned or in a terminal state.
+  }
+  try {
+    await exceptionQueueService.resolveException(exceptionId, notes, {
+      resolution_code: resolutionCode,
+      resolution_evidence: evidence,
+      root_cause_code: 'CONTRIBUTION_MATCHING',
+      resolved_by: actorId,
+    });
+  } catch {
+    // Matching resolution must not fail just because the linked exception was already closed.
+  }
+}
 
 export const contributionService = {
   /** Record a new contribution */
@@ -20,6 +61,7 @@ export const contributionService = {
     currency: string;
     sourceAccount: string;
     type: string;
+    externalReference?: string;
     recordedBy?: number;
   }) {
     // Validate portfolio exists
@@ -44,8 +86,11 @@ export const contributionService = {
         amount: String(data.amount),
         currency: data.currency,
         source_account: data.sourceAccount,
+        external_reference: data.externalReference ?? null,
         type: data.type,
         contribution_status: 'PENDING_APPROVAL',
+        match_status: 'AWAITING_INCOMING',
+        match_evidence: {},
         created_by: data.recordedBy ? String(data.recordedBy) : null,
       })
       .returning();
@@ -333,6 +378,387 @@ export const contributionService = {
       decremented_by: quantity,
       new_quantity: newQty,
       position: updated,
+    };
+  },
+
+  /**
+   * Ingest an inbound cash/security contribution item and immediately attempt
+   * deterministic matching against recorded contributions.
+   */
+  async ingestContributionMatchItem(data: {
+    itemType?: 'CASH' | 'SECURITY';
+    portfolioId?: string;
+    trustAccountId?: string;
+    currency?: string;
+    amount?: number;
+    securityId?: number;
+    quantity?: number;
+    sourceAccount?: string;
+    externalReference: string;
+    sourceSystem?: string;
+    sourcePayload?: Record<string, unknown>;
+    valueDate?: string;
+    receivedAt?: Date;
+    actorId?: string | number;
+  }) {
+    if (!data.externalReference) {
+      throw new Error('externalReference is required');
+    }
+    if (!data.portfolioId && !data.trustAccountId) {
+      throw new Error('portfolioId or trustAccountId is required');
+    }
+    if (data.itemType !== 'SECURITY' && (!data.currency || !data.amount || data.amount <= 0)) {
+      throw new Error('Cash match items require positive amount and currency');
+    }
+
+    const now = new Date();
+    const [item] = await db
+      .insert(schema.contributionMatchItems)
+      .values({
+        item_type: data.itemType ?? 'CASH',
+        portfolio_id: data.portfolioId ?? null,
+        trust_account_id: data.trustAccountId ?? null,
+        currency: data.currency ?? null,
+        amount: data.amount === undefined ? null : String(data.amount),
+        security_id: data.securityId ?? null,
+        quantity: data.quantity === undefined ? null : String(data.quantity),
+        source_account: data.sourceAccount ?? null,
+        external_reference: data.externalReference,
+        source_system: data.sourceSystem ?? 'MANUAL',
+        source_payload: data.sourcePayload ?? {},
+        received_at: data.receivedAt ?? now,
+        value_date: data.valueDate ?? null,
+        match_status: 'UNMATCHED',
+        match_evidence: {},
+        created_by: actorToText(data.actorId),
+        updated_by: actorToText(data.actorId),
+      })
+      .returning();
+
+    const candidates = data.portfolioId
+      ? await db
+          .select()
+          .from(schema.contributions)
+          .where(
+            and(
+              eq(schema.contributions.portfolio_id, data.portfolioId),
+              data.currency ? eq(schema.contributions.currency, data.currency) : sql`true`,
+            ),
+          )
+          .orderBy(desc(schema.contributions.created_at))
+          .limit(50)
+      : [];
+
+    const decision = selectBestContributionMatch(item, candidates as any[]);
+    if (decision.status === 'AUTO_MATCH' && decision.contribution_id) {
+      const linked = await this.linkContributionMatchItem(item.id, decision.contribution_id, {
+        matchedBy: data.actorId ?? 'SYSTEM',
+        matchDecision: decision,
+        notes: 'Auto-matched during inbound item ingestion.',
+      });
+      return { item: linked.item, contribution: linked.contribution, decision };
+    }
+
+    const exception = await exceptionQueueService.createException({
+      exception_type: 'OTHER',
+      exception_domain: 'CONTRIBUTIONS',
+      severity: decision.status === 'REVIEW' ? 'P2' : 'P1',
+      title: `Unmatched ${String(item.item_type).toLowerCase()} contribution ${item.external_reference}`,
+      description: decision.status === 'REVIEW'
+        ? 'Inbound contribution has a likely candidate but requires operations review.'
+        : 'Inbound contribution could not be matched to a recorded contribution.',
+      source_system: item.source_system ?? 'CONTRIBUTION_MATCHING',
+      source_object_uri: buildSourceObjectUri(item.id),
+      aggregate_type: 'CONTRIBUTION_MATCH_ITEM',
+      aggregate_id: String(item.id),
+      assigned_to_team: 'OPERATIONS',
+      client_impact: true,
+      details: {
+        item_id: item.id,
+        external_reference: item.external_reference,
+        portfolio_id: item.portfolio_id,
+        amount: item.amount,
+        currency: item.currency,
+        decision,
+      },
+    });
+
+    const [updatedItem] = await db
+      .update(schema.contributionMatchItems)
+      .set({
+        match_status: decision.status === 'REVIEW' ? 'INVESTIGATING' : 'UNMATCHED',
+        match_evidence: { decision },
+        exception_id: exception.id,
+        updated_at: new Date(),
+        updated_by: actorToText(data.actorId),
+      })
+      .where(eq(schema.contributionMatchItems.id, item.id))
+      .returning();
+
+    return { item: updatedItem, decision, exception };
+  },
+
+  /**
+   * Re-run matching over unresolved inbound items.
+   */
+  async runContributionMatching(data: { limit?: number; actorId?: string | number } = {}) {
+    const limit = Math.min(data.limit ?? 100, 500);
+    const items = await db
+      .select()
+      .from(schema.contributionMatchItems)
+      .where(
+        or(
+          eq(schema.contributionMatchItems.match_status, 'UNMATCHED'),
+          eq(schema.contributionMatchItems.match_status, 'INVESTIGATING'),
+        ),
+      )
+      .limit(limit);
+
+    let matched = 0;
+    let investigating = 0;
+    let unmatched = 0;
+
+    for (const item of items) {
+      const candidates = item.portfolio_id
+        ? await db
+            .select()
+            .from(schema.contributions)
+            .where(
+              and(
+                eq(schema.contributions.portfolio_id, item.portfolio_id),
+                item.currency ? eq(schema.contributions.currency, item.currency) : sql`true`,
+              ),
+            )
+            .orderBy(desc(schema.contributions.created_at))
+            .limit(50)
+        : [];
+
+      const decision = selectBestContributionMatch(item, candidates as any[]);
+      if (decision.status === 'AUTO_MATCH' && decision.contribution_id) {
+        await this.linkContributionMatchItem(item.id, decision.contribution_id, {
+          matchedBy: data.actorId ?? 'SYSTEM',
+          matchDecision: decision,
+          notes: 'Auto-matched during contribution matching run.',
+        });
+        matched++;
+      } else {
+        await db
+          .update(schema.contributionMatchItems)
+          .set({
+            match_status: decision.status === 'REVIEW' ? 'INVESTIGATING' : 'UNMATCHED',
+            match_evidence: { decision },
+            updated_at: new Date(),
+            updated_by: actorToText(data.actorId),
+          })
+          .where(eq(schema.contributionMatchItems.id, item.id));
+        if (decision.status === 'REVIEW') investigating++;
+        else unmatched++;
+      }
+    }
+
+    return { scanned: items.length, matched, investigating, unmatched };
+  },
+
+  /**
+   * Manually link an inbound contribution item to a recorded contribution.
+   */
+  async linkContributionMatchItem(
+    itemId: number,
+    contributionId: number,
+    options: {
+      matchedBy?: string | number;
+      notes?: string;
+      matchDecision?: ContributionMatchDecision;
+    } = {},
+  ) {
+    const [item] = await db
+      .select()
+      .from(schema.contributionMatchItems)
+      .where(eq(schema.contributionMatchItems.id, itemId))
+      .limit(1);
+
+    if (!item) {
+      throw new Error(`Contribution match item not found: ${itemId}`);
+    }
+
+    const [contribution] = await db
+      .select()
+      .from(schema.contributions)
+      .where(eq(schema.contributions.id, contributionId))
+      .limit(1);
+
+    if (!contribution) {
+      throw new Error(`Contribution not found: ${contributionId}`);
+    }
+
+    const decision = options.matchDecision
+      ?? selectBestContributionMatch(item, [contribution as any]);
+    const now = new Date();
+    const matchedBy = actorToText(options.matchedBy) ?? 'SYSTEM';
+    const evidence = {
+      decision,
+      notes: options.notes ?? null,
+      item_external_reference: item.external_reference,
+      linked_at: now.toISOString(),
+    };
+
+    const [updatedItem] = await db
+      .update(schema.contributionMatchItems)
+      .set({
+        match_status: 'MATCHED',
+        matched_contribution_id: contributionId,
+        matched_at: now,
+        matched_by: matchedBy,
+        match_confidence: String(decision.confidence),
+        match_method: decision.method === 'NO_ELIGIBLE_CANDIDATE' ? 'MANUAL_LINK' : decision.method,
+        match_evidence: evidence,
+        investigation_notes: options.notes ?? item.investigation_notes ?? null,
+        updated_at: now,
+        updated_by: matchedBy,
+      })
+      .where(eq(schema.contributionMatchItems.id, itemId))
+      .returning();
+
+    const [updatedContribution] = await db
+      .update(schema.contributions)
+      .set({
+        match_status: 'MATCHED',
+        matched_item_id: itemId,
+        matched_at: now,
+        matched_by: matchedBy,
+        match_confidence: String(decision.confidence),
+        match_evidence: evidence,
+        external_reference: contribution.external_reference ?? item.external_reference,
+        unmatched_reason: null,
+        updated_at: now,
+        updated_by: matchedBy,
+      })
+      .where(eq(schema.contributions.id, contributionId))
+      .returning();
+
+    await closeContributionException(
+      item.exception_id,
+      matchedBy,
+      `Contribution match item ${itemId} linked to contribution ${contributionId}.`,
+      'MATCHED',
+      evidence,
+    );
+
+    return { item: updatedItem, contribution: updatedContribution, decision };
+  },
+
+  /**
+   * Resolve an unmatched inbound item without linking it to a contribution.
+   */
+  async resolveContributionMatchItem(
+    itemId: number,
+    data: {
+      resolutionCode: string;
+      resolutionNotes?: string;
+      resolutionEvidence?: Record<string, unknown>;
+      resolvedBy?: string | number;
+    },
+  ) {
+    if (!data.resolutionCode) {
+      throw new Error('resolutionCode is required');
+    }
+
+    const [item] = await db
+      .select()
+      .from(schema.contributionMatchItems)
+      .where(eq(schema.contributionMatchItems.id, itemId))
+      .limit(1);
+
+    if (!item) {
+      throw new Error(`Contribution match item not found: ${itemId}`);
+    }
+
+    const now = new Date();
+    const resolvedBy = actorToText(data.resolvedBy) ?? 'SYSTEM';
+    const evidence = {
+      ...(data.resolutionEvidence ?? {}),
+      resolution_notes: data.resolutionNotes ?? null,
+      resolved_at: now.toISOString(),
+    };
+
+    const [updated] = await db
+      .update(schema.contributionMatchItems)
+      .set({
+        match_status: 'RESOLVED',
+        resolved_at: now,
+        resolution_code: data.resolutionCode,
+        resolution_evidence: evidence,
+        investigation_notes: data.resolutionNotes ?? item.investigation_notes ?? null,
+        updated_at: now,
+        updated_by: resolvedBy,
+      })
+      .where(eq(schema.contributionMatchItems.id, itemId))
+      .returning();
+
+    await closeContributionException(
+      item.exception_id,
+      resolvedBy,
+      data.resolutionNotes ?? `Contribution match item ${itemId} resolved as ${data.resolutionCode}.`,
+      data.resolutionCode,
+      evidence,
+    );
+
+    return updated;
+  },
+
+  /** Operational workbench list for unmatched/investigating contribution items. */
+  async getUnmatchedContributionInventory(filters: {
+    portfolioId?: string;
+    status?: string;
+    itemType?: string;
+    page?: number;
+    pageSize?: number;
+  }) {
+    const page = filters.page ?? 1;
+    const pageSize = Math.min(filters.pageSize ?? 25, 100);
+    const offset = (page - 1) * pageSize;
+
+    const conditions: any[] = [];
+    if (filters.portfolioId) {
+      conditions.push(eq(schema.contributionMatchItems.portfolio_id, filters.portfolioId));
+    }
+    if (filters.itemType) {
+      conditions.push(eq(schema.contributionMatchItems.item_type, filters.itemType));
+    }
+    if (filters.status) {
+      conditions.push(eq(schema.contributionMatchItems.match_status, filters.status));
+    } else {
+      conditions.push(
+        or(
+          eq(schema.contributionMatchItems.match_status, 'UNMATCHED'),
+          eq(schema.contributionMatchItems.match_status, 'INVESTIGATING'),
+        ),
+      );
+    }
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const rows = await db
+      .select()
+      .from(schema.contributionMatchItems)
+      .where(where)
+      .limit(pageSize)
+      .offset(offset)
+      .orderBy(desc(schema.contributionMatchItems.received_at));
+
+    const countResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.contributionMatchItems)
+      .where(where);
+    const total = Number(countResult[0]?.count ?? 0);
+
+    return {
+      data: rows.map((row: any) => ({
+        ...row,
+        age_days: contributionItemAgeDays(row.received_at),
+      })),
+      total,
+      page,
+      pageSize,
     };
   },
 

@@ -32,15 +32,22 @@ router.get(
 router.get(
   '/:srId/documents/:docId/download',
   requireBackOfficeRole(),
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req: any, res) => {
+    const srId = parseInt(req.params.srId, 10);
     const docId = parseInt(req.params.docId, 10);
+    if (isNaN(srId)) {
+      return res.status(400).json({ error: 'Invalid service request ID' });
+    }
     if (isNaN(docId)) {
       return res.status(400).json({ error: 'Invalid document ID' });
     }
 
     try {
-      // No client restriction — back-office may access any SR document
-      const { buffer, document } = await srDocumentService.download(docId);
+      const { buffer, document } = await srDocumentService.download(docId, undefined, srId, {
+        requesterType: 'RM',
+        requesterId: req.userId ?? req.user?.id ?? 'BACK_OFFICE',
+        ipAddress: req.ip,
+      });
 
       // Surface quarantine status to calling systems via header
       if (document.scan_status === 'QUARANTINED') {

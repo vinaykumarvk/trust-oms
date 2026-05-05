@@ -15,6 +15,18 @@ import { cashLedgerService } from './cash-ledger-service';
 import { marketCalendarService } from './market-calendar-service';
 import { taxEngineService } from './tax-engine-service';
 import { notificationService } from './notification-service';
+import { logAuditEvent } from './audit-logger';
+import {
+  assertCorporateActionFieldsValid,
+  buildCorporateActionFieldHistoryEntry,
+  validateCorporateActionEventFields,
+  type CorporateActionFieldHistoryEntry,
+} from './corporate-action-event-field-policy';
+import {
+  buildCorporateActionElectionHistoryEntry,
+  normalizeCorporateActionElectionCapture,
+  type CorporateActionElectionHistoryEntry,
+} from './corporate-action-election-policy';
 
 // Status progression order for lifecycle validation
 const STATUS_ORDER = ['ANNOUNCED', 'SCRUBBED', 'GOLDEN_COPY', 'ENTITLED', 'ELECTED', 'SETTLED'] as const;
@@ -24,6 +36,14 @@ const INFORMATIONAL_TYPES = [
   'NAME_CHANGE', 'ISIN_CHANGE', 'TICKER_CHANGE', 'PAR_VALUE_CHANGE',
   'SECURITY_RECLASSIFICATION', 'PROXY_VOTE', 'CLASS_ACTION',
 ] as const;
+
+function appendFieldHistorySql(entry: CorporateActionFieldHistoryEntry) {
+  return sql`coalesce(${schema.corporateActions.field_history}, '[]'::jsonb) || ${JSON.stringify([entry])}::jsonb`;
+}
+
+function appendElectionHistorySql(entry: CorporateActionElectionHistoryEntry) {
+  return sql`coalesce(${schema.corporateActionEntitlements.election_history}, '[]'::jsonb) || ${JSON.stringify([entry])}::jsonb`;
+}
 
 export const corporateActionsService = {
   /** Ingest a new corporate action record with optional calendar validation */
@@ -38,7 +58,22 @@ export const corporateActionsService = {
     electionDeadline?: string;
     source?: string;
     calendarKey?: string;
+    eventPayload?: Record<string, unknown>;
+    actorId?: string;
   }) {
+    const fieldValidation = validateCorporateActionEventFields({
+      type: data.type,
+      securityId: data.securityId,
+      exDate: data.exDate,
+      recordDate: data.recordDate,
+      paymentDate: data.paymentDate,
+      ratio: data.ratio,
+      amountPerShare: data.amountPerShare,
+      electionDeadline: data.electionDeadline,
+      eventPayload: data.eventPayload,
+    });
+    const fieldHistory = buildCorporateActionFieldHistoryEntry(fieldValidation, 'VALIDATED', data.actorId);
+
     const [ca] = await db
       .insert(schema.corporateActions)
       .values({
@@ -52,8 +87,28 @@ export const corporateActionsService = {
         election_deadline: data.electionDeadline ?? null,
         source: data.source ?? null,
         ca_status: 'ANNOUNCED',
+        event_payload: fieldValidation.normalizedPayload,
+        required_field_snapshot: fieldValidation.requiredFields,
+        field_validation_status: fieldValidation.status,
+        field_validation_errors: fieldValidation.errors,
+        field_history: [fieldHistory],
+        created_by: data.actorId ?? null,
+        updated_by: data.actorId ?? null,
       })
       .returning();
+
+    await logAuditEvent({
+      entityType: 'corporate_actions',
+      entityId: String(ca.id),
+      action: fieldValidation.status === 'PASSED' ? 'CA_FIELDS_VALIDATED' : 'CA_FIELDS_VALIDATION_FAILED',
+      actorId: data.actorId,
+      changes: {
+        type: data.type,
+        field_validation_status: fieldValidation.status,
+        required_fields: fieldValidation.requiredFields,
+        validation_errors: fieldValidation.errors,
+      },
+    });
 
     // Validate dates against market calendar
     const calKey = data.calendarKey ?? 'PH';
@@ -165,20 +220,44 @@ export const corporateActionsService = {
     return entitlement;
   },
 
-  /** Process an election on an entitlement (CASH, REINVEST, TENDER, RIGHTS) */
-  async processElection(entitlementId: number, option: string) {
-    const validOptions = ['CASH', 'REINVEST', 'TENDER', 'RIGHTS'];
-    if (!validOptions.includes(option)) {
-      throw new Error(
-        `Invalid election option: ${option}. Must be one of ${validOptions.join(', ')}`,
-      );
-    }
+  /** Process an election on an entitlement with channel and authority evidence. */
+  async processElection(entitlementId: number, option: string, capture: {
+    channel?: string | null;
+    assistedByUserId?: string | number | null;
+    branchCode?: string | null;
+    capturedByUserId?: string | number | null;
+    makerUserId?: string | number | null;
+    checkerUserId?: string | number | null;
+    authorityEvidence?: Record<string, unknown>;
+    captureNotes?: string | null;
+    sourceIp?: string | null;
+    correlationId?: string | null;
+  } = {}) {
+    const election = normalizeCorporateActionElectionCapture({ option, ...capture });
+    const history = buildCorporateActionElectionHistoryEntry(election);
+    const now = new Date();
 
     const [updated] = await db
       .update(schema.corporateActionEntitlements)
       .set({
-        elected_option: option,
-        updated_at: new Date(),
+        elected_option: election.option,
+        election_status: 'SUBMITTED',
+        election_channel: election.channel,
+        assisted_by_user_id: election.assistedByUserId,
+        branch_code: election.branchCode,
+        election_captured_at: now,
+        election_captured_by: election.capturedByUserId,
+        maker_user_id: election.makerUserId,
+        checker_user_id: election.checkerUserId,
+        maker_checker_status: election.makerCheckerStatus,
+        authority_evidence: election.authorityEvidence,
+        authority_verified_at: election.channel === 'SYSTEM' ? null : now,
+        authority_verified_by: election.checkerUserId ?? election.capturedByUserId,
+        election_capture_notes: election.captureNotes,
+        election_history: appendElectionHistorySql(history),
+        updated_at: now,
+        updated_by: election.capturedByUserId ?? election.checkerUserId ?? election.makerUserId ?? null,
+        correlation_id: capture.correlationId ?? null,
       })
       .where(eq(schema.corporateActionEntitlements.id, entitlementId))
       .returning();
@@ -186,6 +265,28 @@ export const corporateActionsService = {
     if (!updated) {
       throw new Error(`Entitlement not found: ${entitlementId}`);
     }
+
+    await logAuditEvent({
+      entityType: 'corporate_action_entitlements',
+      entityId: String(entitlementId),
+      action: 'CA_ELECTION_CAPTURED',
+      actorId: election.capturedByUserId ?? election.checkerUserId ?? election.makerUserId ?? undefined,
+      source: {
+        system: 'TRUST_OMS',
+        channel: election.channel,
+        component: 'corporate-actions-service',
+      },
+      changes: {
+        elected_option: election.option,
+        election_channel: election.channel,
+        assisted_by_user_id: election.assistedByUserId,
+        branch_code: election.branchCode,
+        maker_checker_status: election.makerCheckerStatus,
+        authority_evidence: election.authorityEvidence,
+      },
+      ipAddress: capture.sourceIp ?? undefined,
+      correlationId: capture.correlationId ?? undefined,
+    });
 
     return updated;
   },
@@ -429,16 +530,73 @@ export const corporateActionsService = {
       throw new Error(`Cannot scrub CA ${caId}: security with id ${ca.security_id} not found in securities table`);
     }
 
+    const fieldValidation = validateCorporateActionEventFields({
+      type: String(ca.type ?? 'UNKNOWN'),
+      security_id: ca.security_id,
+      ex_date: ca.ex_date,
+      record_date: ca.record_date,
+      payment_date: ca.payment_date,
+      ratio: ca.ratio,
+      amount_per_share: ca.amount_per_share,
+      election_deadline: ca.election_deadline,
+      event_payload: ca.event_payload as Record<string, unknown>,
+    });
+    const fieldHistory = buildCorporateActionFieldHistoryEntry(fieldValidation, 'SCRUB_VALIDATED');
+
+    if (fieldValidation.status === 'FAILED') {
+      await db
+        .update(schema.corporateActions)
+        .set({
+          event_payload: fieldValidation.normalizedPayload,
+          required_field_snapshot: fieldValidation.requiredFields,
+          field_validation_status: fieldValidation.status,
+          field_validation_errors: fieldValidation.errors,
+          field_history: appendFieldHistorySql(fieldHistory),
+          scrub_status: 'FAILED',
+          updated_at: new Date(),
+        })
+        .where(eq(schema.corporateActions.id, caId));
+
+      await logAuditEvent({
+        entityType: 'corporate_actions',
+        entityId: String(caId),
+        action: 'CA_FIELDS_VALIDATION_FAILED',
+        changes: {
+          type: ca.type,
+          field_validation_status: fieldValidation.status,
+          validation_errors: fieldValidation.errors,
+        },
+      });
+
+      assertCorporateActionFieldsValid(fieldValidation);
+    }
+
     // Update status to SCRUBBED
     const [updated] = await db
       .update(schema.corporateActions)
       .set({
         ca_status: 'SCRUBBED',
         scrub_status: 'PASSED',
+        event_payload: fieldValidation.normalizedPayload,
+        required_field_snapshot: fieldValidation.requiredFields,
+        field_validation_status: fieldValidation.status,
+        field_validation_errors: fieldValidation.errors,
+        field_history: appendFieldHistorySql(fieldHistory),
         updated_at: new Date(),
       })
       .where(eq(schema.corporateActions.id, caId))
       .returning();
+
+    await logAuditEvent({
+      entityType: 'corporate_actions',
+      entityId: String(caId),
+      action: 'CA_FIELDS_VALIDATED',
+      changes: {
+        type: ca.type,
+        field_validation_status: fieldValidation.status,
+        required_fields: fieldValidation.requiredFields,
+      },
+    });
 
     return updated;
   },
@@ -696,6 +854,7 @@ export const corporateActionsService = {
       electionDeadline: string;
       source: string;
       type: (typeof schema.corporateActionTypeEnum.enumValues)[number];
+      eventPayload: Record<string, unknown>;
     }>,
     userId: string,
   ) {
@@ -721,6 +880,21 @@ export const corporateActionsService = {
     // Compute the next event version
     const currentVersion = (original as Record<string, unknown>).event_version as number | null;
     const nextVersion = (currentVersion ?? 1) + 1;
+    const fieldValidation = validateCorporateActionEventFields({
+      type: String(changes.type ?? original.type ?? 'UNKNOWN'),
+      security_id: original.security_id,
+      ex_date: changes.exDate ?? original.ex_date,
+      record_date: changes.recordDate ?? original.record_date,
+      payment_date: changes.paymentDate ?? original.payment_date,
+      ratio: changes.ratio ?? original.ratio,
+      amount_per_share: changes.amountPerShare ?? original.amount_per_share,
+      election_deadline: changes.electionDeadline ?? original.election_deadline,
+      event_payload: {
+        ...((original.event_payload as Record<string, unknown>) ?? {}),
+        ...(changes.eventPayload ?? {}),
+      },
+    });
+    const fieldHistory = buildCorporateActionFieldHistoryEntry(fieldValidation, 'AMENDED', userId);
 
     // Build the new row, merging original data with the supplied changes
     const [amended] = await db
@@ -740,6 +914,11 @@ export const corporateActionsService = {
         calendar_key: original.calendar_key,
         golden_copy_source: original.golden_copy_source,
         scrub_status: null, // Clear scrub status for re-scrub
+        event_payload: fieldValidation.normalizedPayload,
+        required_field_snapshot: fieldValidation.requiredFields,
+        field_validation_status: fieldValidation.status,
+        field_validation_errors: fieldValidation.errors,
+        field_history: [fieldHistory],
         event_version: nextVersion,
         amended_from_id: original.id,
         created_by: userId,
@@ -755,6 +934,19 @@ export const corporateActionsService = {
         updated_by: userId,
       })
       .where(eq(schema.corporateActions.id, eventId));
+
+    await logAuditEvent({
+      entityType: 'corporate_actions',
+      entityId: String(amended.id),
+      action: fieldValidation.status === 'PASSED' ? 'CA_FIELDS_VALIDATED' : 'CA_FIELDS_VALIDATION_FAILED',
+      actorId: userId,
+      changes: {
+        amended_from_id: original.id,
+        type: changes.type ?? original.type,
+        field_validation_status: fieldValidation.status,
+        validation_errors: fieldValidation.errors,
+      },
+    });
 
     // Trigger re-scrub on the new version if the original was at a scrub-eligible stage
     const scrubEligible = ['ANNOUNCED', 'SCRUBBED'];

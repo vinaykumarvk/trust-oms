@@ -13,6 +13,21 @@ import { initializeFeedRegistry } from './services/degraded-mode-service';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '5000', 10);
+const isProductionRuntime = process.env.NODE_ENV === 'production';
+const configuredCorsOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+if (isProductionRuntime) {
+  if (configuredCorsOrigins.length === 0) {
+    throw new Error('FATAL: CORS_ORIGINS must be configured in production.');
+  }
+
+  if (configuredCorsOrigins.includes('*')) {
+    throw new Error('FATAL: CORS_ORIGINS cannot include "*" when credentials are enabled.');
+  }
+}
 
 // Health probes — zero middleware overhead
 app.get('/health', (_req, res) => {
@@ -45,9 +60,7 @@ app.use(helmet({
   },
 }));
 app.use(cors({
-  origin: process.env.CORS_ORIGINS
-    ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
-    : true,
+  origin: configuredCorsOrigins.length > 0 ? configuredCorsOrigins : true,
   credentials: true,
 }));
 app.use(rateLimit({ windowMs: 60_000, max: 600, standardHeaders: true, legacyHeaders: false }));

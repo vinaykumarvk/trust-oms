@@ -207,6 +207,11 @@ describe('Handover Lifecycle — HAM Module', () => {
       expect(typeof handoverService.batchReject).toBe('function');
     });
 
+    it('should have durable bulk upload job methods', () => {
+      expect(typeof handoverService.queueBulkUpload).toBe('function');
+      expect(typeof handoverService.processBulkUploadJob).toBe('function');
+    });
+
     it('should have listEntities method', () => {
       expect(typeof handoverService.listEntities).toBe('function');
     });
@@ -237,6 +242,10 @@ describe('Handover Lifecycle — HAM Module', () => {
 
     it('should have getPendingRequests method', () => {
       expect(typeof handoverService.getPendingRequests).toBe('function');
+    });
+
+    it('should have escalateOverdueAuthorizations method', () => {
+      expect(typeof handoverService.escalateOverdueAuthorizations).toBe('function');
     });
 
     it('should have amendRequest method', () => {

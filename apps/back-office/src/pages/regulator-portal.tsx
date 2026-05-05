@@ -13,12 +13,15 @@
  * Data refreshes automatically every 60 seconds.
  */
 
+import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@ui/lib/queryClient";
 import { apiUrl } from "@ui/lib/api-url";
+import { useToast } from "@ui/components/ui/toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@ui/components/ui/card";
 import { Badge } from "@ui/components/ui/badge";
 import { Button } from "@ui/components/ui/button";
+import { Input } from "@ui/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/components/ui/tabs";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -40,6 +43,9 @@ import {
   MessageSquareWarning,
   Download,
   Eye,
+  RefreshCw,
+  CalendarDays,
+  FileDown,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -501,7 +507,7 @@ function AmlKycTab() {
 // Tab: BSP Reports
 // ---------------------------------------------------------------------------
 
-function ReportsTab() {
+function ReportsTab({ onGenerateReport }: { onGenerateReport: (reportId: string) => void }) {
   const reports = [
     { id: "BSP-FRP", name: "Fund Risk Profile Report (FRPTI)", description: "Monthly risk profile and trust investment portfolio report per BSP Circular 1098", frequency: "Monthly", lastGenerated: "2026-03-31", icon: FileBarChart },
     { id: "BSP-CAMELS", name: "Trust CAMELS Rating Report", description: "Quarterly composite rating across Capital, Asset Quality, Management, Earnings, Liquidity, Sensitivity", frequency: "Quarterly", lastGenerated: "2026-03-31", icon: FileText },
@@ -538,15 +544,26 @@ function ReportsTab() {
                         <span className="text-xs text-muted-foreground">
                           Last: {formatDate(report.lastGenerated)}
                         </span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs gap-1"
-                          aria-label={`View ${report.name}`}
-                        >
-                          <Eye className="h-3 w-3" aria-hidden="true" />
-                          View
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1"
+                            aria-label={`View ${report.name}`}
+                          >
+                            <Eye className="h-3 w-3" aria-hidden="true" />
+                            View
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1"
+                            onClick={() => onGenerateReport(report.id)}
+                            aria-label={`Download ${report.name}`}
+                          >
+                            <Download className="h-3 w-3" aria-hidden="true" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -563,19 +580,19 @@ function ReportsTab() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-3">
-            <Button variant="outline" className="gap-2" aria-label="Generate FRPTI Report">
+            <Button variant="outline" className="gap-2" aria-label="Generate FRPTI Report" onClick={() => onGenerateReport("BSP-FRP")}>
               <Download className="h-4 w-4" aria-hidden="true" />
               Generate FRPTI Report
             </Button>
-            <Button variant="outline" className="gap-2" aria-label="Generate DOSRI Report">
+            <Button variant="outline" className="gap-2" aria-label="Generate DOSRI Report" onClick={() => onGenerateReport("BSP-DOSRI")}>
               <Download className="h-4 w-4" aria-hidden="true" />
               Generate DOSRI Report
             </Button>
-            <Button variant="outline" className="gap-2" aria-label="Generate UITF Report">
+            <Button variant="outline" className="gap-2" aria-label="Generate UITF Report" onClick={() => onGenerateReport("BSP-UITF")}>
               <Download className="h-4 w-4" aria-hidden="true" />
               Generate UITF Report
             </Button>
-            <Button variant="outline" className="gap-2" aria-label="Generate AML Summary">
+            <Button variant="outline" className="gap-2" aria-label="Generate AML Summary" onClick={() => onGenerateReport("BSP-AML")}>
               <Download className="h-4 w-4" aria-hidden="true" />
               Generate AML Summary
             </Button>
@@ -590,19 +607,24 @@ function ReportsTab() {
 // Tab: DOSRI Monitoring
 // ---------------------------------------------------------------------------
 
-function DosriTab() {
-  const { data: summary } = useQuery<DosriSummary>({
-    queryKey: ["/api/v1/regulator/dosri-summary"],
+function DosriTab({ dateFrom, dateTo, onExport }: { dateFrom: string; dateTo: string; onExport: () => void }) {
+  const params = new URLSearchParams();
+  if (dateFrom) params.set("from", dateFrom);
+  if (dateTo) params.set("to", dateTo);
+  const queryString = params.toString() ? `?${params.toString()}` : "";
+
+  const { data: summary, isLoading: summaryLoading } = useQuery<DosriSummary>({
+    queryKey: ["/api/v1/regulator/dosri-summary", dateFrom, dateTo],
     queryFn: () =>
-      apiRequest("GET", apiUrl("/api/v1/regulator/dosri-summary")).then((r) => r.json()),
+      apiRequest("GET", apiUrl(`/api/v1/regulator/dosri-summary${queryString}`)).then((r) => r.json()),
     refetchInterval: 60_000,
     placeholderData: MOCK_DOSRI_SUMMARY,
   });
 
-  const { data: entries } = useQuery<DosriEntry[]>({
-    queryKey: ["/api/v1/regulator/dosri-entries"],
+  const { data: entries, isLoading: entriesLoading } = useQuery<DosriEntry[]>({
+    queryKey: ["/api/v1/regulator/dosri-entries", dateFrom, dateTo],
     queryFn: () =>
-      apiRequest("GET", apiUrl("/api/v1/regulator/dosri-entries")).then((r) => r.json()),
+      apiRequest("GET", apiUrl(`/api/v1/regulator/dosri-entries${queryString}`)).then((r) => r.json()),
     refetchInterval: 60_000,
     placeholderData: MOCK_DOSRI_ENTRIES,
   });
@@ -612,13 +634,35 @@ function DosriTab() {
 
   const utilizationPercent = (dosri.totalExposure / dosri.regulatoryLimit) * 100;
 
+  if (summaryLoading && !summary) {
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-28" />
+          ))}
+        </div>
+        <Skeleton className="h-40" />
+        <Skeleton className="h-64" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard title="Related Parties" value={dosri.totalRelatedParties} icon={Users} />
-        <SummaryCard title="Total Transactions" value={dosri.totalTransactions} icon={FileText} />
-        <SummaryCard title="Within Limits" value={dosri.withinLimitCount} icon={CheckCircle} variant="success" />
-        <SummaryCard title="Limit Breaches" value={dosri.breachCount} icon={AlertTriangle} variant="danger" />
+      <div className="flex items-center justify-between">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 flex-1">
+          <SummaryCard title="Related Parties" value={dosri.totalRelatedParties} icon={Users} />
+          <SummaryCard title="Total Transactions" value={dosri.totalTransactions} icon={FileText} />
+          <SummaryCard title="Within Limits" value={dosri.withinLimitCount} icon={CheckCircle} variant="success" />
+          <SummaryCard title="Limit Breaches" value={dosri.breachCount} icon={AlertTriangle} variant="danger" />
+        </div>
+      </div>
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" className="gap-1" onClick={onExport} aria-label="Export DOSRI data">
+          <FileDown className="h-3.5 w-3.5" aria-hidden="true" />
+          Export DOSRI CSV
+        </Button>
       </div>
 
       {/* Aggregate exposure bar */}
@@ -707,19 +751,24 @@ function DosriTab() {
 // Tab: Client Complaint Tracker
 // ---------------------------------------------------------------------------
 
-function ComplaintsTab() {
-  const { data: summary } = useQuery<ComplaintSummary>({
-    queryKey: ["/api/v1/regulator/complaints-summary"],
+function ComplaintsTab({ dateFrom, dateTo, onExport }: { dateFrom: string; dateTo: string; onExport: () => void }) {
+  const params = new URLSearchParams();
+  if (dateFrom) params.set("from", dateFrom);
+  if (dateTo) params.set("to", dateTo);
+  const queryString = params.toString() ? `?${params.toString()}` : "";
+
+  const { data: summary, isLoading: summaryLoading } = useQuery<ComplaintSummary>({
+    queryKey: ["/api/v1/regulator/complaints-summary", dateFrom, dateTo],
     queryFn: () =>
-      apiRequest("GET", apiUrl("/api/v1/regulator/complaints-summary")).then((r) => r.json()),
+      apiRequest("GET", apiUrl(`/api/v1/regulator/complaints-summary${queryString}`)).then((r) => r.json()),
     refetchInterval: 60_000,
     placeholderData: MOCK_COMPLAINT_SUMMARY,
   });
 
-  const { data: complaints } = useQuery<ComplaintEntry[]>({
-    queryKey: ["/api/v1/regulator/complaints"],
+  const { data: complaints, isLoading: complaintsLoading } = useQuery<ComplaintEntry[]>({
+    queryKey: ["/api/v1/regulator/complaints", dateFrom, dateTo],
     queryFn: () =>
-      apiRequest("GET", apiUrl("/api/v1/regulator/complaints")).then((r) => r.json()),
+      apiRequest("GET", apiUrl(`/api/v1/regulator/complaints${queryString}`)).then((r) => r.json()),
     refetchInterval: 60_000,
     placeholderData: MOCK_COMPLAINTS,
   });
@@ -727,8 +776,27 @@ function ComplaintsTab() {
   const stats = summary ?? MOCK_COMPLAINT_SUMMARY;
   const list = complaints ?? MOCK_COMPLAINTS;
 
+  if (summaryLoading && !summary) {
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-28" />
+          ))}
+        </div>
+        <Skeleton className="h-64" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-end">
+        <Button variant="outline" size="sm" className="gap-1" onClick={onExport} aria-label="Export complaints data">
+          <FileDown className="h-3.5 w-3.5" aria-hidden="true" />
+          Export Complaints CSV
+        </Button>
+      </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <SummaryCard title="Total (YTD)" value={stats.totalComplaints} icon={MessageSquareWarning} />
         <SummaryCard title="Open" value={stats.openCount} icon={AlertTriangle} variant="danger" />
@@ -782,10 +850,111 @@ function ComplaintsTab() {
 }
 
 // ---------------------------------------------------------------------------
+// Date Range Filter Component
+// ---------------------------------------------------------------------------
+
+function DateRangeFilter({
+  dateFrom,
+  dateTo,
+  onDateFromChange,
+  onDateToChange,
+}: {
+  dateFrom: string;
+  dateTo: string;
+  onDateFromChange: (v: string) => void;
+  onDateToChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <CalendarDays className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+      <div className="flex items-center gap-1">
+        <label htmlFor="date-from" className="text-xs text-muted-foreground whitespace-nowrap">From:</label>
+        <Input
+          id="date-from"
+          type="date"
+          value={dateFrom}
+          onChange={(e) => onDateFromChange(e.target.value)}
+          className="h-8 w-[140px] text-xs"
+          aria-label="Filter from date"
+        />
+      </div>
+      <div className="flex items-center gap-1">
+        <label htmlFor="date-to" className="text-xs text-muted-foreground whitespace-nowrap">To:</label>
+        <Input
+          id="date-to"
+          type="date"
+          value={dateTo}
+          onChange={(e) => onDateToChange(e.target.value)}
+          className="h-8 w-[140px] text-xs"
+          aria-label="Filter to date"
+        />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Export Helper
+// ---------------------------------------------------------------------------
+
+function triggerCsvDownload(endpoint: string, filename: string, dateFrom: string, dateTo: string) {
+  const params = new URLSearchParams();
+  if (dateFrom) params.set("from", dateFrom);
+  if (dateTo) params.set("to", dateTo);
+  params.set("format", "csv");
+  const url = apiUrl(`${endpoint}?${params.toString()}`);
+  // Use a hidden anchor for download trigger
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.target = "_blank";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// ---------------------------------------------------------------------------
 // Main Regulator Portal Page
 // ---------------------------------------------------------------------------
 
 export default function RegulatorPortal() {
+  const { toast } = useToast();
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+
+  // Update last refresh timestamp to match the 60s refetch cycle
+  useEffect(() => {
+    const interval = setInterval(() => setLastRefresh(new Date()), 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleExport = useCallback((reportType: string) => {
+    const endpointMap: Record<string, string> = {
+      compliance: "/api/v1/regulator/compliance-summary/export",
+      "aml-kyc": "/api/v1/regulator/aml-flags/export",
+      dosri: "/api/v1/regulator/dosri-entries/export",
+      complaints: "/api/v1/regulator/complaints/export",
+    };
+    const endpoint = endpointMap[reportType];
+    if (endpoint) {
+      triggerCsvDownload(endpoint, `bsp-${reportType}-report.csv`, dateFrom, dateTo);
+      toast({
+        title: "Export initiated",
+        description: `Downloading ${reportType} report as CSV...`,
+      });
+    }
+  }, [dateFrom, dateTo, toast]);
+
+  const handleGenerateReport = useCallback((reportId: string) => {
+    const url = apiUrl(`/api/v1/regulator/reports/${reportId}/generate?from=${dateFrom}&to=${dateTo}&format=pdf`);
+    window.open(url, "_blank");
+    toast({
+      title: "Report generation started",
+      description: `Generating ${reportId} report...`,
+    });
+  }, [dateFrom, dateTo, toast]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -805,30 +974,73 @@ export default function RegulatorPortal() {
         </Badge>
       </div>
 
+      {/* Date Range Filter + Auto-refresh indicator */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <DateRangeFilter
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onDateFromChange={setDateFrom}
+          onDateToChange={setDateTo}
+        />
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <RefreshCw className="h-3 w-3 animate-spin" aria-hidden="true" />
+            <span>Auto-refresh 60s</span>
+            <span className="text-[10px]">(last: {lastRefresh.toLocaleTimeString()})</span>
+          </div>
+        </div>
+      </div>
+
       {/* Tabs */}
       <Tabs defaultValue="compliance" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
-          <TabsTrigger value="compliance" className="gap-1 text-xs sm:text-sm">
-            <ShieldCheck className="h-4 w-4 hidden sm:inline" aria-hidden="true" />
-            Compliance
-          </TabsTrigger>
-          <TabsTrigger value="aml-kyc" className="gap-1 text-xs sm:text-sm">
-            <UserCheck className="h-4 w-4 hidden sm:inline" aria-hidden="true" />
-            AML/KYC
-          </TabsTrigger>
-          <TabsTrigger value="reports" className="gap-1 text-xs sm:text-sm">
-            <FileBarChart className="h-4 w-4 hidden sm:inline" aria-hidden="true" />
-            Reports
-          </TabsTrigger>
-          <TabsTrigger value="dosri" className="gap-1 text-xs sm:text-sm">
-            <Users className="h-4 w-4 hidden sm:inline" aria-hidden="true" />
-            DOSRI
-          </TabsTrigger>
-          <TabsTrigger value="complaints" className="gap-1 text-xs sm:text-sm">
-            <MessageSquareWarning className="h-4 w-4 hidden sm:inline" aria-hidden="true" />
-            Complaints
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
+            <TabsTrigger value="compliance" className="gap-1 text-xs sm:text-sm">
+              <ShieldCheck className="h-4 w-4 hidden sm:inline" aria-hidden="true" />
+              Compliance
+            </TabsTrigger>
+            <TabsTrigger value="aml-kyc" className="gap-1 text-xs sm:text-sm">
+              <UserCheck className="h-4 w-4 hidden sm:inline" aria-hidden="true" />
+              AML/KYC
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="gap-1 text-xs sm:text-sm">
+              <FileBarChart className="h-4 w-4 hidden sm:inline" aria-hidden="true" />
+              Reports
+            </TabsTrigger>
+            <TabsTrigger value="dosri" className="gap-1 text-xs sm:text-sm">
+              <Users className="h-4 w-4 hidden sm:inline" aria-hidden="true" />
+              DOSRI
+            </TabsTrigger>
+            <TabsTrigger value="complaints" className="gap-1 text-xs sm:text-sm">
+              <MessageSquareWarning className="h-4 w-4 hidden sm:inline" aria-hidden="true" />
+              Complaints
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Export buttons */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1 text-xs"
+              onClick={() => handleExport("compliance")}
+              aria-label="Export compliance data as CSV"
+            >
+              <FileDown className="h-3.5 w-3.5" aria-hidden="true" />
+              Export CSV
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1 text-xs"
+              onClick={() => handleExport("aml-kyc")}
+              aria-label="Export AML/KYC data as CSV"
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden="true" />
+              AML Export
+            </Button>
+          </div>
+        </div>
 
         <TabsContent value="compliance">
           <ComplianceTab />
@@ -837,13 +1049,13 @@ export default function RegulatorPortal() {
           <AmlKycTab />
         </TabsContent>
         <TabsContent value="reports">
-          <ReportsTab />
+          <ReportsTab onGenerateReport={handleGenerateReport} />
         </TabsContent>
         <TabsContent value="dosri">
-          <DosriTab />
+          <DosriTab dateFrom={dateFrom} dateTo={dateTo} onExport={() => handleExport("dosri")} />
         </TabsContent>
         <TabsContent value="complaints">
-          <ComplaintsTab />
+          <ComplaintsTab dateFrom={dateFrom} dateTo={dateTo} onExport={() => handleExport("complaints")} />
         </TabsContent>
       </Tabs>
     </div>

@@ -14,12 +14,31 @@ import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, and, sql, desc, or, ilike, count } from 'drizzle-orm';
 import { notificationInboxService } from './notification-inbox-service';
+import {
+  extractServiceRequestSequence,
+  formatServiceRequestId,
+} from './service-request-id-policy';
+import {
+  appendServiceRequestReassignmentHistory,
+  assertServiceRequestReassignmentAllowed,
+  buildServiceRequestReassignmentEntry,
+  normalizeServiceRequestReassignmentReason,
+  SERVICE_REQUEST_REASSIGNMENT_ROLES,
+} from './service-request-reassignment-policy';
+import { logAuditEvent } from './audit-logger';
 
 const SLA_DAYS: Record<string, number> = {
   HIGH: 3,
   MEDIUM: 5,
   LOW: 7,
 };
+
+interface ReassignRMOptions {
+  actorRole?: string | null;
+  reason?: string | null;
+  ipAddress?: string | null;
+  correlationId?: string | null;
+}
 
 function computeClosureDate(priority: string, fromDate?: Date): Date {
   const base = fromDate ?? new Date();
@@ -29,9 +48,29 @@ function computeClosureDate(priority: string, fromDate?: Date): Date {
   return closure;
 }
 
-function generateRequestId(seq: number): string {
-  const year = new Date().getFullYear();
-  return `SR-${year}-${String(seq).padStart(6, '0')}`;
+const localCounterFallback = new Map<number, number>();
+
+async function nextServiceRequestId(now = new Date()): Promise<string> {
+  const year = now.getFullYear();
+
+  if (typeof (db as any).execute !== 'function') {
+    const next = (localCounterFallback.get(year) ?? 0) + 1;
+    localCounterFallback.set(year, next);
+    return formatServiceRequestId(year, next);
+  }
+
+  const result = await (db as any).execute(sql`
+    INSERT INTO service_request_id_counters(counter_year, last_sequence, created_at, updated_at)
+    VALUES (${year}, 1, now(), now())
+    ON CONFLICT (counter_year)
+    DO UPDATE SET
+      last_sequence = service_request_id_counters.last_sequence + 1,
+      updated_at = now()
+    RETURNING last_sequence
+  `);
+  const rows = Array.isArray(result) ? result : result.rows;
+  const sequence = extractServiceRequestSequence(rows?.[0]);
+  return formatServiceRequestId(year, sequence);
 }
 
 /** Insert an append-only status history record */
@@ -66,9 +105,6 @@ export const serviceRequestService = {
     created_by: string;
     assigned_rm_id?: number;
   }) {
-    const year = new Date().getFullYear();
-    const prefix = `SR-${year}-`;
-
     // SR G-010: auto-populate assigned_rm_id from the client record if not provided
     let resolvedRmId = data.assigned_rm_id || null;
     if (!resolvedRmId) {
@@ -82,55 +118,35 @@ export const serviceRequestService = {
       }
     }
 
-    // Use MAX-based ID generation with retry on unique constraint violation
-    let result: any;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const maxResult = await db
-        .select({ maxSeq: sql<number>`COALESCE(MAX(CAST(SUBSTRING(${schema.serviceRequests.request_id} FROM 9) AS INTEGER)), 0)` })
-        .from(schema.serviceRequests)
-        .where(sql`${schema.serviceRequests.request_id} LIKE ${prefix + '%'}`);
-      const seq = Number(maxResult[0]?.maxSeq ?? 0) + 1;
-      const requestId = generateRequestId(seq);
+    const priority = data.priority || 'MEDIUM';
+    const now = new Date();
+    const closureDate = computeClosureDate(priority, now);
+    const requestId = await nextServiceRequestId(now);
 
-      const priority = data.priority || 'MEDIUM';
-      const now = new Date();
-      const closureDate = computeClosureDate(priority, now);
+    const [inserted] = await db
+      .insert(schema.serviceRequests)
+      .values({
+        request_id: requestId,
+        client_id: data.client_id,
+        sr_type: data.sr_type as any,
+        sr_details: data.sr_details || null,
+        priority: priority as any,
+        sr_status: 'APPROVED',
+        request_date: now,
+        closure_date: closureDate,
+        remarks: data.remarks || null,
+        documents: data.documents || [],
+        assigned_rm_id: resolvedRmId,
+        created_by: data.created_by,
+        updated_by: data.created_by,
+        created_at: now,
+        updated_at: now,
+      })
+      .returning();
 
-      try {
-        const [inserted] = await db
-          .insert(schema.serviceRequests)
-          .values({
-            request_id: requestId,
-            client_id: data.client_id,
-            sr_type: data.sr_type as any,
-            sr_details: data.sr_details || null,
-            priority: priority as any,
-            sr_status: 'APPROVED',
-            request_date: now,
-            closure_date: closureDate,
-            remarks: data.remarks || null,
-            documents: data.documents || [],
-            assigned_rm_id: resolvedRmId,
-            created_by: data.created_by,
-            updated_by: data.created_by,
-            created_at: now,
-            updated_at: now,
-          })
-          .returning();
+    await insertStatusHistory(inserted.id, null, 'APPROVED', 'CREATED', data.created_by);
 
-        // Insert creation history
-        await insertStatusHistory(inserted.id, null, 'APPROVED', 'CREATED', data.created_by);
-
-        result = inserted;
-        break;
-      } catch (err: any) {
-        // Retry on unique constraint violation (concurrent insert)
-        if (err.code === '23505' && attempt < 2) continue;
-        throw err;
-      }
-    }
-
-    return result;
+    return inserted;
   },
 
   /** Paginated list with DB-level filtering */
@@ -453,8 +469,30 @@ export const serviceRequestService = {
     return this.getServiceRequestById(id);
   },
 
-  /** Reassign RM (non-terminal statuses only) */
-  async reassignRM(id: number, newRmId: number, changedBy: string) {
+  /** Reassign RM (ops manager/admin only; non-terminal statuses only) */
+  async reassignRM(id: number, newRmId: number, changedBy: string, options: ReassignRMOptions = {}) {
+    let actorRole: string;
+    try {
+      actorRole = assertServiceRequestReassignmentAllowed(options.actorRole);
+    } catch (err) {
+      await logAuditEvent({
+        entityType: 'service_request',
+        entityId: String(id),
+        action: 'RM_REASSIGNMENT_DENIED',
+        actorId: changedBy,
+        actorRole: options.actorRole ?? undefined,
+        ipAddress: options.ipAddress ?? undefined,
+        correlationId: options.correlationId ?? undefined,
+        metadata: {
+          reason: 'ROLE_NOT_ALLOWED',
+          requested_new_rm_id: newRmId,
+          required_roles: SERVICE_REQUEST_REASSIGNMENT_ROLES,
+        },
+      });
+      throw err;
+    }
+    const reassignmentReason = normalizeServiceRequestReassignmentReason(options.reason);
+
     const sr = await this.getServiceRequestById(id);
     if (!sr) throw new Error(`Service request ${id} not found`);
     if (['COMPLETED', 'REJECTED', 'CLOSED'].includes(sr.sr_status ?? '')) {
@@ -462,10 +500,27 @@ export const serviceRequestService = {
     }
 
     const now = new Date();
+    const reassignmentEntry = buildServiceRequestReassignmentEntry({
+      srId: id,
+      previousRmId: sr.assigned_rm_id ?? null,
+      newRmId,
+      changedBy,
+      changedByRole: actorRole,
+      reason: reassignmentReason,
+      at: now,
+    });
     await db
       .update(schema.serviceRequests)
       .set({
         assigned_rm_id: newRmId,
+        reassignment_history: appendServiceRequestReassignmentHistory(
+          sr.reassignment_history,
+          reassignmentEntry,
+        ),
+        last_reassigned_at: now,
+        last_reassigned_by: changedBy,
+        last_reassignment_role: actorRole,
+        last_reassignment_reason: reassignmentReason,
         updated_at: now,
         updated_by: changedBy,
       })
@@ -473,8 +528,26 @@ export const serviceRequestService = {
 
     await insertStatusHistory(
       id, sr.sr_status, sr.sr_status!, 'REASSIGNED', changedBy,
-      `RM reassigned from ${sr.assigned_rm_id ?? 'none'} to ${newRmId}`,
+      `RM reassigned from ${sr.assigned_rm_id ?? 'none'} to ${newRmId} by ${actorRole}: ${reassignmentReason}`,
     );
+
+    await logAuditEvent({
+      entityType: 'service_request',
+      entityId: String(id),
+      action: 'RM_REASSIGNED',
+      actorId: changedBy,
+      actorRole,
+      ipAddress: options.ipAddress ?? undefined,
+      correlationId: options.correlationId ?? undefined,
+      changes: {
+        assigned_rm_id: { old: sr.assigned_rm_id ?? null, new: newRmId },
+      },
+      metadata: {
+        request_id: sr.request_id,
+        status: sr.sr_status,
+        reason: reassignmentReason,
+      },
+    });
 
     return this.getServiceRequestById(id);
   },

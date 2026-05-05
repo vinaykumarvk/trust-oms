@@ -18,6 +18,18 @@ import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, and, sql, desc, ilike, or, gte, lte, inArray } from 'drizzle-orm';
 import { notificationInboxService } from './notification-inbox-service';
+import {
+  appendRiskQuestionnaireVersionHistory,
+  assertRiskQuestionnaireMutable,
+  assertRiskQuestionnaireReplacementAllowed,
+  buildRiskQuestionnaireVersionHistoryEntry,
+  nextRiskQuestionnaireVersionNo,
+} from './risk-questionnaire-versioning-policy';
+import {
+  validateAssetAllocationTaxonomy,
+  type AssetAllocationLineInput,
+  type TaxonomyBoundAllocationLine,
+} from './asset-allocation-taxonomy-policy';
 
 // ---------------------------------------------------------------------------
 // Helper types
@@ -34,6 +46,31 @@ interface ComputedResult {
   riskCategory: string;
   riskCode: number;
   questionScores: QuestionScore[];
+}
+
+function asArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? value as T[] : [];
+}
+
+async function bindAssetAllocationLinesToTaxonomy(lines: AssetAllocationLineInput[]): Promise<TaxonomyBoundAllocationLine[]> {
+  if (lines.length === 0) return [];
+  const references = await db
+    .select({
+      id: schema.assetClasses.id,
+      code: schema.assetClasses.code,
+      name: schema.assetClasses.name,
+      is_deleted: schema.assetClasses.is_deleted,
+    })
+    .from(schema.assetClasses)
+    .where(eq(schema.assetClasses.is_deleted, false));
+  const validation = validateAssetAllocationTaxonomy(lines, references as any[]);
+  if (!validation.valid) {
+    const err = new Error(validation.errors.join('; '));
+    (err as any).status = 422;
+    (err as any).code = 'ASSET_CLASS_TAXONOMY_MISMATCH';
+    throw err;
+  }
+  return validation.lines;
 }
 
 // ---------------------------------------------------------------------------
@@ -227,6 +264,19 @@ export const riskProfilingService = {
         authorization_status: 'UNAUTHORIZED',
         entity_id: data.entity_id,
         maker_id: data.maker_id,
+        version_no: 1,
+        parent_questionnaire_id: null,
+        supersedes_questionnaire_id: null,
+        replaced_by_questionnaire_id: null,
+        immutable_from: null,
+        immutable_reason: null,
+        version_history: [{
+          action: 'VERSION_CREATED',
+          at: new Date().toISOString(),
+          version_no: 1,
+          actor_id: data.maker_id,
+          reason: 'INITIAL_VERSION',
+        }],
         created_by: String(data.maker_id),
         updated_by: String(data.maker_id),
       })
@@ -269,13 +319,7 @@ export const riskProfilingService = {
 
     if (!existing) throw new Error(`Questionnaire not found: ${id}`);
 
-    // Status guard: cannot edit AUTHORIZED or REJECTED questionnaires (FR-003)
-    if (existing.authorization_status === 'AUTHORIZED' || existing.authorization_status === 'REJECTED') {
-      const err = new Error(`Cannot edit questionnaire in ${existing.authorization_status} status`);
-      (err as any).status = 422;
-      (err as any).code = 'INVALID_STATUS';
-      throw err;
-    }
+    assertRiskQuestionnaireMutable(existing, 'edit');
 
     // Uniqueness / overlap check for new dates (FR-002.BR1)
     const newStart = updateFields.effective_start_date ?? existing.effective_start_date;
@@ -357,6 +401,8 @@ export const riskProfilingService = {
         authorization_status: 'AUTHORIZED',
         checker_id: checkerId,
         authorized_at: new Date(),
+        immutable_from: new Date(),
+        immutable_reason: 'AUTHORIZED_RECORD_LOCK',
         updated_by: String(checkerId),
         updated_at: new Date(),
       })
@@ -391,14 +437,27 @@ export const riskProfilingService = {
       throw new Error('Maker and checker must be different users');
     }
 
+    const now = new Date();
     const [updated] = await db
       .update(schema.questionnaires)
       .set({
         authorization_status: 'REJECTED',
         checker_id: checkerId,
+        immutable_from: now,
+        immutable_reason: 'REJECTED_RECORD_LOCK',
         updated_by: String(checkerId),
-        updated_at: new Date(),
+        updated_at: now,
         rejection_reason: rejectionReason ?? null,
+        version_history: appendRiskQuestionnaireVersionHistory(
+          existing.version_history,
+          {
+            action: 'QUESTIONNAIRE_REJECTED',
+            at: now.toISOString(),
+            actor_id: checkerId,
+            reason: rejectionReason ?? null,
+            version_no: existing.version_no ?? existing.version ?? 1,
+          },
+        ),
       } as any)
       .where(eq(schema.questionnaires.id, id))
       .returning();
@@ -427,12 +486,7 @@ export const riskProfilingService = {
       .limit(1);
 
     if (!existing) throw new Error(`Questionnaire not found: ${id}`);
-    if (existing.authorization_status === 'AUTHORIZED') {
-      const err = new Error('Cannot delete an AUTHORIZED questionnaire');
-      (err as any).status = 422;
-      (err as any).code = 'INVALID_STATUS';
-      throw err;
-    }
+    assertRiskQuestionnaireMutable(existing, 'delete');
 
     const [updated] = await db
       .update(schema.questionnaires)
@@ -445,6 +499,182 @@ export const riskProfilingService = {
 
     if (!updated) throw new Error(`Questionnaire not found: ${id}`);
     return updated;
+  },
+
+  async createQuestionnaireReplacementVersion(
+    id: number,
+    data: Partial<{
+      questionnaire_name: string;
+      effective_start_date: string;
+      effective_end_date: string;
+      valid_period_years: number;
+      warning_text: string;
+      acknowledgement_text: string;
+      disclaimer_text: string;
+      maker_id: number;
+      reason: string;
+    }> = {},
+  ) {
+    const [source] = await db
+      .select()
+      .from(schema.questionnaires)
+      .where(and(eq(schema.questionnaires.id, id), eq(schema.questionnaires.is_deleted, false)))
+      .limit(1);
+
+    if (!source) throw new Error(`Questionnaire not found: ${id}`);
+    assertRiskQuestionnaireReplacementAllowed(source);
+
+    const now = new Date();
+    const makerId = data.maker_id ?? source.maker_id ?? 0;
+    const versionNo = nextRiskQuestionnaireVersionNo(source);
+    const parentId = source.parent_questionnaire_id ?? source.id;
+    const replacementHistoryEntry = buildRiskQuestionnaireVersionHistoryEntry(
+      source,
+      null,
+      makerId,
+      data.reason ?? 'REPLACEMENT_VERSION',
+      now,
+    );
+
+    const [replacement] = await db
+      .insert(schema.questionnaires)
+      .values({
+        questionnaire_name: data.questionnaire_name ?? `${source.questionnaire_name} v${versionNo}`,
+        customer_category: source.customer_category,
+        questionnaire_type: source.questionnaire_type,
+        effective_start_date: data.effective_start_date ?? source.effective_start_date,
+        effective_end_date: data.effective_end_date ?? source.effective_end_date,
+        valid_period_years: data.valid_period_years ?? source.valid_period_years,
+        is_score: source.is_score,
+        warning_text: data.warning_text ?? source.warning_text,
+        acknowledgement_text: data.acknowledgement_text ?? source.acknowledgement_text,
+        disclaimer_text: data.disclaimer_text ?? source.disclaimer_text,
+        authorization_status: 'UNAUTHORIZED',
+        maker_id: makerId || null,
+        checker_id: null,
+        authorized_at: null,
+        entity_id: source.entity_id,
+        parent_questionnaire_id: parentId,
+        supersedes_questionnaire_id: source.id,
+        replaced_by_questionnaire_id: null,
+        version_no: versionNo,
+        immutable_from: null,
+        immutable_reason: null,
+        rejection_reason: null,
+        version_history: appendRiskQuestionnaireVersionHistory(
+          source.version_history,
+          {
+            ...replacementHistoryEntry,
+            replacement_questionnaire_id: null,
+            new_version_no: versionNo,
+          },
+        ),
+        created_by: String(makerId || 'system'),
+        updated_by: String(makerId || 'system'),
+      } as any)
+      .returning();
+
+    const replacementId = replacement.id;
+    const sourceQuestions = await db
+      .select()
+      .from(schema.questions)
+      .where(and(eq(schema.questions.questionnaire_id, source.id), eq(schema.questions.is_deleted, false)))
+      .orderBy(schema.questions.question_number);
+
+    for (const question of sourceQuestions as any[]) {
+      const [newQuestion] = await db
+        .insert(schema.questions)
+        .values({
+          questionnaire_id: replacementId,
+          question_number: question.question_number,
+          question_description: question.question_description,
+          is_mandatory: question.is_mandatory,
+          is_multi_select: question.is_multi_select,
+          scoring_type: question.scoring_type,
+          computation_type: question.computation_type,
+          created_by: String(makerId || 'system'),
+          updated_by: String(makerId || 'system'),
+        } as any)
+        .returning();
+
+      const options = await db
+        .select()
+        .from(schema.answerOptions)
+        .where(and(eq(schema.answerOptions.question_id, question.id), eq(schema.answerOptions.is_deleted, false)))
+        .orderBy(schema.answerOptions.option_number);
+
+      for (const option of options as any[]) {
+        await db
+          .insert(schema.answerOptions)
+          .values({
+            question_id: newQuestion.id,
+            option_number: option.option_number,
+            answer_description: option.answer_description,
+            weightage: option.weightage,
+            created_by: String(makerId || 'system'),
+            updated_by: String(makerId || 'system'),
+          } as any);
+      }
+
+      const ranges = await db
+        .select()
+        .from(schema.scoreNormalizationRanges)
+        .where(eq(schema.scoreNormalizationRanges.question_id, question.id));
+
+      for (const range of ranges as any[]) {
+        await db
+          .insert(schema.scoreNormalizationRanges)
+          .values({
+            question_id: newQuestion.id,
+            range_from: range.range_from,
+            range_to: range.range_to,
+            normalized_score: range.normalized_score,
+            created_by: String(makerId || 'system'),
+            updated_by: String(makerId || 'system'),
+          } as any);
+      }
+    }
+
+    const sourceHistory = appendRiskQuestionnaireVersionHistory(
+      source.version_history,
+      buildRiskQuestionnaireVersionHistoryEntry(
+        source,
+        replacementId,
+        makerId,
+        data.reason ?? 'REPLACEMENT_VERSION',
+        now,
+      ),
+    );
+    await db
+      .update(schema.questionnaires)
+      .set({
+        replaced_by_questionnaire_id: replacementId,
+        immutable_from: source.immutable_from ?? now,
+        immutable_reason: source.immutable_reason ?? `${source.authorization_status}_RECORD_LOCK`,
+        version_history: sourceHistory,
+        updated_at: now,
+        updated_by: String(makerId || 'system'),
+      } as any)
+      .where(eq(schema.questionnaires.id, source.id));
+
+    await db
+      .update(schema.questionnaires)
+      .set({
+        version_history: appendRiskQuestionnaireVersionHistory(
+          replacement.version_history,
+          {
+            action: 'REPLACEMENT_VERSION_LINKED',
+            at: now.toISOString(),
+            source_questionnaire_id: source.id,
+            replacement_questionnaire_id: replacementId,
+            parent_questionnaire_id: parentId,
+            version_no: versionNo,
+          },
+        ),
+      } as any)
+      .where(eq(schema.questionnaires.id, replacementId));
+
+    return this.getQuestionnaire(replacementId);
   },
 
   // ========================================================================
@@ -462,6 +692,13 @@ export const riskProfilingService = {
       created_by?: string;
     },
   ) {
+    const [questionnaire] = await db
+      .select()
+      .from(schema.questionnaires)
+      .where(and(eq(schema.questionnaires.id, questionnaireId), eq(schema.questionnaires.is_deleted, false)))
+      .limit(1);
+    assertRiskQuestionnaireMutable(questionnaire, 'add questions to');
+
     // Auto-increment question_number
     const [maxRow] = await db
       .select({ max: sql<number>`coalesce(max(${schema.questions.question_number}), 0)` })
@@ -507,6 +744,19 @@ export const riskProfilingService = {
       updated_by: string;
     }>,
   ) {
+    const [existingQuestion] = await db
+      .select()
+      .from(schema.questions)
+      .where(and(eq(schema.questions.id, id), eq(schema.questions.is_deleted, false)))
+      .limit(1);
+    if (!existingQuestion) throw new Error(`Question not found: ${id}`);
+    const [questionnaire] = await db
+      .select()
+      .from(schema.questionnaires)
+      .where(eq(schema.questionnaires.id, existingQuestion.questionnaire_id))
+      .limit(1);
+    assertRiskQuestionnaireMutable(questionnaire, 'edit questions on');
+
     const [updated] = await db
       .update(schema.questions)
       .set({
@@ -521,6 +771,19 @@ export const riskProfilingService = {
   },
 
   async deleteQuestion(id: number) {
+    const [existingQuestion] = await db
+      .select()
+      .from(schema.questions)
+      .where(and(eq(schema.questions.id, id), eq(schema.questions.is_deleted, false)))
+      .limit(1);
+    if (!existingQuestion) throw new Error(`Question not found: ${id}`);
+    const [questionnaire] = await db
+      .select()
+      .from(schema.questionnaires)
+      .where(eq(schema.questionnaires.id, existingQuestion.questionnaire_id))
+      .limit(1);
+    assertRiskQuestionnaireMutable(questionnaire, 'delete questions from');
+
     const [updated] = await db
       .update(schema.questions)
       .set({ is_deleted: true, updated_at: new Date() })
@@ -539,6 +802,19 @@ export const riskProfilingService = {
       created_by?: string;
     },
   ) {
+    const [question] = await db
+      .select()
+      .from(schema.questions)
+      .where(and(eq(schema.questions.id, questionId), eq(schema.questions.is_deleted, false)))
+      .limit(1);
+    if (!question) throw new Error(`Question not found: ${questionId}`);
+    const [questionnaire] = await db
+      .select()
+      .from(schema.questionnaires)
+      .where(eq(schema.questionnaires.id, question.questionnaire_id))
+      .limit(1);
+    assertRiskQuestionnaireMutable(questionnaire, 'add answer options to');
+
     // Auto-increment option_number
     const [maxRow] = await db
       .select({ max: sql<number>`coalesce(max(${schema.answerOptions.option_number}), 0)` })
@@ -575,6 +851,26 @@ export const riskProfilingService = {
       updated_by: string;
     }>,
   ) {
+    const [option] = await db
+      .select()
+      .from(schema.answerOptions)
+      .where(and(eq(schema.answerOptions.id, id), eq(schema.answerOptions.is_deleted, false)))
+      .limit(1);
+    if (!option) throw new Error(`Answer option not found: ${id}`);
+    const [question] = await db
+      .select()
+      .from(schema.questions)
+      .where(eq(schema.questions.id, option.question_id))
+      .limit(1);
+    const [questionnaire] = question
+      ? await db
+          .select()
+          .from(schema.questionnaires)
+          .where(eq(schema.questionnaires.id, question.questionnaire_id))
+          .limit(1)
+      : [];
+    assertRiskQuestionnaireMutable(questionnaire, 'edit answer options on');
+
     const [updated] = await db
       .update(schema.answerOptions)
       .set({ ...data, updated_at: new Date() })
@@ -586,6 +882,26 @@ export const riskProfilingService = {
   },
 
   async deleteAnswerOption(id: number) {
+    const [option] = await db
+      .select()
+      .from(schema.answerOptions)
+      .where(and(eq(schema.answerOptions.id, id), eq(schema.answerOptions.is_deleted, false)))
+      .limit(1);
+    if (!option) throw new Error(`Answer option not found: ${id}`);
+    const [question] = await db
+      .select()
+      .from(schema.questions)
+      .where(eq(schema.questions.id, option.question_id))
+      .limit(1);
+    const [questionnaire] = question
+      ? await db
+          .select()
+          .from(schema.questionnaires)
+          .where(eq(schema.questionnaires.id, question.questionnaire_id))
+          .limit(1)
+      : [];
+    assertRiskQuestionnaireMutable(questionnaire, 'delete answer options from');
+
     const [updated] = await db
       .update(schema.answerOptions)
       .set({ is_deleted: true, updated_at: new Date() })
@@ -600,6 +916,19 @@ export const riskProfilingService = {
     questionId: number,
     ranges: { range_from: string; range_to: string; normalized_score: string }[],
   ) {
+    const [question] = await db
+      .select()
+      .from(schema.questions)
+      .where(and(eq(schema.questions.id, questionId), eq(schema.questions.is_deleted, false)))
+      .limit(1);
+    if (!question) throw new Error(`Question not found: ${questionId}`);
+    const [questionnaire] = await db
+      .select()
+      .from(schema.questionnaires)
+      .where(eq(schema.questionnaires.id, question.questionnaire_id))
+      .limit(1);
+    assertRiskQuestionnaireMutable(questionnaire, 'edit score normalization ranges on');
+
     if (ranges.length > 0) {
       // Validate each range: from < to, non-negative
       for (const r of ranges) {
@@ -992,6 +1321,8 @@ export const riskProfilingService = {
       standard_deviation_pct?: string;
     }[];
   }) {
+    const taxonomyLines = await bindAssetAllocationLinesToTaxonomy(data.lines);
+
     const [config] = await db
       .insert(schema.assetAllocationConfigs)
       .values({
@@ -1007,17 +1338,21 @@ export const riskProfilingService = {
       .returning();
 
     let lines: (typeof schema.assetAllocationLines.$inferSelect)[] = [];
-    if (data.lines.length > 0) {
+    if (taxonomyLines.length > 0) {
       lines = await db
         .insert(schema.assetAllocationLines)
         .values(
-          data.lines.map((l) => ({
+          taxonomyLines.map((l) => ({
             config_id: config.id,
             risk_category: l.risk_category,
+            asset_class_id: l.asset_class_id,
+            asset_class_code: l.asset_class_code,
             asset_class: l.asset_class,
             allocation_percentage: l.allocation_percentage,
             expected_return_pct: l.expected_return_pct ?? null,
             standard_deviation_pct: l.standard_deviation_pct ?? null,
+            taxonomy_snapshot: l.taxonomy_snapshot,
+            taxonomy_validated_at: new Date(),
             created_by: String(data.maker_id),
             updated_by: String(data.maker_id),
           })),
@@ -1053,6 +1388,7 @@ export const riskProfilingService = {
     }
 
     const { lines, version: _v, ...configData } = data;
+    const taxonomyLines = lines ? await bindAssetAllocationLinesToTaxonomy(lines) : undefined;
 
     const [existing] = await db
       .select()
@@ -1091,22 +1427,26 @@ export const riskProfilingService = {
       }
 
       let updatedLines: (typeof schema.assetAllocationLines.$inferSelect)[] | undefined;
-      if (lines) {
+      if (taxonomyLines) {
         await tx
           .delete(schema.assetAllocationLines)
           .where(eq(schema.assetAllocationLines.config_id, id));
 
-        if (lines.length > 0) {
+        if (taxonomyLines.length > 0) {
           updatedLines = await tx
             .insert(schema.assetAllocationLines)
             .values(
-              lines.map((l) => ({
+              taxonomyLines.map((l) => ({
                 config_id: id,
                 risk_category: l.risk_category,
+                asset_class_id: l.asset_class_id,
+                asset_class_code: l.asset_class_code,
                 asset_class: l.asset_class,
                 allocation_percentage: l.allocation_percentage,
                 expected_return_pct: l.expected_return_pct ?? null,
                 standard_deviation_pct: l.standard_deviation_pct ?? null,
+                taxonomy_snapshot: l.taxonomy_snapshot,
+                taxonomy_validated_at: new Date(),
                 updated_by: data.updated_by ?? null,
               })),
             )
@@ -1135,6 +1475,18 @@ export const riskProfilingService = {
       throw new Error('Maker and checker must be different users');
     }
 
+    const allocationLines = await db
+      .select()
+      .from(schema.assetAllocationLines)
+      .where(eq(schema.assetAllocationLines.config_id, id));
+    const unboundLines = allocationLines.filter((line: any) => !line.asset_class_id);
+    if (unboundLines.length > 0) {
+      const err = new Error(`Asset allocation config has ${unboundLines.length} line(s) without approved asset class taxonomy binding`);
+      (err as any).status = 422;
+      (err as any).code = 'ASSET_CLASS_TAXONOMY_MISMATCH';
+      throw err;
+    }
+
     const [updated] = await db
       .update(schema.assetAllocationConfigs)
       .set({
@@ -1152,11 +1504,7 @@ export const riskProfilingService = {
       'CONSERVATIVE', 'MODERATELY_CONSERVATIVE', 'MODERATE',
       'MODERATELY_AGGRESSIVE', 'AGGRESSIVE', 'VERY_AGGRESSIVE',
     ];
-    const lines = await db
-      .select({ risk_category: schema.assetAllocationLines.risk_category })
-      .from(schema.assetAllocationLines)
-      .where(eq(schema.assetAllocationLines.config_id, id));
-    const presentCategories = new Set(lines.map((l: any) => l.risk_category));
+    const presentCategories = new Set(allocationLines.map((l: any) => l.risk_category));
     const missingCategories = REQUIRED_CATEGORIES.filter((c) => !presentCategories.has(c));
     if (missingCategories.length > 0) {
       console.warn(`[AssetAllocation] Missing risk categories at authorization: ${missingCategories.join(', ')}`);

@@ -11,6 +11,8 @@ import { eq, and, sql, desc, count, inArray, gte, lte, isNull, or } from 'drizzl
 import crypto from 'crypto';
 import { DEFAULT_CURRENCY } from '../constants/crm';
 import { negativeListService } from './negative-list-service';
+import { dedupeService } from './dedupe-service';
+import { DedupeOnboardingDecision } from './dedupe-decision-policy';
 
 // ============================================================================
 // Inferred Row Types
@@ -195,6 +197,19 @@ export const leadService = {
       throw new Error(`Lead creation blocked: entity matched negative list (${screenResult.matches.map((m: { list_type: string }) => m.list_type).join(', ')})`);
     }
 
+    const dedupeDecision: DedupeOnboardingDecision = await dedupeService.evaluateOnboardingDedupe(
+      {
+        ...data,
+        tin: data.tin ? String(data.tin) : undefined,
+        tax_id: data.tax_id ? String(data.tax_id) : undefined,
+        tin_number: data.tin_number ? String(data.tin_number) : undefined,
+      },
+      String(data.entity_type ?? 'INDIVIDUAL'),
+      'LEAD',
+      userId,
+      data.dedupe_override as any,
+    );
+
     const lead_code = generateLeadNumber();
     const dedup_hash = computeDedupHash(
       String(data.first_name || ''),
@@ -268,6 +283,8 @@ export const leadService = {
       actor_id: userId,
       changes: { marketing_consent: true, captured_at: new Date().toISOString() },
     } as any);
+
+    await dedupeService.recordOnboardingDedupeOverrides('LEAD', lead.id, dedupeDecision, userId);
 
     return lead;
   },

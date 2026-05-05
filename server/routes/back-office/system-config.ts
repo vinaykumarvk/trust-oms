@@ -24,11 +24,12 @@ import {
   httpStatusFromError,
   safeErrorMessage,
   ValidationError,
-  ConflictError,
   NotFoundError,
 } from '../../services/service-errors';
-import { logAuditEvent } from '../../services/audit-logger';
-import { invalidateLateFilingCache } from '../../services/call-report-service';
+import {
+  systemConfigGovernanceService,
+  type SystemConfigActorContext,
+} from '../../services/system-config-governance-service';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -46,6 +47,15 @@ function maskRow(row: SystemConfigRow): SystemConfigRow {
     return { ...row, config_value: '****' };
   }
   return row;
+}
+
+function governanceContext(req: any): SystemConfigActorContext {
+  return {
+    actorId: req.user?.id ?? req.userId ?? 'system',
+    actorRole: req.userRole ?? 'unknown',
+    ipAddress: req.ip,
+    correlationId: req.id,
+  };
 }
 
 /**
@@ -151,6 +161,131 @@ router.get('/', requireBackOfficeRole(), async (req, res) => {
 });
 
 /**
+ * GET /versions — durable system config version history.
+ * Optional query: ?config_key=CRM_LATE_FILING_DAYS
+ */
+router.get('/versions', requireBackOfficeRole(), async (req, res) => {
+  try {
+    const configKey = typeof req.query.config_key === 'string' ? req.query.config_key : undefined;
+    const data = await systemConfigGovernanceService.listVersions(configKey);
+    res.json({ data });
+  } catch (err: unknown) {
+    const status = httpStatusFromError(err);
+    res.status(status).json({ error: safeErrorMessage(err) });
+  }
+});
+
+/**
+ * POST /changes/:versionId/approve — maker-checker approval and apply.
+ */
+router.post(
+  '/changes/:versionId/approve',
+  requireAnyRole('BO_HEAD', 'SYSTEM_ADMIN'),
+  async (req, res) => {
+    try {
+      const result = await systemConfigGovernanceService.approveChange(
+        req.params.versionId,
+        governanceContext(req),
+      );
+      res.json({ data: { config: maskRow(result.config), version: result.version } });
+    } catch (err: unknown) {
+      const status = httpStatusFromError(err);
+      res.status(status).json({ error: safeErrorMessage(err) });
+    }
+  },
+);
+
+/**
+ * POST /changes/:versionId/reject — reject a pending config change.
+ */
+router.post(
+  '/changes/:versionId/reject',
+  requireAnyRole('BO_HEAD', 'SYSTEM_ADMIN'),
+  async (req, res) => {
+    try {
+      const version = await systemConfigGovernanceService.rejectChange(
+        req.params.versionId,
+        { rejectionReason: req.body?.rejection_reason ?? req.body?.reason },
+        governanceContext(req),
+      );
+      res.json({ data: version });
+    } catch (err: unknown) {
+      const status = httpStatusFromError(err);
+      res.status(status).json({ error: safeErrorMessage(err) });
+    }
+  },
+);
+
+/**
+ * POST /:key/changes — submit a governed change.
+ * If the key requires approval, the active config value is not changed until approval.
+ */
+router.post(
+  '/:key/changes',
+  requireAnyRole('BO_MAKER', 'BO_HEAD', 'SYSTEM_ADMIN'),
+  async (req, res) => {
+    try {
+      const result = await systemConfigGovernanceService.submitChange({
+        configKey: req.params.key,
+        configValue: req.body?.config_value,
+        valueType: req.body?.value_type,
+        minValue: req.body?.min_value,
+        maxValue: req.body?.max_value,
+        description: req.body?.description,
+        scopeType: req.body?.scope_type,
+        scopeId: req.body?.scope_id,
+        changeReason: req.body?.change_reason ?? req.body?.reason,
+        requiresApproval: typeof req.body?.requires_approval === 'boolean' ? req.body.requires_approval : undefined,
+        isSensitive: typeof req.body?.is_sensitive === 'boolean' ? req.body.is_sensitive : undefined,
+        effectiveFrom: req.body?.effective_from,
+        effectiveTo: req.body?.effective_to,
+      }, governanceContext(req));
+
+      res.status(result.pending ? 202 : 200).json({
+        data: {
+          config: maskRow(result.config),
+          version: result.version,
+          pending: result.pending,
+        },
+      });
+    } catch (err: unknown) {
+      const status = httpStatusFromError(err);
+      res.status(status).json({ error: safeErrorMessage(err) });
+    }
+  },
+);
+
+/**
+ * POST /:key/rollback — apply an approved historical value as a new version.
+ */
+router.post(
+  '/:key/rollback',
+  requireAnyRole('BO_HEAD', 'SYSTEM_ADMIN'),
+  async (req, res) => {
+    try {
+      const targetVersionId = req.body?.target_version_id ?? req.body?.targetVersionId;
+      if (typeof targetVersionId !== 'string' || !targetVersionId.trim()) {
+        throw new ValidationError('target_version_id is required');
+      }
+
+      const result = await systemConfigGovernanceService.rollbackConfig(
+        req.params.key,
+        {
+          targetVersionId,
+          changeReason: req.body?.change_reason ?? req.body?.reason,
+        },
+        governanceContext(req),
+      );
+
+      res.json({ data: { config: maskRow(result.config), version: result.version } });
+    } catch (err: unknown) {
+      const status = httpStatusFromError(err);
+      res.status(status).json({ error: safeErrorMessage(err) });
+    }
+  },
+);
+
+/**
  * GET /:key — get a single system config entry by config_key.
  * Requires BO_MAKER, BO_CHECKER, BO_HEAD, or SYSTEM_ADMIN.
  */
@@ -239,46 +374,33 @@ router.put(
       }
 
       const actorId = String((req as any).user?.id ?? (req as any).userId ?? 'system');
-      const actorRole = (req as any).userRole ?? 'unknown';
-      const newVersion = (current.version ?? 1) + 1;
-      const now = new Date();
-
-      const [updated] = await db
-        .update(schema.systemConfig)
-        .set({
-          config_value,
-          version: newVersion,
-          updated_at: now,
-          updated_by: actorId,
-        })
-        .where(eq(schema.systemConfig.config_key, req.params.key))
-        .returning();
-
-      // Fire-and-forget audit log
-      logAuditEvent({
-        entityType: 'system_config',
-        entityId: current.config_key,
-        action: 'UPDATE',
+      const result = await systemConfigGovernanceService.submitChange({
+        configKey: req.params.key,
+        configValue: config_value,
+        valueType: current.value_type,
+        minValue: current.min_value,
+        maxValue: current.max_value,
+        description: current.description,
+        scopeType: current.scope_type,
+        scopeId: current.scope_id,
+        changeReason: (req.body as any)?.change_reason ?? (req.body as any)?.reason ?? 'Direct system configuration update',
+        requiresApproval: current.requires_approval,
+        isSensitive: current.is_sensitive,
+      }, {
         actorId,
-        actorRole,
-        changes: {
-          config_key: current.config_key,
-          old_value: current.is_sensitive ? '****' : current.config_value,
-          new_value: current.is_sensitive ? '****' : config_value,
-          old_version: current.version,
-          new_version: newVersion,
-        },
+        actorRole: (req as any).userRole ?? 'unknown',
         ipAddress: req.ip,
         correlationId: (req as any).id,
-        metadata: { value_type: current.value_type },
-      }).catch(() => {});
+      });
 
-      // Invalidate late-filing cache if the CRM threshold key was changed
-      if (current.config_key === 'CRM_LATE_FILING_DAYS') {
-        invalidateLateFilingCache();
-      }
-
-      res.json({ data: maskRow(updated) });
+      res.status(result.pending ? 202 : 200).json({
+        data: maskRow(result.config),
+        governance: {
+          config_version_id: result.version.config_version_id,
+          approval_status: result.version.approval_status,
+          pending: result.pending,
+        },
+      });
     } catch (err: unknown) {
       const status = httpStatusFromError(err);
       res.status(status).json({ error: safeErrorMessage(err) });

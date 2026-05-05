@@ -15,6 +15,7 @@
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, and, sql, desc, inArray, or, lte, gte } from 'drizzle-orm';
+import { tfpAccountingEventService } from './tfp-accounting-event-service';
 
 /* ---------- Helpers ---------- */
 
@@ -301,6 +302,26 @@ export const tfpInvoiceService = {
       .set({ invoice_status: 'ISSUED', updated_at: new Date() })
       .where(eq(schema.tfpInvoices.id, invoiceId))
       .returning();
+
+    await tfpAccountingEventService.queueEvent({
+      eventType: 'TFP_INVOICE_ISSUED',
+      sourceTransactionType: 'TFP_INVOICE',
+      sourceTransactionId: String(updated.id),
+      sourceEventId: updated.invoice_number,
+      aggregateType: 'TFP_INVOICE',
+      aggregateId: String(updated.id),
+      customerId: updated.customer_id,
+      invoiceId: updated.id,
+      amount: updated.grand_total,
+      currency: updated.currency,
+      accountingDate: updated.invoice_date ?? todayStr(),
+      metadata: {
+        invoice_number: updated.invoice_number,
+        tax_amount: updated.tax_amount,
+        total_amount: updated.total_amount,
+        due_date: updated.due_date,
+      },
+    });
 
     return updated;
   },

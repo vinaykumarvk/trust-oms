@@ -36,6 +36,13 @@ router.post('/', asyncHandler(async (req: any, res: any) => {
   res.status(201).json({ data: result });
 }));
 
+/** GET /sla-breaches — list and stamp DSAR SLA alerts */
+router.get('/sla-breaches', asyncHandler(async (req: any, res: any) => {
+  const businessDate = req.query.business_date ? new Date(String(req.query.business_date)) : new Date();
+  const result = await dsarService.checkSlaBreaches(businessDate);
+  res.json({ data: result });
+}));
+
 /** GET /:id — get DSAR request by id */
 router.get('/:id', asyncHandler(async (req: any, res: any) => {
   const result = await dsarService.getById(Number(req.params.id));
@@ -63,6 +70,37 @@ router.post('/:id/approve', asyncHandler(async (req: any, res: any) => {
     });
   }
   const result = await dsarService.approveDsarResponse(Number(req.params.id), Number(dpo_user_id));
+  res.json({ data: result });
+}));
+
+/** POST /:id/delivery — record delivery evidence for approved DSAR response */
+router.post('/:id/delivery', asyncHandler(async (req: any, res: any) => {
+  const userId = req.body.delivered_by ?? req.user?.id ?? req.userId;
+  if (!userId) {
+    return res.status(400).json({
+      error: { code: 'INVALID_INPUT', message: 'delivered_by is required' },
+    });
+  }
+  const result = await dsarService.recordDelivery(Number(req.params.id), Number(userId), {
+    channel: req.body.channel,
+    recipient: req.body.recipient,
+    delivery_reference: req.body.delivery_reference,
+  });
+  res.json({ data: result });
+}));
+
+/** POST /:id/archive — record archival proof for DSAR response bundle */
+router.post('/:id/archive', asyncHandler(async (req: any, res: any) => {
+  const userId = req.body.archived_by ?? req.user?.id ?? req.userId;
+  if (!userId) {
+    return res.status(400).json({
+      error: { code: 'INVALID_INPUT', message: 'archived_by is required' },
+    });
+  }
+  const result = await dsarService.archiveResponse(Number(req.params.id), Number(userId), {
+    archive_uri: req.body.archive_uri,
+    retention_until: req.body.retention_until,
+  });
   res.json({ data: result });
 }));
 

@@ -14,6 +14,12 @@ import { eq, and } from 'drizzle-orm';
 import { getStorageProvider } from './storage-provider';
 import { scanDocument } from './document-scan-service';
 import { NotFoundError, ForbiddenError, ValidationError, PendingScanError } from './service-errors';
+import {
+  appendDocumentAccessHistory,
+  buildDocumentAccessEntry,
+  computeDocumentContentHash,
+  retentionPolicyForClass,
+} from './sr-document-evidence-policy';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -67,6 +73,7 @@ export const srDocumentService = {
     uploadedByType: string,
     uploadedById: number,
     documentClass?: string,
+    options?: { ipAddress?: string | null; storageProviderName?: string },
   ): Promise<SRDocument> {
     // Validate MIME type — reject immediately; no file saved
     if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
@@ -87,15 +94,24 @@ export const srDocumentService = {
 
     const storageProvider = getStorageProvider();
     const reference = await storageProvider.write(relativePath, file.buffer);
+    const contentHash = computeDocumentContentHash(file.buffer);
 
     type DocClass = 'TRUST_ACCOUNT_OPENING' | 'KYC' | 'TRANSACTION' | 'OTHER';
     type SenderType = 'RM' | 'CLIENT' | 'SYSTEM';
     const resolvedClass = (documentClass ?? 'OTHER') as DocClass;
     const retentionDays = RETENTION_DAYS[resolvedClass] ?? 2555;
     const expiresAt = computeExpiresAt(resolvedClass);
+    const now = new Date();
 
     // Blocked extensions start QUARANTINED synchronously; all others start PENDING and are scanned async
     const initialScanStatus: 'PENDING' | 'QUARANTINED' = isBlockedExt ? 'QUARANTINED' : 'PENDING';
+    const uploadAccessEntry = buildDocumentAccessEntry(
+      'UPLOAD',
+      uploadedByType,
+      uploadedById,
+      options?.ipAddress ?? null,
+      now,
+    );
 
     const [doc] = await db
       .insert(schema.serviceRequestDocuments)
@@ -103,14 +119,21 @@ export const srDocumentService = {
         sr_id: srId,
         document_name: safe,
         storage_reference: reference,
+        storage_provider: options?.storageProviderName ?? process.env.STORAGE_PROVIDER ?? 'LOCAL',
+        content_hash: contentHash,
         file_size_bytes: file.size,
         mime_type: file.mimetype,
         document_class: resolvedClass,
         uploaded_by_type: uploadedByType as SenderType,
         uploaded_by_id: uploadedById,
+        upload_ip: options?.ipAddress ?? null,
         scan_status: initialScanStatus,
+        quarantine_reason: isBlockedExt ? 'BLOCKED_EXTENSION' : null,
         retention_days: retentionDays,
+        retention_policy: retentionPolicyForClass(resolvedClass),
         expires_at: expiresAt,
+        download_count: 0,
+        access_history: [uploadAccessEntry],
       })
       .returning();
 
@@ -146,6 +169,12 @@ export const srDocumentService = {
   async download(
     docId: number,
     requesterClientId?: string,
+    expectedSrId?: number,
+    accessContext?: {
+      requesterType?: string;
+      requesterId?: string | number;
+      ipAddress?: string | null;
+    },
   ): Promise<{ buffer: Buffer; document: SRDocument }> {
     const [doc] = await db
       .select()
@@ -160,6 +189,10 @@ export const srDocumentService = {
 
     if (!doc) {
       throw new NotFoundError(`Document ${docId} not found`);
+    }
+
+    if (expectedSrId !== undefined && doc.sr_id !== expectedSrId) {
+      throw new ForbiddenError('Access denied');
     }
 
     // Client-portal IDOR guard: verify SR ownership
@@ -191,6 +224,33 @@ export const srDocumentService = {
 
     const storageProvider = getStorageProvider();
     const buffer = await storageProvider.read(doc.storage_reference);
+
+    const now = new Date();
+    const requesterType = accessContext?.requesterType ?? (requesterClientId ? 'CLIENT' : 'RM');
+    const requesterId = accessContext?.requesterId ?? requesterClientId ?? 'BACK_OFFICE';
+    const accessEntry = buildDocumentAccessEntry(
+      'DOWNLOAD',
+      requesterType,
+      requesterId,
+      accessContext?.ipAddress ?? null,
+      now,
+    );
+
+    try {
+      await db
+        .update(schema.serviceRequestDocuments)
+        .set({
+          download_count: (doc.download_count ?? 0) + 1,
+          last_accessed_at: now,
+          last_accessed_by_type: requesterType,
+          last_accessed_by_id: String(requesterId),
+          access_history: appendDocumentAccessHistory(doc.access_history, accessEntry),
+          updated_at: now,
+        })
+        .where(eq(schema.serviceRequestDocuments.id, docId));
+    } catch (err) {
+      console.error('[SRDocumentService] Failed to record document access:', err instanceof Error ? err.message : err);
+    }
 
     return { buffer, document: doc };
   },

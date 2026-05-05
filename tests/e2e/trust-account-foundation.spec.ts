@@ -51,6 +51,11 @@ describe('trust banking account foundation', () => {
     expect(serviceSource).toContain('required_signatories');
     expect(serviceSource).toContain('is_authorized_signatory');
     expect(serviceSource).toContain('signing_limit');
+    expect(serviceSource).toContain('validateAndNormalizeTrustRelatedParties');
+    expect(serviceSource).toContain('related_party_warnings');
+    expect(serviceSource).toContain('validateTrustProductOnboarding');
+    expect(serviceSource).toContain('onboarding_validation_status');
+    expect(serviceSource).toContain('mandate_validation_status');
     expect(serviceSource).toContain('MANDATE_AUTHORITY_CHECK_PASSED');
     expect(serviceSource).toContain('MANDATE_AUTHORITY_CHECK_FAILED');
     expect(serviceSource).toContain('related_entity_type');
@@ -62,6 +67,17 @@ describe('trust banking account foundation', () => {
     expect(serviceSource).toContain('schema.trustMandates');
     expect(serviceSource).toContain('schema.trustRelatedParties');
     expect(serviceSource).toContain('FOUNDATION_CREATED');
+  });
+
+  it('captures related-party authority, hierarchy, screening, and verification evidence', () => {
+    expect(schemaSource).toContain("party_reference: text('party_reference')");
+    expect(schemaSource).toContain("parent_party_reference: text('parent_party_reference')");
+    expect(schemaSource).toContain("ownership_path: jsonb('ownership_path')");
+    expect(schemaSource).toContain("authority_document_ref: text('authority_document_ref')");
+    expect(schemaSource).toContain("verification_status: text('verification_status')");
+    expect(schemaSource).toContain("ubo_threshold_flag: boolean('ubo_threshold_flag')");
+    expect(schemaSource).toContain("screening_required: boolean('screening_required')");
+    expect(schemaSource).toContain("compliance_review_required: boolean('compliance_review_required')");
   });
 
   it('wires prospect-to-customer conversion to foundation creation', () => {
@@ -107,12 +123,10 @@ describe('trust banking account foundation', () => {
     expect(backOfficeNavigationSource).toContain('Trust Accounts');
     expect(backOfficeNavigationSource).toContain('/master-data/trust-accounts');
     expect(backOfficeRoutesSource).toContain('TrustAccountsPage');
-    expect(trustAccountsPageSource).toContain('/api/v1/trust-accounts?client_id=');
+    expect(trustAccountsPageSource).toContain('/api/v1/trust-accounts');
     expect(trustAccountsPageSource).toContain('Create Foundation');
-    expect(trustAccountsPageSource).toContain('Create Account Stack');
     expect(trustAccountsPageSource).toContain('/authority-check');
-    expect(trustAccountsPageSource).toContain('Authorized Signers');
-    expect(trustAccountsPageSource).toContain('selectedSignerIds');
+    expect(trustAccountsPageSource).toContain('signer_party_ids');
     expect(trustAccountsPageSource).toContain('TabsTrigger value="events"');
   });
 });

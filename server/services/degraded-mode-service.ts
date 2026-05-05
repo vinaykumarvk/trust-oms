@@ -20,6 +20,7 @@ interface FeedHealthEntry {
   overrideBy: number | null;
   overrideReason: string | null;
   overrideExpiresAt: Date | null;
+  switchReason: string | null;
 }
 
 interface FeedSwitchLog {
@@ -28,6 +29,21 @@ interface FeedSwitchLog {
   fallbackFeedId: string;
   reason: string;
   incidentId: string | null;
+}
+
+interface DegradedStatusHistoryEntry {
+  status: string;
+  at: string;
+  actor_id: string | null;
+  reason?: string | null;
+}
+
+interface FailoverDecision {
+  at: string;
+  primary_feed_id: string;
+  fallback_feed_id: string | null;
+  decision: 'SWITCHED' | 'ROLLBACK' | 'NO_SWITCH';
+  reason: string;
 }
 
 interface DRStatus {
@@ -45,11 +61,11 @@ const BRD_RTO_HOURS = 4;
 
 // In-memory registries
 const feedHealthRegistry = new Map<string, FeedHealthEntry>([
-  ['BLOOMBERG', { name: 'BLOOMBERG', healthScore: 100, status: 'UP', lastCheck: new Date().toISOString(), latencyMs: 45, isPrimary: true, fallbackFeedId: 'REUTERS', lastSwitchAt: null, failureCount: 0, lastError: null, overrideBy: null, overrideReason: null, overrideExpiresAt: null }],
-  ['REUTERS',   { name: 'REUTERS',   healthScore: 100, status: 'UP', lastCheck: new Date().toISOString(), latencyMs: 62, isPrimary: false, fallbackFeedId: 'BLOOMBERG', lastSwitchAt: null, failureCount: 0, lastError: null, overrideBy: null, overrideReason: null, overrideExpiresAt: null }],
-  ['DTCC',      { name: 'DTCC',      healthScore: 100, status: 'UP', lastCheck: new Date().toISOString(), latencyMs: 38, isPrimary: true, fallbackFeedId: 'PDTC', lastSwitchAt: null, failureCount: 0, lastError: null, overrideBy: null, overrideReason: null, overrideExpiresAt: null }],
-  ['PDTC',      { name: 'PDTC',      healthScore: 100, status: 'UP', lastCheck: new Date().toISOString(), latencyMs: 120, isPrimary: false, fallbackFeedId: 'DTCC', lastSwitchAt: null, failureCount: 0, lastError: null, overrideBy: null, overrideReason: null, overrideExpiresAt: null }],
-  ['SWIFT',     { name: 'SWIFT',     healthScore: 100, status: 'UP', lastCheck: new Date().toISOString(), latencyMs: 55, isPrimary: true, fallbackFeedId: null, lastSwitchAt: null, failureCount: 0, lastError: null, overrideBy: null, overrideReason: null, overrideExpiresAt: null }],
+  ['BLOOMBERG', { name: 'BLOOMBERG', healthScore: 100, status: 'UP', lastCheck: new Date().toISOString(), latencyMs: 45, isPrimary: true, fallbackFeedId: 'REUTERS', lastSwitchAt: null, failureCount: 0, lastError: null, overrideBy: null, overrideReason: null, overrideExpiresAt: null, switchReason: null }],
+  ['REUTERS',   { name: 'REUTERS',   healthScore: 100, status: 'UP', lastCheck: new Date().toISOString(), latencyMs: 62, isPrimary: false, fallbackFeedId: 'BLOOMBERG', lastSwitchAt: null, failureCount: 0, lastError: null, overrideBy: null, overrideReason: null, overrideExpiresAt: null, switchReason: null }],
+  ['DTCC',      { name: 'DTCC',      healthScore: 100, status: 'UP', lastCheck: new Date().toISOString(), latencyMs: 38, isPrimary: true, fallbackFeedId: 'PDTC', lastSwitchAt: null, failureCount: 0, lastError: null, overrideBy: null, overrideReason: null, overrideExpiresAt: null, switchReason: null }],
+  ['PDTC',      { name: 'PDTC',      healthScore: 100, status: 'UP', lastCheck: new Date().toISOString(), latencyMs: 120, isPrimary: false, fallbackFeedId: 'DTCC', lastSwitchAt: null, failureCount: 0, lastError: null, overrideBy: null, overrideReason: null, overrideExpiresAt: null, switchReason: null }],
+  ['SWIFT',     { name: 'SWIFT',     healthScore: 100, status: 'UP', lastCheck: new Date().toISOString(), latencyMs: 55, isPrimary: true, fallbackFeedId: null, lastSwitchAt: null, failureCount: 0, lastError: null, overrideBy: null, overrideReason: null, overrideExpiresAt: null, switchReason: null }],
 ]);
 
 const feedSwitchHistory: FeedSwitchLog[] = [];
@@ -68,6 +84,19 @@ function deriveStatus(score: number): 'UP' | 'DEGRADED' | 'DOWN' {
   return 'DOWN';
 }
 
+function statusHistoryEntry(status: string, actorId?: string | null, reason?: string | null): DegradedStatusHistoryEntry {
+  return {
+    status,
+    at: new Date().toISOString(),
+    actor_id: actorId ?? null,
+    ...(reason ? { reason } : {}),
+  };
+}
+
+function appendStatusHistorySql(entry: DegradedStatusHistoryEntry) {
+  return sql`coalesce(${schema.degradedModeLogs.status_history}, '[]'::jsonb) || ${JSON.stringify([entry])}::jsonb`;
+}
+
 // ---------------------------------------------------------------------------
 // Feed Health Persistence — fire-and-forget snapshot writes
 // ---------------------------------------------------------------------------
@@ -84,6 +113,10 @@ function persistSnapshot(feedName: string, entry: FeedHealthEntry): void {
       override_by: entry.overrideBy ?? null,
       override_reason: entry.overrideReason ?? null,
       override_expires_at: entry.overrideExpiresAt ?? null,
+      is_primary: entry.isPrimary,
+      fallback_feed_id: entry.fallbackFeedId,
+      last_switch_at: entry.lastSwitchAt ? new Date(entry.lastSwitchAt) : null,
+      switch_reason: entry.switchReason,
       last_updated: new Date(),
     })
     .catch((err: unknown) => {
@@ -99,7 +132,8 @@ export async function initializeFeedRegistry(): Promise<void> {
       ORDER BY feed_name, created_at DESC
     `);
 
-    const restored = rows as Array<{
+    const restoredRows = Array.isArray(rows) ? rows : ((rows as { rows?: unknown[] }).rows ?? []);
+    const restored = restoredRows as Array<{
       feed_name: string;
       health_score: number;
       status: string;
@@ -108,6 +142,10 @@ export async function initializeFeedRegistry(): Promise<void> {
       override_by: number | null;
       override_reason: string | null;
       override_expires_at: Date | null;
+      is_primary?: boolean | null;
+      fallback_feed_id?: string | null;
+      last_switch_at?: Date | string | null;
+      switch_reason?: string | null;
     }>;
 
     const restoredNames = new Set<string>();
@@ -122,6 +160,10 @@ export async function initializeFeedRegistry(): Promise<void> {
         existing.overrideBy = row.override_by;
         existing.overrideReason = row.override_reason;
         existing.overrideExpiresAt = row.override_expires_at ?? null;
+        existing.isPrimary = row.is_primary ?? existing.isPrimary;
+        existing.fallbackFeedId = row.fallback_feed_id ?? existing.fallbackFeedId;
+        existing.lastSwitchAt = row.last_switch_at ? new Date(row.last_switch_at).getTime() : existing.lastSwitchAt;
+        existing.switchReason = row.switch_reason ?? null;
       } else {
         // Feed from DB not in defaults — add it with minimal metadata
         feedHealthRegistry.set(row.feed_name, {
@@ -131,13 +173,14 @@ export async function initializeFeedRegistry(): Promise<void> {
           lastCheck: new Date().toISOString(),
           latencyMs: 0,
           isPrimary: false,
-          fallbackFeedId: null,
-          lastSwitchAt: null,
+          fallbackFeedId: row.fallback_feed_id ?? null,
+          lastSwitchAt: row.last_switch_at ? new Date(row.last_switch_at).getTime() : null,
           failureCount: row.failure_count,
           lastError: row.last_error,
           overrideBy: row.override_by,
           overrideReason: row.override_reason,
           overrideExpiresAt: row.override_expires_at ?? null,
+          switchReason: row.switch_reason ?? null,
         });
       }
       restoredNames.add(row.feed_name);
@@ -210,8 +253,21 @@ export function updateFeedHealth(feedId: string, healthScore: number, latencyMs:
 }
 
 export const degradedModeService = {
-  async reportIncident(data: { failedComponent: string; fallbackPath: string; impactedEventIds?: string[] }) {
+  async reportIncident(data: {
+    failedComponent: string;
+    fallbackPath: string;
+    impactedEventIds?: string[];
+    ownerUserId?: string | number | null;
+    ownerTeam?: string | null;
+    severity?: string | null;
+    reason?: string | null;
+    affectedFeeds?: string[];
+    failoverDecisions?: FailoverDecision[];
+    actorId?: string | number | null;
+  }) {
     const incidentId = `INC-${Date.now()}`;
+    const actorId = data.actorId == null ? 'system' : String(data.actorId);
+    const statusEntry = statusHistoryEntry('OPEN', actorId, data.reason ?? data.fallbackPath);
     const [result] = await db
       .insert(schema.degradedModeLogs)
       .values({
@@ -220,32 +276,57 @@ export const degradedModeService = {
         failed_component: data.failedComponent,
         fallback_path: data.fallbackPath,
         impacted_event_ids: data.impactedEventIds || [],
+        incident_status: 'OPEN',
+        owner_user_id: data.ownerUserId == null ? null : String(data.ownerUserId),
+        owner_team: data.ownerTeam ?? null,
+        severity: data.severity ?? 'P1',
+        reason: data.reason ?? data.fallbackPath,
+        affected_feeds: data.affectedFeeds ?? [],
+        failover_decisions: data.failoverDecisions ?? [],
+        status_history: [statusEntry],
+        last_status_changed_at: new Date(),
         rca_completed: false,
-        created_by: 'system',
-        updated_by: 'system',
+        created_by: actorId,
+        updated_by: actorId,
       })
       .returning();
     return result;
   },
 
-  async resolveIncident(incidentId: string) {
+  async resolveIncident(incidentId: string, data: {
+    resolutionNotes?: string | null;
+    resolutionEvidence?: Record<string, unknown> | null;
+    resolvedBy?: string | number | null;
+  } = {}) {
+    const actorId = data.resolvedBy == null ? 'system' : String(data.resolvedBy);
+    const statusEntry = statusHistoryEntry('RESOLVED', actorId, data.resolutionNotes ?? 'Incident resolved');
     await db
       .update(schema.degradedModeLogs)
       .set({
         ended_at: new Date(),
-        updated_by: 'system',
+        incident_status: 'RESOLVED',
+        resolution_notes: data.resolutionNotes ?? null,
+        resolution_evidence: data.resolutionEvidence ?? {},
+        resolved_by: actorId,
+        status_history: appendStatusHistorySql(statusEntry),
+        last_status_changed_at: new Date(),
+        updated_by: actorId,
         updated_at: new Date(),
       })
       .where(eq(schema.degradedModeLogs.incident_id, incidentId));
     return { resolved: true };
   },
 
-  async completeRCA(incidentId: string) {
+  async completeRCA(incidentId: string, data: { actorId?: string | number | null; notes?: string | null } = {}) {
+    const actorId = data.actorId == null ? 'system' : String(data.actorId);
+    const statusEntry = statusHistoryEntry('RCA_COMPLETED', actorId, data.notes ?? 'Root cause analysis completed');
     await db
       .update(schema.degradedModeLogs)
       .set({
         rca_completed: true,
-        updated_by: 'system',
+        status_history: appendStatusHistorySql(statusEntry),
+        last_status_changed_at: new Date(),
+        updated_by: actorId,
         updated_at: new Date(),
       })
       .where(eq(schema.degradedModeLogs.incident_id, incidentId));
@@ -315,6 +396,8 @@ export const degradedModeService = {
       latencyMs: entry.latencyMs,
       isPrimary: entry.isPrimary,
       fallbackFeedId: entry.fallbackFeedId,
+      lastSwitchAt: entry.lastSwitchAt ? new Date(entry.lastSwitchAt).toISOString() : null,
+      switchReason: entry.switchReason,
       belowThreshold: entry.healthScore < threshold,
     }));
     return {
@@ -355,18 +438,40 @@ export const degradedModeService = {
 
     // Automatic rollback: if fallback is also degraded, do not switch
     if (fallback.healthScore < threshold) {
+      const reason = `Fallback feed "${fallbackFeedId}" also degraded (${fallback.healthScore}%). No switch performed.`;
+      try {
+        await this.reportIncident({
+          failedComponent: primaryFeedId,
+          fallbackPath: `Rollback: ${fallbackFeedId} unavailable`,
+          impactedEventIds: [],
+          reason,
+          affectedFeeds: [primaryFeedId, fallbackFeedId],
+          failoverDecisions: [{
+            at: new Date().toISOString(),
+            primary_feed_id: primaryFeedId,
+            fallback_feed_id: fallbackFeedId,
+            decision: 'ROLLBACK',
+            reason,
+          }],
+        });
+      } catch {
+        // Non-blocking
+      }
       return {
         switched: false,
-        reason: `Fallback feed "${fallbackFeedId}" also degraded (${fallback.healthScore}%). No switch performed.`,
+        reason,
         rollback: true,
       };
     }
 
     // Perform the switch
+    const switchReason = `Health score ${primary.healthScore}% below threshold ${threshold}%`;
     primary.isPrimary = false;
     fallback.isPrimary = true;
     primary.lastSwitchAt = Date.now();
     fallback.lastSwitchAt = Date.now();
+    primary.switchReason = switchReason;
+    fallback.switchReason = `Activated as fallback for ${primaryFeedId}`;
     void persistSnapshot(primaryFeedId, primary);
     void persistSnapshot(fallbackFeedId, fallback);
 
@@ -374,9 +479,18 @@ export const degradedModeService = {
     let incidentId: string | null = null;
     try {
       const incident = await this.reportIncident({
-        failedComponent: `Feed:${primaryFeedId}`,
+        failedComponent: primaryFeedId,
         fallbackPath: `Switched to ${fallbackFeedId}`,
         impactedEventIds: [],
+        reason: switchReason,
+        affectedFeeds: [primaryFeedId, fallbackFeedId],
+        failoverDecisions: [{
+          at: new Date().toISOString(),
+          primary_feed_id: primaryFeedId,
+          fallback_feed_id: fallbackFeedId,
+          decision: 'SWITCHED',
+          reason: switchReason,
+        }],
       });
       incidentId = incident?.incident_id ?? null;
     } catch {
@@ -387,7 +501,7 @@ export const degradedModeService = {
       timestamp: new Date().toISOString(),
       primaryFeedId,
       fallbackFeedId,
-      reason: `Health score ${primary.healthScore}% below threshold ${threshold}%`,
+      reason: switchReason,
       incidentId,
     };
     feedSwitchHistory.push(switchLog);
@@ -415,9 +529,12 @@ export const degradedModeService = {
     let incidentId: string | null = null;
     try {
       const incident = await this.reportIncident({
-        failedComponent: `DR:primary-region`,
+        failedComponent: 'DB',
         fallbackPath: `Failover to ${region}`,
         impactedEventIds: [],
+        reason: `DR failover initiated from primary region to ${region}`,
+        ownerTeam: 'BCP_DR',
+        affectedFeeds: Array.from(feedHealthRegistry.values()).filter((feed) => feed.isPrimary).map((feed) => feed.name),
       });
       incidentId = incident?.incident_id ?? null;
     } catch {
@@ -542,7 +659,7 @@ export const degradedModeService = {
     const report: {
       checkedAt: string;
       threshold: number;
-      feeds: Array<{ name: string; status: string; healthScore: number; lastCheck: string; latencyMs: number; isPrimary: boolean; fallbackFeedId: string | null; belowThreshold: boolean }>;
+      feeds: Array<{ name: string; status: string; healthScore: number; lastCheck: string; latencyMs: number; isPrimary: boolean; fallbackFeedId: string | null; lastSwitchAt: string | null; switchReason: string | null; belowThreshold: boolean }>;
       switchesTriggered: Array<{ switched: boolean; reason?: string; from?: string; to?: string; incidentId?: string | null; rollback?: boolean; switchLog?: FeedSwitchLog }>;
     } = {
       checkedAt: new Date().toISOString(),

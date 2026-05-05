@@ -22,6 +22,12 @@ const AuditDashboardPage = React.lazy(() => import("@/pages/audit-dashboard"));
 const WorkflowDefinitionsPage = React.lazy(() => import("@/pages/workflow-definitions"));
 const KycDashboard = React.lazy(() => import("@/pages/kyc-dashboard"));
 const OrderExplorer = React.lazy(() => import("@/pages/order-explorer"));
+const OemsWorkbench = React.lazy(() => import("@/pages/oems-workbench"));
+const OemsProductSetupOda = React.lazy(() => import("@/pages/oems-product-setup-oda"));
+const OemsProductSetupMld = React.lazy(() => import("@/pages/oems-product-setup-mld"));
+const OemsOrderManagementOda = React.lazy(() => import("@/pages/oems-order-management-oda"));
+const OemsOrderManagementMld = React.lazy(() => import("@/pages/oems-order-management-mld"));
+const MarginLendingWorkbench = React.lazy(() => import("@/pages/margin-lending-workbench"));
 const NavUpdates = React.lazy(() => import("@/pages/nav-updates"));
 const SettlementDesk = React.lazy(() => import("@/pages/settlement-desk"));
 const CashFxDashboard = React.lazy(() => import("@/pages/cash-fx-dashboard"));
@@ -860,6 +866,58 @@ export const router = createBrowserRouter([
             element: (
               <Suspense fallback={<PageLoader />}>
                 <OrderExplorer />
+              </Suspense>
+            ),
+          },
+
+          // Operations - Danamon OEMS
+          {
+            path: "/operations/oems",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <OemsWorkbench />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/operations/oems-product-setup-oda",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <OemsProductSetupOda />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/operations/oems-product-setup-mld",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <OemsProductSetupMld />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/operations/oems-order-management-oda",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <OemsOrderManagementOda />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/operations/oems-order-management-mld",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <OemsOrderManagementMld />
+              </Suspense>
+            ),
+          },
+
+          // Operations - Margin Lending
+          {
+            path: "/operations/margin-lending",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <MarginLendingWorkbench />
               </Suspense>
             ),
           },

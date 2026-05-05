@@ -137,7 +137,7 @@ router.get('/:id', requireCRMRole(), async (req, res) => {
 router.post('/', requireCRMRole(), async (req, res) => {
   try {
     const userId = (req as any).user?.id;
-    const { title, meeting_type, mode, purpose, start_time, end_time, location, notes, is_all_day, meeting_reason, meeting_reason_other, reminder_minutes, lead_id, prospect_id, client_id, invitees } = req.body;
+    const { title, meeting_type, mode, purpose, start_time, end_time, location, notes, is_all_day, meeting_reason, meeting_reason_other, reminder_minutes, lead_id, prospect_id, client_id, invitees, branch_id, calendar_key } = req.body;
 
     if (!title || typeof title !== 'string' || !title.trim()) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'title is required' } });
@@ -152,7 +152,7 @@ router.post('/', requireCRMRole(), async (req, res) => {
       return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authenticated user required' } });
     }
 
-    const data = await meetingService.create({ title: title.trim(), meeting_type, mode, purpose, start_time, end_time, location, notes, is_all_day, meeting_reason, meeting_reason_other, reminder_minutes, lead_id, prospect_id, client_id, invitees, organizer_user_id: userId });
+    const data = await meetingService.create({ title: title.trim(), meeting_type, mode, purpose, start_time, end_time, location, notes, is_all_day, meeting_reason, meeting_reason_other, reminder_minutes, lead_id, prospect_id, client_id, invitees, branch_id, calendar_key, organizer_user_id: userId });
     res.status(201).json({ data });
   } catch (err: unknown) {
     const status = httpStatusFromError(err);

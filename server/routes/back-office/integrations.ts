@@ -22,6 +22,7 @@ import { Router } from 'express';
 import { requireBackOfficeRole } from '../../middleware/role-auth';
 import { asyncHandler } from '../../middleware/async-handler';
 import { integrationService } from '../../services/integration-service';
+import { coreBankingIntegrationService } from '../../services/core-banking-integration-service';
 
 const router = Router();
 router.use(requireBackOfficeRole());
@@ -173,6 +174,60 @@ router.post(
     const qty = typeof quantity === 'number' && quantity > 0 ? quantity : 1000;
 
     const result = await integrationService.simulateOrderRouting(securityType, side, qty);
+    res.json({ data: result });
+  }),
+);
+
+/** POST /core-banking/instructions -- Queue a governed core-banking instruction */
+router.post(
+  '/core-banking/instructions',
+  asyncHandler(async (req: any, res) => {
+    const { targetSystem, operation, entityType, entityId, payload, correlationId } = req.body;
+    if (!operation || !entityType || !entityId || !payload) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'operation, entityType, entityId, and payload are required',
+        },
+      });
+    }
+
+    const result = await coreBankingIntegrationService.queueInstruction({
+      targetSystem,
+      operation,
+      entityType,
+      entityId,
+      payload,
+      correlationId,
+      actorId: req.userId ? String(req.userId) : undefined,
+    });
+
+    const statusCode = result.status === 'QUEUED' ? 201 : 200;
+    res.status(statusCode).json({ data: result });
+  }),
+);
+
+/** POST /core-banking/instructions/:id/ack -- Record bank acknowledgement */
+router.post(
+  '/core-banking/instructions/:id/ack',
+  asyncHandler(async (req: any, res) => {
+    const { ackStatus, externalReference, responsePayload, errorMessage } = req.body;
+    if (!ackStatus) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'ackStatus is required' },
+      });
+    }
+
+    const result = await coreBankingIntegrationService.acknowledgeInstruction(
+      req.params.id,
+      {
+        ackStatus,
+        externalReference,
+        responsePayload,
+        errorMessage,
+        actorId: req.userId ? String(req.userId) : undefined,
+      },
+    );
     res.json({ data: result });
   }),
 );

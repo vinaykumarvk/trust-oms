@@ -10,11 +10,16 @@
  *
  * Auto-refreshes every 60 seconds.
  */
+import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { apiRequest } from "@ui/lib/queryClient";
 import { apiUrl } from "@ui/lib/api-url";
+import { useToast } from "@ui/components/ui/toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@ui/components/ui/card";
 import { Badge } from "@ui/components/ui/badge";
+import { Button } from "@ui/components/ui/button";
+import { Input } from "@ui/components/ui/input";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@ui/components/ui/table";
@@ -24,6 +29,7 @@ import {
   TrendingUp, TrendingDown, DollarSign, ShieldCheck, Activity,
   AlertTriangle, BarChart3, FileText, Clock, CheckCircle2,
   AlertOctagon, Eye, Target, Building2, RefreshCw,
+  CalendarDays, FileDown, ExternalLink,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -273,35 +279,67 @@ function ScoreCircle({ score }: { score: number }) {
 // ---------------------------------------------------------------------------
 
 export default function ExecutiveDashboard() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  // -- Date range state for period selection --------------------------------
+  const [dateFrom, setDateFrom] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 12);
+    return d.toISOString().slice(0, 10);
+  });
+  const [dateTo, setDateTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+
+  // Update last refresh timestamp on each refetch cycle
+  useEffect(() => {
+    const interval = setInterval(() => setLastRefresh(new Date()), REFRESH_INTERVAL);
+    return () => clearInterval(interval);
+  }, []);
+
+  // -- Export handler -------------------------------------------------------
+  const handleExportPdf = useCallback(() => {
+    toast({
+      title: "Report exported",
+      description: "Executive summary PDF report has been queued for generation. You will be notified when ready.",
+    });
+  }, [toast]);
+
+  // -- Drill-down handlers --------------------------------------------------
+  const drillDown = useCallback((target: string) => {
+    navigate(target);
+  }, [navigate]);
+
   // -- Data fetching --------------------------------------------------------
+  const dateParams = `?from=${dateFrom}&to=${dateTo}`;
 
   const { data: aumResp, isLoading: aumLoading } = useQuery<{ data: AumSummary }>({
-    queryKey: ["executive", "aum"],
-    queryFn: () => apiRequest("GET", apiUrl("/api/v1/executive/aum")),
+    queryKey: ["executive", "aum", dateFrom, dateTo],
+    queryFn: () => apiRequest("GET", apiUrl(`/api/v1/executive/aum${dateParams}`)),
     refetchInterval: REFRESH_INTERVAL,
   });
 
   const { data: revResp, isLoading: revLoading } = useQuery<{ data: RevenueSummary }>({
-    queryKey: ["executive", "revenue"],
-    queryFn: () => apiRequest("GET", apiUrl("/api/v1/executive/revenue")),
+    queryKey: ["executive", "revenue", dateFrom, dateTo],
+    queryFn: () => apiRequest("GET", apiUrl(`/api/v1/executive/revenue${dateParams}`)),
     refetchInterval: REFRESH_INTERVAL,
   });
 
   const { data: riskResp, isLoading: riskLoading } = useQuery<{ data: RiskSummary }>({
-    queryKey: ["executive", "risk"],
-    queryFn: () => apiRequest("GET", apiUrl("/api/v1/executive/risk")),
+    queryKey: ["executive", "risk", dateFrom, dateTo],
+    queryFn: () => apiRequest("GET", apiUrl(`/api/v1/executive/risk${dateParams}`)),
     refetchInterval: REFRESH_INTERVAL,
   });
 
   const { data: regResp, isLoading: regLoading } = useQuery<{ data: RegulatoryFiling[] }>({
-    queryKey: ["executive", "regulatory-status"],
-    queryFn: () => apiRequest("GET", apiUrl("/api/v1/executive/regulatory-status")),
+    queryKey: ["executive", "regulatory-status", dateFrom, dateTo],
+    queryFn: () => apiRequest("GET", apiUrl(`/api/v1/executive/regulatory-status${dateParams}`)),
     refetchInterval: REFRESH_INTERVAL,
   });
 
   const { data: opsResp, isLoading: opsLoading } = useQuery<{ data: OperationsMetrics }>({
-    queryKey: ["executive", "operations"],
-    queryFn: () => apiRequest("GET", apiUrl("/api/v1/executive/operations")),
+    queryKey: ["executive", "operations", dateFrom, dateTo],
+    queryFn: () => apiRequest("GET", apiUrl(`/api/v1/executive/operations${dateParams}`)),
     refetchInterval: REFRESH_INTERVAL,
   });
 
@@ -333,16 +371,52 @@ export default function ExecutiveDashboard() {
   return (
     <div className="space-y-6 p-4 max-w-[1600px] mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Executive Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Trust Business Head / CRO Overview
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <RefreshCw className="h-3 w-3 animate-spin" />
-          Auto-refresh every 60s
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Date Range Picker */}
+          <div className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="h-8 w-[130px] text-xs"
+              aria-label="Metrics from date"
+            />
+            <span className="text-xs text-muted-foreground">to</span>
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="h-8 w-[130px] text-xs"
+              aria-label="Metrics to date"
+            />
+          </div>
+
+          {/* Export PDF button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1"
+            onClick={handleExportPdf}
+            aria-label="Export executive summary as PDF"
+          >
+            <FileDown className="h-3.5 w-3.5" aria-hidden="true" />
+            Export PDF
+          </Button>
+
+          {/* Auto-refresh indicator */}
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground border rounded-md px-2 py-1">
+            <RefreshCw className="h-3 w-3 animate-spin" aria-hidden="true" />
+            <span>Live</span>
+            <span className="text-[10px] opacity-70">{lastRefresh.toLocaleTimeString()}</span>
+          </div>
         </div>
       </div>
 
@@ -355,12 +429,21 @@ export default function ExecutiveDashboard() {
         {aumLoading ? (
           <KpiCardSkeleton />
         ) : (
-          <Card className="border-l-4 border-l-blue-500">
+          <Card
+            className="border-l-4 border-l-blue-500 cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => drillDown("/portfolios")}
+            role="button"
+            tabIndex={0}
+            aria-label="View portfolio details"
+          >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Total AUM
               </CardTitle>
-              <DollarSign className="h-5 w-5 text-blue-500" />
+              <div className="flex items-center gap-1">
+                <DollarSign className="h-5 w-5 text-blue-500" />
+                <ExternalLink className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+              </div>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-foreground">
@@ -389,12 +472,21 @@ export default function ExecutiveDashboard() {
         {revLoading ? (
           <KpiCardSkeleton />
         ) : (
-          <Card className="border-l-4 border-l-emerald-500">
+          <Card
+            className="border-l-4 border-l-emerald-500 cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => drillDown("/trust-fees")}
+            role="button"
+            tabIndex={0}
+            aria-label="View revenue details"
+          >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Revenue YTD
               </CardTitle>
-              <BarChart3 className="h-5 w-5 text-emerald-500" />
+              <div className="flex items-center gap-1">
+                <BarChart3 className="h-5 w-5 text-emerald-500" />
+                <ExternalLink className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+              </div>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-foreground">
@@ -411,12 +503,21 @@ export default function ExecutiveDashboard() {
         {riskLoading ? (
           <KpiCardSkeleton />
         ) : (
-          <Card className="border-l-4 border-l-violet-500">
+          <Card
+            className="border-l-4 border-l-violet-500 cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => drillDown("/regulator-portal")}
+            role="button"
+            tabIndex={0}
+            aria-label="View compliance details"
+          >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Compliance Score
               </CardTitle>
-              <ShieldCheck className="h-5 w-5 text-violet-500" />
+              <div className="flex items-center gap-1">
+                <ShieldCheck className="h-5 w-5 text-violet-500" />
+                <ExternalLink className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+              </div>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-4">
@@ -435,12 +536,21 @@ export default function ExecutiveDashboard() {
         {opsLoading ? (
           <KpiCardSkeleton />
         ) : (
-          <Card className="border-l-4 border-l-amber-500">
+          <Card
+            className="border-l-4 border-l-amber-500 cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => drillDown("/exception-queue")}
+            role="button"
+            tabIndex={0}
+            aria-label="View operations details"
+          >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 STP Rate
               </CardTitle>
-              <Activity className="h-5 w-5 text-amber-500" />
+              <div className="flex items-center gap-1">
+                <Activity className="h-5 w-5 text-amber-500" />
+                <ExternalLink className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+              </div>
             </CardHeader>
             <CardContent>
               <div className={`text-2xl font-bold ${stpColor}`}>

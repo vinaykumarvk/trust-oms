@@ -21,8 +21,13 @@ import { riskProfilingService } from '../services/risk-profiling-service';
 import { proposalService } from '../services/proposal-service';
 import { clientMessageService } from '../services/client-message-service';
 import { statementService } from '../services/statement-service';
+import { clientPortalEvidenceService } from '../services/client-portal-evidence-service';
 import { asyncHandler } from '../middleware/async-handler';
-import { validatePortalOwnership } from '../middleware/portal-ownership';
+import {
+  rejectPortalOwnershipViolation,
+  requirePortalClientIdentity,
+  validatePortalOwnership,
+} from '../middleware/portal-ownership';
 import { ForbiddenError, ValidationError, httpStatusFromError, safeErrorMessage, safeContentDisposition } from '../services/service-errors';
 import { db } from '../db';
 import * as schema from '@shared/schema';
@@ -34,6 +39,47 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
 });
+
+function ipFromRequest(req: any): string | undefined {
+  const forwarded = req.headers?.['x-forwarded-for'];
+  if (Array.isArray(forwarded)) return forwarded[0];
+  if (typeof forwarded === 'string') return forwarded.split(',')[0]?.trim();
+  return req.ip;
+}
+
+function portalMessageAudit(req: any) {
+  return {
+    actorId: String(req.userId ?? req.clientId ?? 'unknown'),
+    actorRole: String(req.userRole ?? 'CLIENT_PORTAL'),
+    ipAddress: ipFromRequest(req),
+    userAgent: req.headers?.['user-agent'] ? String(req.headers['user-agent']) : undefined,
+    correlationId: req.id,
+    sourceChannel: 'CLIENT_PORTAL',
+  };
+}
+
+function portalStatementAudit(req: any) {
+  return {
+    actorId: String(req.userId ?? req.clientId ?? 'unknown'),
+    actorRole: String(req.userRole ?? 'CLIENT_PORTAL'),
+    ipAddress: ipFromRequest(req),
+    userAgent: req.headers?.['user-agent'] ? String(req.headers['user-agent']) : undefined,
+    correlationId: req.id,
+    requesterType: 'CLIENT',
+    sourceChannel: 'CLIENT_PORTAL',
+  };
+}
+
+function numericPortalUserId(req: any): number | null {
+  const value = Number(req.userId);
+  return Number.isInteger(value) && value > 0 ? value : null;
+}
+
+function statementDownloadFilename(statement: { period?: string | null; statement_type?: string | null; id: number }): string {
+  const type = String(statement.statement_type ?? 'STATEMENT').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const period = String(statement.period ?? 'period').replace(/[^a-z0-9-]+/gi, '-');
+  return `${type}-${period}-${statement.id}.pdf`;
+}
 
 async function assertPortfolioOwnership(req: any, res: any, portfolioId: string): Promise<boolean> {
   const clientId = req.clientId as string | undefined;
@@ -60,11 +106,9 @@ router.get(
   '/portfolio-summary/:clientId',
   validatePortalOwnership,
   asyncHandler(async (req, res) => {
-    const { clientId } = req.params;
+    const clientId = requirePortalClientIdentity(req, res);
     if (!clientId) {
-      return res.status(400).json({
-        error: { code: 'INVALID_INPUT', message: 'clientId is required' },
-      });
+      return;
     }
 
     const data = await clientPortalService.getPortfolioSummary(clientId);
@@ -167,26 +211,81 @@ router.get(
 // Statements
 // ---------------------------------------------------------------------------
 
+async function listStatementsForSession(req: any, res: any) {
+  const clientId = requirePortalClientIdentity(req, res);
+  if (!clientId) return;
+
+  const rawPage = parseInt(req.query.page as string, 10);
+  const rawPageSize = parseInt(req.query.pageSize as string, 10);
+  const page = isNaN(rawPage) || rawPage < 1 ? 1 : rawPage;
+  const pageSize = isNaN(rawPageSize) || rawPageSize < 1 ? 20 : Math.min(rawPageSize, 100);
+
+  const result = await statementService.getForClient(clientId, { page, pageSize });
+  res.json(result);
+}
+
+async function downloadStatementForSession(req: any, res: any, statementId: number) {
+  const sessionClientId = req.clientId as string | undefined;
+  if (!sessionClientId) {
+    return res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required' } });
+  }
+
+  try {
+    const result = await statementService.download(statementId, sessionClientId, portalStatementAudit(req));
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', safeContentDisposition(statementDownloadFilename(result.statement)));
+    res.setHeader('Content-Length', String(result.buffer.length));
+    res.setHeader('X-Delivery-Status', 'AVAILABLE');
+    res.setHeader('X-Statement-Hash', result.contentHash);
+    res.setHeader('X-Retention-Until', result.retentionUntil);
+    res.send(result.buffer);
+  } catch (err: unknown) {
+    if (err instanceof ValidationError) {
+      return res.status(202).json({
+        status: 'NOT_AVAILABLE',
+        delivery_status: err.message,
+        message: 'Statement is being prepared. You will be notified when it is ready.',
+      });
+    }
+    if (err instanceof ForbiddenError) {
+      return res.status(403).json({
+        error: { code: 'FORBIDDEN', message: safeErrorMessage(err) },
+      });
+    }
+    res.status(httpStatusFromError(err)).json({ error: { message: safeErrorMessage(err) } });
+  }
+}
+
+/** GET /statements -- Available statements list for the authenticated client */
+router.get(
+  '/statements',
+  asyncHandler(async (req, res) => {
+    await listStatementsForSession(req, res);
+  }),
+);
+
 /** GET /statements/:clientId -- Available statements list (paginated) */
 router.get(
   '/statements/:clientId',
   validatePortalOwnership,
   asyncHandler(async (req, res) => {
-    const { clientId } = req.params;
+    await listStatementsForSession(req, res);
+  }),
+);
 
-    if (!clientId) {
+/** GET /statements/:statementId/download -- Download a statement for the authenticated client */
+router.get(
+  '/statements/:statementId/download',
+  asyncHandler(async (req, res) => {
+    const statementId = parseInt(req.params.statementId, 10);
+
+    if (isNaN(statementId)) {
       return res.status(400).json({
-        error: { code: 'INVALID_INPUT', message: 'clientId is required' },
+        error: { code: 'INVALID_INPUT', message: 'Invalid statement ID' },
       });
     }
 
-    const rawPage = parseInt(req.query.page as string, 10);
-    const rawPageSize = parseInt(req.query.pageSize as string, 10);
-    const page = isNaN(rawPage) || rawPage < 1 ? 1 : rawPage;
-    const pageSize = isNaN(rawPageSize) || rawPageSize < 1 ? 20 : Math.min(rawPageSize, 100);
-
-    const result = await statementService.getForClient(clientId, { page, pageSize });
-    res.json(result);
+    await downloadStatementForSession(req, res, statementId);
   }),
 );
 
@@ -195,7 +294,7 @@ router.get(
   '/statements/:clientId/:statementId/download',
   validatePortalOwnership,
   asyncHandler(async (req, res) => {
-    const { clientId, statementId: statementIdRaw } = req.params;
+    const { statementId: statementIdRaw } = req.params;
     const statementId = parseInt(statementIdRaw, 10);
 
     if (isNaN(statementId)) {
@@ -204,34 +303,7 @@ router.get(
       });
     }
 
-    // QUAL-06: always use session-derived clientId for the IDOR guard; never fall back
-    // to the URL parameter — validatePortalOwnership above already confirmed they match.
-    const sessionClientId = req.clientId as string | undefined;
-    if (!sessionClientId) {
-      return res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required' } });
-    }
-
-    try {
-      const result = await statementService.download(statementId, sessionClientId);
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="statement-${statementId}.pdf"`);
-      res.setHeader('X-Delivery-Status', 'AVAILABLE');
-      res.send(result.buffer);
-    } catch (err: unknown) {
-      if (err instanceof ValidationError) {
-        return res.status(202).json({
-          status: 'NOT_AVAILABLE',
-          delivery_status: err.message,
-          message: 'Statement is being prepared. You will be notified when it is ready.',
-        });
-      }
-      if (err instanceof ForbiddenError) {
-        return res.status(403).json({
-          error: { code: 'FORBIDDEN', message: safeErrorMessage(err) },
-        });
-      }
-      res.status(httpStatusFromError(err)).json({ error: { message: safeErrorMessage(err) } });
-    }
+    await downloadStatementForSession(req, res, statementId);
   }),
 );
 
@@ -268,16 +340,31 @@ router.post(
 // Notifications
 // ---------------------------------------------------------------------------
 
+/** GET /evidence-history -- Unified portal evidence and notification history */
+router.get(
+  '/evidence-history',
+  asyncHandler(async (req: any, res: any) => {
+    const clientId = requirePortalClientIdentity(req, res);
+    if (!clientId) return;
+
+    const { event_type, page, pageSize } = req.query;
+    const data = await clientPortalEvidenceService.listForClient(clientId, {
+      eventType: event_type as string | undefined,
+      page: page ? (parseInt(page as string, 10) || 1) : 1,
+      pageSize: pageSize ? (parseInt(pageSize as string, 10) || 25) : 25,
+    });
+    res.json(data);
+  }),
+);
+
 /** GET /notifications/:clientId -- Client notifications */
 router.get(
   '/notifications/:clientId',
   validatePortalOwnership,
   asyncHandler(async (req, res) => {
-    const { clientId } = req.params;
+    const clientId = requirePortalClientIdentity(req, res);
     if (!clientId) {
-      return res.status(400).json({
-        error: { code: 'INVALID_INPUT', message: 'clientId is required' },
-      });
+      return;
     }
 
     const data = await clientPortalService.getNotifications(clientId);
@@ -294,7 +381,8 @@ router.get(
   '/service-requests/:clientId',
   validatePortalOwnership,
   asyncHandler(async (req, res) => {
-    const { clientId } = req.params;
+    const clientId = requirePortalClientIdentity(req, res);
+    if (!clientId) return;
     const { status, priority, search, page, pageSize } = req.query;
     const result = await serviceRequestService.getServiceRequests({
       client_id: clientId,
@@ -313,7 +401,9 @@ router.get(
   '/service-requests/action-count/:clientId',
   validatePortalOwnership,
   asyncHandler(async (req, res) => {
-    const result = await serviceRequestService.getActionCount(req.params.clientId);
+    const clientId = requirePortalClientIdentity(req, res);
+    if (!clientId) return;
+    const result = await serviceRequestService.getActionCount(clientId);
     res.json({ data: result });
   }),
 );
@@ -381,7 +471,12 @@ async function assertSROwnership(
     return null;
   }
   if (sr.client_id !== sessionClientId) {
-    res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied' } });
+    rejectPortalOwnershipViolation(req, res, {
+      resourceType: 'SERVICE_REQUEST',
+      resourceId: String(id),
+      attemptedClientId: sr.client_id,
+      actualClientId: sessionClientId,
+    });
     return null;
   }
   return sr;
@@ -490,7 +585,9 @@ router.post(
     const uploadedByType = req.clientId ? 'CLIENT' : 'RM';
     const { document_class } = req.body;
     try {
-      const doc = await srDocumentService.upload(srId, req.file, uploadedByType, uploadedById, document_class);
+      const doc = await srDocumentService.upload(srId, req.file, uploadedByType, uploadedById, document_class, {
+        ipAddress: req.ip,
+      });
       res.status(201).json({ data: doc });
     } catch (err: unknown) {
       const status = httpStatusFromError(err);
@@ -519,13 +616,23 @@ router.get(
 router.get(
   '/service-requests/:id/documents/:docId/download',
   asyncHandler(async (req, res) => {
+    const srId = parseInt(req.params.id, 10);
     const docId = parseInt(req.params.docId, 10);
+    if (isNaN(srId)) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Invalid service request ID' } });
+    }
     if (isNaN(docId)) {
       return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Invalid document ID' } });
     }
+    const sr = await assertSROwnership(req, res, srId);
+    if (!sr) return;
     const requesterClientId = req.clientId as string | undefined;
     try {
-      const { buffer, document } = await srDocumentService.download(docId, requesterClientId);
+      const { buffer, document } = await srDocumentService.download(docId, requesterClientId, srId, {
+        requesterType: 'CLIENT',
+        requesterId: req.userId ?? requesterClientId ?? 'CLIENT',
+        ipAddress: req.ip,
+      });
       res.setHeader('Content-Type', 'application/octet-stream');
       res.setHeader('Content-Disposition', safeContentDisposition(document.document_name));
       res.send(buffer);
@@ -545,11 +652,9 @@ router.get(
   '/risk-profile/:clientId',
   validatePortalOwnership,
   asyncHandler(async (req, res) => {
-    const { clientId } = req.params;
+    const clientId = requirePortalClientIdentity(req, res);
     if (!clientId) {
-      return res.status(400).json({
-        error: { code: 'INVALID_INPUT', message: 'clientId is required' },
-      });
+      return;
     }
 
     const profile = await riskProfilingService.getCustomerRiskProfile(clientId);
@@ -1021,19 +1126,23 @@ router.post(
       return res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required' } });
     }
 
-    const userId = req.userId;
+    const userId = numericPortalUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Authenticated user identity required' } });
+    }
     const { subject, body, thread_id, parent_message_id, related_sr_id } = req.body;
 
     try {
       const message = await clientMessageService.create({
         sender_type: 'CLIENT',
-        sender_id: Number(userId) || 1,
+        sender_id: userId,
         recipient_client_id: clientId,
         subject,
         body,
         thread_id: thread_id ?? null,
         parent_message_id: parent_message_id ? Number(parent_message_id) : null,
         related_sr_id: related_sr_id ? Number(related_sr_id) : null,
+        audit: portalMessageAudit(req),
       });
 
       res.status(201).json({ data: message });
@@ -1059,7 +1168,7 @@ router.patch(
     }
 
     try {
-      await clientMessageService.markRead(id, clientId);
+      await clientMessageService.markRead(id, clientId, portalMessageAudit(req));
       res.json({ success: true });
     } catch (err: unknown) {
       const status = httpStatusFromError(err);

@@ -133,6 +133,38 @@ router.post('/:proposalId/suitability-check', requireBackOfficeRole(), async (re
   }
 });
 
+router.get('/disclosures/versions', requireBackOfficeRole(), async (req, res, next) => {
+  try {
+    const result = await proposalService.listSuitabilityDisclosureVersions({
+      entityId: req.query.entity_id as string | undefined,
+      disclosureCode: req.query.disclosure_code as string | undefined,
+      status: req.query.status as string | undefined,
+    });
+    res.json({ data: result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/disclosures/versions', requireBackOfficeRole(), async (req, res, next) => {
+  try {
+    const actorId = (req as any).user?.id ?? (req as any).userId;
+    const result = await proposalService.createSuitabilityDisclosureVersion({
+      entity_id: req.body.entity_id,
+      disclosure_code: req.body.disclosure_code,
+      title: req.body.title,
+      content: req.body.content,
+      effective_from: req.body.effective_from,
+      effective_to: req.body.effective_to,
+      approved_by: actorId ? Number(actorId) : undefined,
+      created_by: actorId ? String(actorId) : undefined,
+    });
+    res.status(201).json({ data: result });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ============================================================================
 // What-If Analysis
 // ============================================================================
@@ -216,7 +248,13 @@ router.post('/:id/client-accept', requireBackOfficeRole(), async (req, res, next
   try {
     const clientId = (req as any).user?.id;
     if (!clientId) return res.status(401).json({ error: 'Authentication required' });
-    const result = await proposalService.clientAccept(parseInt(req.params.id, 10), clientId);
+    const result = await proposalService.clientAccept(parseInt(req.params.id, 10), clientId, {
+      channel: req.body.channel,
+      acceptance_method: req.body.acceptance_method,
+      affirmation_text: req.body.affirmation_text,
+      ip_address: req.ip,
+      user_agent: req.get('user-agent') ?? undefined,
+    });
     res.json(result);
   } catch (err) {
     next(err);

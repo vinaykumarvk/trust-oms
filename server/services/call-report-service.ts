@@ -7,7 +7,7 @@
  * conversation history logging, and automatic follow-up meeting creation.
  */
 
-import { db } from '../db';
+import { db, pool } from '../db';
 import * as schema from '@shared/schema';
 import { eq, and, sql, desc, asc, ilike, or, gte, lte } from 'drizzle-orm';
 import { generateMeetingCode } from './meeting-service';
@@ -16,6 +16,10 @@ import { notificationInboxService } from './notification-inbox-service';
 import { taskManagementService } from './task-management-service';
 import { marketCalendarService } from './market-calendar-service';
 import { tagCallReport } from './platform-intelligence-client';
+import {
+  evaluateCallReportLateFiling,
+  type CallReportLateFilingEvaluation,
+} from './call-report-late-filing-policy';
 
 type CallReport = typeof schema.callReports.$inferSelect;
 type ActionItem = typeof schema.actionItems.$inferSelect;
@@ -28,9 +32,38 @@ type ActionItem = typeof schema.actionItems.$inferSelect;
 // Cache TTL: 5 minutes. Invalidated on PUT /system-config/CRM_LATE_FILING_DAYS.
 let _lateFilingDaysCache: number | null = null;
 let _lateFilingCacheExpiry = 0;
+let _lateFilingCalendarKeyCache: string | null = null;
+let _lateFilingCalendarKeyCacheExpiry = 0;
+let _systemConfigListenerStarted = false;
 
 export function invalidateLateFilingCache(): void {
   _lateFilingCacheExpiry = 0;
+  _lateFilingCalendarKeyCacheExpiry = 0;
+}
+
+export async function initializeLateFilingConfigListener(): Promise<void> {
+  if (_systemConfigListenerStarted || !process.env.DATABASE_URL || typeof (pool as any).connect !== 'function') return;
+
+  _systemConfigListenerStarted = true;
+  try {
+    const client = await (pool as any).connect();
+    await client.query('LISTEN system_config_changed');
+    client.on('notification', (message: { payload?: string | null }) => {
+      try {
+        const payload = JSON.parse(message.payload || '{}') as { config_key?: string };
+        if (payload.config_key === 'CRM_LATE_FILING_DAYS' || payload.config_key === 'CRM_LATE_FILING_CALENDAR_KEY') {
+          invalidateLateFilingCache();
+        }
+      } catch {
+        invalidateLateFilingCache();
+      }
+    });
+    client.on('error', () => {
+      _systemConfigListenerStarted = false;
+    });
+  } catch {
+    _systemConfigListenerStarted = false;
+  }
 }
 
 export async function getLateFilingDays(): Promise<number> {
@@ -53,6 +86,24 @@ export async function getLateFilingDays(): Promise<number> {
   }
   _lateFilingCacheExpiry = Date.now() + 5 * 60 * 1000;
   return _lateFilingDaysCache;
+}
+
+export async function getLateFilingCalendarKey(): Promise<string> {
+  if (_lateFilingCalendarKeyCacheExpiry > Date.now() && _lateFilingCalendarKeyCache !== null) {
+    return _lateFilingCalendarKeyCache;
+  }
+  try {
+    const [row] = await db
+      .select()
+      .from(schema.systemConfig)
+      .where(eq(schema.systemConfig.config_key, 'CRM_LATE_FILING_CALENDAR_KEY'))
+      .limit(1);
+    _lateFilingCalendarKeyCache = row?.config_value?.trim() || process.env.CRM_LATE_FILING_CALENDAR_KEY || 'PSE';
+  } catch {
+    _lateFilingCalendarKeyCache = process.env.CRM_LATE_FILING_CALENDAR_KEY || 'PSE';
+  }
+  _lateFilingCalendarKeyCacheExpiry = Date.now() + 5 * 60 * 1000;
+  return _lateFilingCalendarKeyCache ?? 'PSE';
 }
 
 // GAP-008: Late-filing threshold — kept as env-based fallback for non-async contexts.
@@ -155,6 +206,25 @@ async function calculateBusinessDaysPSE(startDate: string, endDate: Date, timezo
     current = addDaysToIsoDate(current, 1);
   }
   return count;
+}
+
+async function evaluateLateFilingSla(report: CallReport, filedAt: Date, userId: number): Promise<CallReportLateFilingEvaluation> {
+  const [rmTimezone, lateFilingThreshold, calendarKey] = await Promise.all([
+    getRmTimezone(userId),
+    getLateFilingDays(),
+    getLateFilingCalendarKey(),
+  ]);
+
+  return evaluateCallReportLateFiling({
+    meetingDate: report.meeting_date,
+    filedAt,
+    policy: {
+      thresholdBusinessDays: lateFilingThreshold,
+      calendarKey,
+      timezone: rmTimezone,
+    },
+    isBusinessDay: (key, date) => marketCalendarService.isBusinessDay(key, date),
+  });
 }
 
 // ============================================================================
@@ -573,12 +643,11 @@ export const callReportService = {
       return result;
     }
 
-    const [rmTimezone, lateFilingThreshold] = await Promise.all([
-      getRmTimezone(userId),
-      getLateFilingDays(),
-    ]);
-    const daysSinceMeeting = await calculateBusinessDaysPSE(report.meeting_date, now, rmTimezone);
-    const requiresApproval = daysSinceMeeting > lateFilingThreshold;
+    const lateFilingEvaluation = await evaluateLateFilingSla(report, now, userId);
+    const daysSinceMeeting = lateFilingEvaluation.businessDaysElapsed;
+    const requiresApproval = lateFilingEvaluation.requiresSupervisorApproval;
+    const lateFilingThreshold = lateFilingEvaluation.policy.thresholdBusinessDays;
+    const lateFilingEvidence = lateFilingEvaluation as unknown as Record<string, unknown>;
 
     const submitted = await db.transaction(async (tx: typeof db) => {
       let updatePayload: Record<string, unknown>;
@@ -588,16 +657,22 @@ export const callReportService = {
         updatePayload = {
           filed_date: now,
           days_since_meeting: daysSinceMeeting,
+          late_filing_calendar_key: lateFilingEvaluation.policy.calendarKey,
+          late_filing_timezone: lateFilingEvaluation.policy.timezone,
+          late_filing_threshold_days: lateFilingThreshold,
+          late_filing_due_date: lateFilingEvaluation.dueDate,
+          late_filing_evaluated_at: now,
+          late_filing_evaluation: lateFilingEvidence,
           requires_supervisor_approval: true,
           report_status: 'PENDING_APPROVAL',
           approval_submitted_at: now,
           updated_at: now,
         };
 
-        // Create approval record with a placeholder supervisor_id (will be claimed later)
+        // Create approval record with no claim owner until a supervisor explicitly claims it.
         await tx.insert(schema.callReportApprovals).values({
           call_report_id: id,
-          supervisor_id: userId,
+          supervisor_id: null,
           action: 'PENDING',
         });
 
@@ -653,6 +728,12 @@ export const callReportService = {
         updatePayload = {
           filed_date: now,
           days_since_meeting: daysSinceMeeting,
+          late_filing_calendar_key: lateFilingEvaluation.policy.calendarKey,
+          late_filing_timezone: lateFilingEvaluation.policy.timezone,
+          late_filing_threshold_days: lateFilingThreshold,
+          late_filing_due_date: lateFilingEvaluation.dueDate,
+          late_filing_evaluated_at: now,
+          late_filing_evaluation: lateFilingEvidence,
           requires_supervisor_approval: false,
           report_status: 'APPROVED',
           approved_at: now,

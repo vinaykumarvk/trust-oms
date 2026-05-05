@@ -12,6 +12,23 @@ import { httpStatusFromError, safeErrorMessage } from '../../services/service-er
 
 const router = Router();
 
+function ipFromRequest(req: any): string | undefined {
+  const forwarded = req.headers?.['x-forwarded-for'];
+  if (Array.isArray(forwarded)) return forwarded[0];
+  if (typeof forwarded === 'string') return forwarded.split(',')[0]?.trim();
+  return req.ip;
+}
+
+function actorIdFromRequest(req: any): string {
+  return String(req.userId ?? req.user?.id ?? 'unknown');
+}
+
+function actorRoleFromRequest(req: any): string {
+  const userRoles = req.user?.roles;
+  const role = Array.isArray(userRoles) ? userRoles[0] : userRoles ?? req.user?.role ?? req.userRole;
+  return String(role ?? 'BACK_OFFICE');
+}
+
 // ---------------------------------------------------------------------------
 // GET / — list all messages with optional filters (BO sees all)
 // ---------------------------------------------------------------------------
@@ -74,12 +91,18 @@ router.post('/:id/reply', requireBackOfficeRole(), async (req, res) => {
       return res.status(422).json({ error: { code: 'VALIDATION_ERROR', message: 'body is required' } });
     }
 
-    const senderId = (req as any).user?.id ?? (req as any).userId;
-    if (!senderId) {
-      return res.status(401).json({ error: 'Not authenticated' });
+    const senderId = Number(actorIdFromRequest(req));
+    if (!Number.isInteger(senderId) || senderId <= 0) {
+      return res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Authenticated user identity required' } });
     }
 
-    const reply = await clientMessageService.reply(id, Number(senderId), body);
+    const reply = await clientMessageService.reply(id, senderId, body, {
+      actorId: actorIdFromRequest(req),
+      actorRole: actorRoleFromRequest(req),
+      ipAddress: ipFromRequest(req),
+      correlationId: (req as any).id,
+      sourceChannel: 'BACK_OFFICE',
+    });
     res.status(201).json({ data: reply });
   } catch (err: unknown) {
     const status = httpStatusFromError(err);

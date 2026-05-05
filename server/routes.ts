@@ -6,6 +6,8 @@ import auditRouter from './routes/back-office/audit';
 import kycRouter from './routes/back-office/kyc';
 import suitabilityRouter from './routes/suitability';
 import ordersRouter from './routes/orders';
+import oemsRouter from './routes/oems';
+import marginLendingRouter from './routes/margin-lending';
 import tradesRouter from './routes/trades';
 import confirmationsRouter from './routes/confirmations';
 import rmDashboardRouter from './routes/rm-dashboard';
@@ -48,6 +50,7 @@ import feePlansRouter from './routes/back-office/fee-plans';
 import tfpAccrualsRouter from './routes/back-office/tfp-accruals';
 import tfpInvoicesRouter from './routes/back-office/tfp-invoices';
 import tfpPaymentsRouter from './routes/back-office/tfp-payments';
+import tfpAccountingEventsRouter from './routes/back-office/tfp-accounting-events';
 import tfpAdhocFeesRouter from './routes/back-office/tfp-adhoc-fees';
 import claimsRouter from './routes/back-office/claims';
 import feeOverridesRouter from './routes/back-office/fee-overrides';
@@ -65,7 +68,9 @@ import collectionTriggersRouter from './routes/back-office/collection-triggers';
 import tfpEventFeesRouter from './routes/back-office/tfp-event-fees';
 import contentPacksRouter from './routes/back-office/content-packs';
 import dsarRouter from './routes/back-office/dsar';
+import privacyBreachesRouter from './routes/back-office/privacy-breaches';
 import regulatoryCalendarRouter from './routes/back-office/regulatory-calendar';
+import domainEventsRouter from './routes/back-office/domain-events';
 import campaignRouter from './routes/back-office/campaigns';
 import serviceRequestRouter from './routes/back-office/service-requests';
 import srDocumentsRouter from './routes/back-office/sr-documents';
@@ -83,8 +88,11 @@ import crmNotificationsRouter from './routes/back-office/notifications';
 import crmHandoversRouter from './routes/back-office/crm-handovers';
 import eclRouter from './routes/back-office/ecl';
 import mfaRouter from './routes/back-office/mfa';
+import { initializeLateFilingConfigListener } from './services/call-report-service';
 
 export function registerRoutes(app: Express) {
+  initializeLateFilingConfigListener().catch(() => {});
+
   // API v1 routes
   app.get('/api/v1/health', (_req, res) => {
     res.json({ status: 'ok', version: '1.0.0', service: 'trustoms-api' });
@@ -110,6 +118,12 @@ export function registerRoutes(app: Express) {
 
   // Order management routes
   app.use('/api/v1/orders', ordersRouter);
+
+  // Danamon OEMS product-specific order execution routes
+  app.use('/api/v1/oems', oemsRouter);
+
+  // Margin Lending and Portfolio Leverage Management routes
+  app.use('/api/v1/margin-lending', marginLendingRouter);
 
   // Trades, blocks, and execution routes (Phase 2A)
   app.use('/api/v1/trades', tradesRouter);
@@ -161,6 +175,9 @@ export function registerRoutes(app: Express) {
 
   // TFP Payments — TrustFees Pro Phase 7
   app.use('/api/v1/tfp-payments', tfpPaymentsRouter);
+
+  // TFP Accounting Events — TrustFees Pro GL contract
+  app.use('/api/v1/tfp-accounting-events', tfpAccountingEventsRouter);
 
   // TFP Ad-hoc Fees — TrustFees Pro Phase 7
   app.use('/api/v1/tfp-adhoc-fees', tfpAdhocFeesRouter);
@@ -281,6 +298,12 @@ export function registerRoutes(app: Express) {
 
   // DSAR Requests — TrustFees Pro Gap A15/B05/B06/B07
   app.use('/api/v1/dsar', dsarRouter);
+
+  // Privacy Breach Notification Workflow — DPA/NPC 72-hour playbook
+  app.use('/api/v1/privacy-breaches', privacyBreachesRouter);
+
+  // Shared Domain Event Ledger — idempotency and replay governance
+  app.use('/api/v1/domain-events', domainEventsRouter);
 
   // Regulatory Calendar — TrustFees Pro Gap A18/A19
   app.use('/api/v1/regulatory-calendar', regulatoryCalendarRouter);

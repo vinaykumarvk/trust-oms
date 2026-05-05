@@ -10,6 +10,13 @@ import * as schema from '@shared/schema';
 import { eq, and, sql, desc, asc, gte, lte, ilike, or } from 'drizzle-orm';
 import { NotFoundError, ForbiddenError, ValidationError, ConflictError } from './service-errors';
 import { notificationInboxService } from './notification-inbox-service';
+import { marketCalendarService } from './market-calendar-service';
+import {
+  evaluateMeetingScheduling,
+  type ExistingMeetingWindow,
+  type MeetingSchedulingEvaluation,
+  validateMeetingSchedulingWindow,
+} from './meeting-scheduling-policy';
 
 type MeetingRow = typeof schema.meetings.$inferSelect;
 type MeetingInvitee = typeof schema.meetingInvitees.$inferSelect;
@@ -89,6 +96,139 @@ async function insertConversationHistory(entry: {
   });
 }
 
+function getMeetingCalendarKey(calendarKey?: string | null): string {
+  return (calendarKey ?? process.env.CRM_MEETING_CALENDAR_KEY ?? process.env.MEETING_CALENDAR_KEY ?? 'PSE').trim().toUpperCase();
+}
+
+function getMeetingTimezone(): string {
+  return (process.env.CRM_MEETING_TIMEZONE ?? process.env.MEETING_TIMEZONE ?? 'Asia/Manila').trim();
+}
+
+function isoDateInMeetingTimezone(date: Date, timezone: string): string {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(date);
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${values.year}-${values.month}-${values.day}`;
+  } catch {
+    return date.toISOString().split('T')[0];
+  }
+}
+
+function schedulingEvidenceUpdates(evaluation: MeetingSchedulingEvaluation): Record<string, unknown> {
+  return {
+    calendar_key: evaluation.calendarKey,
+    scheduling_validation_status: evaluation.validationStatus,
+    scheduling_conflict_status: evaluation.conflictStatus,
+    scheduling_conflicts: evaluation.conflicts,
+    scheduling_warnings: evaluation.warnings,
+    scheduling_validation_evidence: evaluation,
+    market_holiday_warning: evaluation.marketHolidayWarning,
+    market_holiday_name: evaluation.marketHolidayName,
+  };
+}
+
+async function findPotentialSchedulingConflicts(startTime: Date, endTime: Date): Promise<ExistingMeetingWindow[]> {
+  const query = db
+    .select({
+      id: schema.meetings.id,
+      title: schema.meetings.title,
+      organizer_user_id: schema.meetings.organizer_user_id,
+      lead_id: schema.meetings.lead_id,
+      prospect_id: schema.meetings.prospect_id,
+      client_id: schema.meetings.client_id,
+      start_time: schema.meetings.start_time,
+      end_time: schema.meetings.end_time,
+      meeting_status: schema.meetings.meeting_status,
+    })
+    .from(schema.meetings)
+    .where(
+      and(
+        eq(schema.meetings.is_deleted, false),
+        eq(schema.meetings.meeting_status, 'SCHEDULED'),
+        lte(schema.meetings.start_time, endTime),
+        gte(schema.meetings.end_time, startTime),
+      ),
+    );
+
+  const rows = typeof (query as any).limit === 'function' ? await (query as any).limit(50) : await query;
+  if (!Array.isArray(rows)) return [];
+  return rows.map((row: any) => ({
+    id: row.id,
+    title: row.title ?? null,
+    organizerUserId: row.organizer_user_id ?? null,
+    leadId: row.lead_id ?? null,
+    prospectId: row.prospect_id ?? null,
+    clientId: row.client_id ?? null,
+    startTime: row.start_time,
+    endTime: row.end_time,
+    status: row.meeting_status,
+  }));
+}
+
+async function evaluateSchedulingForMeeting(input: {
+  id?: number | null;
+  title?: string | null;
+  organizer_user_id: number;
+  invitee_user_ids?: number[];
+  lead_id?: number | null;
+  prospect_id?: number | null;
+  client_id?: string | null;
+  start_time: Date;
+  end_time: Date;
+  calendar_key?: string | null;
+  excluded_meeting_id?: number | null;
+}): Promise<MeetingSchedulingEvaluation> {
+  const calendarKey = getMeetingCalendarKey(input.calendar_key);
+  const meetingDate = isoDateInMeetingTimezone(input.start_time, getMeetingTimezone());
+  const existingMeetings = await findPotentialSchedulingConflicts(input.start_time, input.end_time);
+  let isBusinessDay = true;
+  let calendarLookupError: string | null = null;
+
+  try {
+    isBusinessDay = await marketCalendarService.isBusinessDay(calendarKey, meetingDate);
+  } catch (err) {
+    calendarLookupError = err instanceof Error ? err.message : 'Market calendar lookup failed';
+  }
+
+  const evaluation = evaluateMeetingScheduling({
+    candidate: {
+      id: input.id,
+      title: input.title,
+      organizerUserId: input.organizer_user_id,
+      inviteeUserIds: input.invitee_user_ids ?? [],
+      leadId: input.lead_id ?? null,
+      prospectId: input.prospect_id ?? null,
+      clientId: input.client_id ?? null,
+      startTime: input.start_time,
+      endTime: input.end_time,
+    },
+    existingMeetings,
+    calendarKey,
+    meetingDate,
+    isBusinessDay,
+    holidayName: null,
+    excludedMeetingId: input.excluded_meeting_id,
+  });
+
+  if (calendarLookupError) {
+    evaluation.warnings.push({
+      code: 'MARKET_CALENDAR_LOOKUP_FAILED',
+      severity: 'WARNING',
+      calendar_key: calendarKey,
+      date: meetingDate,
+      message: calendarLookupError,
+    });
+    evaluation.validationStatus = 'WARNING';
+  }
+
+  return evaluation;
+}
+
 export const meetingService = {
   async create(data: {
     title: string;
@@ -111,6 +251,7 @@ export const meetingService = {
     reminder_minutes?: number;
     notes?: string;
     branch_id?: number;
+    calendar_key?: string;
     created_by?: string;
     invitees?: Array<{
       user_id?: number;
@@ -122,21 +263,7 @@ export const meetingService = {
   }): Promise<MeetingRow> {
     const startTime = new Date(data.start_time);
     const endTime = new Date(data.end_time);
-    if (startTime <= new Date()) {
-      throw new ValidationError('start_time must be in the future');
-    }
-    if (endTime <= startTime) {
-      throw new ValidationError('end_time must be after start_time');
-    }
-    const durationMs = endTime.getTime() - startTime.getTime();
-    const durationHours = durationMs / (1000 * 60 * 60);
-    // BRD G-023: minimum 15-minute duration
-    if (durationMs < 15 * 60 * 1000) {
-      throw new ValidationError('Meeting duration must be at least 15 minutes');
-    }
-    if (durationHours > 8) {
-      throw new ValidationError('Meeting duration cannot exceed 8 hours');
-    }
+    validateMeetingSchedulingWindow({ startTime, endTime });
 
     // BRD CALL-031: at least one required invitee must be specified
     const hasRequiredInvitee = data.invitees && data.invitees.some((inv) => inv.is_required !== false);
@@ -144,25 +271,19 @@ export const meetingService = {
       throw new ValidationError('At least one required invitee must be specified');
     }
 
-    // GAP-024: Duplicate meeting detection — warn if organizer has a meeting ±30 min of this slot
-    const windowStart = new Date(startTime.getTime() - 30 * 60 * 1000);
-    const windowEnd = new Date(endTime.getTime() + 30 * 60 * 1000);
-    const conflicts = await db
-      .select({ id: schema.meetings.id, title: schema.meetings.title, start_time: schema.meetings.start_time })
-      .from(schema.meetings)
-      .where(
-        and(
-          eq(schema.meetings.organizer_user_id, data.organizer_user_id),
-          eq(schema.meetings.is_deleted, false),
-          lte(schema.meetings.start_time, windowEnd),
-          gte(schema.meetings.end_time, windowStart),
-        ),
-      )
-      .limit(1);
-    if (conflicts.length > 0) {
-      // Warning only — not a hard block; include conflict info in response via metadata property
-      (data as Record<string, unknown>)._conflict_warning = `Scheduling conflict: overlaps with meeting "${conflicts[0].title}" at ${new Date(conflicts[0].start_time).toISOString()}`;
-    }
+    const schedulingEvaluation = await evaluateSchedulingForMeeting({
+      title: data.title,
+      organizer_user_id: data.organizer_user_id,
+      invitee_user_ids: (data.invitees ?? [])
+        .map((inv) => inv.user_id)
+        .filter((userId): userId is number => typeof userId === 'number'),
+      lead_id: data.lead_id,
+      prospect_id: data.prospect_id,
+      client_id: data.client_id,
+      start_time: startTime,
+      end_time: endTime,
+      calendar_key: data.calendar_key,
+    });
 
     const meeting_code = await generateMeetingCode();
 
@@ -197,6 +318,7 @@ export const meetingService = {
         contact_email: rel.email,
         call_report_status: null,
         branch_id: data.branch_id,
+        ...schedulingEvidenceUpdates(schedulingEvaluation),
         created_by: data.created_by,
       }).returning();
 
@@ -228,12 +350,10 @@ export const meetingService = {
       return meeting;
     });
 
-    // GAP-024: attach conflict warning to the result (non-blocking)
-    const conflictWarning = (data as Record<string, unknown>)._conflict_warning as string | undefined;
-    if (conflictWarning) {
-      return { ...result, conflict_warning: conflictWarning } as MeetingRow;
-    }
-    return result;
+    return {
+      ...result,
+      ...schedulingEvidenceUpdates(schedulingEvaluation),
+    } as MeetingRow;
   },
 
   async getById(id: number): Promise<MeetingRow & { invitees: MeetingInvitee[] }> {
@@ -285,9 +405,20 @@ export const meetingService = {
     if (updates.start_time !== undefined || updates.end_time !== undefined) {
       const effectiveStart = (updates.start_time ?? meeting.start_time) as Date;
       const effectiveEnd = (updates.end_time ?? meeting.end_time) as Date;
-      if (new Date(effectiveEnd) <= new Date(effectiveStart)) {
-        throw new ValidationError('end_time must be after start_time');
-      }
+      validateMeetingSchedulingWindow({ startTime: effectiveStart, endTime: effectiveEnd });
+      const schedulingEvaluation = await evaluateSchedulingForMeeting({
+        id,
+        title: data.title ?? meeting.title,
+        organizer_user_id: meeting.organizer_user_id,
+        lead_id: meeting.lead_id,
+        prospect_id: meeting.prospect_id,
+        client_id: meeting.client_id,
+        start_time: new Date(effectiveStart),
+        end_time: new Date(effectiveEnd),
+        calendar_key: (meeting as Record<string, unknown>).calendar_key as string | null | undefined,
+        excluded_meeting_id: id,
+      });
+      Object.assign(updates, schedulingEvidenceUpdates(schedulingEvaluation));
     }
 
     const [updated] = await db.update(schema.meetings)
@@ -439,6 +570,7 @@ export const meetingService = {
     if (endTime <= startTime) {
       throw new ValidationError('end_time must be after start_time');
     }
+    validateMeetingSchedulingWindow({ startTime, endTime, requireFuture: false });
 
     const [meeting] = await db.select().from(schema.meetings).where(eq(schema.meetings.id, id)).limit(1);
     if (!meeting) throw new NotFoundError('Meeting not found');
@@ -453,6 +585,18 @@ export const meetingService = {
         `Cannot reschedule meeting in ${meeting.meeting_status} status. Only SCHEDULED meetings can be rescheduled.`,
       );
     }
+
+    const schedulingEvaluation = await evaluateSchedulingForMeeting({
+      title: meeting.title,
+      organizer_user_id: meeting.organizer_user_id,
+      lead_id: meeting.lead_id,
+      prospect_id: meeting.prospect_id,
+      client_id: meeting.client_id,
+      start_time: startTime,
+      end_time: endTime,
+      calendar_key: (meeting as Record<string, unknown>).calendar_key as string | null | undefined,
+      excluded_meeting_id: id,
+    });
 
     // CRIT-2: Generate code before the transaction to avoid using pool inside tx.
     // The DB unique constraint on meeting_code remains the authoritative collision guard.
@@ -493,6 +637,7 @@ export const meetingService = {
         meeting_status: 'SCHEDULED',
         reminder_sent: false,
         parent_meeting_id: id,   // AC-029: link back to original meeting
+        ...schedulingEvidenceUpdates(schedulingEvaluation),
         created_by: userId ? String(userId) : undefined,
       }).returning();
 
@@ -558,7 +703,10 @@ export const meetingService = {
       console.error('[Meeting] Failed to notify attendees of reschedule:', notifErr);
     }
 
-    return newMeeting;
+    return {
+      ...newMeeting,
+      ...schedulingEvidenceUpdates(schedulingEvaluation),
+    } as MeetingRow;
   },
 
   async getCalendarData(userId: number, startDate: string, endDate: string): Promise<MeetingRow[]> {

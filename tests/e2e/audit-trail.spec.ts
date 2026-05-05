@@ -45,9 +45,13 @@ vi.mock('@shared/schema', () => ({
     id: 'id',
     entity_type: 'entity_type',
     entity_id: 'entity_id',
+    event_type: 'event_type',
     action: 'action',
     actor_id: 'actor_id',
     actor_role: 'actor_role',
+    actor_source: 'actor_source',
+    source_system: 'source_system',
+    source_channel: 'source_channel',
     changes: 'changes',
     previous_hash: 'previous_hash',
     record_hash: 'record_hash',
@@ -66,6 +70,10 @@ import {
   logAuditEvent,
   logAuditBatch,
   computeDiff,
+  buildAuditChangeEnvelope,
+  buildAuditMetadata,
+  normalizeAuditAction,
+  normalizeAuditEventName,
   redactSensitive,
   redactPii,
 } from '../../server/services/audit-logger';
@@ -86,6 +94,13 @@ describe('Audit Logger Service Structure', () => {
 
   it('exports computeDiff as a function', () => {
     expect(typeof computeDiff).toBe('function');
+  });
+
+  it('exports normalized audit taxonomy helpers', () => {
+    expect(typeof normalizeAuditEventName).toBe('function');
+    expect(typeof normalizeAuditAction).toBe('function');
+    expect(typeof buildAuditChangeEnvelope).toBe('function');
+    expect(typeof buildAuditMetadata).toBe('function');
   });
 
   it('exports redactSensitive as a function', () => {
@@ -215,6 +230,19 @@ describe('Audit Record Immutability', () => {
     };
     expect(event.metadata).toHaveProperty('approvalRequestId');
     expect(event.metadata).toHaveProperty('tier');
+  });
+
+  it('AuditEvent supports normalized source context', () => {
+    const event: AuditEvent = {
+      entityType: 'client_statement',
+      entityId: '42',
+      action: 'STATEMENT_DOWNLOADED',
+      actorId: 'portal-user-1',
+      actorSource: 'CLIENT_PORTAL',
+      source: { system: 'TRUST_OMS', channel: 'CLIENT_PORTAL', component: 'statement-service' },
+    };
+    expect(event.actorSource).toBe('CLIENT_PORTAL');
+    expect(event.source?.channel).toBe('CLIENT_PORTAL');
   });
 
   it('auditRecords schema includes created_at timestamp', async () => {
@@ -388,6 +416,70 @@ describe('computeDiff — Before/After Diffs', () => {
 });
 
 // ============================================================================
+// 6b. Normalized taxonomy and change envelope
+// ============================================================================
+
+describe('Normalized Audit Taxonomy', () => {
+  it('preserves domain event names in normalized uppercase snake case', () => {
+    expect(normalizeAuditEventName('statementDownloaded')).toBe('STATEMENT_DOWNLOADED');
+    expect(normalizeAuditEventName('RM reassignment denied')).toBe('RM_REASSIGNMENT_DENIED');
+  });
+
+  it('maps domain event names to the audit_action enum safely', () => {
+    expect(normalizeAuditAction('CLIENT_MESSAGE_CREATED')).toBe('CREATE');
+    expect(normalizeAuditAction('CLIENT_MESSAGE_READ')).toBe('ACCESS');
+    expect(normalizeAuditAction('STATEMENT_DOWNLOADED')).toBe('EXPORT');
+    expect(normalizeAuditAction('RM_REASSIGNMENT_DENIED')).toBe('REJECT');
+    expect(normalizeAuditAction('RM_REASSIGNED')).toBe('UPDATE');
+  });
+
+  it('builds a consistent before/after/diff envelope from snapshots', () => {
+    const envelope = buildAuditChangeEnvelope({
+      before: { status: 'PENDING', amount: 10 },
+      after: { status: 'APPROVED', amount: 10 },
+    });
+    expect(envelope).toEqual({
+      before: { status: 'PENDING', amount: 10 },
+      after: { status: 'APPROVED', amount: 10 },
+      diff: { status: { old: 'PENDING', new: 'APPROVED' } },
+    });
+  });
+
+  it('keeps legacy old/new change maps as the diff portion of the envelope', () => {
+    const envelope = buildAuditChangeEnvelope({
+      changes: { assigned_rm_id: { old: 10, new: 20 } },
+    });
+    expect(envelope).toEqual({
+      before: null,
+      after: null,
+      diff: { assigned_rm_id: { old: 10, new: 20 } },
+    });
+  });
+
+  it('adds searchable event and source context to metadata', () => {
+    const metadata = buildAuditMetadata({
+      entityType: 'client_statement',
+      entityId: '42',
+      action: 'STATEMENT_DOWNLOADED',
+      actorId: 'portal-user-1',
+      actorSource: 'CLIENT',
+      source: { system: 'TRUST_OMS', channel: 'CLIENT_PORTAL', component: 'statement-service' },
+      metadata: { statement_type: 'MONTHLY' },
+    });
+    expect(metadata).toMatchObject({
+      audit_schema_version: 1,
+      event_type: 'STATEMENT_DOWNLOADED',
+      normalized_action: 'EXPORT',
+      actor_source: 'CLIENT',
+      source_system: 'TRUST_OMS',
+      source_channel: 'CLIENT_PORTAL',
+      source_component: 'statement-service',
+      statement_type: 'MONTHLY',
+    });
+  });
+});
+
+// ============================================================================
 // 7. redactSensitive — deep redaction of secrets
 // ============================================================================
 
@@ -544,6 +636,14 @@ describe('Audit Trail Query Capabilities', () => {
   it('auditRecords schema has action for filtering by action type', async () => {
     const schema = await import('@shared/schema');
     expect(schema.auditRecords).toHaveProperty('action');
+  });
+
+  it('auditRecords schema has normalized event and source fields for filtering', async () => {
+    const schema = await import('@shared/schema');
+    expect(schema.auditRecords).toHaveProperty('event_type');
+    expect(schema.auditRecords).toHaveProperty('actor_source');
+    expect(schema.auditRecords).toHaveProperty('source_system');
+    expect(schema.auditRecords).toHaveProperty('source_channel');
   });
 
   it('auditRecords schema has entity_id for filtering specific entity instances', async () => {

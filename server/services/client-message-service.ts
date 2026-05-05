@@ -10,8 +10,20 @@ import * as schema from '@shared/schema';
 import { eq, and, desc, sql, gte, lte, count } from 'drizzle-orm';
 import { NotFoundError, ForbiddenError, ValidationError } from './service-errors';
 import { notificationInboxService } from './notification-inbox-service';
+import { logAuditEvent } from './audit-logger';
+import { randomUUID } from 'crypto';
+import { clientPortalEvidenceService, portalEvidenceContext } from './client-portal-evidence-service';
 
 type ClientMessage = typeof schema.clientMessages.$inferSelect;
+
+interface MessageAuditContext {
+  actorId?: string | null;
+  actorRole?: string | null;
+  ipAddress?: string | null;
+  correlationId?: string | null;
+  sourceChannel?: string | null;
+  userAgent?: string | null;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -44,6 +56,7 @@ export const clientMessageService = {
     thread_id?: string | null;
     parent_message_id?: number | null;
     related_sr_id?: number | null;
+    audit?: MessageAuditContext;
   }): Promise<ClientMessage> {
     validateBody(data.body);
 
@@ -56,22 +69,80 @@ export const clientMessageService = {
     let threadId = data.thread_id ?? null;
 
     // If replying with a parent but no explicit thread_id, inherit from parent
-    if (!threadId && data.parent_message_id) {
+    if (data.parent_message_id) {
       const [parent] = await db
-        .select({ thread_id: schema.clientMessages.thread_id })
+        .select({
+          thread_id: schema.clientMessages.thread_id,
+          recipient_client_id: schema.clientMessages.recipient_client_id,
+        })
         .from(schema.clientMessages)
-        .where(eq(schema.clientMessages.id, data.parent_message_id))
+        .where(
+          and(
+            eq(schema.clientMessages.id, data.parent_message_id),
+            eq(schema.clientMessages.is_deleted, false),
+          ),
+        )
         .limit(1);
+
+      if (!parent) {
+        throw new NotFoundError('Parent message not found');
+      }
+
+      if (parent.recipient_client_id !== data.recipient_client_id) {
+        throw new ForbiddenError('Access denied');
+      }
+
       if (parent?.thread_id) {
         threadId = parent.thread_id;
+      }
+    } else if (threadId) {
+      const [thread] = await db
+        .select({ recipient_client_id: schema.clientMessages.recipient_client_id })
+        .from(schema.clientMessages)
+        .where(
+          and(
+            eq(schema.clientMessages.thread_id, threadId),
+            eq(schema.clientMessages.is_deleted, false),
+          ),
+        )
+        .limit(1);
+
+      if (!thread) {
+        throw new ValidationError('Thread not found');
+      }
+
+      if (thread.recipient_client_id !== data.recipient_client_id) {
+        throw new ForbiddenError('Access denied');
+      }
+    }
+
+    if (data.related_sr_id) {
+      const [sr] = await db
+        .select({ client_id: schema.serviceRequests.client_id })
+        .from(schema.serviceRequests)
+        .where(
+          and(
+            eq(schema.serviceRequests.id, data.related_sr_id),
+            eq(schema.serviceRequests.is_deleted, false),
+          ),
+        )
+        .limit(1);
+
+      if (!sr) {
+        throw new ValidationError('Related service request not found');
+      }
+
+      if (sr.client_id !== data.recipient_client_id) {
+        throw new ForbiddenError('Access denied');
       }
     }
 
     // Generate a thread_id for new threads
     if (!threadId) {
-      threadId = `thr-${Date.now()}`;
+      threadId = `thr-${randomUUID()}`;
     }
 
+    const actorId = data.audit?.actorId ?? String(data.sender_id);
     const [message] = await db
       .insert(schema.clientMessages)
       .values({
@@ -83,8 +154,36 @@ export const clientMessageService = {
         thread_id: threadId,
         parent_message_id: data.parent_message_id ?? null,
         related_sr_id: data.related_sr_id ?? null,
+        created_by: actorId,
+        updated_by: actorId,
       })
       .returning();
+
+    await logAuditEvent({
+      entityType: 'client_message',
+      entityId: String(message.id),
+      action: 'CLIENT_MESSAGE_CREATED',
+      actorId,
+      actorRole: data.audit?.actorRole ?? data.sender_type,
+      ipAddress: data.audit?.ipAddress ?? undefined,
+      correlationId: data.audit?.correlationId ?? undefined,
+      changes: {
+        sender_type: data.sender_type,
+        recipient_client_id: data.recipient_client_id,
+        thread_id: threadId,
+        parent_message_id: data.parent_message_id ?? null,
+        related_sr_id: data.related_sr_id ?? null,
+      },
+      metadata: {
+        source_channel: data.audit?.sourceChannel ?? 'CLIENT_PORTAL',
+      },
+    });
+
+    await clientPortalEvidenceService.recordMessageEvent(
+      message,
+      'MESSAGE_SENT',
+      portalEvidenceContext(data.audit),
+    ).catch(() => {});
 
     return message;
   },
@@ -133,7 +232,7 @@ export const clientMessageService = {
    * Mark a message as read. IDOR-safe: verifies the message belongs to the client.
    * Idempotent — no-op if already read.
    */
-  async markRead(messageId: number, clientId: string): Promise<void> {
+  async markRead(messageId: number, clientId: string, audit?: MessageAuditContext): Promise<void> {
     const [message] = await db
       .select()
       .from(schema.clientMessages)
@@ -154,12 +253,34 @@ export const clientMessageService = {
     }
 
     // Idempotent — only update if not already read
+    const actorId = audit?.actorId ?? clientId;
     if (!message.is_read) {
       await db
         .update(schema.clientMessages)
-        .set({ is_read: true, read_at: new Date(), updated_at: new Date() })
+        .set({ is_read: true, read_at: new Date(), updated_at: new Date(), updated_by: actorId })
         .where(eq(schema.clientMessages.id, messageId));
     }
+
+    await logAuditEvent({
+      entityType: 'client_message',
+      entityId: String(messageId),
+      action: 'CLIENT_MESSAGE_READ',
+      actorId,
+      actorRole: audit?.actorRole ?? 'CLIENT',
+      ipAddress: audit?.ipAddress ?? undefined,
+      correlationId: audit?.correlationId ?? undefined,
+      metadata: {
+        recipient_client_id: clientId,
+        was_already_read: Boolean(message.is_read),
+        source_channel: audit?.sourceChannel ?? 'CLIENT_PORTAL',
+      },
+    });
+
+    await clientPortalEvidenceService.recordMessageEvent(
+      message,
+      'MESSAGE_READ',
+      portalEvidenceContext(audit),
+    ).catch(() => {});
   },
 
   /**
@@ -254,6 +375,7 @@ export const clientMessageService = {
     parentMessageId: number,
     senderId: number,
     body: string,
+    audit?: MessageAuditContext,
   ): Promise<ClientMessage> {
     validateBody(body);
 
@@ -272,6 +394,7 @@ export const clientMessageService = {
       throw new NotFoundError('Parent message not found');
     }
 
+    const actorId = audit?.actorId ?? String(senderId);
     const [reply] = await db
       .insert(schema.clientMessages)
       .values({
@@ -283,8 +406,29 @@ export const clientMessageService = {
         thread_id: parent.thread_id,
         parent_message_id: parentMessageId,
         related_sr_id: parent.related_sr_id ?? null,
+        created_by: actorId,
+        updated_by: actorId,
       })
       .returning();
+
+    await logAuditEvent({
+      entityType: 'client_message',
+      entityId: String(reply.id),
+      action: 'CLIENT_MESSAGE_REPLIED',
+      actorId,
+      actorRole: audit?.actorRole ?? 'RM',
+      ipAddress: audit?.ipAddress ?? undefined,
+      correlationId: audit?.correlationId ?? undefined,
+      changes: {
+        recipient_client_id: parent.recipient_client_id,
+        thread_id: parent.thread_id,
+        parent_message_id: parentMessageId,
+        related_sr_id: parent.related_sr_id ?? null,
+      },
+      metadata: {
+        source_channel: audit?.sourceChannel ?? 'BACK_OFFICE',
+      },
+    });
 
     // Notify the client that they have a new message reply — fire-and-forget
     // Look up the portal user for this client to send notification

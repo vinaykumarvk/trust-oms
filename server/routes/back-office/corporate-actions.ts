@@ -17,6 +17,8 @@
 import { Router } from 'express';
 import { requireBackOfficeRole, requireAnyRole, requireCARole, denyBusinessApproval } from '../../middleware/role-auth';
 import { corporateActionsService } from '../../services/corporate-actions-service';
+import { corporateActionFeedService } from '../../services/corporate-action-feed-service';
+import { reconciliationService } from '../../services/reconciliation-service';
 import { asyncHandler } from '../../middleware/async-handler';
 import { requireApproval } from '../../middleware/maker-checker';
 import { db } from '../../db';
@@ -61,6 +63,53 @@ router.get(
   }),
 );
 
+/** POST /feeds/ingest -- Ingest an external corporate-action feed message */
+router.post(
+  '/feeds/ingest',
+  requireCARole(),
+  asyncHandler(async (req: any, res) => {
+    const { sourceSystem, format, payload } = req.body;
+    if (!sourceSystem || !format || payload === undefined) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'sourceSystem, format, and payload are required',
+        },
+      });
+    }
+
+    const result = await corporateActionFeedService.ingestFeedMessage({
+      sourceSystem,
+      format,
+      payload,
+      actorId: req.userId ? String(req.userId) : undefined,
+    });
+
+    const statusCode = result.status === 'INGESTED' ? 201 : 200;
+    res.status(statusCode).json({ data: result });
+  }),
+);
+
+/** POST /feeds/:id/replay -- Replay a stored failed feed message */
+router.post(
+  '/feeds/:id/replay',
+  requireCARole(),
+  asyncHandler(async (req: any, res) => {
+    const feedMessageId = parseInt(req.params.id, 10);
+    if (isNaN(feedMessageId)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Invalid feed message ID' },
+      });
+    }
+
+    const result = await corporateActionFeedService.replayFeedMessage(
+      feedMessageId,
+      req.userId ? String(req.userId) : undefined,
+    );
+    res.json({ data: result });
+  }),
+);
+
 /** GET / -- List corporate actions with optional filters */
 router.get(
   '/',
@@ -94,6 +143,8 @@ router.post(
       electionDeadline,
       source,
       calendarKey,
+      eventPayload,
+      dynamicFields,
     } = req.body;
 
     if (!securityId || !type || !exDate || !recordDate) {
@@ -117,6 +168,8 @@ router.post(
       electionDeadline,
       source,
       calendarKey,
+      eventPayload: eventPayload ?? dynamicFields,
+      actorId: (req as any).userId ? String((req as any).userId) : undefined,
     });
 
     res.status(201).json({ data: ca });
@@ -139,7 +192,16 @@ router.post(
       });
     }
 
-    const { option } = req.body;
+    const {
+      option,
+      channel,
+      assistedByUserId,
+      branchCode,
+      authorityEvidence,
+      captureNotes,
+      makerUserId,
+      checkerUserId,
+    } = req.body;
     if (!option) {
       return res.status(400).json({
         error: {
@@ -152,6 +214,18 @@ router.post(
     const result = await corporateActionsService.processElection(
       entitlementId,
       option,
+      {
+        channel: channel ?? 'BACK_OFFICE',
+        assistedByUserId,
+        branchCode,
+        capturedByUserId: (req as any).userId ? String((req as any).userId) : undefined,
+        makerUserId,
+        checkerUserId: makerUserId ? checkerUserId ?? ((req as any).userId ? String((req as any).userId) : undefined) : checkerUserId,
+        authorityEvidence,
+        captureNotes,
+        sourceIp: req.ip,
+        correlationId: (req as any).id ?? req.headers['x-correlation-id']?.toString(),
+      },
     );
     res.json({ data: result });
   }),
@@ -254,6 +328,29 @@ router.post(
   }),
 );
 
+/** POST /:id/reconcile-entitlements -- CA custody/accounting/client statement triad recon */
+router.post(
+  '/:id/reconcile-entitlements',
+  requireCARole(),
+  asyncHandler(async (req: any, res) => {
+    const caId = parseInt(req.params.id, 10);
+    if (isNaN(caId)) {
+      return res.status(400).json({
+        error: { code: 'INVALID_INPUT', message: 'Invalid corporate action ID' },
+      });
+    }
+
+    const date = req.body.date ?? new Date().toISOString().split('T')[0];
+    const triggeredBy = req.userId ? parseInt(String(req.userId), 10) : undefined;
+    const result = await reconciliationService.runCorporateActionEntitlementRecon(
+      caId,
+      date,
+      Number.isFinite(triggeredBy) ? triggeredBy : undefined,
+    );
+    res.status(201).json({ data: result });
+  }),
+);
+
 // ============================================================================
 // Amendment, Cancellation, Replay & Settlement Override (Phase 3C+)
 // ============================================================================
@@ -272,13 +369,13 @@ router.put(
       });
     }
 
-    const { exDate, recordDate, paymentDate, ratio, amountPerShare, electionDeadline, source, type } = req.body;
+    const { exDate, recordDate, paymentDate, ratio, amountPerShare, electionDeadline, source, type, eventPayload, dynamicFields } = req.body;
     const userId = (req as any).userId ?? 'unknown';
 
     try {
       const result = await corporateActionsService.amendEvent(
         caId,
-        { exDate, recordDate, paymentDate, ratio, amountPerShare, electionDeadline, source, type },
+        { exDate, recordDate, paymentDate, ratio, amountPerShare, electionDeadline, source, type, eventPayload: eventPayload ?? dynamicFields },
         userId,
       );
       res.json({ data: result });

@@ -9,9 +9,82 @@
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, and, sql, desc, asc, or, gte, lte, ne, inArray, isNull, count } from 'drizzle-orm';
+import {
+  appendHandoverRoutingHistory,
+  buildHandoverAuthorizationRoute,
+  evaluateHandoverCheckerAuthorization,
+  makeHandoverRoutingHistoryEntry,
+  type HandoverAuthorizationRoute,
+  type HandoverRoutingActor,
+} from './handover-routing-policy';
+import {
+  BULK_HANDOVER_DEFAULT_MAX_RETRIES,
+  computeBulkHandoverCounts,
+  computeBulkHandoverNextRetryAt,
+  estimateBulkHandoverPayloadBytes,
+  groupBulkHandoverRows,
+  makeInitialBulkHandoverResults,
+  mergeBulkHandoverGroupResult,
+  shouldRetryBulkHandoverJob,
+  validateBulkHandoverUpload,
+  type BulkHandoverGroupResult,
+  type BulkHandoverUploadRow,
+} from './handover-bulk-upload-policy';
 
 type Handover = typeof schema.handovers.$inferSelect;
 type HandoverItem = typeof schema.handoverItems.$inferSelect;
+type BulkUploadLog = typeof schema.bulkUploadLogs.$inferSelect;
+type BulkUploadFailureItem = typeof schema.bulkUploadFailureItems.$inferSelect;
+
+type HandoverRoutingUser = HandoverRoutingActor & { email?: string | null };
+
+function actorId(value: string | number | null | undefined): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function dateOrNull(value: unknown): Date | null {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(String(value));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function jsonArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? value as T[] : [];
+}
+
+function makeBulkResumeToken(uploadId: number | undefined, uploadedBy: string, createdAt: Date): string {
+  const source = `${uploadId ?? 'pending'}:${uploadedBy}:${createdAt.toISOString()}`;
+  return Buffer.from(source).toString('base64url');
+}
+
+function normalizeBulkFailureStatus(status?: string): string {
+  return (status ?? 'OPEN').trim().toUpperCase();
+}
+
+function makeRouteUpdate(route: HandoverAuthorizationRoute, history: unknown, action: 'ROUTED' | 'AUTHORIZED' | 'ESCALATED' | 'REROUTED', actor: string | number | null, reason?: string | null, details?: Record<string, unknown>, at: Date = new Date()): Record<string, unknown> {
+  return {
+    source_branch_id: route.sourceBranchId,
+    target_branch_id: route.targetBranchId,
+    authorization_route: route.routeType,
+    checker_branch_id: route.checkerBranchId,
+    secondary_checker_branch_id: route.secondaryCheckerBranchId,
+    required_checker_role: route.requiredCheckerRole,
+    authorization_owner_team: action === 'ESCALATED' ? route.escalationTeam : route.ownerTeam,
+    authorization_due_at: route.authorizationDueAt,
+    escalation_due_at: route.escalationDueAt,
+    routing_snapshot: {
+      ...route.snapshot,
+      last_action: action,
+      last_action_at: at.toISOString(),
+      last_actor_id: actor,
+    },
+    routing_history: appendHandoverRoutingHistory(
+      history,
+      makeHandoverRoutingHistoryEntry(route, action, actor, reason, details, at),
+    ),
+  };
+}
 
 export const handoverService = {
   // ---------------------------------------------------------------------------
@@ -209,10 +282,25 @@ export const handoverService = {
       ...(data.incoming_srm_id ? [data.incoming_srm_id] : []),
     ];
     const rmUsers = await db
-      .select({ id: schema.users.id, full_name: schema.users.full_name })
+      .select({
+        id: schema.users.id,
+        full_name: schema.users.full_name,
+        email: schema.users.email,
+        role: schema.users.role,
+        branch_id: schema.users.branch_id,
+        office: schema.users.office,
+      })
       .from(schema.users)
       .where(inArray(schema.users.id, rmIds));
     const rmNameMap = new Map(rmUsers.map((u: any) => [u.id, u.full_name]));
+    const rmUserMap = new Map<number, HandoverRoutingUser>(rmUsers.map((u: any) => [Number(u.id), {
+      id: Number(u.id),
+      full_name: u.full_name ?? null,
+      email: u.email ?? null,
+      role: u.role ?? null,
+      branch_id: u.branch_id ?? null,
+      office: u.office ?? null,
+    }]));
 
     // Generate handover number: HAM-YYYY-NNNNNN
     const year = new Date().getFullYear();
@@ -227,6 +315,22 @@ export const handoverService = {
     const now = new Date();
     const slaDeadline = new Date(now);
     slaDeadline.setHours(slaDeadline.getHours() + 48);
+    const route = buildHandoverAuthorizationRoute({
+      outgoingRm: rmUserMap.get(data.outgoing_rm_id) ?? null,
+      incomingRm: rmUserMap.get(data.incoming_rm_id) ?? null,
+      createdBy: data.created_by,
+      now,
+      slaDeadline,
+    });
+    const routeUpdate = makeRouteUpdate(
+      route,
+      [],
+      'ROUTED',
+      data.created_by,
+      'HANDOVER_CREATED',
+      { outgoing_rm_id: data.outgoing_rm_id, incoming_rm_id: data.incoming_rm_id },
+      now,
+    );
 
     // Insert the handover record
     const [handover] = await db
@@ -246,6 +350,7 @@ export const handoverService = {
         incoming_srm_name: data.incoming_srm_id ? (rmNameMap.get(data.incoming_srm_id) ?? null) : null,
         status: 'pending_auth',
         sla_deadline: slaDeadline,
+        ...routeUpdate,
         is_bulk_upload: false,
         requires_client_consent: data.entity_type === 'client',
         created_by: data.created_by,
@@ -316,7 +421,19 @@ export const handoverService = {
         item_count: data.items.length,
         outgoing_rm_id: data.outgoing_rm_id,
         incoming_rm_id: data.incoming_rm_id,
+        authorization_route: route.routeType,
+        checker_branch_id: route.checkerBranchId,
+        owner_team: route.ownerTeam,
       },
+    });
+
+    await this.createAuditEntry({
+      event_type: 'handover_authorization_routed',
+      reference_type: 'handover',
+      reference_id: handover.id,
+      actor_id: parseInt(data.created_by, 10) || 1,
+      actor_role: 'system',
+      details: route.snapshot,
     });
 
     // Send notification to incoming RM
@@ -857,6 +974,48 @@ export const handoverService = {
       return { error: 'Checker cannot authorize own submissions (segregation of duties)', status: 403 };
     }
 
+    const routingUserIds = [req.outgoing_rm_id, req.incoming_rm_id, Number(checkerId)]
+      .filter((value): value is number => Number.isFinite(Number(value)) && Number(value) > 0)
+      .map(Number);
+    const routingUsers = routingUserIds.length > 0
+      ? await db
+          .select({
+            id: schema.users.id,
+            full_name: schema.users.full_name,
+            email: schema.users.email,
+            role: schema.users.role,
+            branch_id: schema.users.branch_id,
+            office: schema.users.office,
+          })
+          .from(schema.users)
+          .where(inArray(schema.users.id, Array.from(new Set(routingUserIds))))
+      : [];
+    const routingUserMap = new Map<number, HandoverRoutingUser>(routingUsers.map((u: any) => [Number(u.id), {
+      id: Number(u.id),
+      full_name: u.full_name ?? null,
+      email: u.email ?? null,
+      role: u.role ?? null,
+      branch_id: u.branch_id ?? null,
+      office: u.office ?? null,
+    }]));
+    const now = new Date();
+    const route = buildHandoverAuthorizationRoute({
+      handoverId: req.id,
+      handoverNumber: req.handover_number,
+      outgoingRm: routingUserMap.get(req.outgoing_rm_id) ?? null,
+      incomingRm: routingUserMap.get(req.incoming_rm_id) ?? null,
+      sourceBranchId: req.source_branch_id ?? null,
+      targetBranchId: req.target_branch_id ?? null,
+      createdBy: req.created_by,
+      now,
+      slaDeadline: req.authorization_due_at ?? req.sla_deadline ?? null,
+    });
+    const checker = routingUserMap.get(Number(checkerId)) ?? null;
+    const routeDecision = evaluateHandoverCheckerAuthorization(route, checker, req.created_by);
+    if (!routeDecision.allowed) {
+      return { error: routeDecision.error, status: routeDecision.status };
+    }
+
     // HAM-GAP-016: All mandatory (non-not_applicable) scrutiny checklist items must be completed before authorization
     const pendingScrutinyItems = await db
       .select({ id: schema.scrutinyChecklistItems.id, validation_label: schema.scrutinyChecklistItems.validation_label })
@@ -874,7 +1033,6 @@ export const handoverService = {
     }
 
     // Update handover status to authorized
-    const now = new Date();
     const updated = await db
       .update(schema.handovers)
       .set({
@@ -882,6 +1040,18 @@ export const handoverService = {
         authorized_by: Number(checkerId) || null,
         authorized_at: now,
         version: req.version + 1,
+        ...makeRouteUpdate(
+          route,
+          req.routing_history,
+          'AUTHORIZED',
+          checkerId,
+          'CHECKER_APPROVED',
+          {
+            checker_branch_id: checker?.branch_id ?? null,
+            checker_role: checker?.role ?? null,
+          },
+          now,
+        ),
         updated_by: checkerId,
         updated_at: now,
       })
@@ -972,12 +1142,18 @@ export const handoverService = {
 
     // Create audit log
     await this.createAuditEntry({
-      event_type: 'status_authorized',
+      event_type: 'handover_authorized',
       reference_type: 'handover',
       reference_id: id,
       actor_id: Number(checkerId) || 0,
       actor_role: 'system',
-      details: { version: req.version + 1, entities_transferred: items.length },
+      details: {
+        version: req.version + 1,
+        entities_transferred: items.length,
+        authorization_route: route.routeType,
+        checker_branch_id: route.checkerBranchId,
+        owner_team: route.ownerTeam,
+      },
     });
 
     // Notify the outgoing RM
@@ -1022,6 +1198,47 @@ export const handoverService = {
       return { error: 'Checker cannot reject own submissions', status: 403 };
     }
 
+    const routingUserIds = [req.outgoing_rm_id, req.incoming_rm_id, Number(checkerId)]
+      .filter((value): value is number => Number.isFinite(Number(value)) && Number(value) > 0)
+      .map(Number);
+    const routingUsers = routingUserIds.length > 0
+      ? await db
+          .select({
+            id: schema.users.id,
+            full_name: schema.users.full_name,
+            email: schema.users.email,
+            role: schema.users.role,
+            branch_id: schema.users.branch_id,
+            office: schema.users.office,
+          })
+          .from(schema.users)
+          .where(inArray(schema.users.id, Array.from(new Set(routingUserIds))))
+      : [];
+    const routingUserMap = new Map<number, HandoverRoutingUser>(routingUsers.map((u: any) => [Number(u.id), {
+      id: Number(u.id),
+      full_name: u.full_name ?? null,
+      email: u.email ?? null,
+      role: u.role ?? null,
+      branch_id: u.branch_id ?? null,
+      office: u.office ?? null,
+    }]));
+    const route = buildHandoverAuthorizationRoute({
+      handoverId: req.id,
+      handoverNumber: req.handover_number,
+      outgoingRm: routingUserMap.get(req.outgoing_rm_id) ?? null,
+      incomingRm: routingUserMap.get(req.incoming_rm_id) ?? null,
+      sourceBranchId: req.source_branch_id ?? null,
+      targetBranchId: req.target_branch_id ?? null,
+      createdBy: req.created_by,
+      now: new Date(),
+      slaDeadline: req.authorization_due_at ?? req.sla_deadline ?? null,
+    });
+    const checker = routingUserMap.get(Number(checkerId)) ?? null;
+    const routeDecision = evaluateHandoverCheckerAuthorization(route, checker, req.created_by);
+    if (!routeDecision.allowed) {
+      return { error: routeDecision.error, status: routeDecision.status };
+    }
+
     const now = new Date();
     const updated = await db
       .update(schema.handovers)
@@ -1042,12 +1259,18 @@ export const handoverService = {
     }
 
     await this.createAuditEntry({
-      event_type: 'status_rejected',
+      event_type: 'handover_rejected',
       reference_type: 'handover',
       reference_id: id,
       actor_id: Number(checkerId) || 0,
       actor_role: 'system',
-      details: { reason, version: req.version + 1 },
+      details: {
+        reason,
+        version: req.version + 1,
+        authorization_route: route.routeType,
+        checker_branch_id: route.checkerBranchId,
+        owner_team: route.ownerTeam,
+      },
     });
 
     // Notify the outgoing RM
@@ -1856,134 +2079,339 @@ export const handoverService = {
   },
 
   /**
-   * Process a bulk upload: create individual handover requests per group.
+   * Queue a durable bulk upload job. Rows are persisted before any handover
+   * creation so the job can be resumed or retried after worker failure.
    */
-  async processBulkUpload(
-    rows: Array<{
-      entity_type: string;
-      entity_id: string;
-      entity_name: string;
-      outgoing_rm_id: number;
-      incoming_rm_id: number;
-      reason?: string;
-      aum?: number;
-    }>,
+  async queueBulkUpload(
+    rows: BulkHandoverUploadRow[],
     uploaderId: string,
-  ): Promise<{ upload_id: number; total_rows: number; success_count: number; failure_count: number; results: Array<{ group_key: string; success: boolean; error?: string; handover_id?: number }> }> {
-    // Create upload log
+    options: { fileName?: string; maxRetries?: number; idempotencyKey?: string } = {},
+  ): Promise<{ upload_id: number; status: string; total_rows: number; resume_token: string; payload_bytes: number }> {
+    const validation = validateBulkHandoverUpload(rows);
+    if (!validation.valid) {
+      throw new Error(validation.errors.join('; '));
+    }
+
+    const now = new Date();
+    const initialResults = makeInitialBulkHandoverResults(rows);
     const [uploadLog] = await db
       .insert(schema.bulkUploadLogs)
       .values({
         uploaded_by: Number(uploaderId) || 0,
-        file_name: `bulk-upload-${Date.now()}.csv`,
-        file_size_bytes: 0,
+        upload_type: 'client_handover',
+        idempotency_key: options.idempotencyKey ?? null,
+        file_name: options.fileName ?? `bulk-upload-${now.getTime()}.json`,
+        file_size_bytes: validation.payloadBytes,
         total_rows: rows.length,
         success_count: 0,
         error_count: 0,
         error_details: null,
-        status: 'processing',
+        input_rows: rows,
+        row_results: initialResults,
+        group_results: initialResults,
+        processing_cursor: 0,
+        retry_count: 0,
+        max_retries: options.maxRetries ?? BULK_HANDOVER_DEFAULT_MAX_RETRIES,
+        next_retry_at: null,
+        started_at: null,
+        last_attempt_at: null,
+        last_error: null,
+        locked_at: null,
+        locked_by: null,
+        resume_token: makeBulkResumeToken(undefined, uploaderId, now),
+        is_background: true,
+        status: 'queued',
         created_by: uploaderId,
         updated_by: uploaderId,
       })
       .returning();
 
-    // Group rows by outgoing_rm + incoming_rm + entity_type
-    const groups = new Map<string, typeof rows>();
-    for (const row of rows) {
-      const key = `${row.entity_type}-${row.outgoing_rm_id}-${row.incoming_rm_id}`;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(row);
+    const resumeToken = (uploadLog as any)?.resume_token ?? makeBulkResumeToken((uploadLog as any)?.id, uploaderId, now);
+    if ((uploadLog as any)?.id && !(uploadLog as any)?.resume_token) {
+      await db
+        .update(schema.bulkUploadLogs)
+        .set({ resume_token: resumeToken, updated_at: now, updated_by: uploaderId })
+        .where(eq(schema.bulkUploadLogs.id, (uploadLog as any).id));
     }
 
-    let successCount = 0;
-    let failureCount = 0;
-    const results: Array<{ group_key: string; success: boolean; error?: string; handover_id?: number }> = [];
+    await this.createAuditEntry({
+      event_type: 'bulk_upload_queued',
+      reference_type: 'bulk_upload',
+      reference_id: (uploadLog as any)?.id ?? 0,
+      actor_id: Number(uploaderId) || 0,
+      actor_role: 'maker',
+      details: {
+        total_rows: rows.length,
+        payload_bytes: validation.payloadBytes,
+        group_count: initialResults.length,
+        max_retries: options.maxRetries ?? BULK_HANDOVER_DEFAULT_MAX_RETRIES,
+      },
+    });
 
-    for (const [key, groupRows] of groups) {
-      const firstRow = groupRows[0];
+    return {
+      upload_id: (uploadLog as any)?.id,
+      status: 'queued',
+      total_rows: rows.length,
+      resume_token: resumeToken,
+      payload_bytes: validation.payloadBytes,
+    };
+  },
+
+  /**
+   * Process a durable bulk upload job. Successful groups are skipped on retry,
+   * while failed/pending groups can be resumed until max_retries is reached.
+   */
+  async processBulkUploadJob(
+    uploadId: number,
+    workerId: string = 'system',
+  ): Promise<{ upload_id: number; status: string; total_rows: number; success_count: number; failure_count: number; retry_count: number; next_retry_at: Date | null; results: BulkHandoverGroupResult[] }> {
+    const [uploadLog] = await db
+      .select()
+      .from(schema.bulkUploadLogs)
+      .where(eq(schema.bulkUploadLogs.id, uploadId))
+      .limit(1) as BulkUploadLog[];
+
+    if (!uploadLog) {
+      throw new Error(`Bulk upload job ${uploadId} not found`);
+    }
+
+    const rows = jsonArray<BulkHandoverUploadRow>((uploadLog as any).input_rows);
+    if (rows.length === 0) {
+      const emptyResults = jsonArray<BulkHandoverGroupResult>((uploadLog as any).group_results);
+      return {
+        upload_id: uploadId,
+        status: String(uploadLog.status ?? 'failed'),
+        total_rows: uploadLog.total_rows ?? 0,
+        success_count: uploadLog.success_count ?? 0,
+        failure_count: uploadLog.error_count ?? 0,
+        retry_count: (uploadLog as any).retry_count ?? 0,
+        next_retry_at: dateOrNull((uploadLog as any).next_retry_at),
+        results: emptyResults,
+      };
+    }
+
+    const now = new Date();
+    await db
+      .update(schema.bulkUploadLogs)
+      .set({
+        status: 'processing',
+        started_at: (uploadLog as any).started_at ?? now,
+        last_attempt_at: now,
+        locked_at: now,
+        locked_by: workerId,
+        updated_at: now,
+        updated_by: workerId,
+      })
+      .where(eq(schema.bulkUploadLogs.id, uploadId));
+
+    await this.createAuditEntry({
+      event_type: 'bulk_upload_attempt_started',
+      reference_type: 'bulk_upload',
+      reference_id: uploadId,
+      actor_id: actorId(workerId),
+      actor_role: 'system',
+      details: {
+        retry_count: (uploadLog as any).retry_count ?? 0,
+        max_retries: (uploadLog as any).max_retries ?? BULK_HANDOVER_DEFAULT_MAX_RETRIES,
+      },
+    });
+
+    const groups = groupBulkHandoverRows(rows);
+    let groupResults = jsonArray<BulkHandoverGroupResult>((uploadLog as any).group_results);
+    if (groupResults.length === 0) {
+      groupResults = makeInitialBulkHandoverResults(rows);
+    }
+    const resultMap = new Map(groupResults.map((result) => [result.group_key, result]));
+
+    for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+      const group = groups[groupIndex];
+      const previous = resultMap.get(group.groupKey);
+      if (previous?.status === 'success') {
+        continue;
+      }
+
+      const firstRow = group.rows[0];
       try {
         const result = await this.createHandoverRequest({
           entity_type: firstRow.entity_type as any,
           outgoing_rm_id: firstRow.outgoing_rm_id,
           incoming_rm_id: firstRow.incoming_rm_id,
           reason: firstRow.reason ?? 'Bulk upload handover',
-          items: groupRows.map((r) => ({
+          items: group.rows.map((r) => ({
             entity_id: r.entity_id,
             entity_name_en: r.entity_name,
             aum: r.aum,
           })),
-          created_by: uploaderId,
+          created_by: String(uploadLog.uploaded_by ?? workerId),
         });
-        successCount += groupRows.length;
         const handoverId = (result as any)?.id;
-        results.push({ group_key: key, success: true, handover_id: handoverId });
+        groupResults = mergeBulkHandoverGroupResult(groupResults, {
+          group_key: group.groupKey,
+          row_numbers: group.rowNumbers,
+          status: 'success',
+          attempts: (previous?.attempts ?? 0) + 1,
+          handover_id: handoverId,
+          updated_at: new Date().toISOString(),
+        });
         // HAM-GAP-006: per-row audit log entry for successful group
-        for (const row of groupRows) {
+        for (const row of group.rows) {
           await this.createAuditEntry({
             event_type: 'bulk_row_processed',
             reference_type: 'bulk_upload',
             reference_id: uploadLog.id,
-            actor_id: Number(uploaderId) || 0,
+            actor_id: Number(uploadLog.uploaded_by) || 0,
             actor_role: 'system',
             details: { entity_type: row.entity_type, entity_id: row.entity_id, entity_name: row.entity_name, handover_id: handoverId, status: 'success' },
           });
         }
+        await db
+          .update(schema.bulkUploadFailureItems)
+          .set({
+            failure_status: 'RESOLVED_BY_RETRY',
+            resolution_code: 'GROUP_REPROCESSED_SUCCESSFULLY',
+            resolution_notes: 'Bulk upload group succeeded during a later processing attempt.',
+            resolved_by: actorId(workerId) || null,
+            resolved_at: new Date(),
+            linked_handover_id: handoverId ?? null,
+            updated_at: new Date(),
+            updated_by: workerId,
+          } as any)
+          .where(and(
+            eq(schema.bulkUploadFailureItems.upload_id, uploadLog.id),
+            eq(schema.bulkUploadFailureItems.group_key, group.groupKey),
+            sql`${schema.bulkUploadFailureItems.failure_status} IN ('OPEN', 'ASSIGNED', 'RETRY_FAILED')`,
+          ));
       } catch (err: any) {
-        failureCount += groupRows.length;
         const errorMsg: string = err.message ?? 'Unknown error';
-        results.push({ group_key: key, success: false, error: errorMsg });
+        groupResults = mergeBulkHandoverGroupResult(groupResults, {
+          group_key: group.groupKey,
+          row_numbers: group.rowNumbers,
+          status: 'failed',
+          attempts: (previous?.attempts ?? 0) + 1,
+          error: errorMsg,
+          updated_at: new Date().toISOString(),
+        });
         // HAM-GAP-006: per-row audit log entry for failed group
-        for (const row of groupRows) {
+        for (const row of group.rows) {
           await this.createAuditEntry({
             event_type: 'bulk_row_failed',
             reference_type: 'bulk_upload',
             reference_id: uploadLog.id,
-            actor_id: Number(uploaderId) || 0,
+            actor_id: Number(uploadLog.uploaded_by) || 0,
             actor_role: 'system',
             details: { entity_type: row.entity_type, entity_id: row.entity_id, entity_name: row.entity_name, error: errorMsg, status: 'failed' },
           });
+          await db.insert(schema.bulkUploadFailureItems).values({
+            upload_id: uploadLog.id,
+            group_key: group.groupKey,
+            row_number: group.rowNumbers[group.rows.indexOf(row)] ?? 0,
+            row_payload: row,
+            error_message: errorMsg,
+            failure_status: 'OPEN',
+            created_by: String(uploadLog.uploaded_by ?? workerId),
+            updated_by: workerId,
+          } as any);
+          await this.createAuditEntry({
+            event_type: 'bulk_failure_queued',
+            reference_type: 'bulk_upload',
+            reference_id: uploadLog.id,
+            actor_id: Number(uploadLog.uploaded_by) || 0,
+            actor_role: 'system',
+            details: { group_key: group.groupKey, row_number: group.rowNumbers[group.rows.indexOf(row)] ?? 0, error: errorMsg },
+          });
         }
       }
+
+      const interimCounts = computeBulkHandoverCounts(groupResults);
+      await db
+        .update(schema.bulkUploadLogs)
+        .set({
+          group_results: groupResults,
+          row_results: groupResults,
+          success_count: interimCounts.successCount,
+          error_count: interimCounts.failureCount,
+          processing_cursor: groupIndex + 1,
+          updated_at: new Date(),
+          updated_by: workerId,
+        })
+        .where(eq(schema.bulkUploadLogs.id, uploadId));
     }
 
-    // Update upload log
+    const counts = computeBulkHandoverCounts(groupResults);
+    const nextRetryCount = counts.failureCount > 0 ? ((uploadLog as any).retry_count ?? 0) + 1 : ((uploadLog as any).retry_count ?? 0);
+    const maxRetries = (uploadLog as any).max_retries ?? BULK_HANDOVER_DEFAULT_MAX_RETRIES;
+    const retryable = shouldRetryBulkHandoverJob(nextRetryCount, maxRetries, counts.failureCount);
+    const nextRetryAt = retryable ? computeBulkHandoverNextRetryAt(new Date(), nextRetryCount) : null;
+    const finalStatus = counts.failureCount === 0
+      ? 'completed'
+      : retryable
+        ? 'retry_pending'
+        : counts.successCount > 0
+          ? 'partially_completed'
+          : 'failed';
+
     await db
       .update(schema.bulkUploadLogs)
       .set({
-        success_count: successCount,
-        error_count: failureCount,
-        status: failureCount === rows.length ? 'failed' : 'completed',
-        error_details: failureCount > 0 ? JSON.stringify(results.filter((r: any) => !r.success)) : null,
+        success_count: counts.successCount,
+        error_count: counts.failureCount,
+        status: finalStatus,
+        retry_count: nextRetryCount,
+        next_retry_at: nextRetryAt,
+        error_details: groupResults.filter((r) => r.status === 'failed'),
+        last_error: groupResults.find((r) => r.status === 'failed')?.error ?? null,
+        locked_at: null,
+        locked_by: null,
+        completed_at: finalStatus === 'completed' || finalStatus === 'failed' || finalStatus === 'partially_completed' ? new Date() : null,
         updated_at: new Date(),
+        updated_by: workerId,
       })
-      .where(eq(schema.bulkUploadLogs.id, uploadLog.id));
+      .where(eq(schema.bulkUploadLogs.id, uploadId));
 
     await this.createAuditEntry({
-      event_type: 'bulk_upload_processed',
+      event_type: 'bulk_upload_attempt_completed',
       reference_type: 'bulk_upload',
-      reference_id: uploadLog.id,
-      actor_id: Number(uploaderId) || 0,
-      actor_role: 'maker',
-      details: { total: rows.length, success: successCount, failure: failureCount },
+      reference_id: uploadId,
+      actor_id: actorId(workerId),
+      actor_role: 'system',
+      details: {
+        total: rows.length,
+        success: counts.successCount,
+        failure: counts.failureCount,
+        status: finalStatus,
+        retry_count: nextRetryCount,
+        next_retry_at: nextRetryAt,
+      },
     });
 
+    if (retryable) {
+      await this.createAuditEntry({
+        event_type: 'bulk_upload_retry_scheduled',
+        reference_type: 'bulk_upload',
+        reference_id: uploadId,
+        actor_id: actorId(workerId),
+        actor_role: 'system',
+        details: { retry_count: nextRetryCount, next_retry_at: nextRetryAt, max_retries: maxRetries },
+      });
+    }
+
     // HAM-GAP-007: Notify the uploader and their branch supervisor(s) of bulk upload completion
-    const uploaderId_num = Number(uploaderId) || 0;
-    if (uploaderId_num > 0) {
+    const uploaderIdNum = Number(uploadLog.uploaded_by) || 0;
+    if (uploaderIdNum > 0 && finalStatus !== 'retry_pending') {
       await this.createNotification({
         notification_type: 'bulk_upload_completed',
-        recipient_user_id: uploaderId_num,
+        recipient_user_id: uploaderIdNum,
         subject: 'Bulk Upload Completed',
-        body: `Bulk handover upload completed: ${successCount} succeeded, ${failureCount} failed out of ${rows.length} total rows.`,
+        body: `Bulk handover upload ${finalStatus}: ${counts.successCount} succeeded, ${counts.failureCount} failed out of ${rows.length} total rows.`,
         reference_type: 'bulk_upload',
-        reference_id: uploadLog.id,
+        reference_id: uploadId,
       });
 
       // Notify branch supervisor(s) of the uploader
       const [uploaderRow] = await db
         .select({ branch_id: schema.users.branch_id })
         .from(schema.users)
-        .where(eq(schema.users.id, uploaderId_num))
+        .where(eq(schema.users.id, uploaderIdNum))
         .limit(1);
       if (uploaderRow?.branch_id) {
         const supervisors = await db
@@ -1996,14 +2424,14 @@ export const handoverService = {
             ),
           );
         for (const sup of supervisors) {
-          if (sup.id !== uploaderId_num) {
+          if (sup.id !== uploaderIdNum) {
             await this.createNotification({
               notification_type: 'bulk_upload_supervisor_alert',
               recipient_user_id: sup.id,
               subject: 'Bulk Handover Upload Requires Review',
-              body: `User ${uploaderId_num} completed a bulk handover upload with ${successCount} succeeded and ${failureCount} failed rows. Please review the pending handover requests.`,
+              body: `User ${uploaderIdNum} completed a bulk handover upload with ${counts.successCount} succeeded and ${counts.failureCount} failed rows. Please review the pending handover requests.`,
               reference_type: 'bulk_upload',
-              reference_id: uploadLog.id,
+              reference_id: uploadId,
             });
           }
         }
@@ -2011,12 +2439,41 @@ export const handoverService = {
     }
 
     return {
-      upload_id: uploadLog.id,
+      upload_id: uploadId,
+      status: finalStatus,
       total_rows: rows.length,
-      success_count: successCount,
-      failure_count: failureCount,
-      results,
+      success_count: counts.successCount,
+      failure_count: counts.failureCount,
+      retry_count: nextRetryCount,
+      next_retry_at: nextRetryAt,
+      results: groupResults,
     };
+  },
+
+  /**
+   * Backward-compatible wrapper: persist the job, then run one processing
+   * attempt immediately. Workers can call processBulkUploadJob later to resume.
+   */
+  async processBulkUpload(
+    rows: BulkHandoverUploadRow[],
+    uploaderId: string,
+  ): Promise<{ upload_id: number; status: string; total_rows: number; success_count: number; failure_count: number; retry_count: number; next_retry_at: Date | null; results: BulkHandoverGroupResult[] }> {
+    const queued = await this.queueBulkUpload(rows, uploaderId, {
+      fileName: `bulk-upload-${Date.now()}.json`,
+    });
+    if (!queued.upload_id) {
+      return {
+        upload_id: queued.upload_id,
+        status: queued.status,
+        total_rows: rows.length,
+        success_count: 0,
+        failure_count: 0,
+        retry_count: 0,
+        next_retry_at: null,
+        results: makeInitialBulkHandoverResults(rows),
+      };
+    }
+    return this.processBulkUploadJob(queued.upload_id, uploaderId);
   },
 
   /**
@@ -2029,6 +2486,201 @@ export const handoverService = {
       .where(eq(schema.bulkUploadLogs.id, id))
       .limit(1);
     return log ?? null;
+  },
+
+  async listBulkUploadFailures(filters: {
+    upload_id?: number;
+    status?: string;
+    assigned_to?: number;
+    page?: number;
+    pageSize?: number;
+  } = {}): Promise<{ data: BulkUploadFailureItem[]; total: number; page: number; pageSize: number }> {
+    const page = filters.page ?? 1;
+    const pageSize = Math.min(filters.pageSize ?? 25, 100);
+    const offset = (page - 1) * pageSize;
+    const conditions = [eq(schema.bulkUploadFailureItems.is_deleted, false)];
+    if (filters.upload_id) conditions.push(eq(schema.bulkUploadFailureItems.upload_id, filters.upload_id));
+    if (filters.status) conditions.push(eq(schema.bulkUploadFailureItems.failure_status, normalizeBulkFailureStatus(filters.status)));
+    if (filters.assigned_to) conditions.push(eq(schema.bulkUploadFailureItems.assigned_to, filters.assigned_to));
+    const where = and(...conditions);
+
+    const [data, countRows] = await Promise.all([
+      db
+        .select()
+        .from(schema.bulkUploadFailureItems)
+        .where(where)
+        .orderBy(desc(schema.bulkUploadFailureItems.created_at))
+        .limit(pageSize)
+        .offset(offset),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.bulkUploadFailureItems)
+        .where(where),
+    ]);
+
+    return { data, total: Number(countRows[0]?.count ?? 0), page, pageSize };
+  },
+
+  async assignBulkUploadFailure(failureId: number, assigneeId: number, actorUserId: string): Promise<BulkUploadFailureItem> {
+    const [failure] = await db
+      .select()
+      .from(schema.bulkUploadFailureItems)
+      .where(and(eq(schema.bulkUploadFailureItems.id, failureId), eq(schema.bulkUploadFailureItems.is_deleted, false)))
+      .limit(1);
+    if (!failure) throw new Error(`Bulk upload failure ${failureId} not found`);
+    if (['RESOLVED', 'WAIVED', 'RETRY_RESOLVED', 'RESOLVED_BY_RETRY'].includes(failure.failure_status)) {
+      throw new Error(`Cannot assign failure in ${failure.failure_status} status`);
+    }
+
+    const now = new Date();
+    const [updated] = await db
+      .update(schema.bulkUploadFailureItems)
+      .set({
+        failure_status: 'ASSIGNED',
+        assigned_to: assigneeId,
+        assigned_at: now,
+        updated_at: now,
+        updated_by: actorUserId,
+      } as any)
+      .where(eq(schema.bulkUploadFailureItems.id, failureId))
+      .returning();
+
+    await this.createAuditEntry({
+      event_type: 'bulk_failure_assigned',
+      reference_type: 'bulk_upload',
+      reference_id: failure.upload_id,
+      actor_id: actorId(actorUserId),
+      actor_role: 'operator',
+      details: { failure_id: failureId, assigned_to: assigneeId },
+    });
+
+    return updated;
+  },
+
+  async resolveBulkUploadFailure(failureId: number, actorUserId: string, data: {
+    resolution_code: 'RESOLVED' | 'WAIVED';
+    resolution_notes?: string;
+  }): Promise<BulkUploadFailureItem> {
+    const status = normalizeBulkFailureStatus(data.resolution_code);
+    if (!['RESOLVED', 'WAIVED'].includes(status)) {
+      throw new Error('resolution_code must be RESOLVED or WAIVED');
+    }
+    const [failure] = await db
+      .select()
+      .from(schema.bulkUploadFailureItems)
+      .where(and(eq(schema.bulkUploadFailureItems.id, failureId), eq(schema.bulkUploadFailureItems.is_deleted, false)))
+      .limit(1);
+    if (!failure) throw new Error(`Bulk upload failure ${failureId} not found`);
+
+    const now = new Date();
+    const [updated] = await db
+      .update(schema.bulkUploadFailureItems)
+      .set({
+        failure_status: status,
+        resolution_code: status,
+        resolution_notes: data.resolution_notes ?? null,
+        resolved_by: actorId(actorUserId) || null,
+        resolved_at: now,
+        updated_at: now,
+        updated_by: actorUserId,
+      } as any)
+      .where(eq(schema.bulkUploadFailureItems.id, failureId))
+      .returning();
+
+    await this.createAuditEntry({
+      event_type: 'bulk_failure_resolved',
+      reference_type: 'bulk_upload',
+      reference_id: failure.upload_id,
+      actor_id: actorId(actorUserId),
+      actor_role: 'operator',
+      details: { failure_id: failureId, resolution_code: status, resolution_notes: data.resolution_notes ?? null },
+    });
+
+    return updated;
+  },
+
+  async retryBulkUploadFailure(
+    failureId: number,
+    actorUserId: string,
+    rowOverride: Partial<BulkHandoverUploadRow> = {},
+  ): Promise<BulkUploadFailureItem> {
+    const [failure] = await db
+      .select()
+      .from(schema.bulkUploadFailureItems)
+      .where(and(eq(schema.bulkUploadFailureItems.id, failureId), eq(schema.bulkUploadFailureItems.is_deleted, false)))
+      .limit(1);
+    if (!failure) throw new Error(`Bulk upload failure ${failureId} not found`);
+    if (['RESOLVED', 'WAIVED', 'RETRY_RESOLVED', 'RESOLVED_BY_RETRY'].includes(failure.failure_status)) {
+      throw new Error(`Cannot retry failure in ${failure.failure_status} status`);
+    }
+
+    const row = { ...(failure.row_payload as Record<string, unknown>), ...rowOverride } as BulkHandoverUploadRow;
+    const now = new Date();
+    try {
+      const result = await this.createHandoverRequest({
+        entity_type: row.entity_type as any,
+        outgoing_rm_id: row.outgoing_rm_id,
+        incoming_rm_id: row.incoming_rm_id,
+        reason: row.reason ?? 'Bulk upload remediation retry',
+        items: [{
+          entity_id: row.entity_id,
+          entity_name_en: row.entity_name,
+          aum: row.aum,
+        }],
+        created_by: actorUserId,
+      });
+      const handoverId = (result as any)?.id ?? null;
+      const [updated] = await db
+        .update(schema.bulkUploadFailureItems)
+        .set({
+          failure_status: 'RETRY_RESOLVED',
+          retry_count: (failure.retry_count ?? 0) + 1,
+          last_retried_at: now,
+          linked_handover_id: handoverId,
+          resolution_code: 'RETRIED_SUCCESSFULLY',
+          resolution_notes: 'Single failed row was retried from the remediation workbench.',
+          resolved_by: actorId(actorUserId) || null,
+          resolved_at: now,
+          updated_at: now,
+          updated_by: actorUserId,
+        } as any)
+        .where(eq(schema.bulkUploadFailureItems.id, failureId))
+        .returning();
+
+      await this.createAuditEntry({
+        event_type: 'bulk_failure_retried',
+        reference_type: 'bulk_upload',
+        reference_id: failure.upload_id,
+        actor_id: actorId(actorUserId),
+        actor_role: 'operator',
+        details: { failure_id: failureId, status: 'success', linked_handover_id: handoverId },
+      });
+      return updated;
+    } catch (err: any) {
+      const errorMessage = err?.message ?? 'Retry failed';
+      const [updated] = await db
+        .update(schema.bulkUploadFailureItems)
+        .set({
+          failure_status: 'RETRY_FAILED',
+          retry_count: (failure.retry_count ?? 0) + 1,
+          last_retried_at: now,
+          error_message: errorMessage,
+          updated_at: now,
+          updated_by: actorUserId,
+        } as any)
+        .where(eq(schema.bulkUploadFailureItems.id, failureId))
+        .returning();
+
+      await this.createAuditEntry({
+        event_type: 'bulk_failure_retried',
+        reference_type: 'bulk_upload',
+        reference_id: failure.upload_id,
+        actor_id: actorId(actorUserId),
+        actor_role: 'operator',
+        details: { failure_id: failureId, status: 'failed', error: errorMessage },
+      });
+      return updated;
+    }
   },
 
   // ---------------------------------------------------------------------------
@@ -2047,10 +2699,55 @@ export const handoverService = {
       .limit(1);
     const deadlineHours = slaCfg?.deadline_hours ?? 48;
     const slaDeadline = new Date(Date.now() + deadlineHours * 60 * 60 * 1000);
+    const now = new Date();
+
+    const rmUsers = await db
+      .select({
+        id: schema.users.id,
+        full_name: schema.users.full_name,
+        email: schema.users.email,
+        role: schema.users.role,
+        branch_id: schema.users.branch_id,
+        office: schema.users.office,
+      })
+      .from(schema.users)
+      .where(inArray(schema.users.id, [handover.outgoing_rm_id, handover.incoming_rm_id]));
+    const rmUserMap = new Map<number, HandoverRoutingUser>(rmUsers.map((u: any) => [Number(u.id), {
+      id: Number(u.id),
+      full_name: u.full_name ?? null,
+      email: u.email ?? null,
+      role: u.role ?? null,
+      branch_id: u.branch_id ?? null,
+      office: u.office ?? null,
+    }]));
+    const route = buildHandoverAuthorizationRoute({
+      handoverId: handover.id,
+      handoverNumber: handover.handover_number,
+      outgoingRm: rmUserMap.get(handover.outgoing_rm_id) ?? null,
+      incomingRm: rmUserMap.get(handover.incoming_rm_id) ?? null,
+      sourceBranchId: handover.source_branch_id ?? null,
+      targetBranchId: handover.target_branch_id ?? null,
+      createdBy: handover.created_by,
+      now,
+      slaDeadline,
+    });
 
     await db
       .update(schema.handovers)
-      .set({ status: 'pending_auth', sla_deadline: slaDeadline, updated_at: new Date() })
+      .set({
+        status: 'pending_auth',
+        sla_deadline: slaDeadline,
+        ...makeRouteUpdate(
+          route,
+          handover.routing_history,
+          'ROUTED',
+          userId,
+          'HANDOVER_SUBMITTED',
+          { previous_status: 'draft' },
+          now,
+        ),
+        updated_at: now,
+      })
       .where(eq(schema.handovers.id, id));
 
     await this.createAuditEntry({
@@ -2059,7 +2756,22 @@ export const handoverService = {
       reference_id: id,
       actor_id: userId,
       actor_role: 'RM',
-      details: { previous_status: 'draft', sla_deadline: slaDeadline },
+      details: {
+        previous_status: 'draft',
+        sla_deadline: slaDeadline,
+        authorization_route: route.routeType,
+        checker_branch_id: route.checkerBranchId,
+        owner_team: route.ownerTeam,
+      },
+    });
+
+    await this.createAuditEntry({
+      event_type: 'handover_authorization_routed',
+      reference_type: 'handover',
+      reference_id: id,
+      actor_id: userId,
+      actor_role: 'system',
+      details: route.snapshot,
     });
 
     return { success: true };
@@ -2248,6 +2960,129 @@ export const handoverService = {
     return rows.filter((h: typeof schema.handovers.$inferSelect) => h.sla_deadline != null && new Date(h.sla_deadline) < now);
   },
 
+  async escalateOverdueAuthorizations(options: {
+    now?: Date;
+    actorId?: string | number;
+    reason?: string;
+  } = {}): Promise<{ escalated: number; results: Array<{ id: number; handover_number: string | null; route_type: string; escalated_to_team: string }> }> {
+    const now = options.now ?? new Date();
+    const reason = options.reason ?? 'AUTHORIZATION_SLA_BREACH';
+    const rows = await db
+      .select()
+      .from(schema.handovers)
+      .where(
+        and(
+          eq(schema.handovers.status, 'pending_auth'),
+          eq(schema.handovers.is_deleted, false),
+        ),
+      )
+      .orderBy(schema.handovers.authorization_due_at);
+
+    const overdue = rows.filter((handover: Handover) => {
+      if ((handover as any).escalated_at) return false;
+      const dueAt = dateOrNull((handover as any).authorization_due_at) ?? dateOrNull(handover.sla_deadline);
+      return dueAt != null && dueAt.getTime() < now.getTime();
+    });
+
+    const rmIds: number[] = Array.from(new Set<number>(overdue.flatMap((handover: any) => [
+      handover.outgoing_rm_id,
+      handover.incoming_rm_id,
+    ]).filter((id: unknown): id is number => Number.isFinite(Number(id)) && Number(id) > 0).map(Number)));
+    const rmUsers = rmIds.length > 0
+      ? await db
+          .select({
+            id: schema.users.id,
+            full_name: schema.users.full_name,
+            email: schema.users.email,
+            role: schema.users.role,
+            branch_id: schema.users.branch_id,
+            office: schema.users.office,
+          })
+          .from(schema.users)
+          .where(inArray(schema.users.id, rmIds))
+      : [];
+    const rmUserMap = new Map<number, HandoverRoutingUser>(rmUsers.map((u: any) => [Number(u.id), {
+      id: Number(u.id),
+      full_name: u.full_name ?? null,
+      email: u.email ?? null,
+      role: u.role ?? null,
+      branch_id: u.branch_id ?? null,
+      office: u.office ?? null,
+    }]));
+
+    const results: Array<{ id: number; handover_number: string | null; route_type: string; escalated_to_team: string }> = [];
+    for (const handover of overdue as Handover[]) {
+      const route = buildHandoverAuthorizationRoute({
+        handoverId: handover.id,
+        handoverNumber: handover.handover_number,
+        outgoingRm: rmUserMap.get(handover.outgoing_rm_id) ?? null,
+        incomingRm: rmUserMap.get(handover.incoming_rm_id) ?? null,
+        sourceBranchId: (handover as any).source_branch_id ?? null,
+        targetBranchId: (handover as any).target_branch_id ?? null,
+        createdBy: handover.created_by,
+        now,
+        slaDeadline: (handover as any).authorization_due_at ?? handover.sla_deadline ?? null,
+      });
+      const routeUpdate = makeRouteUpdate(
+        route,
+        (handover as any).routing_history,
+        'ESCALATED',
+        options.actorId ?? 'system',
+        reason,
+        { previous_owner_team: (handover as any).authorization_owner_team ?? route.ownerTeam },
+        now,
+      );
+
+      await db
+        .update(schema.handovers)
+        .set({
+          ...routeUpdate,
+          escalated_at: now,
+          escalated_to_team: route.escalationTeam,
+          escalation_reason: reason,
+          updated_at: now,
+          updated_by: String(options.actorId ?? 'system'),
+        })
+        .where(eq(schema.handovers.id, handover.id));
+
+      await this.createAuditEntry({
+        event_type: 'handover_authorization_escalated',
+        reference_type: 'handover',
+        reference_id: handover.id,
+        actor_id: actorId(options.actorId ?? '0'),
+        actor_role: 'system',
+        details: {
+          reason,
+          authorization_route: route.routeType,
+          previous_owner_team: (handover as any).authorization_owner_team ?? route.ownerTeam,
+          escalated_to_team: route.escalationTeam,
+          authorization_due_at: ((handover as any).authorization_due_at ?? handover.sla_deadline ?? null),
+        },
+      });
+
+      const recipientId = Number((handover as any).authorization_owner_user_id ?? handover.incoming_srm_id ?? handover.incoming_branch_rm_id ?? 0);
+      if (recipientId > 0) {
+        await this.createNotification({
+          notification_type: 'handover_authorization_escalated',
+          recipient_user_id: recipientId,
+          subject: 'Handover Authorization Escalated',
+          body: `Handover ${handover.handover_number} breached its authorization SLA and has been escalated to ${route.escalationTeam}.`,
+          reference_type: 'handover',
+          reference_id: handover.id,
+        });
+      }
+
+      results.push({
+        id: handover.id,
+        handover_number: handover.handover_number,
+        route_type: route.routeType,
+        escalated_to_team: route.escalationTeam,
+      });
+    }
+
+    return { escalated: results.length, results };
+  },
+
   // ---------------------------------------------------------------------------
   // SLA status helper
   // ---------------------------------------------------------------------------
@@ -2265,7 +3100,7 @@ export const handoverService = {
   // Notification helper
   // ---------------------------------------------------------------------------
   async createNotification(params: {
-    notification_type: 'handover_initiated' | 'handover_authorized' | 'handover_rejected' | 'delegation_started' | 'delegation_expiring' | 'delegation_expired' | 'delegation_early_terminated' | 'delegation_extension_requested' | 'delegation_extension_approved' | 'bulk_upload_supervisor_alert' | 'bulk_upload_completed' | 'batch_auth_complete';
+    notification_type: 'handover_initiated' | 'handover_authorized' | 'handover_rejected' | 'delegation_started' | 'delegation_expiring' | 'delegation_expired' | 'delegation_early_terminated' | 'delegation_extension_requested' | 'delegation_extension_approved' | 'bulk_upload_supervisor_alert' | 'bulk_upload_completed' | 'batch_auth_complete' | 'handover_authorization_escalated';
     recipient_user_id: number;
     recipient_email?: string;
     subject: string;

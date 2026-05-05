@@ -1,17 +1,25 @@
 /**
- * Admin Console -- Phase 5B (BRD Screen #13)
+ * Admin Console — Enterprise-Grade Operational Page
  *
  * System administration interface with four tabs:
- *   1. Users — CRUD for user accounts with role assignment
- *   2. Roles — View 23 BRD roles with permission counts
- *   3. System Configuration — Key-value config management
- *   4. Feature Flags — Toggle switches for platform features
+ *   1. Users — CRUD for user accounts with role assignment (real API)
+ *   2. Roles & Permissions — BRD-defined roles (read-only, with user counts)
+ *   3. System Configuration — Key-value config management (real API)
+ *   4. Feature Flags — Toggle switches for platform features (real API)
  *
- * Uses in-memory stub data for all tabs since dedicated admin tables
- * are not yet wired up. The UI structure and interaction patterns are
- * what matter for this phase.
+ * All data is fetched from live API endpoints:
+ *   GET /api/v1/auth/users — list users
+ *   POST /api/v1/auth/users — create user
+ *   PATCH /api/v1/auth/users/:id — update user
+ *   GET /api/v1/system-config — list system configs
+ *   PUT /api/v1/system-config/:key — update config value
+ *   POST /api/v1/system-config/:key/changes — create new config entry
  */
+
 import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@ui/lib/queryClient";
+import { apiUrl } from "@ui/lib/api-url";
 import { Card, CardContent, CardHeader, CardTitle } from "@ui/components/ui/card";
 import { Badge } from "@ui/components/ui/badge";
 import { Button } from "@ui/components/ui/button";
@@ -28,199 +36,133 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@ui/components/ui/select";
-import { Separator } from "@ui/components/ui/separator";
+import { Textarea } from "@ui/components/ui/textarea";
 import {
   Users, ShieldCheck, Settings, ToggleLeft, Plus, Pencil,
-  UserX, UserCheck, Search, Eye, Save, RefreshCw, ChevronRight,
-  Lock, Unlock, Key, Info,
+  UserX, UserCheck, Search, Save, RefreshCw,
+  Lock, Key, Info, AlertTriangle, CheckCircle2, XCircle,
+  Building2, Shield, Eye,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-interface StubUser {
+interface User {
   id: number;
-  fullName: string;
-  email: string;
-  role: string;
-  status: "Active" | "Inactive";
-  lastLogin: string;
+  username: string | null;
+  full_name: string | null;
+  email: string | null;
+  role: string | null;
+  department: string | null;
+  office: string | null;
+  timezone: string | null;
+  branch_id: number | null;
+  client_id: string | null;
+  is_active: boolean | null;
+  mfa_enabled: boolean | null;
+  last_login: string | null;
+  created_at: string | null;
 }
 
-interface StubRole {
+interface SystemConfigEntry {
   id: number;
-  name: string;
-  office: string;
-  description: string;
-  permissionCount: number;
-  permissions: string[];
-}
-
-interface ConfigEntry {
-  key: string;
-  value: string;
-  description: string;
-  category: string;
-}
-
-interface FeatureFlag {
-  key: string;
-  label: string;
-  description: string;
-  enabled: boolean;
-  category: string;
+  config_key: string;
+  config_value: string;
+  value_type: string;
+  category: string | null;
+  description: string | null;
+  is_sensitive: boolean;
+  is_deleted: boolean;
+  min_value: string | null;
+  max_value: string | null;
+  scope_type: string | null;
+  scope_id: string | null;
+  requires_approval: boolean | null;
+  version: number;
+  updated_by: string | null;
+  updated_at: string | null;
+  created_at: string | null;
 }
 
 // ---------------------------------------------------------------------------
-// Stub Data: Users
+// Constants
 // ---------------------------------------------------------------------------
 
-const INITIAL_USERS: StubUser[] = [
-  { id: 1, fullName: "Maria Santos", email: "m.santos@trustbank.ph", role: "Trust Officer", status: "Active", lastLogin: "2026-04-18 09:15" },
-  { id: 2, fullName: "Jose Reyes", email: "j.reyes@trustbank.ph", role: "Fund Manager", status: "Active", lastLogin: "2026-04-18 08:42" },
-  { id: 3, fullName: "Ana Cruz", email: "a.cruz@trustbank.ph", role: "CCO", status: "Active", lastLogin: "2026-04-17 16:30" },
-  { id: 4, fullName: "Ramon Garcia", email: "r.garcia@trustbank.ph", role: "Trader", status: "Active", lastLogin: "2026-04-18 07:55" },
-  { id: 5, fullName: "Elena Rivera", email: "e.rivera@trustbank.ph", role: "Operations Head", status: "Active", lastLogin: "2026-04-18 08:10" },
-  { id: 6, fullName: "Pedro Lim", email: "p.lim@trustbank.ph", role: "Settlement Officer", status: "Active", lastLogin: "2026-04-17 17:00" },
-  { id: 7, fullName: "Carmen Tan", email: "c.tan@trustbank.ph", role: "RM", status: "Active", lastLogin: "2026-04-18 09:01" },
-  { id: 8, fullName: "Miguel Aquino", email: "m.aquino@trustbank.ph", role: "Risk Analyst", status: "Inactive", lastLogin: "2026-03-15 14:22" },
-  { id: 9, fullName: "Isabella Mendoza", email: "i.mendoza@trustbank.ph", role: "System Admin", status: "Active", lastLogin: "2026-04-18 06:30" },
-  { id: 10, fullName: "Luis Dela Cruz", email: "l.delacruz@trustbank.ph", role: "Auditor", status: "Active", lastLogin: "2026-04-16 11:45" },
-  { id: 11, fullName: "Sofia Villanueva", email: "s.villanueva@trustbank.ph", role: "DPO", status: "Active", lastLogin: "2026-04-17 09:20" },
-  { id: 12, fullName: "Roberto Fernandez", email: "r.fernandez@trustbank.ph", role: "Trust Business Head", status: "Active", lastLogin: "2026-04-18 08:00" },
-];
+const BRD_ROLES = [
+  { name: "RELATIONSHIP_MANAGER", office: "Front Office", description: "Manages client relationships, meetings, and proposals", permissions: 12 },
+  { name: "SENIOR_RM", office: "Front Office", description: "Senior relationship manager with oversight duties", permissions: 15 },
+  { name: "TRADER", office: "Front Office", description: "Executes trade orders and manages order lifecycle", permissions: 10 },
+  { name: "SENIOR_TRADER", office: "Front Office", description: "Senior trader with elevated limits and approval authority", permissions: 14 },
+  { name: "BO_MAKER", office: "Back Office", description: "Initiates back-office operations and data entry", permissions: 18 },
+  { name: "BO_CHECKER", office: "Back Office", description: "Approves back-office transactions (maker-checker)", permissions: 16 },
+  { name: "BO_HEAD", office: "Back Office", description: "Head of back-office with full administrative control", permissions: 24 },
+  { name: "MO_MAKER", office: "Middle Office", description: "Initiates middle-office risk and compliance operations", permissions: 14 },
+  { name: "MO_CHECKER", office: "Middle Office", description: "Approves middle-office submissions", permissions: 12 },
+  { name: "RISK_OFFICER", office: "Compliance", description: "Monitors portfolio risk limits and alerts", permissions: 11 },
+  { name: "CRO", office: "Executive", description: "Chief Risk Officer with full risk oversight", permissions: 20 },
+  { name: "COMPLIANCE_OFFICER", office: "Compliance", description: "Manages regulatory compliance and reporting", permissions: 16 },
+  { name: "DPO", office: "Compliance", description: "Data Protection Officer for DSAR and privacy", permissions: 13 },
+  { name: "INTERNAL_AUDITOR", office: "Compliance", description: "Conducts internal audit reviews and trail access", permissions: 8 },
+  { name: "AUDITOR", office: "Compliance", description: "External auditor with read-only audit access", permissions: 5 },
+  { name: "SYSTEM_ADMIN", office: "System", description: "Full system administration and configuration access", permissions: 30 },
+  { name: "HEAD_TELLER", office: "Back Office", description: "Manages teller operations and cash handling", permissions: 10 },
+  { name: "TREASURY", office: "Middle Office", description: "Treasury operations and fund management", permissions: 12 },
+  { name: "TREASURY_SND", office: "Middle Office", description: "Treasury settlements and delivery", permissions: 11 },
+  { name: "FI_OPERATION", office: "Back Office", description: "Fixed income operations processing", permissions: 9 },
+  { name: "TRADE_SERVICE", office: "Back Office", description: "Trade servicing and settlement operations", permissions: 10 },
+  { name: "BSM", office: "Executive", description: "Branch Service Manager with branch-level oversight", permissions: 17 },
+  { name: "CLIENT", office: "System", description: "Client portal user with self-service access", permissions: 6 },
+] as const;
+
+const OFFICE_GROUPS = ["Front Office", "Middle Office", "Back Office", "Compliance", "Executive", "System"] as const;
+
+const CONFIG_CATEGORIES = ["General", "Security", "Integration", "Notification", "Compliance", "Operations", "FEATURE_FLAG"] as const;
 
 // ---------------------------------------------------------------------------
-// Stub Data: 23 BRD Roles
-// ---------------------------------------------------------------------------
-
-const STUB_ROLES: StubRole[] = [
-  { id: 1, name: "Trust Business Head", office: "Front Office", description: "Overall trust business oversight and P&L responsibility", permissionCount: 45, permissions: ["VIEW_ALL", "APPROVE_HIGH_VALUE", "EXECUTIVE_DASHBOARD", "KILL_SWITCH_INVOKE", "AUM_REPORTS", "REVENUE_REPORTS"] },
-  { id: 2, name: "CRO", office: "Risk", description: "Chief Risk Officer — enterprise risk oversight", permissionCount: 38, permissions: ["VIEW_ALL_RISK", "COMPLIANCE_OVERRIDE", "ORE_MANAGE", "RISK_DASHBOARD", "KILL_SWITCH_INVOKE", "SURVEILLANCE_VIEW"] },
-  { id: 3, name: "CCO", office: "Compliance", description: "Chief Compliance Officer — regulatory and compliance oversight", permissionCount: 42, permissions: ["COMPLIANCE_MANAGE", "STR_FILE", "SURVEILLANCE_MANAGE", "WHISTLEBLOWER_MANAGE", "BREACH_RESOLVE", "KYC_OVERRIDE"] },
-  { id: 4, name: "Trust Officer", office: "Front Office", description: "Manages client trust accounts and mandate execution", permissionCount: 28, permissions: ["ORDER_CREATE", "PORTFOLIO_VIEW", "CLIENT_MANAGE", "MANDATE_VIEW", "SUITABILITY_CHECK"] },
-  { id: 5, name: "Fund Manager", office: "Front Office", description: "Manages UITF/PMT fund portfolios and investment decisions", permissionCount: 32, permissions: ["ORDER_CREATE", "ORDER_APPROVE", "PORTFOLIO_MANAGE", "REBALANCE", "MODEL_PORTFOLIO_MANAGE", "NAV_VIEW"] },
-  { id: 6, name: "RM", office: "Front Office", description: "Relationship Manager — client advisory and onboarding", permissionCount: 22, permissions: ["CLIENT_VIEW", "CLIENT_ONBOARD", "SUITABILITY_RUN", "RM_DASHBOARD", "ORDER_VIEW"] },
-  { id: 7, name: "Trader", office: "Front Office", description: "Executes orders on exchanges and OTC markets", permissionCount: 18, permissions: ["ORDER_EXECUTE", "BLOCK_MANAGE", "FILL_RECORD", "MARKET_VIEW", "BROKER_SELECT"] },
-  { id: 8, name: "Operations Head", office: "Middle Office", description: "Oversees all middle and back-office operations", permissionCount: 40, permissions: ["SETTLEMENT_MANAGE", "RECON_MANAGE", "EOD_MANAGE", "CORPORATE_ACTIONS", "FEE_MANAGE", "CONTROL_TOWER"] },
-  { id: 9, name: "Settlement Officer", office: "Back Office", description: "Manages trade settlement and cash movement", permissionCount: 20, permissions: ["SETTLEMENT_PROCESS", "SSI_MANAGE", "CASH_LEDGER_VIEW", "SWIFT_SEND", "SETTLEMENT_MATCH"] },
-  { id: 10, name: "NAV Accountant", office: "Back Office", description: "Computes and publishes fund NAV/NAVpu", permissionCount: 16, permissions: ["NAV_COMPUTE", "NAV_PUBLISH", "PRICING_MANAGE", "FUND_ACCOUNTING", "ACCRUAL_MANAGE"] },
-  { id: 11, name: "Reconciliation Officer", office: "Back Office", description: "Manages daily reconciliation and break resolution", permissionCount: 15, permissions: ["RECON_RUN", "RECON_RESOLVE", "BREAK_MANAGE", "CUSTODIAN_VIEW", "POSITION_VIEW"] },
-  { id: 12, name: "Fee Billing Officer", office: "Back Office", description: "Manages fee computation, accruals, and invoicing", permissionCount: 14, permissions: ["FEE_COMPUTE", "FEE_INVOICE", "FEE_SCHEDULE_MANAGE", "ACCRUAL_VIEW", "TAX_COMPUTE"] },
-  { id: 13, name: "Tax Officer", office: "Back Office", description: "Manages withholding tax computation and BIR filings", permissionCount: 12, permissions: ["TAX_COMPUTE", "WHT_FILE", "FATCA_CRS_REPORT", "TAX_SCHEDULE_MANAGE"] },
-  { id: 14, name: "Corporate Actions Officer", office: "Back Office", description: "Processes dividends, coupons, maturities, and other corporate actions", permissionCount: 14, permissions: ["CORP_ACTION_PROCESS", "ENTITLEMENT_COMPUTE", "DIVIDEND_MANAGE", "COUPON_MANAGE"] },
-  { id: 15, name: "Compliance Officer", office: "Compliance", description: "Monitors compliance rules, pre/post-trade checks", permissionCount: 25, permissions: ["COMPLIANCE_MONITOR", "BREACH_VIEW", "RULE_MANAGE", "LIMIT_MANAGE", "VALIDATION_OVERRIDE"] },
-  { id: 16, name: "AML Officer", office: "Compliance", description: "Anti-money laundering monitoring, STR/CTR filing", permissionCount: 20, permissions: ["AML_MONITOR", "STR_FILE", "CTR_FILE", "SANCTIONS_CHECK", "KYC_REVIEW"] },
-  { id: 17, name: "Risk Analyst", office: "Risk", description: "Quantitative risk analysis (VaR, duration, stress testing)", permissionCount: 18, permissions: ["RISK_COMPUTE", "VAR_VIEW", "STRESS_TEST", "DURATION_ANALYZE", "RISK_REPORT"] },
-  { id: 18, name: "Surveillance Analyst", office: "Compliance", description: "Trade surveillance and pattern detection", permissionCount: 15, permissions: ["SURVEILLANCE_VIEW", "ALERT_DISPOSITION", "PATTERN_ANALYZE", "SAR_FILE"] },
-  { id: 19, name: "Auditor", office: "Audit", description: "Internal audit with read-only access to all modules", permissionCount: 30, permissions: ["AUDIT_VIEW_ALL", "AUDIT_LOG_VIEW", "REPORT_GENERATE", "TRAIL_EXPORT"] },
-  { id: 20, name: "DPO", office: "Compliance", description: "Data Protection Officer — PDPA compliance and consent management", permissionCount: 18, permissions: ["DPA_MANAGE", "CONSENT_VIEW", "PII_AUDIT", "BREACH_NOTIFY", "RETENTION_MANAGE"] },
-  { id: 21, name: "System Admin", office: "IT", description: "System configuration, user management, and platform administration", permissionCount: 50, permissions: ["ADMIN_ALL", "USER_MANAGE", "ROLE_MANAGE", "CONFIG_MANAGE", "FEATURE_FLAG_MANAGE", "SYSTEM_HEALTH"] },
-  { id: 22, name: "Client (Portal)", office: "External", description: "Client self-service portal with read-only portfolio access", permissionCount: 8, permissions: ["OWN_PORTFOLIO_VIEW", "OWN_STATEMENT_VIEW", "OWN_NAV_VIEW", "CONSENT_MANAGE"] },
-  { id: 23, name: "Whistleblower (Anonymous)", office: "External", description: "Anonymous incident reporting access only", permissionCount: 2, permissions: ["WHISTLEBLOWER_SUBMIT", "CASE_STATUS_VIEW"] },
-];
-
-// ---------------------------------------------------------------------------
-// Stub Data: System Configuration
-// ---------------------------------------------------------------------------
-
-const INITIAL_CONFIGS: ConfigEntry[] = [
-  { key: "session_timeout_minutes", value: "30", description: "Session timeout in minutes for all users", category: "Security" },
-  { key: "mfa_required", value: "true", description: "Require multi-factor authentication for all users", category: "Security" },
-  { key: "password_min_length", value: "12", description: "Minimum password length requirement", category: "Security" },
-  { key: "password_expiry_days", value: "90", description: "Days before password expiration", category: "Security" },
-  { key: "max_login_attempts", value: "5", description: "Maximum failed login attempts before lockout", category: "Security" },
-  { key: "lockout_duration_minutes", value: "30", description: "Account lockout duration after max attempts", category: "Security" },
-  { key: "maker_checker_tiers", value: "3", description: "Number of maker-checker approval tiers", category: "Workflow" },
-  { key: "high_value_threshold_php", value: "50000000", description: "PHP amount threshold for high-value order approval", category: "Workflow" },
-  { key: "stp_target_pct", value: "92", description: "Target STP rate percentage for operations", category: "Operations" },
-  { key: "eod_cutoff_time", value: "17:00", description: "End-of-day processing cutoff time (PH time)", category: "Operations" },
-  { key: "nav_publication_time", value: "16:30", description: "Target time for UITF NAVpu publication", category: "Operations" },
-  { key: "recon_auto_match_tolerance", value: "0.01", description: "Tolerance for auto-matching reconciliation entries", category: "Operations" },
-  { key: "uitf_min_initial_php", value: "10000", description: "Minimum initial UITF participation amount", category: "Products" },
-  { key: "pera_annual_limit_php", value: "200000", description: "PERA annual contribution limit per RA 9505", category: "Products" },
-  { key: "data_retention_years", value: "10", description: "Years to retain transaction and audit data", category: "Compliance" },
-  { key: "aml_threshold_php", value: "500000", description: "AML covered transaction reporting threshold", category: "Compliance" },
-  { key: "kyc_refresh_years", value: "3", description: "KYC refresh cadence in years", category: "Compliance" },
-  { key: "api_rate_limit_per_minute", value: "120", description: "API rate limit per user per minute", category: "System" },
-  { key: "audit_log_level", value: "INFO", description: "Audit logging verbosity level", category: "System" },
-  { key: "notification_channels", value: "EMAIL,SMS,IN_APP", description: "Enabled notification channels", category: "System" },
-];
-
-// ---------------------------------------------------------------------------
-// Stub Data: Feature Flags
-// ---------------------------------------------------------------------------
-
-const INITIAL_FEATURE_FLAGS: FeatureFlag[] = [
-  { key: "AI_SUITABILITY", label: "AI Suitability Assessment", description: "AI-powered client suitability scoring and recommendation engine", enabled: true, category: "AI/ML" },
-  { key: "ESG_SCORING", label: "ESG Scoring", description: "Environmental, Social, and Governance scoring for securities", enabled: false, category: "AI/ML" },
-  { key: "REAL_TIME_AUM", label: "Real-time AUM", description: "Real-time AUM computation using streaming market data", enabled: true, category: "Analytics" },
-  { key: "PREDICTIVE_CASH_FLOW", label: "Predictive Cash Flow", description: "ML-based cash flow prediction for liquidity management", enabled: false, category: "AI/ML" },
-  { key: "AUTO_REBALANCE", label: "Auto Rebalancing", description: "Automated portfolio rebalancing based on model drift thresholds", enabled: true, category: "Portfolio" },
-  { key: "PERA_MODULE", label: "PERA Module", description: "Personal Equity & Retirement Account (RA 9505) support", enabled: true, category: "Products" },
-  { key: "TRADE_SURVEILLANCE", label: "Trade Surveillance", description: "Automated trade pattern detection (wash trading, layering, etc.)", enabled: true, category: "Compliance" },
-  { key: "KILL_SWITCH", label: "Kill Switch", description: "Emergency trading halt capability", enabled: true, category: "Risk" },
-  { key: "WHISTLEBLOWER_PORTAL", label: "Whistleblower Portal", description: "Anonymous incident reporting with DPO notification", enabled: true, category: "Compliance" },
-  { key: "MULTI_CURRENCY", label: "Multi-Currency Support", description: "Support for non-PHP denominated portfolios and FX operations", enabled: true, category: "Operations" },
-  { key: "CLIENT_PORTAL", label: "Client Self-Service Portal", description: "External client portal for portfolio viewing and statements", enabled: false, category: "External" },
-  { key: "MOBILE_APP", label: "Mobile Application", description: "Mobile app for RM and client access", enabled: false, category: "External" },
-  { key: "API_V2", label: "API v2 (GraphQL)", description: "Next-generation GraphQL API endpoints", enabled: false, category: "System" },
-  { key: "DARK_MODE", label: "Dark Mode", description: "Dark theme support for all back-office screens", enabled: false, category: "UI" },
-  { key: "ADVANCED_CHARTING", label: "Advanced Charting", description: "Interactive charts with drill-down capabilities", enabled: false, category: "Analytics" },
-  { key: "BULK_ORDER_UPLOAD", label: "Bulk Order Upload", description: "CSV/Excel bulk order upload with validation", enabled: true, category: "Operations" },
-  { key: "FIX_PROTOCOL", label: "FIX Protocol", description: "FIX 4.4 integration for broker connectivity", enabled: false, category: "Integration" },
-  { key: "SWIFT_INTEGRATION", label: "SWIFT Integration", description: "SWIFT MT/MX message generation for settlements", enabled: true, category: "Integration" },
-];
-
-// ---------------------------------------------------------------------------
-// Main Component
+// Component
 // ---------------------------------------------------------------------------
 
 export default function AdminConsole() {
   const [activeTab, setActiveTab] = useState("users");
 
   return (
-    <div className="space-y-6 p-4 max-w-[1600px] mx-auto">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Admin Console</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          System administration, user management, and platform configuration
-        </p>
+    <div className="flex flex-col gap-6 p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Admin Console</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            System administration, user management, and platform configuration
+          </p>
+        </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 max-w-xl">
-          <TabsTrigger value="users" className="flex items-center gap-1.5">
-            <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">Users</span>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="users" className="flex items-center gap-2">
+            <Users className="h-4 w-4" /> Users
           </TabsTrigger>
-          <TabsTrigger value="roles" className="flex items-center gap-1.5">
-            <ShieldCheck className="h-4 w-4" />
-            <span className="hidden sm:inline">Roles</span>
+          <TabsTrigger value="roles" className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4" /> Roles & Permissions
           </TabsTrigger>
-          <TabsTrigger value="config" className="flex items-center gap-1.5">
-            <Settings className="h-4 w-4" />
-            <span className="hidden sm:inline">Configuration</span>
+          <TabsTrigger value="config" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" /> System Configuration
           </TabsTrigger>
-          <TabsTrigger value="features" className="flex items-center gap-1.5">
-            <ToggleLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">Feature Flags</span>
+          <TabsTrigger value="flags" className="flex items-center gap-2">
+            <ToggleLeft className="h-4 w-4" /> Feature Flags
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="users">
+        <TabsContent value="users" className="mt-4">
           <UsersTab />
         </TabsContent>
-        <TabsContent value="roles">
+        <TabsContent value="roles" className="mt-4">
           <RolesTab />
         </TabsContent>
-        <TabsContent value="config">
-          <ConfigTab />
+        <TabsContent value="config" className="mt-4">
+          <SystemConfigTab />
         </TabsContent>
-        <TabsContent value="features">
+        <TabsContent value="flags" className="mt-4">
           <FeatureFlagsTab />
         </TabsContent>
       </Tabs>
@@ -229,743 +171,1054 @@ export default function AdminConsole() {
 }
 
 // ===========================================================================
-// Tab 1: Users
+// USERS TAB
 // ===========================================================================
 
 function UsersTab() {
-  const [users, setUsers] = useState<StubUser[]>(INITIAL_USERS);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [editingUser, setEditingUser] = useState<StubUser | null>(null);
+  const [roleFilter, setRoleFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editUser, setEditUser] = useState<User | null>(null);
+  const [deactivateUser, setDeactivateUser] = useState<User | null>(null);
 
-  // Form state
-  const [formName, setFormName] = useState("");
-  const [formEmail, setFormEmail] = useState("");
-  const [formRole, setFormRole] = useState("");
+  const { data: usersResp, isLoading, refetch } = useQuery({
+    queryKey: ["/api/v1/users"],
+    queryFn: async () => {
+      const params = new URLSearchParams({ pageSize: "500" });
+      if (search) params.set("search", search);
+      return apiRequest("GET", apiUrl(`/api/v1/users?${params.toString()}`));
+    },
+  });
 
-  const filteredUsers = useMemo(
-    () =>
-      users.filter(
-        (u) =>
-          u.fullName.toLowerCase().includes(search.toLowerCase()) ||
-          u.email.toLowerCase().includes(search.toLowerCase()) ||
-          u.role.toLowerCase().includes(search.toLowerCase()),
-      ),
-    [users, search],
-  );
+  const users: User[] = usersResp?.data ?? usersResp?.rows ?? [];
 
-  function openAddDialog() {
-    setFormName("");
-    setFormEmail("");
-    setFormRole("");
-    setShowAddDialog(true);
-  }
+  const filteredUsers = useMemo(() => {
+    return users.filter((u) => {
+      if (roleFilter !== "ALL" && u.role !== roleFilter) return false;
+      if (statusFilter === "Active" && !u.is_active) return false;
+      if (statusFilter === "Inactive" && u.is_active) return false;
+      return true;
+    });
+  }, [users, roleFilter, statusFilter]);
 
-  function openEditDialog(user: StubUser) {
-    setFormName(user.fullName);
-    setFormEmail(user.email);
-    setFormRole(user.role);
-    setEditingUser(user);
-  }
+  const createMutation = useMutation({
+    mutationFn: (data: Partial<User>) => apiRequest("POST", apiUrl("/api/v1/users"), data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/users"] });
+      setCreateOpen(false);
+    },
+  });
 
-  function handleSaveUser() {
-    if (!formName || !formEmail || !formRole) return;
+  const updateMutation = useMutation({
+    mutationFn: ({ id, ...data }: Partial<User> & { id: number }) =>
+      apiRequest("PATCH", apiUrl(`/api/v1/users/${id}`), data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/users"] });
+      setEditUser(null);
+    },
+  });
 
-    if (editingUser) {
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === editingUser.id
-            ? { ...u, fullName: formName, email: formEmail, role: formRole }
-            : u,
-        ),
-      );
-      setEditingUser(null);
-    } else {
-      const newUser: StubUser = {
-        id: Math.max(...users.map((u) => u.id)) + 1,
-        fullName: formName,
-        email: formEmail,
-        role: formRole,
-        status: "Active",
-        lastLogin: "Never",
-      };
-      setUsers((prev) => [...prev, newUser]);
-      setShowAddDialog(false);
+  const deactivateMutation = useMutation({
+    mutationFn: (id: number) =>
+      apiRequest("PATCH", apiUrl(`/api/v1/users/${id}`), { is_active: false }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/users"] });
+      setDeactivateUser(null);
+    },
+  });
+
+  function statusBadge(user: User) {
+    if (!user.is_active) {
+      return <Badge variant="secondary">Inactive</Badge>;
     }
+    return <Badge variant="default" className="bg-green-600">Active</Badge>;
   }
-
-  function toggleUserStatus(userId: number) {
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === userId
-          ? { ...u, status: u.status === "Active" ? "Inactive" : "Active" }
-          : u,
-      ),
-    );
-  }
-
-  const roleOptions = STUB_ROLES.map((r) => r.name);
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base">User Management</CardTitle>
-          <Button size="sm" onClick={openAddDialog}>
-            <Plus className="h-4 w-4 mr-1" />
-            Add User
-          </Button>
-        </div>
-        <div className="flex items-center gap-2 mt-2">
-          <Search className="h-4 w-4 text-muted-foreground" />
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search users by name, email, or role..."
+            placeholder="Search users..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="max-w-sm"
+            onKeyDown={(e) => e.key === "Enter" && refetch()}
+            className="pl-9"
           />
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto rounded-md border overflow-hidden">
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by role" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All Roles</SelectItem>
+            {BRD_ROLES.map((r) => (
+              <SelectItem key={r.name} value={r.name}>{r.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All Status</SelectItem>
+            <SelectItem value="Active">Active</SelectItem>
+            <SelectItem value="Inactive">Inactive</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          <RefreshCw className="h-4 w-4 mr-1" /> Refresh
+        </Button>
+        <Button size="sm" onClick={() => setCreateOpen(true)}>
+          <Plus className="h-4 w-4 mr-1" /> Create User
+        </Button>
+      </div>
+
+      {/* Summary */}
+      <div className="flex gap-4">
+        <Card className="flex-1">
+          <CardContent className="py-3 flex items-center gap-2">
+            <Users className="h-5 w-5 text-blue-500" />
+            <div>
+              <div className="text-lg font-semibold">{users.length}</div>
+              <div className="text-xs text-muted-foreground">Total Users</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="flex-1">
+          <CardContent className="py-3 flex items-center gap-2">
+            <UserCheck className="h-5 w-5 text-green-500" />
+            <div>
+              <div className="text-lg font-semibold">{users.filter((u) => u.is_active).length}</div>
+              <div className="text-xs text-muted-foreground">Active</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="flex-1">
+          <CardContent className="py-3 flex items-center gap-2">
+            <UserX className="h-5 w-5 text-red-500" />
+            <div>
+              <div className="text-lg font-semibold">{users.filter((u) => !u.is_active).length}</div>
+              <div className="text-xs text-muted-foreground">Inactive</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="flex-1">
+          <CardContent className="py-3 flex items-center gap-2">
+            <Lock className="h-5 w-5 text-amber-500" />
+            <div>
+              <div className="text-lg font-semibold">{users.filter((u) => u.mfa_enabled).length}</div>
+              <div className="text-xs text-muted-foreground">MFA Enabled</div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Table */}
+      {isLoading ? (
+        <div className="text-center py-8 text-muted-foreground">Loading users...</div>
+      ) : (
+        <div className="border rounded-md">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted">
-                <TableHead className="font-semibold w-12">ID</TableHead>
-                <TableHead className="font-semibold">Name</TableHead>
-                <TableHead className="font-semibold">Email</TableHead>
-                <TableHead className="font-semibold">Role</TableHead>
-                <TableHead className="font-semibold w-24">Status</TableHead>
-                <TableHead className="font-semibold">Last Login</TableHead>
-                <TableHead className="font-semibold w-32">Actions</TableHead>
+              <TableRow>
+                <TableHead>Username</TableHead>
+                <TableHead>Full Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Office</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Last Login</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredUsers.length > 0 ? (
+              {filteredUsers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
+                    No users found matching current filters
+                  </TableCell>
+                </TableRow>
+              ) : (
                 filteredUsers.map((user) => (
-                  <TableRow key={user.id} className="hover:bg-muted">
-                    <TableCell className="text-xs text-muted-foreground">{user.id}</TableCell>
-                    <TableCell className="font-medium text-sm">{user.fullName}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{user.email}</TableCell>
+                  <TableRow key={user.id}>
+                    <TableCell className="font-mono text-sm">{user.username}</TableCell>
+                    <TableCell>{user.full_name || "—"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{user.email || "—"}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="text-xs">
-                        {user.role}
-                      </Badge>
+                      <Badge variant="outline" className="text-xs">{user.role || "—"}</Badge>
                     </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={`text-xs ${
-                          user.status === "Active"
-                            ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200"
-                            : "bg-muted text-muted-foreground border-border"
-                        }`}
-                      >
-                        {user.status === "Active" ? (
-                          <UserCheck className="h-3 w-3 mr-1" />
-                        ) : (
-                          <UserX className="h-3 w-3 mr-1" />
+                    <TableCell className="text-sm">{user.office || "—"}</TableCell>
+                    <TableCell>{statusBadge(user)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {user.last_login ? new Date(user.last_login).toLocaleDateString() : "Never"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => setEditUser(user)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        {user.is_active && (
+                          <Button variant="ghost" size="sm" onClick={() => setDeactivateUser(user)}>
+                            <UserX className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
                         )}
-                        {user.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{user.lastLogin}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2"
-                          onClick={() => openEditDialog(user)}
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className={`h-7 px-2 ${
-                            user.status === "Active"
-                              ? "text-red-600 dark:text-red-400 hover:text-red-700 dark:text-red-300"
-                              : "text-green-600 dark:text-green-400 hover:text-green-700 dark:text-green-300"
-                          }`}
-                          onClick={() => toggleUserStatus(user.id)}
-                        >
-                          {user.status === "Active" ? (
-                            <UserX className="h-3 w-3" />
-                          ) : (
-                            <UserCheck className="h-3 w-3" />
-                          )}
-                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
                 ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                    No users match the search criteria
-                  </TableCell>
-                </TableRow>
               )}
             </TableBody>
           </Table>
         </div>
-        <div className="mt-2 text-xs text-muted-foreground">
-          Showing {filteredUsers.length} of {users.length} users
-        </div>
-      </CardContent>
+      )}
 
-      {/* Add User Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New User</DialogTitle>
-            <DialogDescription>
-              Create a new user account with role assignment
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="add-name">Full Name</Label>
-              <Input
-                id="add-name"
-                placeholder="e.g., Juan Dela Cruz"
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-email">Email</Label>
-              <Input
-                id="add-email"
-                type="email"
-                placeholder="e.g., j.delacruz@trustbank.ph"
-                value={formEmail}
-                onChange={(e) => setFormEmail(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-role">Role</Label>
-              <Select value={formRole} onValueChange={setFormRole}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {roleOptions.map((r) => (
-                    <SelectItem key={r} value={r}>
-                      {r}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveUser} disabled={!formName || !formEmail || !formRole}>
-              <Plus className="h-4 w-4 mr-1" />
-              Create User
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Create User Dialog */}
+      <UserFormDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        title="Create User"
+        onSubmit={(data) => createMutation.mutate(data)}
+        loading={createMutation.isPending}
+      />
 
       {/* Edit User Dialog */}
-      <Dialog open={editingUser !== null} onOpenChange={(open) => !open && setEditingUser(null)}>
+      {editUser && (
+        <UserFormDialog
+          open={!!editUser}
+          onOpenChange={(open) => !open && setEditUser(null)}
+          title="Edit User"
+          initialData={editUser}
+          onSubmit={(data) => updateMutation.mutate({ ...data, id: editUser.id })}
+          loading={updateMutation.isPending}
+        />
+      )}
+
+      {/* Deactivate Confirmation */}
+      <Dialog open={!!deactivateUser} onOpenChange={(open) => !open && setDeactivateUser(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Confirm Deactivation
+            </DialogTitle>
             <DialogDescription>
-              Modify user details and role assignment
+              This action will disable the user account. The user will no longer be able to log in.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="edit-name">Full Name</Label>
-              <Input
-                id="edit-name"
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-email">Email</Label>
-              <Input
-                id="edit-email"
-                type="email"
-                value={formEmail}
-                onChange={(e) => setFormEmail(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-role">Role</Label>
-              <Select value={formRole} onValueChange={setFormRole}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {roleOptions.map((r) => (
-                    <SelectItem key={r} value={r}>
-                      {r}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="py-4">
+            <p className="text-sm">
+              Are you sure you want to deactivate <strong>{deactivateUser?.full_name || deactivateUser?.username}</strong>?
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              The account can be reactivated later through the Edit dialog.
+            </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingUser(null)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveUser} disabled={!formName || !formEmail || !formRole}>
-              <Save className="h-4 w-4 mr-1" />
-              Save Changes
+            <Button variant="outline" onClick={() => setDeactivateUser(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => deactivateUser && deactivateMutation.mutate(deactivateUser.id)}
+              disabled={deactivateMutation.isPending}
+            >
+              {deactivateMutation.isPending ? "Deactivating..." : "Deactivate"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// User Form Dialog (shared for Create / Edit)
+// ---------------------------------------------------------------------------
+
+function UserFormDialog({
+  open,
+  onOpenChange,
+  title,
+  initialData,
+  onSubmit,
+  loading,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  initialData?: User;
+  onSubmit: (data: Partial<User>) => void;
+  loading: boolean;
+}) {
+  const [form, setForm] = useState({
+    username: initialData?.username || "",
+    full_name: initialData?.full_name || "",
+    email: initialData?.email || "",
+    role: initialData?.role || "",
+    office: initialData?.office || "",
+    department: initialData?.department || "",
+    is_active: initialData?.is_active ?? true,
+  });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    onSubmit(form);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>
+            {initialData ? "Update user account details and role assignment." : "Create a new user account with role assignment."}
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="username">Username</Label>
+            <Input
+              id="username"
+              value={form.username}
+              onChange={(e) => setForm({ ...form, username: e.target.value })}
+              required
+              disabled={!!initialData}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="full_name">Full Name</Label>
+            <Input
+              id="full_name"
+              value={form.full_name}
+              onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="role">Role</Label>
+            <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
+              <SelectTrigger id="role">
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
+              <SelectContent>
+                {BRD_ROLES.map((r) => (
+                  <SelectItem key={r.name} value={r.name}>{r.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="office">Office</Label>
+            <Select value={form.office} onValueChange={(v) => setForm({ ...form, office: v })}>
+              <SelectTrigger id="office">
+                <SelectValue placeholder="Select office" />
+              </SelectTrigger>
+              <SelectContent>
+                {OFFICE_GROUPS.map((o) => (
+                  <SelectItem key={o} value={o}>{o}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="department">Department</Label>
+            <Input
+              id="department"
+              value={form.department}
+              onChange={(e) => setForm({ ...form, department: e.target.value })}
+            />
+          </div>
+          {initialData && (
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <div>
+                <Label htmlFor="is_active_toggle">Account Active</Label>
+                <p className="text-xs text-muted-foreground">Toggle account active/inactive status</p>
+              </div>
+              <Switch
+                id="is_active_toggle"
+                checked={form.is_active}
+                onCheckedChange={(checked) => setForm({ ...form, is_active: checked })}
+              />
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
 // ===========================================================================
-// Tab 2: Roles
+// ROLES & PERMISSIONS TAB
 // ===========================================================================
 
 function RolesTab() {
-  const [selectedRole, setSelectedRole] = useState<StubRole | null>(null);
-  const [search, setSearch] = useState("");
+  const [selectedRole, setSelectedRole] = useState<typeof BRD_ROLES[number] | null>(null);
 
-  const filteredRoles = useMemo(
-    () =>
-      STUB_ROLES.filter(
-        (r) =>
-          r.name.toLowerCase().includes(search.toLowerCase()) ||
-          r.office.toLowerCase().includes(search.toLowerCase()) ||
-          r.description.toLowerCase().includes(search.toLowerCase()),
-      ),
-    [search],
-  );
+  const { data: usersResp } = useQuery({
+    queryKey: ["/api/v1/users"],
+    queryFn: async () => apiRequest("GET", apiUrl("/api/v1/users?pageSize=500")),
+  });
 
-  const officeGroups = useMemo(() => {
-    const groups: Record<string, StubRole[]> = {};
-    for (const role of filteredRoles) {
-      if (!groups[role.office]) groups[role.office] = [];
-      groups[role.office].push(role);
-    }
-    return groups;
-  }, [filteredRoles]);
+  const users: User[] = usersResp?.data ?? usersResp?.rows ?? [];
+
+  function getUserCountForRole(roleName: string): number {
+    return users.filter((u) => u.role === roleName && u.is_active).length;
+  }
 
   return (
-    <>
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">
-              Role Definitions ({STUB_ROLES.length} roles)
-            </CardTitle>
+    <div className="space-y-6">
+      <div className="flex items-center gap-2 mb-2">
+        <Info className="h-4 w-4 text-blue-500" />
+        <p className="text-sm text-muted-foreground">
+          Roles are defined by the Business Requirements Document and cannot be modified.
+          User assignment is managed from the Users tab.
+        </p>
+      </div>
+
+      {OFFICE_GROUPS.map((office) => {
+        const rolesInOffice = BRD_ROLES.filter((r) => r.office === office);
+        if (rolesInOffice.length === 0) return null;
+        return (
+          <div key={office} className="space-y-3">
             <div className="flex items-center gap-2">
-              <Search className="h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search roles..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="max-w-xs"
-              />
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                {office}
+              </h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {rolesInOffice.map((role) => {
+                const userCount = getUserCountForRole(role.name);
+                return (
+                  <Card
+                    key={role.name}
+                    className="cursor-pointer hover:border-primary transition-colors"
+                    onClick={() => setSelectedRole(role)}
+                  >
+                    <CardHeader className="py-3 px-4">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm font-medium">{role.name}</CardTitle>
+                        <div className="flex gap-1.5">
+                          <Badge variant="outline" className="text-xs">
+                            <Key className="h-3 w-3 mr-1" /> {role.permissions}
+                          </Badge>
+                          {userCount > 0 && (
+                            <Badge variant="secondary" className="text-xs">
+                              <Users className="h-3 w-3 mr-1" /> {userCount}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="py-0 px-4 pb-3">
+                      <p className="text-xs text-muted-foreground">{role.description}</p>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto rounded-md border overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted">
-                  <TableHead className="font-semibold w-12">ID</TableHead>
-                  <TableHead className="font-semibold">Role Name</TableHead>
-                  <TableHead className="font-semibold w-32">Office</TableHead>
-                  <TableHead className="font-semibold">Description</TableHead>
-                  <TableHead className="font-semibold w-28 text-center">
-                    Permissions
-                  </TableHead>
-                  <TableHead className="font-semibold w-20">View</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredRoles.map((role) => (
-                  <TableRow key={role.id} className="hover:bg-muted">
-                    <TableCell className="text-xs text-muted-foreground">{role.id}</TableCell>
-                    <TableCell className="font-medium text-sm">{role.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs">
-                        {role.office}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {role.description}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge className="text-xs bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200" variant="outline">
-                        <Key className="h-3 w-3 mr-1" />
-                        {role.permissionCount}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2"
-                        onClick={() => setSelectedRole(role)}
-                      >
-                        <Eye className="h-3 w-3 mr-1" />
-                        View
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+        );
+      })}
 
-          <Separator className="my-4" />
-
-          {/* Office breakdown summary */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            {Object.entries(officeGroups).map(([office, roles]) => (
-              <div
-                key={office}
-                className="text-center p-3 bg-muted rounded-lg border"
-              >
-                <div className="text-lg font-bold text-foreground">{roles.length}</div>
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                  {office}
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Role Permissions Dialog */}
-      <Dialog open={selectedRole !== null} onOpenChange={(open) => !open && setSelectedRole(null)}>
+      {/* Role Detail Dialog */}
+      <Dialog open={!!selectedRole} onOpenChange={(open) => !open && setSelectedRole(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-blue-500" />
-              {selectedRole?.name} Permissions
+              <Shield className="h-5 w-5" />
+              {selectedRole?.name}
             </DialogTitle>
-            <DialogDescription>
-              {selectedRole?.description}
-            </DialogDescription>
+            <DialogDescription>{selectedRole?.description}</DialogDescription>
           </DialogHeader>
-          <div className="py-2">
-            <div className="flex items-center gap-2 mb-3">
-              <Badge variant="outline" className="text-xs">
-                {selectedRole?.office}
-              </Badge>
-              <Badge variant="outline" className="text-xs bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200">
-                {selectedRole?.permissionCount} permissions
-              </Badge>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <Label className="text-muted-foreground">Office</Label>
+                <p className="font-medium">{selectedRole?.office}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Permission Count</Label>
+                <p className="font-medium">{selectedRole?.permissions}</p>
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-              {selectedRole?.permissions.map((perm) => (
-                <div
-                  key={perm}
-                  className="flex items-center gap-2 text-xs p-2 bg-muted rounded border"
-                >
-                  <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
-                  <span className="font-mono text-foreground">{perm}</span>
-                </div>
-              ))}
+            <div>
+              <Label className="text-muted-foreground">Assigned Users ({getUserCountForRole(selectedRole?.name || "")})</Label>
+              <div className="mt-2 max-h-[200px] overflow-y-auto border rounded-md">
+                {users
+                  .filter((u) => u.role === selectedRole?.name && u.is_active)
+                  .map((u) => (
+                    <div key={u.id} className="flex items-center justify-between px-3 py-2 border-b last:border-0">
+                      <div>
+                        <span className="text-sm font-medium">{u.full_name || u.username}</span>
+                        <span className="text-xs text-muted-foreground ml-2">{u.email}</span>
+                      </div>
+                      <Badge variant="default" className="text-xs bg-green-600">Active</Badge>
+                    </div>
+                  ))}
+                {users.filter((u) => u.role === selectedRole?.name && u.is_active).length === 0 && (
+                  <div className="text-center py-4 text-sm text-muted-foreground">
+                    No active users assigned to this role
+                  </div>
+                )}
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-3">
-              Showing representative permissions. Full permission set managed via Azure AD group mappings.
-            </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedRole(null)}>
-              Close
-            </Button>
+            <Button variant="outline" onClick={() => setSelectedRole(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }
 
 // ===========================================================================
-// Tab 3: System Configuration
+// SYSTEM CONFIGURATION TAB
 // ===========================================================================
 
-function ConfigTab() {
-  const [configs, setConfigs] = useState<ConfigEntry[]>(INITIAL_CONFIGS);
-  const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState("");
-  const [filterCategory, setFilterCategory] = useState<string>("All");
+function SystemConfigTab() {
+  const queryClient = useQueryClient();
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [editEntry, setEditEntry] = useState<SystemConfigEntry | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
-  const categories = useMemo(
-    () => ["All", ...Array.from(new Set(configs.map((c) => c.category)))],
-    [configs],
-  );
+  const { data: configResp, isLoading } = useQuery({
+    queryKey: ["/api/v1/system-config"],
+    queryFn: async () => apiRequest("GET", apiUrl("/api/v1/system-config")),
+  });
 
-  const filteredConfigs = useMemo(
-    () =>
-      filterCategory === "All"
-        ? configs
-        : configs.filter((c) => c.category === filterCategory),
-    [configs, filterCategory],
-  );
+  const configEntries: SystemConfigEntry[] = configResp?.data ?? [];
 
-  function startEdit(config: ConfigEntry) {
-    setEditingKey(config.key);
-    setEditValue(config.value);
-  }
+  const filteredConfigs = useMemo(() => {
+    return configEntries
+      .filter((c) => !c.is_deleted)
+      .filter((c) => c.category !== "FEATURE_FLAG")
+      .filter((c) => {
+        if (categoryFilter !== "ALL" && c.category !== categoryFilter) return false;
+        if (searchTerm) {
+          const term = searchTerm.toLowerCase();
+          return (
+            c.config_key.toLowerCase().includes(term) ||
+            (c.description || "").toLowerCase().includes(term)
+          );
+        }
+        return true;
+      });
+  }, [configEntries, categoryFilter, searchTerm]);
 
-  function saveEdit() {
-    if (!editingKey) return;
-    setConfigs((prev) =>
-      prev.map((c) => (c.key === editingKey ? { ...c, value: editValue } : c)),
-    );
-    setEditingKey(null);
-  }
+  const updateMutation = useMutation({
+    mutationFn: ({ key, value, version }: { key: string; value: string; version: number }) =>
+      apiRequest("PUT", apiUrl(`/api/v1/system-config/${key}`), {
+        config_value: value,
+        version,
+        change_reason: "Updated via Admin Console",
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/system-config"] });
+      setEditEntry(null);
+    },
+  });
 
-  function cancelEdit() {
-    setEditingKey(null);
-    setEditValue("");
-  }
+  const createMutation = useMutation({
+    mutationFn: (data: { config_key: string; config_value: string; value_type: string; category: string; description: string }) =>
+      apiRequest("POST", apiUrl(`/api/v1/system-config/${data.config_key}/changes`), {
+        config_value: data.config_value,
+        value_type: data.value_type,
+        description: data.description,
+        change_reason: "Created via Admin Console",
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/system-config"] });
+      setCreateOpen(false);
+    },
+  });
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base">System Configuration</CardTitle>
-          <div className="flex items-center gap-2">
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search config keys..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+          />
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto rounded-md border overflow-hidden">
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Category" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All Categories</SelectItem>
+            {CONFIG_CATEGORIES.filter((c) => c !== "FEATURE_FLAG").map((c) => (
+              <SelectItem key={c} value={c}>{c}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button size="sm" onClick={() => setCreateOpen(true)}>
+          <Plus className="h-4 w-4 mr-1" /> Add Config
+        </Button>
+      </div>
+
+      {/* Table */}
+      {isLoading ? (
+        <div className="text-center py-8 text-muted-foreground">Loading configuration...</div>
+      ) : (
+        <div className="border rounded-md">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted">
-                <TableHead className="font-semibold w-24">Category</TableHead>
-                <TableHead className="font-semibold">Key</TableHead>
-                <TableHead className="font-semibold">Description</TableHead>
-                <TableHead className="font-semibold w-44">Value</TableHead>
-                <TableHead className="font-semibold w-24">Action</TableHead>
+              <TableRow>
+                <TableHead>Key</TableHead>
+                <TableHead>Value</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Last Modified</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredConfigs.map((config) => (
-                <TableRow key={config.key} className="hover:bg-muted">
-                  <TableCell>
-                    <Badge variant="outline" className="text-[10px]">
-                      {config.category}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs text-foreground">
-                    {config.key}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {config.description}
-                  </TableCell>
-                  <TableCell>
-                    {editingKey === config.key ? (
-                      <Input
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        className="h-8 text-sm"
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") saveEdit();
-                          if (e.key === "Escape") cancelEdit();
-                        }}
-                      />
-                    ) : (
-                      <span className="font-mono text-sm font-medium text-foreground bg-muted px-2 py-1 rounded">
-                        {config.value}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {editingKey === config.key ? (
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-green-600 dark:text-green-400"
-                          onClick={saveEdit}
-                        >
-                          <Save className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-muted-foreground"
-                          onClick={cancelEdit}
-                        >
-                          <RefreshCw className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2"
-                        onClick={() => startEdit(config)}
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                    )}
+              {filteredConfigs.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                    No configuration entries found
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                filteredConfigs.map((entry) => (
+                  <TableRow key={entry.config_key}>
+                    <TableCell className="font-mono text-xs">{entry.config_key}</TableCell>
+                    <TableCell className="max-w-[200px] truncate text-sm">
+                      {entry.is_sensitive ? (
+                        <span className="text-muted-foreground italic">****</span>
+                      ) : (
+                        entry.config_value
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs">{entry.category || "General"}</Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{entry.value_type}</TableCell>
+                    <TableCell className="max-w-[200px] truncate text-xs text-muted-foreground">
+                      {entry.description || "—"}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {entry.updated_at ? new Date(entry.updated_at).toLocaleDateString() : "—"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" onClick={() => setEditEntry(entry)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
-        <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-          <Info className="h-3 w-3" />
-          Configuration changes take effect after the next system restart or cache refresh
+      )}
+
+      {/* Edit Config Dialog */}
+      <EditConfigDialog
+        entry={editEntry}
+        open={!!editEntry}
+        onOpenChange={(open) => !open && setEditEntry(null)}
+        onSave={(value) => {
+          if (editEntry) {
+            updateMutation.mutate({ key: editEntry.config_key, value, version: editEntry.version });
+          }
+        }}
+        loading={updateMutation.isPending}
+      />
+
+      {/* Create Config Dialog */}
+      <CreateConfigDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onSubmit={(data) => createMutation.mutate(data)}
+        loading={createMutation.isPending}
+      />
+    </div>
+  );
+}
+
+function EditConfigDialog({
+  entry,
+  open,
+  onOpenChange,
+  onSave,
+  loading,
+}: {
+  entry: SystemConfigEntry | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (value: string) => void;
+  loading: boolean;
+}) {
+  const [value, setValue] = useState(entry?.config_value || "");
+
+  // Reset value when entry changes
+  useMemo(() => {
+    if (entry) setValue(entry.config_value || "");
+  }, [entry]);
+
+  if (!entry) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Edit Configuration
+          </DialogTitle>
+          <DialogDescription>
+            Update the value for <code className="text-xs bg-muted px-1 py-0.5 rounded">{entry.config_key}</code>
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <Label className="text-muted-foreground">Type</Label>
+              <p className="font-medium">{entry.value_type}</p>
+            </div>
+            <div>
+              <Label className="text-muted-foreground">Category</Label>
+              <p className="font-medium">{entry.category || "General"}</p>
+            </div>
+            {entry.min_value && (
+              <div>
+                <Label className="text-muted-foreground">Min Value</Label>
+                <p className="font-medium">{entry.min_value}</p>
+              </div>
+            )}
+            {entry.max_value && (
+              <div>
+                <Label className="text-muted-foreground">Max Value</Label>
+                <p className="font-medium">{entry.max_value}</p>
+              </div>
+            )}
+          </div>
+          {entry.description && (
+            <div>
+              <Label className="text-muted-foreground">Description</Label>
+              <p className="text-sm">{entry.description}</p>
+            </div>
+          )}
+          <div className="space-y-2">
+            <Label htmlFor="config_value">Value</Label>
+            {entry.is_sensitive ? (
+              <p className="text-sm text-muted-foreground italic">
+                Sensitive values cannot be edited through this interface.
+              </p>
+            ) : entry.value_type === "JSON" ? (
+              <Textarea
+                id="config_value"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                rows={6}
+                className="font-mono text-xs"
+              />
+            ) : (
+              <Input
+                id="config_value"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                type={entry.value_type === "INTEGER" || entry.value_type === "DECIMAL" ? "number" : "text"}
+              />
+            )}
+          </div>
+          <div className="text-xs text-muted-foreground flex items-center gap-1">
+            <Info className="h-3 w-3" />
+            Version: {entry.version} | Optimistic locking is enforced on save.
+          </div>
         </div>
-      </CardContent>
-    </Card>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={() => onSave(value)} disabled={loading || entry.is_sensitive}>
+            <Save className="h-4 w-4 mr-1" />
+            {loading ? "Saving..." : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CreateConfigDialog({
+  open,
+  onOpenChange,
+  onSubmit,
+  loading,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (data: { config_key: string; config_value: string; value_type: string; category: string; description: string }) => void;
+  loading: boolean;
+}) {
+  const [form, setForm] = useState({
+    config_key: "",
+    config_value: "",
+    value_type: "STRING",
+    category: "General",
+    description: "",
+  });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    onSubmit(form);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Create Configuration Entry</DialogTitle>
+          <DialogDescription>Add a new system configuration parameter.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="new_key">Config Key</Label>
+            <Input
+              id="new_key"
+              placeholder="e.g. MAX_UPLOAD_SIZE_MB"
+              value={form.config_key}
+              onChange={(e) => setForm({ ...form, config_key: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "_") })}
+              className="font-mono"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="new_value">Value</Label>
+            <Input
+              id="new_value"
+              value={form.config_value}
+              onChange={(e) => setForm({ ...form, config_value: e.target.value })}
+              required
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Value Type</Label>
+              <Select value={form.value_type} onValueChange={(v) => setForm({ ...form, value_type: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="STRING">STRING</SelectItem>
+                  <SelectItem value="INTEGER">INTEGER</SelectItem>
+                  <SelectItem value="DECIMAL">DECIMAL</SelectItem>
+                  <SelectItem value="BOOLEAN">BOOLEAN</SelectItem>
+                  <SelectItem value="JSON">JSON</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CONFIG_CATEGORIES.filter((c) => c !== "FEATURE_FLAG").map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="new_desc">Description</Label>
+            <Textarea
+              id="new_desc"
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              rows={2}
+              placeholder="Brief description of this configuration parameter"
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Creating..." : "Create"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
 // ===========================================================================
-// Tab 4: Feature Flags
+// FEATURE FLAGS TAB
 // ===========================================================================
 
 function FeatureFlagsTab() {
-  const [flags, setFlags] = useState<FeatureFlag[]>(INITIAL_FEATURE_FLAGS);
-  const [filterCategory, setFilterCategory] = useState<string>("All");
+  const queryClient = useQueryClient();
+  const [flagSearch, setFlagSearch] = useState("");
 
-  const categories = useMemo(
-    () => ["All", ...Array.from(new Set(flags.map((f) => f.category)))],
-    [flags],
-  );
+  const { data: configResp, isLoading } = useQuery({
+    queryKey: ["/api/v1/system-config"],
+    queryFn: async () => apiRequest("GET", apiUrl("/api/v1/system-config")),
+  });
 
-  const filteredFlags = useMemo(
-    () =>
-      filterCategory === "All"
-        ? flags
-        : flags.filter((f) => f.category === filterCategory),
-    [flags, filterCategory],
-  );
+  const allConfigs: SystemConfigEntry[] = configResp?.data ?? [];
 
-  function toggleFlag(key: string) {
-    setFlags((prev) =>
-      prev.map((f) => (f.key === key ? { ...f, enabled: !f.enabled } : f)),
-    );
-  }
+  // Feature flags are system config entries with category='FEATURE_FLAG' and value_type='BOOLEAN'
+  const featureFlags = useMemo(() => {
+    return allConfigs
+      .filter((c) => !c.is_deleted)
+      .filter((c) => c.category === "FEATURE_FLAG" || c.value_type === "BOOLEAN" && c.config_key.startsWith("FF_"))
+      .filter((c) => {
+        if (!flagSearch) return true;
+        const term = flagSearch.toLowerCase();
+        return (
+          c.config_key.toLowerCase().includes(term) ||
+          (c.description || "").toLowerCase().includes(term)
+        );
+      });
+  }, [allConfigs, flagSearch]);
 
-  const enabledCount = flags.filter((f) => f.enabled).length;
+  const enabledCount = featureFlags.filter((f) => f.config_value === "true").length;
+  const disabledCount = featureFlags.filter((f) => f.config_value !== "true").length;
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ key, currentValue, version }: { key: string; currentValue: string; version: number }) =>
+      apiRequest("PUT", apiUrl(`/api/v1/system-config/${key}`), {
+        config_value: currentValue === "true" ? "false" : "true",
+        version,
+        change_reason: `Feature flag toggled via Admin Console`,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/system-config"] });
+    },
+  });
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-base">Feature Flags</CardTitle>
-            <p className="text-xs text-muted-foreground mt-1">
-              {enabledCount} of {flags.length} features enabled
+    <div className="space-y-4">
+      {/* Summary Stats */}
+      <div className="flex gap-4">
+        <Card className="flex-1">
+          <CardContent className="py-3 flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5 text-green-500" />
+            <div>
+              <div className="text-lg font-semibold">{enabledCount}</div>
+              <div className="text-xs text-muted-foreground">Enabled</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="flex-1">
+          <CardContent className="py-3 flex items-center gap-2">
+            <XCircle className="h-5 w-5 text-red-500" />
+            <div>
+              <div className="text-lg font-semibold">{disabledCount}</div>
+              <div className="text-xs text-muted-foreground">Disabled</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="flex-1">
+          <CardContent className="py-3 flex items-center gap-2">
+            <ToggleLeft className="h-5 w-5 text-blue-500" />
+            <div>
+              <div className="text-lg font-semibold">{featureFlags.length}</div>
+              <div className="text-xs text-muted-foreground">Total Flags</div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search feature flags..."
+          value={flagSearch}
+          onChange={(e) => setFlagSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      {/* Flags Grid */}
+      {isLoading ? (
+        <div className="text-center py-8 text-muted-foreground">Loading feature flags...</div>
+      ) : featureFlags.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <ToggleLeft className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+            <h3 className="font-medium">No Feature Flags Found</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Feature flags are system config entries with category "FEATURE_FLAG" or keys prefixed with "FF_".
+              Create one from the System Configuration tab.
             </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {featureFlags.map((flag) => {
+            const isEnabled = flag.config_value === "true";
+            return (
+              <Card key={flag.config_key} className={`transition-colors ${isEnabled ? "border-green-200 dark:border-green-900" : ""}`}>
+                <CardContent className="py-4 px-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-mono font-medium truncate" title={flag.config_key}>
+                        {flag.config_key}
+                      </h4>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                        {flag.description || "No description"}
+                      </p>
+                      {flag.updated_at && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Last toggled: {new Date(flag.updated_at).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                      <Switch
+                        checked={isEnabled}
+                        onCheckedChange={() =>
+                          toggleMutation.mutate({
+                            key: flag.config_key,
+                            currentValue: flag.config_value,
+                            version: flag.version,
+                          })
+                        }
+                        disabled={toggleMutation.isPending}
+                        aria-label={`Toggle ${flag.config_key}`}
+                      />
+                      <span className={`text-xs font-medium ${isEnabled ? "text-green-600" : "text-muted-foreground"}`}>
+                        {isEnabled ? "ON" : "OFF"}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          {filteredFlags.map((flag) => (
-            <div
-              key={flag.key}
-              className={`p-4 rounded-lg border-2 transition-all ${
-                flag.enabled
-                  ? "bg-green-50/50 border-green-200"
-                  : "bg-muted border-border"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  {flag.enabled ? (
-                    <Unlock className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  ) : (
-                    <Lock className="h-4 w-4 text-muted-foreground" />
-                  )}
-                  <span className="font-semibold text-sm text-foreground">
-                    {flag.label}
-                  </span>
-                </div>
-                <Switch
-                  checked={flag.enabled}
-                  onCheckedChange={() => toggleFlag(flag.key)}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground mb-2">{flag.description}</p>
-              <div className="flex items-center justify-between">
-                <Badge variant="outline" className="text-[10px]">
-                  {flag.category}
-                </Badge>
-                <span className="font-mono text-[10px] text-muted-foreground">
-                  {flag.key}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <Separator className="my-4" />
-
-        {/* Summary */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="text-center p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-100">
-            <div className="text-lg font-bold text-green-700 dark:text-green-300">{enabledCount}</div>
-            <div className="text-[10px] text-green-600 dark:text-green-400 uppercase tracking-wider">Enabled</div>
-          </div>
-          <div className="text-center p-3 bg-muted rounded-lg border border-border">
-            <div className="text-lg font-bold text-foreground">
-              {flags.length - enabledCount}
-            </div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Disabled</div>
-          </div>
-          <div className="text-center p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-100">
-            <div className="text-lg font-bold text-blue-700 dark:text-blue-300">{flags.length}</div>
-            <div className="text-[10px] text-blue-600 dark:text-blue-400 uppercase tracking-wider">Total Flags</div>
-          </div>
-          <div className="text-center p-3 bg-violet-50 rounded-lg border border-violet-100">
-            <div className="text-lg font-bold text-violet-700">
-              {new Set(flags.map((f) => f.category)).size}
-            </div>
-            <div className="text-[10px] text-violet-600 uppercase tracking-wider">Categories</div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 }

@@ -5,7 +5,7 @@
  * - Period filter (year/quarter)
  * - Statement type filter
  * - Statements list: Period, Type, Status badge, Generated Date, Download button
- * - Real download via GET /statements/:clientId/:id/download
+ * - Real download via GET /statements/:id/download
  * - Download button disabled when delivery_status !== 'AVAILABLE'
  */
 
@@ -37,16 +37,6 @@ import {
 } from "lucide-react";
 import { useToast } from "@ui/components/ui/toast";
 
-// ---- Helpers ----
-
-function getClientId(): string {
-  try {
-    const stored = localStorage.getItem("trustoms-client-user");
-    if (stored) return JSON.parse(stored).clientId || "CLT-001";
-  } catch {}
-  return "CLT-001";
-}
-
 // ---- Types ----
 
 type DeliveryStatus = "PENDING" | "GENERATING" | "AVAILABLE" | "FAILED";
@@ -59,13 +49,42 @@ interface Statement {
   statement_type: string;
   file_reference: string | null;
   file_size_bytes: number | null;
+  storage_provider: string | null;
+  content_hash: string | null;
   delivery_status: DeliveryStatus;
   delivery_error: string | null;
+  retention_policy: string | null;
+  retention_until: string | null;
+  legal_hold: boolean;
   download_count: number;
   last_downloaded_at: string | null;
+  last_downloaded_by: string | null;
+  last_downloaded_ip: string | null;
   generated_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+async function fetchStatementBlob(statementId: number): Promise<{ blob: Blob; filename: string }> {
+  const res = await fetch(apiUrl(`/api/v1/client-portal/statements/${statementId}/download`), {
+    method: "GET",
+    credentials: "include",
+  });
+
+  if (res.status === 202) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.message || "Statement is being prepared.");
+  }
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: { message: res.statusText } }));
+    throw new Error(body?.error?.message || `Download failed: ${res.status}`);
+  }
+
+  const disposition = res.headers.get("content-disposition") || "";
+  const match = disposition.match(/filename="?([^";]+)"?/i);
+  const filename = match?.[1] || `statement-${statementId}.pdf`;
+  return { blob: await res.blob(), filename };
 }
 
 // ---- Year/Period Options ----
@@ -144,7 +163,6 @@ function DeliveryStatusBadge({ status }: { status: DeliveryStatus }) {
 // ---- Component ----
 
 export default function StatementsPage() {
-  const clientId = getClientId();
   const { toast } = useToast();
   const [yearFilter, setYearFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -152,9 +170,9 @@ export default function StatementsPage() {
 
   // Fetch statements
   const { data, isLoading, isError } = useQuery<{ data: Statement[] }>({
-    queryKey: ["client-portal", "statements", clientId],
+    queryKey: ["client-portal", "statements", "session"],
     queryFn: () =>
-      apiRequest("GET", apiUrl(`/api/v1/client-portal/statements/${clientId}`)),
+      apiRequest("GET", apiUrl("/api/v1/client-portal/statements")),
   });
 
   const allStatements: Statement[] = data?.data ?? [];
@@ -170,26 +188,11 @@ export default function StatementsPage() {
     if (statement.delivery_status !== "AVAILABLE") return;
     setDownloadingId(statement.id);
     try {
-      const response = await apiRequest(
-        "GET",
-        apiUrl(`/api/v1/client-portal/statements/${clientId}/${statement.id}/download`),
-      );
-
-      // 202 — statement not yet ready
-      if (response && response.status === "NOT_AVAILABLE") {
-        toast({
-          title: "Statement Not Ready",
-          description: "Statement is being prepared. You will be notified when it is ready.",
-        });
-        return;
-      }
-
-      // Success — trigger browser download
-      const blob = new Blob([response], { type: "application/pdf" });
+      const { blob, filename } = await fetchStatementBlob(statement.id);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `statement-${statement.id}.pdf`;
+      a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
 

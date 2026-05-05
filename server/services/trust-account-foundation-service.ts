@@ -1,18 +1,21 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '../db';
 import * as schema from '@shared/schema';
+import { ValidationError } from './service-errors';
+import {
+  TrustRelatedPartyPolicyInput,
+  validateAndNormalizeTrustRelatedParties,
+} from './trust-related-party-policy';
+import {
+  defaultMandateTypeForProduct,
+  validateTrustProductOnboarding,
+} from './trust-product-onboarding-policy';
 
 type DbLike = typeof db;
 
-export interface TrustRelatedPartyInput {
+export interface TrustRelatedPartyInput extends TrustRelatedPartyPolicyInput {
   party_type: 'SETTLOR' | 'BENEFICIARY' | 'TRUSTEE' | 'CO_TRUSTEE' | 'AUTHORIZED_SIGNATORY' | 'UBO' | 'GUARDIAN' | 'PROTECTOR' | 'RELATED_ENTITY' | 'OTHER';
   legal_name: string;
-  client_id?: string | null;
-  ownership_pct?: string | null;
-  authority_scope?: Record<string, unknown> | null;
-  signing_limit?: string | null;
-  is_ubo?: boolean;
-  is_authorized_signatory?: boolean;
 }
 
 export interface CreateTrustFoundationInput {
@@ -45,6 +48,15 @@ export interface TrustFoundationResult {
   settlement_account_ids: string[];
   mandate_ids: number[];
   related_party_ids: number[];
+  related_party_validation?: {
+    warnings: string[];
+    summary: {
+      authorizedSignatoryCount: number;
+      uboThresholdPartyCount: number;
+      complianceReviewRequiredCount: number;
+      ownershipTotalPct: number;
+    };
+  };
 }
 
 export interface MandateAuthorityCheckInput {
@@ -88,11 +100,20 @@ function today(): string {
 }
 
 function defaultRelatedParty(input: CreateTrustFoundationInput, clientLegalName: string | null): TrustRelatedPartyInput {
+  const authorityDocumentRef = input.mandate?.document_reference
+    ?? (input.onboarding_reference_type && input.onboarding_reference_id
+      ? `${input.onboarding_reference_type}:${input.onboarding_reference_id}`
+      : 'PENDING_ACCOUNT_OPENING_PACKAGE');
+
   return {
+    local_id: 'primary-settlor',
     party_type: 'SETTLOR',
     legal_name: clientLegalName || input.account_name || input.client_id,
     client_id: input.client_id,
+    relationship_to_account: 'PRIMARY_CLIENT',
     authority_scope: { account_opening: true, instructions: true },
+    authority_document_ref: authorityDocumentRef,
+    effective_from: today(),
     is_authorized_signatory: true,
   };
 }
@@ -148,6 +169,26 @@ export const trustAccountFoundationService = {
     const portfolioId = input.portfolio_id || makeId('PORT', input.client_id);
     const trustAccountId = makeId('TA', `${input.client_id}-${portfolioId}`);
     const actorNumericId = compactActorId(actorId);
+    const parties = input.related_parties?.length
+      ? input.related_parties
+      : [defaultRelatedParty(input, client.legal_name)];
+    const onboardingReference = input.onboarding_reference_type && input.onboarding_reference_id
+      ? `${input.onboarding_reference_type}:${input.onboarding_reference_id}`
+      : null;
+    const mandateType = input.mandate?.mandate_type || defaultMandateTypeForProduct(productType);
+    const productValidation = validateTrustProductOnboarding({
+      product_type: productType,
+      base_currency: baseCurrency,
+      mandate: {
+        ...input.mandate,
+        mandate_type: mandateType,
+      },
+      related_parties: parties,
+      onboarding_reference: onboardingReference,
+    });
+    if (productValidation.errors.length > 0) {
+      throw new ValidationError(`Trust product onboarding validation failed: ${productValidation.errors.join('; ')}`);
+    }
 
     const [existingPortfolio] = await tx
       .select()
@@ -184,6 +225,8 @@ export const trustAccountFoundationService = {
       opened_at: new Date(),
       risk_profile_snapshot: input.risk_profile_snapshot ?? { client_risk_profile: client.risk_profile },
       related_party_policy: input.related_party_policy ?? { minimum_authorized_signatories: 1 },
+      onboarding_validation_status: productValidation.status,
+      onboarding_validation_evidence: productValidation.evidence,
       created_by: actorId,
       updated_by: actorId,
     } as any).returning();
@@ -263,33 +306,66 @@ export const trustAccountFoundationService = {
     const mandateRows = await tx.insert(schema.trustMandates).values({
       trust_account_id: trustAccount.account_id,
       portfolio_id: portfolioId,
-      mandate_type: input.mandate?.mandate_type || (productType === 'IMA_DIRECTED' ? 'DIRECTED' : 'DISCRETIONARY'),
+      mandate_type: mandateType,
       effective_from: today(),
       investment_authority: input.mandate?.investment_authority ?? null,
       signing_rule: input.mandate?.signing_rule ?? { required_signatories: 1 },
       risk_limits: input.mandate?.risk_limits ?? {},
       document_reference: input.mandate?.document_reference ?? null,
+      mandate_validation_status: productValidation.status,
+      mandate_validation_evidence: productValidation.evidence,
       mandate_status: 'ACTIVE',
       created_by: actorId,
       updated_by: actorId,
     } as any).returning();
 
-    const parties = input.related_parties?.length
-      ? input.related_parties
-      : [defaultRelatedParty(input, client.legal_name)];
+    const relatedPartyPolicy = asRecord(input.related_party_policy);
+    const mandateSigningRule = asRecord(input.mandate?.signing_rule);
+    const minimumAuthorizedSignatories = Math.max(
+      1,
+      Number(
+        relatedPartyPolicy.minimum_authorized_signatories
+        ?? mandateSigningRule.required_signatories
+        ?? 1,
+      ),
+    );
+    const relatedPartyValidation = validateAndNormalizeTrustRelatedParties(parties, {
+      uboThresholdPct: Number(relatedPartyPolicy.ubo_threshold_pct ?? 25),
+      minimumAuthorizedSignatories,
+    });
+
+    if (relatedPartyValidation.errors.length > 0) {
+      throw new ValidationError(`Related-party onboarding validation failed: ${relatedPartyValidation.errors.join('; ')}`);
+    }
 
     const relatedPartyRows = await tx.insert(schema.trustRelatedParties).values(
-      parties.map((party) => ({
+      relatedPartyValidation.parties.map((party) => ({
         trust_account_id: trustAccount.account_id,
         client_id: party.client_id ?? null,
         party_type: party.party_type,
         legal_name: party.legal_name,
+        party_reference: party.party_reference,
+        parent_party_id: party.parent_party_id ?? null,
+        parent_party_reference: party.parent_party_reference,
+        relationship_to_account: party.relationship_to_account ?? null,
         ownership_pct: party.ownership_pct ?? null,
+        ownership_path: party.ownership_path,
+        control_type: party.control_type,
         authority_scope: party.authority_scope ?? null,
         signing_limit: party.signing_limit ?? null,
-        is_ubo: party.is_ubo ?? party.party_type === 'UBO',
-        is_authorized_signatory: party.is_authorized_signatory ?? party.party_type === 'AUTHORIZED_SIGNATORY',
-        effective_from: today(),
+        authority_document_ref: party.authority_document_ref,
+        authority_verified_at: party.authority_verified_at,
+        authority_verified_by: party.authority_verified_by,
+        verification_status: party.verification_status,
+        is_ubo: party.is_ubo,
+        ubo_threshold_flag: party.ubo_threshold_flag,
+        is_authorized_signatory: party.is_authorized_signatory,
+        screening_status: party.screening_status,
+        screening_required: party.screening_required,
+        screening_case_ref: party.screening_case_ref,
+        compliance_review_required: party.compliance_review_required,
+        effective_from: party.effective_from ?? today(),
+        effective_to: party.effective_to ?? null,
         created_by: actorId,
         updated_by: actorId,
       })),
@@ -306,6 +382,13 @@ export const trustAccountFoundationService = {
         security_accounts: securityRows.length,
         settlement_accounts: settlementRows.length,
         related_parties: relatedPartyRows.length,
+        related_party_warnings: relatedPartyValidation.warnings,
+        related_party_summary: relatedPartyValidation.summary,
+        product_onboarding_validation: {
+          status: productValidation.status,
+          warnings: productValidation.warnings,
+          evidence: productValidation.evidence,
+        },
       },
       created_by: actorId,
       updated_by: actorId,
@@ -319,6 +402,10 @@ export const trustAccountFoundationService = {
       settlement_account_ids: settlementRows.map((row: any) => row.account_id),
       mandate_ids: mandateRows.map((row: any) => row.id),
       related_party_ids: relatedPartyRows.map((row: any) => row.id),
+      related_party_validation: {
+        warnings: relatedPartyValidation.warnings,
+        summary: relatedPartyValidation.summary,
+      },
     };
   },
 

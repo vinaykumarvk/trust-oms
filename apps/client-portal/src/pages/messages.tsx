@@ -31,6 +31,7 @@ import {
   PenLine,
   Loader2,
   AlertCircle,
+  History,
 } from "lucide-react";
 import { useToast } from "@ui/components/ui/toast";
 import { apiRequest } from "@ui/lib/queryClient";
@@ -69,19 +70,22 @@ interface UnreadCountResponse {
   unread_count: number;
 }
 
+interface PortalEvidenceEvent {
+  id: number;
+  event_type: string;
+  action: string;
+  source_entity_type: string;
+  source_entity_id: string | null;
+  source_entity_ref: string | null;
+  direction: string | null;
+  event_status: string;
+  notification_status: string | null;
+  occurred_at: string;
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function getClientUser() {
-  try {
-    const stored = localStorage.getItem("trustoms-client-user");
-    if (stored) return JSON.parse(stored) as { clientId?: string; token?: string; id?: number };
-  } catch {
-    // ignore
-  }
-  return {};
-}
 
 function senderLabel(msg: ApiMessage): string {
   if (msg.sender_type === "CLIENT") return "You";
@@ -103,9 +107,6 @@ export default function MessagesPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const clientUser = getClientUser();
-  const clientId = clientUser.clientId || "CLT-001";
-
   const [selectedMessage, setSelectedMessage] = useState<ApiMessage | null>(null);
   const [composeMode, setComposeMode] = useState(false);
   const [subject, setSubject] = useState("");
@@ -118,21 +119,29 @@ export default function MessagesPage() {
     isLoading: messagesLoading,
     isError: messagesError,
   } = useQuery<MessagesResponse>({
-    queryKey: ["client-portal", "messages", clientId],
+    queryKey: ["client-portal", "messages", "session"],
     queryFn: () =>
       apiRequest("GET", apiUrl("/api/v1/client-portal/messages")),
     refetchInterval: 60000,
   });
 
   const { data: unreadData } = useQuery<UnreadCountResponse>({
-    queryKey: ["client-portal", "messages-unread", clientId],
+    queryKey: ["client-portal", "messages-unread", "session"],
     queryFn: () =>
       apiRequest("GET", apiUrl("/api/v1/client-portal/messages/unread-count")),
     refetchInterval: 60000,
   });
 
+  const { data: evidenceData } = useQuery<{ data: PortalEvidenceEvent[] }>({
+    queryKey: ["client-portal", "evidence-history", "session"],
+    queryFn: () =>
+      apiRequest("GET", apiUrl("/api/v1/client-portal/evidence-history?pageSize=6")),
+    refetchInterval: 60000,
+  });
+
   const messages: ApiMessage[] = messagesData?.data ?? [];
   const unreadCount = unreadData?.unread_count ?? messagesData?.unread_count ?? 0;
+  const recentEvidence = evidenceData?.data ?? [];
 
   // ---- Mutations ----
 
@@ -140,8 +149,8 @@ export default function MessagesPage() {
     mutationFn: (payload: { subject?: string; body: string; thread_id?: string | null; parent_message_id?: number | null }) =>
       apiRequest("POST", apiUrl("/api/v1/client-portal/messages"), payload),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["client-portal", "messages", clientId] });
-      qc.invalidateQueries({ queryKey: ["client-portal", "messages-unread", clientId] });
+      qc.invalidateQueries({ queryKey: ["client-portal", "messages", "session"] });
+      qc.invalidateQueries({ queryKey: ["client-portal", "messages-unread", "session"] });
       setSubject("");
       setBody("");
       setComposeMode(false);
@@ -165,8 +174,8 @@ export default function MessagesPage() {
     mutationFn: (messageId: number) =>
       apiRequest("PATCH", apiUrl(`/api/v1/client-portal/messages/${messageId}/read`)),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["client-portal", "messages", clientId] });
-      qc.invalidateQueries({ queryKey: ["client-portal", "messages-unread", clientId] });
+      qc.invalidateQueries({ queryKey: ["client-portal", "messages", "session"] });
+      qc.invalidateQueries({ queryKey: ["client-portal", "messages-unread", "session"] });
     },
   });
 
@@ -516,6 +525,49 @@ export default function MessagesPage() {
           )}
         </Card>
       </div>
+
+      <Card className="border-border dark:border-gray-700 dark:bg-gray-800">
+        <CardHeader className="pb-3 px-3 sm:px-6">
+          <div className="flex items-center gap-2">
+            <History className="h-4 w-4 text-muted-foreground dark:text-gray-400" />
+            <CardTitle className="text-sm sm:text-base text-foreground dark:text-gray-100">
+              Activity History
+            </CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {recentEvidence.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No activity recorded yet</p>
+          ) : (
+            <div className="divide-y divide-border dark:divide-gray-700">
+              {recentEvidence.map((event) => (
+                <div key={event.id} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {event.event_type.replace(/_/g, " ")}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {event.source_entity_type.replace(/_/g, " ")}
+                      {event.source_entity_ref ? ` · ${event.source_entity_ref}` : ""}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <Badge variant="outline" className="text-xs">{event.event_status}</Badge>
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      {new Date(event.occurred_at).toLocaleDateString("en-PH", {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

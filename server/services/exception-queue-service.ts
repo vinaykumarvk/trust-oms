@@ -14,13 +14,13 @@ import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, and, sql, desc, ilike, or, lte, gt, ne, inArray } from 'drizzle-orm';
 import { tfpAuditService } from './tfp-audit-service';
-
-// SLA duration in hours by severity
-const SLA_HOURS: Record<string, number> = {
-  P1: 4,
-  P2: 8,
-  P3: 24,
-};
+import { NotFoundError, ValidationError } from './service-errors';
+import {
+  appendExceptionHistory,
+  assignmentHistoryEntry,
+  calculateExceptionSlaDueAt,
+  statusHistoryEntry,
+} from './exception-queue-policy';
 
 // Round-robin team members for auto-assignment
 const TEAM_MEMBERS = [
@@ -39,43 +39,101 @@ function getNextAssignee(): string {
   return assignee;
 }
 
+type ExceptionSeverity = 'P1' | 'P2' | 'P3';
+
+function normalizeSeverity(value: string | undefined): ExceptionSeverity {
+  if (value === 'P1' || value === 'P2' || value === 'P3') {
+    return value;
+  }
+  if (value === 'HIGH') return 'P1';
+  if (value === 'MEDIUM') return 'P2';
+  if (value === 'LOW') return 'P3';
+  return 'P3';
+}
+
+function defaultSourceObjectUri(aggregateType: string, aggregateId: string): string {
+  return `${aggregateType}:${aggregateId}`;
+}
+
 export const exceptionQueueService = {
   /**
    * Create a new exception item.
    * Computes sla_due_at based on severity and auto-assigns via round-robin.
    */
   async createException(data: {
-    exception_type: string;
+    exception_type?: string;
+    exception_domain?: string;
     severity?: string;
-    title: string;
-    description: string;
+    title?: string;
+    description?: string;
+    details?: Record<string, unknown>;
     customer_id?: string;
-    aggregate_type: string;
-    aggregate_id: string;
+    source_system?: string;
+    source_object_uri?: string;
+    aggregate_type?: string;
+    aggregate_id?: string;
+    source?: string;
+    source_id?: string;
+    assigned_to_team?: string;
+    assigned_to_user?: string | null;
+    client_impact?: boolean;
+    regulatory_impact?: boolean;
   }) {
-    const severity = data.severity ?? 'P3';
-    const slaHours = SLA_HOURS[severity] ?? 24;
-    const slaDueAt = new Date(Date.now() + slaHours * 60 * 60 * 1000);
-    const assignedTo = getNextAssignee();
+    const severity = normalizeSeverity(data.severity);
+    const now = new Date();
+    const slaDueAt = calculateExceptionSlaDueAt(severity, now);
+    const assignedTo = data.assigned_to_user ?? getNextAssignee();
+    const assignedTeam = data.assigned_to_team ?? 'OPERATIONS';
+    const aggregateType = data.aggregate_type ?? data.source ?? 'OPERATIONAL_EXCEPTION';
+    const aggregateId = data.aggregate_id ?? data.source_id ?? `EXC-${now.getTime()}`;
+    const exceptionType = data.exception_type ?? 'OTHER';
+    const title = data.title ?? data.description ?? `Operational exception: ${aggregateType}`;
+    const description = data.description ?? title;
+    const sourceObjectUri = data.source_object_uri ?? defaultSourceObjectUri(aggregateType, aggregateId);
 
     const [exception] = await db
       .insert(schema.exceptionItems)
       .values({
-        exception_type: data.exception_type,
-        severity: severity,
-        title: data.title,
-        details: { description: data.description },
+        exception_type: exceptionType as any,
+        exception_domain: data.exception_domain ?? 'TRUST_FEES',
+        severity,
+        title,
+        details: { description, ...(data.details ?? {}) },
         customer_id: data.customer_id ?? null,
-        source_aggregate_type: data.aggregate_type,
-        source_aggregate_id: data.aggregate_id,
-        assigned_to_team: 'OPERATIONS',
+        source_system: data.source_system ?? null,
+        source_aggregate_type: aggregateType,
+        source_aggregate_id: aggregateId,
+        source_object_uri: sourceObjectUri,
+        assigned_to_team: assignedTeam,
         assigned_to_user: assignedTo,
         exception_status: 'OPEN',
+        sla_started_at: now,
         sla_due_at: slaDueAt,
+        last_status_changed_at: now,
+        assignment_history: [
+          assignmentHistoryEntry(assignedTeam, assignedTo, 'SYSTEM', 'AUTO_ASSIGN', now),
+        ],
+        status_history: [
+          statusHistoryEntry('OPEN', 'SYSTEM', 'CREATED', now),
+        ],
+        client_impact: data.client_impact ?? false,
+        regulatory_impact: data.regulatory_impact ?? false,
       })
       .returning();
 
-    await tfpAuditService.logEvent('EXCEPTION_ITEM', String(exception.id), 'EXCEPTION_CREATED', { exception_type: data.exception_type, severity, title: data.title }, null);
+    await tfpAuditService.logEvent(
+      'EXCEPTION_ITEM',
+      String(exception.id),
+      'EXCEPTION_CREATED',
+      {
+        exception_type: exceptionType,
+        exception_domain: data.exception_domain ?? 'TRUST_FEES',
+        severity,
+        title,
+        source_object_uri: sourceObjectUri,
+      },
+      null,
+    );
 
     return exception;
   },
@@ -91,21 +149,34 @@ export const exceptionQueueService = {
       .limit(1);
 
     if (!current) {
-      throw new Error(`Exception not found: ${exceptionId}`);
+      throw new NotFoundError(`Exception not found: ${exceptionId}`);
     }
 
     if (current.exception_status !== 'OPEN' && current.exception_status !== 'IN_PROGRESS') {
-      throw new Error(
+      throw new ValidationError(
         `Cannot assign exception in ${current.exception_status} status. Only OPEN or IN_PROGRESS exceptions can be assigned.`,
       );
     }
 
+    const now = new Date();
+    const statusChanged = current.exception_status !== 'IN_PROGRESS';
     const [updated] = await db
       .update(schema.exceptionItems)
       .set({
         exception_status: 'IN_PROGRESS',
         assigned_to_user: userId,
-        updated_at: new Date(),
+        assignment_history: appendExceptionHistory(
+          current.assignment_history,
+          assignmentHistoryEntry(current.assigned_to_team, userId, userId, 'ASSIGNED', now),
+        ),
+        status_history: statusChanged
+          ? appendExceptionHistory(
+              current.status_history,
+              statusHistoryEntry('IN_PROGRESS', userId, 'ASSIGNED', now),
+            )
+          : current.status_history,
+        last_status_changed_at: statusChanged ? now : current.last_status_changed_at,
+        updated_at: now,
       })
       .where(eq(schema.exceptionItems.id, exceptionId))
       .returning();
@@ -118,7 +189,20 @@ export const exceptionQueueService = {
   /**
    * Resolve an exception (IN_PROGRESS/ESCALATED -> RESOLVED).
    */
-  async resolveException(exceptionId: number, resolutionNotes: string) {
+  async resolveException(
+    exceptionId: number,
+    resolutionNotes: string,
+    options?: {
+      resolution_code?: string | null;
+      resolution_evidence?: Record<string, unknown> | null;
+      root_cause_code?: string | null;
+      resolved_by?: string | number | null;
+    } | string,
+  ) {
+    const legacyResolvedBy = typeof options === 'string' ? resolutionNotes : null;
+    const effectiveNotes = typeof options === 'string' ? options : resolutionNotes;
+    const resolvedBy = typeof options === 'string' ? legacyResolvedBy : options?.resolved_by ?? null;
+
     const [current] = await db
       .select()
       .from(schema.exceptionItems)
@@ -126,27 +210,45 @@ export const exceptionQueueService = {
       .limit(1);
 
     if (!current) {
-      throw new Error(`Exception not found: ${exceptionId}`);
+      throw new NotFoundError(`Exception not found: ${exceptionId}`);
     }
 
     if (current.exception_status !== 'IN_PROGRESS' && current.exception_status !== 'ESCALATED') {
-      throw new Error(
+      throw new ValidationError(
         `Cannot resolve exception in ${current.exception_status} status. Only IN_PROGRESS or ESCALATED exceptions can be resolved.`,
       );
     }
 
+    const now = new Date();
     const [updated] = await db
       .update(schema.exceptionItems)
       .set({
         exception_status: 'RESOLVED',
-        resolution_notes: resolutionNotes,
-        resolved_at: new Date(),
-        updated_at: new Date(),
+        resolution_notes: effectiveNotes,
+        resolution_code: typeof options === 'string' ? null : options?.resolution_code ?? null,
+        resolution_evidence: typeof options === 'string' ? null : options?.resolution_evidence ?? null,
+        root_cause_code: typeof options === 'string' ? null : options?.root_cause_code ?? null,
+        resolved_at: now,
+        last_status_changed_at: now,
+        status_history: appendExceptionHistory(
+          current.status_history,
+          statusHistoryEntry('RESOLVED', resolvedBy, 'RESOLVED', now),
+        ),
+        updated_at: now,
       })
       .where(eq(schema.exceptionItems.id, exceptionId))
       .returning();
 
-    await tfpAuditService.logEvent('EXCEPTION_ITEM', String(exceptionId), 'EXCEPTION_RESOLVED', { resolution_notes: resolutionNotes }, null);
+    await tfpAuditService.logEvent(
+      'EXCEPTION_ITEM',
+      String(exceptionId),
+      'EXCEPTION_RESOLVED',
+      {
+        resolution_notes: effectiveNotes,
+        resolution_code: typeof options === 'string' ? null : options?.resolution_code ?? null,
+      },
+      resolvedBy === null || resolvedBy === undefined ? null : String(resolvedBy),
+    );
 
     return updated;
   },
@@ -162,24 +264,34 @@ export const exceptionQueueService = {
       .limit(1);
 
     if (!current) {
-      throw new Error(`Exception not found: ${exceptionId}`);
+      throw new NotFoundError(`Exception not found: ${exceptionId}`);
     }
 
     if (current.exception_status !== 'IN_PROGRESS' && current.exception_status !== 'OPEN') {
-      throw new Error(
+      throw new ValidationError(
         `Cannot escalate exception in ${current.exception_status} status. Only OPEN or IN_PROGRESS exceptions can be escalated.`,
       );
     }
 
+    const now = new Date();
+    const isSlaBreached = current.sla_due_at
+      ? new Date(current.sla_due_at).getTime() <= now.getTime()
+      : false;
     const [updated] = await db
       .update(schema.exceptionItems)
       .set({
         exception_status: 'ESCALATED',
-        escalated_at: new Date(),
+        escalated_at: now,
+        sla_breached_at: current.sla_breached_at ?? (isSlaBreached ? now : null),
         resolution_notes: reason
           ? `Escalation reason: ${reason}${current.resolution_notes ? '\n' + current.resolution_notes : ''}`
           : current.resolution_notes,
-        updated_at: new Date(),
+        last_status_changed_at: now,
+        status_history: appendExceptionHistory(
+          current.status_history,
+          statusHistoryEntry('ESCALATED', null, reason ?? 'ESCALATED', now),
+        ),
+        updated_at: now,
       })
       .where(eq(schema.exceptionItems.id, exceptionId))
       .returning();
@@ -200,22 +312,29 @@ export const exceptionQueueService = {
       .limit(1);
 
     if (!current) {
-      throw new Error(`Exception not found: ${exceptionId}`);
+      throw new NotFoundError(`Exception not found: ${exceptionId}`);
     }
 
     if (current.exception_status === 'RESOLVED' || current.exception_status === 'WONT_FIX') {
-      throw new Error(
+      throw new ValidationError(
         `Cannot mark exception in ${current.exception_status} status as WONT_FIX.`,
       );
     }
 
+    const now = new Date();
     const [updated] = await db
       .update(schema.exceptionItems)
       .set({
         exception_status: 'WONT_FIX',
+        resolution_code: 'WONT_FIX',
         resolution_notes: `Won't fix: ${reason}`,
-        resolved_at: new Date(),
-        updated_at: new Date(),
+        resolved_at: now,
+        last_status_changed_at: now,
+        status_history: appendExceptionHistory(
+          current.status_history,
+          statusHistoryEntry('WONT_FIX', null, reason, now),
+        ),
+        updated_at: now,
       })
       .where(eq(schema.exceptionItems.id, exceptionId))
       .returning();
@@ -254,7 +373,13 @@ export const exceptionQueueService = {
         .set({
           exception_status: 'ESCALATED',
           escalated_at: now,
+          sla_breached_at: item.sla_breached_at ?? now,
           resolution_notes: `Auto-escalated: SLA breach detected at ${now.toISOString()}${item.resolution_notes ? '\n' + item.resolution_notes : ''}`,
+          last_status_changed_at: now,
+          status_history: appendExceptionHistory(
+            item.status_history,
+            statusHistoryEntry('ESCALATED', 'SYSTEM', 'SLA_BREACH', now),
+          ),
           updated_at: now,
         })
         .where(eq(schema.exceptionItems.id, item.id));
@@ -271,6 +396,7 @@ export const exceptionQueueService = {
    * List exceptions with filters and pagination.
    */
   async getExceptions(filters?: {
+    exception_domain?: string;
     severity?: string;
     exception_type?: string;
     exception_status?: string;
@@ -286,6 +412,12 @@ export const exceptionQueueService = {
     const offset = (page - 1) * pageSize;
 
     const conditions: ReturnType<typeof eq>[] = [];
+
+    if (filters?.exception_domain) {
+      conditions.push(
+        eq(schema.exceptionItems.exception_domain, filters.exception_domain),
+      );
+    }
 
     if (filters?.severity) {
       conditions.push(
@@ -499,6 +631,9 @@ export const exceptionQueueService = {
         severity: schema.exceptionItems.severity,
         title: schema.exceptionItems.title,
         exception_status: schema.exceptionItems.exception_status,
+        exception_domain: schema.exceptionItems.exception_domain,
+        source_system: schema.exceptionItems.source_system,
+        source_object_uri: schema.exceptionItems.source_object_uri,
         assigned_to_team: schema.exceptionItems.assigned_to_team,
         assigned_to_user: schema.exceptionItems.assigned_to_user,
         sla_due_at: schema.exceptionItems.sla_due_at,
@@ -511,13 +646,15 @@ export const exceptionQueueService = {
       .orderBy(desc(schema.exceptionItems.created_at));
 
     const columns = [
-      'id', 'exception_type', 'severity', 'title', 'exception_status',
+      'id', 'exception_type', 'exception_domain', 'severity', 'title', 'exception_status',
+      'source_system', 'source_object_uri',
       'assigned_to_team', 'assigned_to_user', 'sla_due_at', 'created_at',
       'resolved_at', 'escalated_at',
     ];
 
     const rows = data.map((r: any) => [
-      r.id, r.exception_type, r.severity, r.title, r.exception_status,
+      r.id, r.exception_type, r.exception_domain, r.severity, r.title, r.exception_status,
+      r.source_system, r.source_object_uri,
       r.assigned_to_team, r.assigned_to_user,
       r.sla_due_at ? new Date(r.sla_due_at).toISOString() : null,
       r.created_at ? new Date(r.created_at).toISOString() : null,
@@ -541,6 +678,7 @@ export const exceptionQueueService = {
       .set({
         assigned_to_user: newUserId,
         exception_status: 'IN_PROGRESS',
+        last_status_changed_at: new Date(),
         updated_at: new Date(),
       })
       .where(
@@ -574,8 +712,10 @@ export const exceptionQueueService = {
       .update(schema.exceptionItems)
       .set({
         exception_status: 'RESOLVED',
+        resolution_code: 'BULK_RESOLVED',
         resolution_notes: resolutionNotes,
         resolved_at: now,
+        last_status_changed_at: now,
         updated_at: now,
       })
       .where(
@@ -610,6 +750,7 @@ export const exceptionQueueService = {
       .set({
         exception_status: 'ESCALATED',
         escalated_at: now,
+        last_status_changed_at: now,
         updated_at: now,
       })
       .where(

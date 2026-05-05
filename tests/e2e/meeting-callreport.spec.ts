@@ -181,8 +181,8 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
         title: 'Client Review',
         meeting_type: 'IN_PERSON',
         organizer_user_id: 10,
-        start_time: '2026-05-01T09:00:00Z',
-        end_time: '2026-05-01T10:00:00Z',
+        start_time: '2026-06-01T09:00:00Z',
+        end_time: '2026-06-01T10:00:00Z',
         invitees: [{ user_id: 20, is_required: true }],
       });
 
@@ -216,8 +216,8 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
         title: 'Follow-up',
         meeting_type: 'VIRTUAL',
         organizer_user_id: 10,
-        start_time: '2026-05-01T14:00:00Z',
-        end_time: '2026-05-01T15:00:00Z',
+        start_time: '2026-06-01T14:00:00Z',
+        end_time: '2026-06-01T15:00:00Z',
         invitees: [{ user_id: 20, is_required: true }],
       });
 
@@ -685,8 +685,8 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
         title: 'Team Meeting',
         meeting_type: 'IN_PERSON',
         organizer_user_id: 10,
-        start_time: '2026-05-01T09:00:00Z',
-        end_time: '2026-05-01T10:00:00Z',
+        start_time: '2026-06-01T09:00:00Z',
+        end_time: '2026-06-01T10:00:00Z',
         invitees: [
           { user_id: 20, is_required: true },
           { user_id: 30, is_required: false },

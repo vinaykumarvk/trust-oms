@@ -238,6 +238,34 @@ router.use(
     defaultSort: 'legal_name',
     entityKey: 'clients',
     makerChecker: 'clients',
+    beforeCreate: async (data: unknown, req: Request) => {
+      const d = data as Record<string, unknown>;
+      const contact = d.contact && typeof d.contact === 'object' ? d.contact as Record<string, unknown> : {};
+      const entityType = String(d.type ?? '').toUpperCase().includes('CORP') || String(d.type ?? '').toUpperCase().includes('ENTITY')
+        ? 'NON_INDIVIDUAL'
+        : 'INDIVIDUAL';
+      (req as any).dedupeDecision = await dedupeService.evaluateOnboardingDedupe(
+        {
+          entity_name: d.legal_name ? String(d.legal_name) : undefined,
+          tin: d.tin ? String(d.tin) : undefined,
+          email: contact.email ? String(contact.email) : undefined,
+          phone: contact.phone ? String(contact.phone) : undefined,
+        },
+        entityType,
+        'CLIENT',
+        req.userId || 'unknown',
+        (req.body as Record<string, unknown>).dedupe_override as any,
+      );
+    },
+    afterCreate: async (created: unknown, req: Request) => {
+      const row = created as Record<string, unknown>;
+      await dedupeService.recordOnboardingDedupeOverrides(
+        'CLIENT',
+        String(row.client_id),
+        (req as any).dedupeDecision,
+        req.userId || 'unknown',
+      );
+    },
   }),
 );
 
@@ -607,18 +635,36 @@ router.use(
     defaultSort: 'id',
     defaultSortOrder: 'desc',
     entityKey: 'leads',
-    // CM G-006: invoke dedup check on manual lead creation via CRUD router
-    beforeCreate: async (data: unknown) => {
+    // CM G-006 / TB-B-001: controlled duplicate decision on manual lead creation.
+    beforeCreate: async (data: unknown, req: Request) => {
       const d = data as Record<string, unknown>;
       if (d.first_name || d.last_name || d.email) {
-        const dedupResult = await dedupeService.checkDedupe(
-          { first_name: String(d.first_name ?? ''), last_name: String(d.last_name ?? ''), email: d.email ? String(d.email) : undefined, mobile_phone: d.mobile_phone ? String(d.mobile_phone) : undefined },
+        (req as any).dedupeDecision = await dedupeService.evaluateOnboardingDedupe(
+          {
+            first_name: String(d.first_name ?? ''),
+            last_name: String(d.last_name ?? ''),
+            email: d.email ? String(d.email) : undefined,
+            mobile_phone: d.mobile_phone ? String(d.mobile_phone) : undefined,
+            entity_name: d.entity_name ? String(d.entity_name) : d.company_name ? String(d.company_name) : undefined,
+            tin: d.tin ? String(d.tin) : undefined,
+            tin_number: d.tin_number ? String(d.tin_number) : undefined,
+            tax_id: d.tax_id ? String(d.tax_id) : undefined,
+          },
           String(d.entity_type ?? 'INDIVIDUAL'),
+          'LEAD',
+          req.userId || 'unknown',
+          (req.body as Record<string, unknown>).dedupe_override as any,
         );
-        if (dedupResult.has_hard_stop || dedupResult.matches.length > 0) {
-          throw new Error(`Duplicate lead detected (${dedupResult.matches.length} match(es) found). Use the dedup resolution flow or verify this is a new person.`);
-        }
       }
+    },
+    afterCreate: async (created: unknown, req: Request) => {
+      const row = created as Record<string, unknown>;
+      await dedupeService.recordOnboardingDedupeOverrides(
+        'LEAD',
+        Number(row.id),
+        (req as any).dedupeDecision,
+        req.userId || 'unknown',
+      );
     },
   }),
 );
@@ -702,6 +748,36 @@ router.use(
     defaultSortOrder: 'desc',
     entityKey: 'prospects',
     makerChecker: 'prospects',
+    beforeCreate: async (data: unknown, req: Request) => {
+      const d = data as Record<string, unknown>;
+      if (d.first_name || d.last_name || d.email || d.tax_id || d.company_name) {
+        (req as any).dedupeDecision = await dedupeService.evaluateOnboardingDedupe(
+          {
+            first_name: d.first_name ? String(d.first_name) : undefined,
+            last_name: d.last_name ? String(d.last_name) : undefined,
+            email: d.email ? String(d.email) : undefined,
+            mobile_phone: d.mobile_phone ? String(d.mobile_phone) : undefined,
+            entity_name: d.company_name ? String(d.company_name) : undefined,
+            tax_id: d.tax_id ? String(d.tax_id) : undefined,
+            tin: d.tin ? String(d.tin) : undefined,
+            tin_number: d.tin_number ? String(d.tin_number) : undefined,
+          },
+          String(d.entity_type ?? 'INDIVIDUAL'),
+          'PROSPECT',
+          req.userId || 'unknown',
+          (req.body as Record<string, unknown>).dedupe_override as any,
+        );
+      }
+    },
+    afterCreate: async (created: unknown, req: Request) => {
+      const row = created as Record<string, unknown>;
+      await dedupeService.recordOnboardingDedupeOverrides(
+        'PROSPECT',
+        Number(row.id),
+        (req as any).dedupeDecision,
+        req.userId || 'unknown',
+      );
+    },
   }),
 );
 

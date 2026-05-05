@@ -374,10 +374,13 @@ describe('Dedupe Service', () => {
         'LEAD', 1, 'PROSPECT', 2, 2,
         'Customer verified identity in-person',
         100,
+        101,
+        'Reviewer approved after document comparison',
       );
 
       expect(result).toBeDefined();
       expect(result.id).toBe(1);
+      expect(result.reviewer_user_id).toBe(101);
     });
 
     it('should reject override for HARD_STOP rules', async () => {
@@ -908,6 +911,8 @@ describe('Integration: Dedupe + Negative List blocking flow', () => {
       'LEAD', 99, 'LEAD', 60, 2,
       'Verified — different person',
       100,
+      101,
+      'Reviewer approved soft-stop override',
     );
 
     expect(overrideResult).toBeDefined();

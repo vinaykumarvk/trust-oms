@@ -22,7 +22,7 @@ describe('call-report approval notification channels', () => {
 
   it('notifies filing RM and branch supervisors through in-app and email channels on late submission', () => {
     const submitBlock = callReportServiceSource.slice(
-      callReportServiceSource.indexOf('const requiresApproval = daysSinceMeeting > lateFilingThreshold'),
+      callReportServiceSource.indexOf('const requiresApproval = lateFilingEvaluation.requiresSupervisorApproval'),
       callReportServiceSource.indexOf('// BR-023: Create a SYSTEM_GENERATED task'),
     );
 

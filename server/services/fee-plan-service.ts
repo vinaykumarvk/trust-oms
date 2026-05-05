@@ -18,6 +18,19 @@ import { eq, and, sql, desc, ilike, or } from 'drizzle-orm';
 import { feePlanTemplateService } from './fee-plan-template-service';
 import { pricingDefinitionService } from './pricing-definition-service';
 import { tfpAuditService } from './tfp-audit-service';
+import { ValidationError } from './service-errors';
+import { validateEffectiveDateWindow } from './pricing-window-validation-service';
+
+function assertEffectiveWindow(effectiveDate?: string | null, expiryDate?: string | null) {
+  const errors = validateEffectiveDateWindow({
+    effective_date: effectiveDate,
+    expiry_date: expiryDate,
+    label: 'Fee plan effective window',
+  });
+  if (errors.length > 0) {
+    throw new ValidationError(`Fee plan validation failed: ${errors.join('; ')}`);
+  }
+}
 
 export const feePlanService = {
   /**
@@ -62,6 +75,8 @@ export const feePlanService = {
       const { template_id: _tid, template_code: _tc, template_name: _tn, category: _cat, ...templateFields } = templatePayload;
       mergedData = { ...templateFields, ...data } as typeof data;
     }
+
+    assertEffectiveWindow(mergedData.effective_date, mergedData.expiry_date ?? null);
 
     // --- Validation ---
     // charge_basis=PERIOD requires accrual_schedule_id
@@ -210,6 +225,11 @@ export const feePlanService = {
         throw new Error('min_charge_amount cannot exceed max_charge_amount');
       }
     }
+
+    assertEffectiveWindow(
+      (data.effective_date as string | undefined) ?? current.effective_date,
+      (data.expiry_date as string | null | undefined) ?? current.expiry_date ?? null,
+    );
 
     // Re-capture pricing_binding_version if pricing_definition_id or pricing_binding_mode changed
     const newPricingDefId = (data.pricing_definition_id as number) ?? current.pricing_definition_id;

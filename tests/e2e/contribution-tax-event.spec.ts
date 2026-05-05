@@ -137,7 +137,7 @@ vi.mock('@shared/schema', () => {
     'auditRecords', 'beneficialOwners', 'blocks', 'brokers', 'cashLedger',
     'cashTransactions', 'clientFatcaCrs', 'clientProfiles', 'clients',
     'complianceBreaches', 'complianceLimits', 'complianceRules', 'confirmations',
-    'contributions', 'corporateActionEntitlements', 'corporateActions',
+    'contributions', 'contributionMatchItems', 'corporateActionEntitlements', 'corporateActions',
     'counterparties', 'eodJobs', 'eodRuns', 'feeAccruals', 'feeInvoices',
     'feeSchedules', 'heldAwayAssets', 'killSwitchEvents', 'kycCases', 'mandates',
     'modelPortfolios', 'navComputations', 'notificationLog', 'orderAuthorizations',
@@ -157,6 +157,7 @@ vi.mock('@shared/schema', () => {
     'trustProductTypes', 'feeTypes', 'taxCodes', 'marketCalendar', 'legalEntities',
     'feedRouting', 'dataStewardship', 'approvalWorkflowDefinitions',
     'notificationTemplates', 'notificationConsent', 'systemConfig',
+    'exceptionItems', 'auditEvents', 'auditWindowSignatures',
   ];
   const makeTable = (name: string): any =>
     new Proxy({}, {
@@ -187,7 +188,7 @@ vi.mock('drizzle-orm', () => {
   sqlTag.raw = (...args: any[]) => args;
   sqlTag.join = (...args: any[]) => args;
   return {
-    eq: identity, desc: (col: any) => col, asc: (col: any) => col,
+    eq: identity, ne: identity, ilike: identity, desc: (col: any) => col, asc: (col: any) => col,
     and: identity, or: identity, sql: sqlTag, inArray: identity,
     gte: identity, lte: identity, lt: identity, gt: identity,
     isNull: (col: any) => col, count: identity, type: {},
@@ -246,6 +247,14 @@ describe('Contribution Tax Event — Philippines BRD (FR-CON-006)', () => {
 
     it('should have getContributions method', () => {
       expect(typeof contributionService.getContributions).toBe('function');
+    });
+
+    it('should have contribution matching workbench methods', () => {
+      expect(typeof contributionService.ingestContributionMatchItem).toBe('function');
+      expect(typeof contributionService.runContributionMatching).toBe('function');
+      expect(typeof contributionService.linkContributionMatchItem).toBe('function');
+      expect(typeof contributionService.resolveContributionMatchItem).toBe('function');
+      expect(typeof contributionService.getUnmatchedContributionInventory).toBe('function');
     });
   });
 

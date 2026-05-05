@@ -83,6 +83,20 @@ router.post('/questionnaires/:id/reject', requireBackOfficeRole(), async (req, r
   }
 });
 
+router.post('/questionnaires/:id/replacement-version', requireBackOfficeRole(), async (req, res, next) => {
+  try {
+    const makerId = (req as any).user?.id ?? req.body.maker_id;
+    if (!makerId) return res.status(401).json({ error: 'Authentication required' });
+    const result = await riskProfilingService.createQuestionnaireReplacementVersion(
+      parseInt(req.params.id, 10),
+      { ...req.body, maker_id: Number(makerId) },
+    );
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.delete('/questionnaires/:id', requireBackOfficeRole(), async (req, res, next) => {
   try {
     await riskProfilingService.deleteQuestionnaire(parseInt(req.params.id, 10));

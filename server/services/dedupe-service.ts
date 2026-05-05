@@ -9,12 +9,17 @@
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, and, sql, asc } from 'drizzle-orm';
+import {
+  DedupeOnboardingDecision,
+  DedupeOverrideApprovalInput,
+  buildDedupeOnboardingDecision,
+} from './dedupe-decision-policy';
 
 // ============================================================================
 // Types
 // ============================================================================
 
-interface DedupeMatch {
+export interface DedupeMatch {
   rule_id: number;
   stop_type: 'SOFT_STOP' | 'HARD_STOP';
   matched_entity_type: string;
@@ -22,13 +27,13 @@ interface DedupeMatch {
   matched_fields: Record<string, string>;
 }
 
-interface DedupeResult {
+export interface DedupeResult {
   matches: DedupeMatch[];
   has_hard_stop: boolean;
   has_soft_stop: boolean;
 }
 
-interface EntityData {
+export interface EntityData {
   entity_type?: string;
   first_name?: string;
   last_name?: string;
@@ -40,6 +45,9 @@ interface EntityData {
   date_of_birth?: string;
   nationality?: string;
   id_number?: string;
+  tin?: string;
+  tax_id?: string;
+  tin_number?: string;
   [key: string]: unknown;
 }
 
@@ -60,6 +68,9 @@ function getFieldValue(data: EntityData, field: string): string {
   if (field === 'phone') {
     return normalizeValue(data.phone || data.mobile_phone);
   }
+  if (field === 'tin' || field === 'tax_id' || field === 'tin_number') {
+    return normalizeValue(data.tin || data.tax_id || data.tin_number || data.id_number);
+  }
   return normalizeValue(data[field]);
 }
 
@@ -74,7 +85,48 @@ function getRowFieldValue(row: Record<string, unknown>, field: string): string {
   if (field === 'entity_name') {
     return normalizeValue(row.entity_name || row.company_name || row.legal_name);
   }
+  if (field === 'tin' || field === 'tax_id' || field === 'tin_number') {
+    return normalizeValue(row.tin || row.tax_id || row.tin_number || row.id_number || row.business_registration_number);
+  }
   return normalizeValue(row[field]);
+}
+
+function personTypeAliases(entityType: string): string[] {
+  return entityType === 'NON_INDIVIDUAL'
+    ? ['NON_INDIVIDUAL', 'ENTITY']
+    : ['INDIVIDUAL', 'NATURAL'];
+}
+
+function numericUserId(value: string | number | null | undefined): number {
+  const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(parsed)) {
+    throw new Error('Dedupe override requires numeric maker user id');
+  }
+  return parsed;
+}
+
+async function auditDedupeDecision(
+  sourceEntityType: string,
+  sourceEntityId: string,
+  actorId: string | number,
+  decision: DedupeOnboardingDecision,
+) {
+  await db.insert(schema.auditRecords).values({
+    entity_type: sourceEntityType.toLowerCase(),
+    entity_id: sourceEntityId,
+    action: 'UPDATE',
+    actor_id: String(actorId),
+    changes: {
+      event: 'ONBOARDING_DUPLICATE_CHECK',
+      decision: decision.status,
+      blocked: decision.blocked,
+      requires_override: decision.requires_override,
+      match_count: decision.matches.length,
+      hard_stop_count: decision.matches.filter((match) => match.stop_type === 'HARD_STOP').length,
+      soft_stop_count: decision.matches.filter((match) => match.stop_type === 'SOFT_STOP').length,
+      errors: decision.errors,
+    },
+  } as any);
 }
 
 // ============================================================================
@@ -97,11 +149,11 @@ export const dedupeService = {
       .orderBy(asc(schema.dedupeRules.priority));
 
     // Determine person type from entity type
-    const personType = entityType === 'NON_INDIVIDUAL' ? 'NON_INDIVIDUAL' : 'INDIVIDUAL';
+    const allowedPersonTypes = personTypeAliases(entityType);
 
     for (const rule of rules) {
       // Only apply rules matching the person type
-      if (rule.person_type !== personType) continue;
+      if (!allowedPersonTypes.includes(rule.person_type)) continue;
 
       const fields = rule.field_combination as string[];
       if (!fields || !Array.isArray(fields) || fields.length === 0) continue;
@@ -158,12 +210,14 @@ export const dedupeService = {
    */
   async overrideDedupe(
     entityType: string,
-    entityId: number,
+    entityId: number | string,
     matchedEntityType: string,
-    matchedEntityId: number,
+    matchedEntityId: number | string,
     ruleId: number,
     reason: string,
     userId: number,
+    reviewerUserId?: number,
+    reviewerComments?: string,
   ) {
     // Verify rule exists and is SOFT_STOP
     const [rule] = await db
@@ -178,22 +232,123 @@ export const dedupeService = {
       throw new Error('Only SOFT_STOP rules can be overridden');
     }
 
+    const decision = buildDedupeOnboardingDecision(
+      {
+        matches: [{
+          rule_id: ruleId,
+          stop_type: 'SOFT_STOP',
+          matched_entity_type: matchedEntityType,
+          matched_entity_id: matchedEntityId,
+          matched_fields: {},
+        }],
+        has_hard_stop: false,
+        has_soft_stop: true,
+      },
+      {
+        maker_user_id: userId,
+        override: {
+          override_reason: reason,
+          reviewer_user_id: reviewerUserId,
+          reviewer_comments: reviewerComments,
+        },
+      },
+    );
+    if (decision.blocked) {
+      throw new Error(decision.errors.join('; '));
+    }
+
     const [override] = await db
       .insert(schema.dedupeOverrides)
       .values({
         entity_type: entityType,
-        entity_id: entityId,
+        entity_id: String(entityId),
         matched_entity_type: matchedEntityType,
-        matched_entity_id: matchedEntityId,
+        matched_entity_id: String(matchedEntityId),
         rule_id: ruleId,
         override_reason: reason,
         override_user_id: userId,
+        reviewer_user_id: reviewerUserId,
+        override_status: 'APPROVED',
+        reviewer_decision_at: new Date(),
+        reviewer_comments: reviewerComments ?? null,
+        decision_snapshot: {
+          source: 'MANUAL_DEDUPE_OVERRIDE',
+          reviewer_user_id: reviewerUserId,
+        },
         created_by: String(userId),
         updated_by: String(userId),
       })
       .returning();
 
     return override;
+  },
+
+  async evaluateOnboardingDedupe(
+    entityData: EntityData,
+    entityType: string,
+    sourceEntityType: 'LEAD' | 'PROSPECT' | 'CLIENT',
+    makerUserId: string | number,
+    override?: DedupeOverrideApprovalInput | null,
+  ): Promise<DedupeOnboardingDecision> {
+    const dedupeResult = await this.checkDedupe(entityData, entityType);
+    const decision = buildDedupeOnboardingDecision(dedupeResult, {
+      maker_user_id: makerUserId,
+      override,
+    });
+
+    await auditDedupeDecision(sourceEntityType, 'PRE_CREATE', makerUserId, decision);
+
+    if (decision.blocked) {
+      throw new Error(`Duplicate ${sourceEntityType.toLowerCase()} ${decision.status === 'HARD_STOP' ? 'blocked' : 'requires approved override'}: ${decision.errors.join('; ')}`);
+    }
+
+    return decision;
+  },
+
+  async recordOnboardingDedupeOverrides(
+    entityType: 'LEAD' | 'PROSPECT' | 'CLIENT',
+    entityId: number | string,
+    decision: DedupeOnboardingDecision | null | undefined,
+    makerUserId: string | number,
+  ) {
+    if (!decision || decision.status !== 'APPROVED_OVERRIDE' || !decision.override) {
+      return [];
+    }
+
+    const requesterId = numericUserId(makerUserId);
+    const rows = [];
+    for (const match of decision.matches) {
+      const [override] = await db
+        .insert(schema.dedupeOverrides)
+        .values({
+          entity_type: entityType,
+          entity_id: String(entityId),
+          matched_entity_type: match.matched_entity_type,
+          matched_entity_id: String(match.matched_entity_id),
+          matched_fields: match.matched_fields,
+          rule_id: match.rule_id,
+          override_reason: decision.override.reason,
+          reason_code: decision.override.reason_code,
+          override_user_id: requesterId,
+          reviewer_user_id: decision.override.reviewer_user_id,
+          override_status: 'APPROVED',
+          requested_at: new Date(),
+          reviewer_decision_at: new Date(),
+          reviewer_comments: decision.override.reviewer_comments,
+          decision_snapshot: {
+            decision: decision.status,
+            match_count: decision.matches.length,
+            approved_by_user_id: decision.override.reviewer_user_id,
+          },
+          created_by: String(makerUserId),
+          updated_by: String(makerUserId),
+        })
+        .returning();
+      rows.push(override);
+    }
+
+    await auditDedupeDecision(entityType, String(entityId), makerUserId, decision);
+    return rows;
   },
 
   /**
@@ -344,6 +499,12 @@ async function findMatchesInTable(
       conditions.push(sql`${table.date_of_birth} = ${entityFieldValues[field]}` as any);
     } else if (field === 'nationality') {
       conditions.push(sql`LOWER(TRIM(${table.nationality})) = ${value}` as any);
+    } else if (field === 'tin' || field === 'tax_id' || field === 'tin_number') {
+      if (tableName === 'prospects') {
+        conditions.push(sql`LOWER(TRIM(${(table as typeof schema.prospects).tax_id})) = ${value}` as any);
+      } else {
+        conditions.push(sql`LOWER(TRIM(${(table as typeof schema.leads).business_registration_number})) = ${value}` as any);
+      }
     }
   }
 
@@ -356,6 +517,7 @@ async function findMatchesInTable(
       last_name: table.last_name,
       email: table.email,
       mobile_phone: table.mobile_phone,
+      ...(tableName === 'prospects' ? { tax_id: (table as typeof schema.prospects).tax_id } : { business_registration_number: (table as typeof schema.leads).business_registration_number }),
     })
     .from(table)
     .where(and(...conditions))
@@ -407,6 +569,8 @@ async function findMatchesInClients(
       conditions.push(sql`${schema.clients.contact}->>'phone' = ${entityFieldValues[field]}` as any);
     } else if (field === 'date_of_birth') {
       conditions.push(sql`${schema.clients.birth_date} = ${entityFieldValues[field]}` as any);
+    } else if (field === 'tin' || field === 'tax_id' || field === 'tin_number') {
+      conditions.push(sql`LOWER(TRIM(${schema.clients.tin})) = ${entityFieldValues[field]}` as any);
     }
   }
 
@@ -416,6 +580,7 @@ async function findMatchesInClients(
     .select({
       client_id: schema.clients.client_id,
       legal_name: schema.clients.legal_name,
+      tin: schema.clients.tin,
       contact: schema.clients.contact,
     })
     .from(schema.clients)

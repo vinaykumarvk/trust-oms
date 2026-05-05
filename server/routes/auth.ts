@@ -2,8 +2,8 @@
  * Authentication API Routes (Phase 0C)
  *
  * Public endpoints (no auth required):
- *   POST   /login           -- Authenticate and receive token pair
- *   POST   /refresh          -- Exchange refresh token for new token pair
+ *   POST   /login           -- Authenticate and set token cookies
+ *   POST   /refresh          -- Rotate token cookies
  *
  * Protected endpoints (auth required):
  *   POST   /logout           -- Revoke current session
@@ -22,7 +22,7 @@ const router = Router();
 // Public — no auth required
 // =============================================================================
 
-/** POST /login -- Authenticate and receive token pair */
+/** POST /login -- Authenticate and set token cookies */
 router.post(
   '/login',
   asyncHandler(async (req, res) => {
@@ -62,8 +62,6 @@ router.post(
       res.json({
         data: {
           user,
-          accessToken: tokens.accessToken,
-          refreshToken: tokens.refreshToken,
           expiresIn: tokens.expiresIn,
         },
       });
@@ -118,8 +116,6 @@ router.post(
       res.json({
         data: {
           user,
-          accessToken: tokens.accessToken,
-          refreshToken: tokens.refreshToken,
           expiresIn: tokens.expiresIn,
         },
       });

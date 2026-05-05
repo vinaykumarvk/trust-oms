@@ -408,7 +408,7 @@ router.post('/bulk-upload/preview', asyncHandler(async (req: any, res: any) => {
 }));
 
 router.post('/bulk-upload', asyncHandler(async (req: any, res: any) => {
-  const { rows } = req.body;
+  const { rows, background, file_name, idempotency_key, max_retries } = req.body;
   if (!Array.isArray(rows) || rows.length === 0) {
     return res.status(400).json({ error: 'Missing rows array' });
   }
@@ -422,8 +422,63 @@ router.post('/bulk-upload', asyncHandler(async (req: any, res: any) => {
     return res.status(400).json({ error: 'Upload payload exceeds 10 MB limit' });
   }
   const userId = req.userId || req.body.uploader_id || '0';
+  if (background === true || req.query.background === 'true') {
+    const queued = await handoverService.queueBulkUpload(rows, String(userId), {
+      fileName: file_name,
+      idempotencyKey: idempotency_key,
+      maxRetries: max_retries ? Number(max_retries) : undefined,
+    });
+    return res.status(202).json({ data: queued });
+  }
   const result = await handoverService.processBulkUpload(rows, String(userId));
   res.json(result);
+}));
+
+router.post('/bulk-upload/:id/process', requireAnyRole('BO_HEAD', 'BO_CHECKER', 'SYSTEM_ADMIN'), asyncHandler(async (req: any, res: any) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid upload log ID' });
+  const workerId = req.userId || req.body.worker_id || 'system';
+  const result = await handoverService.processBulkUploadJob(id, String(workerId));
+  res.json({ data: result });
+}));
+
+router.get('/bulk-upload/failures', requireAnyRole('BO_HEAD', 'BO_CHECKER', 'SYSTEM_ADMIN'), asyncHandler(async (req: any, res: any) => {
+  const result = await handoverService.listBulkUploadFailures({
+    upload_id: req.query.upload_id ? Number(req.query.upload_id) : undefined,
+    status: req.query.status as string | undefined,
+    assigned_to: req.query.assigned_to ? Number(req.query.assigned_to) : undefined,
+    page: req.query.page ? Number(req.query.page) : undefined,
+    pageSize: req.query.pageSize ? Number(req.query.pageSize) : undefined,
+  });
+  res.json({ data: result.data, total: result.total, page: result.page, pageSize: result.pageSize });
+}));
+
+router.post('/bulk-upload/failures/:id/assign', requireAnyRole('BO_HEAD', 'BO_CHECKER', 'SYSTEM_ADMIN'), asyncHandler(async (req: any, res: any) => {
+  const id = Number(req.params.id);
+  const assigneeId = Number(req.body.assigned_to ?? req.body.assignee_id);
+  if (isNaN(id) || isNaN(assigneeId)) return res.status(400).json({ error: 'Invalid failure ID or assignee' });
+  const actorIdValue = req.userId || req.body.actor_id || 'system';
+  const data = await handoverService.assignBulkUploadFailure(id, assigneeId, String(actorIdValue));
+  res.json({ data });
+}));
+
+router.post('/bulk-upload/failures/:id/resolve', requireAnyRole('BO_HEAD', 'BO_CHECKER', 'SYSTEM_ADMIN'), asyncHandler(async (req: any, res: any) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid failure ID' });
+  const actorIdValue = req.userId || req.body.actor_id || 'system';
+  const data = await handoverService.resolveBulkUploadFailure(id, String(actorIdValue), {
+    resolution_code: req.body.resolution_code,
+    resolution_notes: req.body.resolution_notes,
+  });
+  res.json({ data });
+}));
+
+router.post('/bulk-upload/failures/:id/retry', requireAnyRole('BO_HEAD', 'BO_CHECKER', 'SYSTEM_ADMIN'), asyncHandler(async (req: any, res: any) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid failure ID' });
+  const actorIdValue = req.userId || req.body.actor_id || 'system';
+  const data = await handoverService.retryBulkUploadFailure(id, String(actorIdValue), req.body.row_override ?? {});
+  res.json({ data });
 }));
 
 router.get('/upload-log/:id', asyncHandler(async (req: any, res: any) => {
@@ -673,6 +728,16 @@ router.get('/request/:id/audit', asyncHandler(async (req: any, res: any) => {
 router.get('/sla/breached', requireAnyRole('BO_HEAD', 'COMPLIANCE_OFFICER', 'SYSTEM_ADMIN'), asyncHandler(async (req: any, res: any) => {
   const handovers = await handoverService.getSlaBreachedHandovers();
   res.json({ data: { handovers } });
+}));
+
+// POST /authorization/escalate-overdue
+router.post('/authorization/escalate-overdue', requireAnyRole('BO_HEAD', 'COMPLIANCE_OFFICER', 'SYSTEM_ADMIN'), asyncHandler(async (req: any, res: any) => {
+  const userId = req.userId ?? req.body.actor_id ?? 'system';
+  const result = await handoverService.escalateOverdueAuthorizations({
+    actorId: userId,
+    reason: req.body.reason || undefined,
+  });
+  res.json({ data: result });
 }));
 
 export default router;

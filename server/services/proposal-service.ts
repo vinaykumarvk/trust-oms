@@ -15,8 +15,14 @@
 
 import { db } from '../db';
 import * as schema from '@shared/schema';
-import { eq, and, sql, desc, ilike, or } from 'drizzle-orm';
+import { eq, and, sql, desc, ilike, or, gte, lte } from 'drizzle-orm';
 import { notificationInboxService } from './notification-inbox-service';
+import {
+  buildClientAcceptanceEvidence,
+  buildProposalDisclosureSnapshot,
+  defaultSuitabilityDisclosureContent,
+  hashDisclosurePayload,
+} from './proposal-disclosure-policy';
 
 // TODO: These financial constants are hardcoded for the initial implementation.
 // In a future iteration, move them to a configuration table (e.g. system_config
@@ -638,6 +644,165 @@ export const proposalService = {
   },
 
   // ---------------------------------------------------------------------------
+  // 3b. Suitability disclosure versioning and acceptance evidence
+  // ---------------------------------------------------------------------------
+
+  async listSuitabilityDisclosureVersions(filters: {
+    entityId?: string;
+    disclosureCode?: string;
+    status?: string;
+  } = {}) {
+    const conditions = [eq(schema.suitabilityDisclosureVersions.is_deleted, false)];
+    if (filters.entityId) conditions.push(eq(schema.suitabilityDisclosureVersions.entity_id, filters.entityId));
+    if (filters.disclosureCode) conditions.push(eq(schema.suitabilityDisclosureVersions.disclosure_code, filters.disclosureCode));
+    if (filters.status) conditions.push(eq(schema.suitabilityDisclosureVersions.disclosure_status, filters.status));
+    return db
+      .select()
+      .from(schema.suitabilityDisclosureVersions)
+      .where(and(...conditions))
+      .orderBy(desc(schema.suitabilityDisclosureVersions.version_no));
+  },
+
+  async createSuitabilityDisclosureVersion(data: {
+    entity_id?: string;
+    disclosure_code?: string;
+    title: string;
+    content: unknown;
+    effective_from: string;
+    effective_to?: string | null;
+    approved_by?: number;
+    created_by?: string;
+  }) {
+    const entityId = data.entity_id ?? 'default';
+    const disclosureCode = data.disclosure_code ?? 'SUITABILITY_STANDARD';
+    const [latest] = await db
+      .select({ version_no: schema.suitabilityDisclosureVersions.version_no })
+      .from(schema.suitabilityDisclosureVersions)
+      .where(and(
+        eq(schema.suitabilityDisclosureVersions.entity_id, entityId),
+        eq(schema.suitabilityDisclosureVersions.disclosure_code, disclosureCode),
+      ))
+      .orderBy(desc(schema.suitabilityDisclosureVersions.version_no))
+      .limit(1);
+    const contentHash = hashDisclosurePayload(data.content);
+    const [inserted] = await db
+      .insert(schema.suitabilityDisclosureVersions)
+      .values({
+        entity_id: entityId,
+        disclosure_code: disclosureCode,
+        version_no: Number(latest?.version_no ?? 0) + 1,
+        title: data.title,
+        content: data.content,
+        content_hash: contentHash,
+        effective_from: data.effective_from,
+        effective_to: data.effective_to ?? null,
+        disclosure_status: 'ACTIVE',
+        approved_by: data.approved_by ?? null,
+        approved_at: data.approved_by ? new Date() : null,
+        created_by: data.created_by,
+        updated_by: data.created_by,
+      } as any)
+      .returning();
+    return inserted;
+  },
+
+  async ensureSuitabilityDisclosureVersion(entityId = 'default') {
+    const today = new Date().toISOString().split('T')[0];
+    const [active] = await db
+      .select()
+      .from(schema.suitabilityDisclosureVersions)
+      .where(and(
+        eq(schema.suitabilityDisclosureVersions.entity_id, entityId),
+        eq(schema.suitabilityDisclosureVersions.disclosure_code, 'SUITABILITY_STANDARD'),
+        eq(schema.suitabilityDisclosureVersions.disclosure_status, 'ACTIVE'),
+        eq(schema.suitabilityDisclosureVersions.is_deleted, false),
+        lte(schema.suitabilityDisclosureVersions.effective_from, today),
+        or(
+          sql`${schema.suitabilityDisclosureVersions.effective_to} IS NULL`,
+          gte(schema.suitabilityDisclosureVersions.effective_to, today),
+        ) as any,
+      ))
+      .orderBy(desc(schema.suitabilityDisclosureVersions.version_no))
+      .limit(1);
+    if (active) return active;
+
+    const content = defaultSuitabilityDisclosureContent();
+    const [inserted] = await db
+      .insert(schema.suitabilityDisclosureVersions)
+      .values({
+        entity_id: entityId,
+        disclosure_code: 'SUITABILITY_STANDARD',
+        version_no: 1,
+        title: content.title,
+        content,
+        content_hash: hashDisclosurePayload(content),
+        effective_from: today,
+        disclosure_status: 'ACTIVE',
+        created_by: 'SYSTEM_DISCLOSURE_SEED',
+        updated_by: 'SYSTEM_DISCLOSURE_SEED',
+      } as any)
+      .returning();
+    return inserted;
+  },
+
+  async prepareProposalDisclosureEvidence(proposalId: number) {
+    const proposal = await this.getProposal(proposalId);
+    if (!proposal) throw new Error(`Proposal not found: ${proposalId}`);
+    const suitabilityDetails = proposal.suitability_check_details
+      ? proposal.suitability_check_details
+      : (await this.runSuitabilityCheck(proposalId)).details;
+    const disclosureVersion = await this.ensureSuitabilityDisclosureVersion(proposal.entity_id ?? 'default');
+    const snapshot = buildProposalDisclosureSnapshot({
+      proposal: {
+        id: proposal.id,
+        proposal_number: proposal.proposal_number,
+        title: proposal.title,
+        customer_id: proposal.customer_id,
+        risk_profile_id: proposal.risk_profile_id,
+      },
+      disclosureVersion: {
+        id: disclosureVersion.id,
+        disclosure_code: disclosureVersion.disclosure_code,
+        version_no: disclosureVersion.version_no,
+        title: disclosureVersion.title,
+        content: disclosureVersion.content,
+        content_hash: disclosureVersion.content_hash,
+      },
+      suitabilityDetails,
+    });
+
+    const [evidence] = await db
+      .insert(schema.proposalDisclosureEvidence)
+      .values({
+        proposal_id: proposalId,
+        risk_profile_id: proposal.risk_profile_id,
+        disclosure_version_id: disclosureVersion.id,
+        disclosure_code: disclosureVersion.disclosure_code,
+        disclosure_version_no: disclosureVersion.version_no,
+        disclosure_content_hash: disclosureVersion.content_hash,
+        disclosure_snapshot: snapshot,
+        suitability_snapshot: suitabilityDetails,
+        acceptance_status: 'PENDING',
+        created_by: String(proposal.rm_id),
+        updated_by: String(proposal.rm_id),
+      } as any)
+      .returning();
+
+    await db
+      .update(schema.investmentProposals)
+      .set({
+        disclosure_status: 'PENDING_ACCEPTANCE',
+        disclosure_version_id: disclosureVersion.id,
+        disclosure_evidence_id: evidence.id,
+        disclosure_snapshot: snapshot,
+        updated_at: new Date(),
+      } as any)
+      .where(eq(schema.investmentProposals.id, proposalId));
+
+    return evidence;
+  },
+
+  // ---------------------------------------------------------------------------
   // 4. What-If Analysis
   // ---------------------------------------------------------------------------
 
@@ -881,13 +1046,20 @@ export const proposalService = {
       .where(eq(schema.investmentProposals.id, proposalId))
       .returning();
 
-    return updated;
+    const disclosureEvidence = await this.prepareProposalDisclosureEvidence(proposalId);
+    return { ...updated, disclosure_evidence: disclosureEvidence };
   },
 
   /**
    * Client accepts the proposal: SENT_TO_CLIENT -> CLIENT_ACCEPTED
    */
-  async clientAccept(proposalId: number, clientId: number) {
+  async clientAccept(proposalId: number, clientId: number, acceptance: {
+    channel?: string;
+    acceptance_method?: string;
+    affirmation_text?: string;
+    ip_address?: string;
+    user_agent?: string;
+  } = {}) {
     return await db.transaction(async (tx: any) => {
       const [proposal] = await tx
         .select()
@@ -901,22 +1073,68 @@ export const proposalService = {
         );
       }
 
+      const [disclosureEvidence] = await tx
+        .select()
+        .from(schema.proposalDisclosureEvidence)
+        .where(and(
+          eq(schema.proposalDisclosureEvidence.proposal_id, proposalId),
+          eq(schema.proposalDisclosureEvidence.acceptance_status, 'PENDING'),
+          eq(schema.proposalDisclosureEvidence.is_deleted, false),
+        ))
+        .orderBy(desc(schema.proposalDisclosureEvidence.created_at))
+        .limit(1);
+      if (!disclosureEvidence) {
+        throw new Error('Disclosure acceptance evidence is required before client acceptance');
+      }
+
+      const acceptedAt = new Date();
+      const acceptanceEvidence = buildClientAcceptanceEvidence({
+        evidenceId: disclosureEvidence.id,
+        acceptedBy: clientId,
+        acceptedAt,
+        channel: acceptance.channel,
+        acceptanceMethod: acceptance.acceptance_method,
+        affirmationText: acceptance.affirmation_text,
+        ipAddress: acceptance.ip_address,
+        userAgent: acceptance.user_agent,
+        disclosureContentHash: disclosureEvidence.disclosure_content_hash,
+        disclosureVersionId: disclosureEvidence.disclosure_version_id,
+      });
+
       const [updated] = await tx
         .update(schema.investmentProposals)
         .set({
           proposal_status: 'CLIENT_ACCEPTED',
-          client_accepted_at: new Date(),
-          updated_at: new Date(),
+          disclosure_status: 'ACCEPTED',
+          client_acceptance_evidence: acceptanceEvidence,
+          client_accepted_at: acceptedAt,
+          updated_at: acceptedAt,
         } as any)
         .where(eq(schema.investmentProposals.id, proposalId))
         .returning();
+
+      await tx
+        .update(schema.proposalDisclosureEvidence)
+        .set({
+          acceptance_status: 'ACCEPTED',
+          accepted_by: clientId,
+          accepted_at: acceptedAt,
+          channel: acceptance.channel ?? 'BACK_OFFICE',
+          acceptance_method: acceptance.acceptance_method ?? 'CLICKWRAP',
+          ip_address: acceptance.ip_address ?? null,
+          user_agent: acceptance.user_agent ?? null,
+          evidence_payload: acceptanceEvidence,
+          updated_at: acceptedAt,
+          updated_by: String(clientId),
+        } as any)
+        .where(eq(schema.proposalDisclosureEvidence.id, disclosureEvidence.id));
 
       await tx.insert(schema.proposalApprovals).values({
         proposal_id: proposalId,
         approval_level: 'CLIENT' as any,
         action: 'APPROVED' as any,
         acted_by: clientId,
-        comments: null,
+        comments: `Client accepted disclosure evidence #${disclosureEvidence.id}`,
       });
 
       return updated;
@@ -944,12 +1162,26 @@ export const proposalService = {
         .update(schema.investmentProposals)
         .set({
           proposal_status: 'CLIENT_REJECTED',
+          disclosure_status: 'REJECTED',
           client_rejected_at: new Date(),
           client_rejection_reason: reason ?? null,
           updated_at: new Date(),
         } as any)
         .where(eq(schema.investmentProposals.id, proposalId))
         .returning();
+
+      await tx
+        .update(schema.proposalDisclosureEvidence)
+        .set({
+          acceptance_status: 'REJECTED',
+          evidence_payload: { rejected_by: clientId, rejected_at: new Date().toISOString(), reason: reason ?? null },
+          updated_at: new Date(),
+          updated_by: String(clientId),
+        } as any)
+        .where(and(
+          eq(schema.proposalDisclosureEvidence.proposal_id, proposalId),
+          eq(schema.proposalDisclosureEvidence.acceptance_status, 'PENDING'),
+        ));
 
       await tx.insert(schema.proposalApprovals).values({
         proposal_id: proposalId,
