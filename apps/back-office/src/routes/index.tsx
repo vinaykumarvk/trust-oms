@@ -27,6 +27,10 @@ const OemsProductSetupOda = React.lazy(() => import("@/pages/oems-product-setup-
 const OemsProductSetupMld = React.lazy(() => import("@/pages/oems-product-setup-mld"));
 const OemsOrderManagementOda = React.lazy(() => import("@/pages/oems-order-management-oda"));
 const OemsOrderManagementMld = React.lazy(() => import("@/pages/oems-order-management-mld"));
+const OemsFxToday = React.lazy(() => import("@/pages/oems-fx-today"));
+const OemsOrderBlotter = React.lazy(() => import("@/pages/oems-order-blotter"));
+const OemsNotificationsIntegrations = React.lazy(() => import("@/pages/oems-notifications-integrations"));
+const OemsDigitalVerification = React.lazy(() => import("@/pages/oems-digital-verification"));
 const MarginLendingWorkbench = React.lazy(() => import("@/pages/margin-lending-workbench"));
 const NavUpdates = React.lazy(() => import("@/pages/nav-updates"));
 const SettlementDesk = React.lazy(() => import("@/pages/settlement-desk"));
@@ -908,6 +912,40 @@ export const router = createBrowserRouter([
             element: (
               <Suspense fallback={<PageLoader />}>
                 <OemsOrderManagementMld />
+              </Suspense>
+            ),
+          },
+
+          // Operations - OEMS decomposed pages
+          {
+            path: "/operations/oems-fx-today",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <OemsFxToday />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/operations/oems-order-blotter",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <OemsOrderBlotter />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/operations/oems-notifications",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <OemsNotificationsIntegrations />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/operations/oems-digital-verification",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <OemsDigitalVerification />
               </Suspense>
             ),
           },

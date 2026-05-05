@@ -298,7 +298,7 @@ export default function DegradedModeMonitor() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Impact Description</Label>
+                  <Label>Reason / impact summary</Label>
                   <Textarea
                     placeholder="Describe impact on operations..."
                     value={reportData.reason}
@@ -316,7 +316,7 @@ export default function DegradedModeMonitor() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Affected Feeds</Label>
+                    <Label>Affected feeds (comma-separated)</Label>
                     <Input
                       placeholder="BLOOMBERG, SWIFT"
                       value={reportData.affectedFeeds}

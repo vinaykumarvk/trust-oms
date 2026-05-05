@@ -592,10 +592,10 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
         // Mock new meeting insert returning (inside tx)
         mockReturning.mockResolvedValueOnce([{
           id: 2,
-          meeting_code: 'MTG-20260505-0001',
+          meeting_code: 'MTG-20270505-0001',
           meeting_status: 'SCHEDULED',
-          start_time: new Date('2026-05-05T09:00:00Z'),
-          end_time: new Date('2026-05-05T10:00:00Z'),
+          start_time: new Date('2027-05-05T09:00:00Z'),
+          end_time: new Date('2027-05-05T10:00:00Z'),
           parent_meeting_id: 1,
         }]);
 
@@ -610,8 +610,8 @@ describe('Meeting & Call Report — CRM Phases 7 & 8', () => {
 
         const result = await meetingService.reschedule(
           1,
-          '2026-05-05T09:00:00Z',
-          '2026-05-05T10:00:00Z',
+          '2027-05-05T09:00:00Z',
+          '2027-05-05T10:00:00Z',
           10,
         );
 

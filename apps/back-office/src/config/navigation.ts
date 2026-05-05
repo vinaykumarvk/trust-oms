@@ -215,6 +215,10 @@ export const navSections: NavSection[] = [
       { label: "MLD Product Setup", path: "/operations/oems-product-setup-mld", icon: ClipboardList },
       { label: "ODA Order Management", path: "/operations/oems-order-management-oda", icon: ClipboardList },
       { label: "MLD Order Management", path: "/operations/oems-order-management-mld", icon: ClipboardList },
+      { label: "FX Today", path: "/operations/oems-fx-today", icon: Zap },
+      { label: "Order Blotter", path: "/operations/oems-order-blotter", icon: FileSpreadsheet },
+      { label: "Notifications & Integrations", path: "/operations/oems-notifications", icon: Plug },
+      { label: "Digital Verification", path: "/operations/oems-digital-verification", icon: ShieldCheck },
       {
         label: "Margin Lending",
         path: "/operations/margin-lending",

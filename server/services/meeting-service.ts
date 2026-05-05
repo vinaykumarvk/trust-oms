@@ -563,14 +563,9 @@ export const meetingService = {
   async reschedule(id: number, new_start_time: string, new_end_time: string, userId?: number): Promise<MeetingRow> {
     const startTime = new Date(new_start_time);
     const endTime = new Date(new_end_time);
-    // P2-06: Rescheduling to a past date is not allowed
-    if (startTime <= new Date()) {
-      throw new ValidationError('Cannot reschedule a meeting to a past date/time. New start_time must be in the future.');
-    }
     if (endTime <= startTime) {
       throw new ValidationError('end_time must be after start_time');
     }
-    validateMeetingSchedulingWindow({ startTime, endTime, requireFuture: false });
 
     const [meeting] = await db.select().from(schema.meetings).where(eq(schema.meetings.id, id)).limit(1);
     if (!meeting) throw new NotFoundError('Meeting not found');
@@ -585,6 +580,12 @@ export const meetingService = {
         `Cannot reschedule meeting in ${meeting.meeting_status} status. Only SCHEDULED meetings can be rescheduled.`,
       );
     }
+
+    // P2-06: Rescheduling to a past date is not allowed
+    if (startTime <= new Date()) {
+      throw new ValidationError('Cannot reschedule a meeting to a past date/time. New start_time must be in the future.');
+    }
+    validateMeetingSchedulingWindow({ startTime, endTime, requireFuture: false });
 
     const schedulingEvaluation = await evaluateSchedulingForMeeting({
       title: meeting.title,

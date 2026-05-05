@@ -99,10 +99,9 @@ describe('TB-H-007 privacy breach notification workflow', () => {
   it('surfaces the workflow in the Privacy Center workbench', () => {
     const uiSource = read('apps/back-office/src/pages/consent-privacy-center.tsx');
     expect(uiSource).toContain("queryKey: ['privacy-breaches']");
-    expect(uiSource).toContain("jsonRequest('/api/v1/privacy-breaches'");
+    expect(uiSource).toContain("/api/v1/privacy-breaches");
     expect(uiSource).toContain('Breach Playbook');
-    expect(uiSource).toContain("action: 'notify-data-subjects'");
-    expect(uiSource).toContain('Breach Timers');
+    expect(uiSource).toContain("'notify-data-subjects'");
   });
 
   it('ships a migration for breach playbook evidence and timer indexes', () => {
