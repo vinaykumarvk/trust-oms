@@ -4,6 +4,7 @@ import { asyncHandler } from '../middleware/async-handler';
 import { denyBusinessApproval, requireAnyRole } from '../middleware/role-auth';
 import { httpStatusFromError, safeErrorMessage, ValidationError } from '../services/service-errors';
 import { oemsService, type OemsProductFamily } from '../services/oems-service';
+import { listAggregationRules, validateAggregationCompatibility, type AggregationCandidate } from '../services/blotter-aggregation-policy';
 
 const router = Router();
 
@@ -428,6 +429,22 @@ router.post('/oda/recommendations/:id/cancel', serviceRoute(async (req, res) => 
     req.body,
     actor(req),
   ));
+}));
+
+// ─── Blotter Aggregation Rules ───────────────────────────────────────────────
+
+router.get('/oda/aggregation-rules', serviceRoute(async (_req, res) => {
+  res.json({ rules: listAggregationRules() });
+}));
+
+router.post('/oda/aggregation-validate', serviceRoute(async (req, res) => {
+  const candidates = req.body.candidates as AggregationCandidate[];
+  if (!Array.isArray(candidates) || candidates.length === 0) {
+    throw new ValidationError('candidates array is required');
+  }
+  const violations = validateAggregationCompatibility(candidates);
+  const canAggregate = violations.filter(v => v.enforcement === 'MANDATORY').length === 0;
+  res.json({ canAggregate, violations });
 }));
 
 router.post('/oda/collections', serviceRoute(async (req, res) => {

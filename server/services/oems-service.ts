@@ -8,6 +8,13 @@ import {
   NotFoundError,
   ValidationError,
 } from './service-errors';
+import {
+  type AggregationCandidate,
+  assertAggregationCompatible,
+  bucketByAggregationRules,
+  listAggregationRules,
+  validateAggregationCompatibility,
+} from './blotter-aggregation-policy';
 
 export type OemsProductFamily =
   | 'ODA'
@@ -5088,10 +5095,32 @@ export const oemsService = {
     totalNominal?: number;
     averageRate?: number;
     minimumCollectiveAmount?: number;
+    skipAggregationCheck?: boolean;
   }, userId: string) {
     if (!data.recommendationIds?.length) throw new ValidationError('At least one ODA recommendation is required');
     const selected = await db.select().from(schema.oemsOdaRecommendations)
       .where(inArray(schema.oemsOdaRecommendations.id, data.recommendationIds));
+
+    // Enforce blotter aggregation rules — orders that cannot be grouped together must be rejected
+    if (!data.skipAggregationCheck && selected.length > 1) {
+      const candidates: AggregationCandidate[] = (selected as OemsOdaRecommendation[]).map((row) => ({
+        id: row.id,
+        direction: row.direction,
+        currency_pair: row.currency_pair,
+        effective_type: row.effective_type,
+        oda_type: row.oda_type,
+        tenor_days: row.tenor_days,
+        value_date: row.effective_date,
+        customer_type: row.customer_type,
+        rate: row.rate,
+        channel: row.channel,
+        product_id: (row as any).product_id ?? null,
+        nominal_amount: row.nominal_amount,
+        minimum_collective_amount: row.minimum_collective_amount,
+        order_cost_before_swap: row.order_cost_before_swap,
+      }));
+      assertAggregationCompatible(candidates);
+    }
     const totalNominal = data.totalNominal ?? selected.reduce(
       (sum: number, item: OemsOdaRecommendation) => sum + asNumber(item.nominal_amount),
       0,
@@ -5123,7 +5152,7 @@ export const oemsService = {
       minimum_collective_amount: toMoney(minimumCollectiveAmount),
       qualifies_minimum_collective: qualifies,
       lifecycle: 'SUMMARY_PENDING',
-      placement_summary: { recommendationIds: data.recommendationIds, groupingRule: 'direction_currency_pair_rate_order_cost_before_swap' },
+      placement_summary: { recommendationIds: data.recommendationIds, groupingRule: 'blotter_aggregation_policy_v1', rulesApplied: listAggregationRules().map(r => r.code) },
       created_by: userId,
     }).returning();
 
@@ -5145,41 +5174,45 @@ export const oemsService = {
         lte(schema.oemsOdaRecommendations.cutoff_at, new Date(`${summaryDate}T23:59:59.999Z`)),
         inArray(schema.oemsOdaRecommendations.lifecycle, ['HELD', 'AUTHORIZED', 'COLLECTED', 'SUMMARY_PENDING']),
       ));
-    const buckets = new Map<string, {
-      direction: string;
-      currencyPair: string;
-      rate: number;
-      totalNominal: number;
-      orderCostBeforeSwap: number;
-      orderCount: number;
-      minimumCollectiveAmount: number;
-      recommendationIds: number[];
-    }>();
+    // Apply blotter aggregation rules to bucket orders into compatible groups
+    const candidates: AggregationCandidate[] = (rows as OemsOdaRecommendation[]).map((row) => ({
+      id: row.id,
+      direction: row.direction,
+      currency_pair: row.currency_pair,
+      effective_type: row.effective_type,
+      oda_type: row.oda_type,
+      tenor_days: row.tenor_days,
+      value_date: row.effective_date,
+      customer_type: row.customer_type,
+      rate: row.rate,
+      channel: row.channel,
+      product_id: (row as any).product_id ?? null,
+      nominal_amount: row.nominal_amount,
+      minimum_collective_amount: row.minimum_collective_amount,
+      order_cost_before_swap: row.order_cost_before_swap,
+    }));
 
-    for (const row of rows as OemsOdaRecommendation[]) {
-      const minimum = asNumber(row.minimum_collective_amount) || params.minimumCollectiveAmount || 0;
-      const key = `${row.direction}|${row.currency_pair}|${row.rate}|${row.order_cost_before_swap ?? ''}`;
-      const bucket = buckets.get(key) ?? {
-        direction: row.direction,
-        currencyPair: row.currency_pair,
-        rate: asNumber(row.rate),
-        totalNominal: 0,
-        orderCostBeforeSwap: 0,
-        orderCount: 0,
-        minimumCollectiveAmount: minimum,
-        recommendationIds: [],
-      };
-      bucket.totalNominal += asNumber(row.nominal_amount);
-      bucket.orderCostBeforeSwap += asNumber(row.order_cost_before_swap);
-      bucket.orderCount += 1;
-      bucket.minimumCollectiveAmount = Math.max(bucket.minimumCollectiveAmount, minimum);
-      bucket.recommendationIds.push(row.id);
-      buckets.set(key, bucket);
-    }
+    const aggregationResult = bucketByAggregationRules(candidates, {
+      minimumCollectiveAmount: params.minimumCollectiveAmount,
+    });
 
-    const summaries = [...buckets.values()].map((bucket) => ({
+    const summaries = aggregationResult.buckets.map((bucket) => ({
       summaryDate,
-      ...bucket,
+      direction: bucket.direction,
+      currencyPair: bucket.currencyPair,
+      effectiveType: bucket.effectiveType,
+      odaType: bucket.odaType,
+      tenorDays: bucket.tenorDays,
+      valueDate: bucket.valueDate,
+      customerType: bucket.customerType,
+      rate: bucket.rate,
+      totalNominal: bucket.totalNominal,
+      orderCostBeforeSwap: bucket.orderCostBeforeSwap,
+      orderCount: bucket.orderCount,
+      minimumCollectiveAmount: bucket.minimumCollectiveAmount,
+      recommendationIds: bucket.recommendationIds,
+      aggregationKey: bucket.key,
+      rulesApplied: aggregationResult.rulesApplied,
       qualifiesMinimumCollective: bucket.minimumCollectiveAmount <= 0 || bucket.totalNominal >= bucket.minimumCollectiveAmount,
     }));
 
