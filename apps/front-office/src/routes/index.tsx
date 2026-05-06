@@ -8,11 +8,12 @@
  */
 
 import React, { Suspense } from "react";
-import { createBrowserRouter, RouterProvider, Navigate, Outlet } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Navigate, Outlet, useLocation } from "react-router-dom";
 import FrontOfficeLayout from "../components/layout/FrontOfficeLayout";
 import { Skeleton } from "@ui/components/ui/skeleton";
 
 // ---- Lazy-loaded pages ----
+const LoginPage = React.lazy(() => import("@/pages/login"));
 const RMDashboard = React.lazy(() => import("@/pages/rm-dashboard"));
 const OrderCapture = React.lazy(() => import("@/pages/order-capture"));
 const Orders = React.lazy(() => import("@/pages/orders"));
@@ -41,44 +42,80 @@ function SuspenseWrapper() {
   );
 }
 
+function ProtectedRoute() {
+  const location = useLocation();
+  const user = localStorage.getItem("trustoms-user");
+
+  if (!user) {
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: `${location.pathname}${location.search}` }}
+      />
+    );
+  }
+
+  return <Outlet />;
+}
+
 // ---- Router ----
 
 const router = createBrowserRouter([
   {
-    element: <FrontOfficeLayout />,
+    path: "/login",
+    element: (
+      <Suspense
+        fallback={
+          <div className="p-6">
+            <Skeleton className="h-96 w-full" />
+          </div>
+        }
+      >
+        <LoginPage />
+      </Suspense>
+    ),
+  },
+  {
+    element: <ProtectedRoute />,
     children: [
       {
-        element: <SuspenseWrapper />,
+        element: <FrontOfficeLayout />,
         children: [
-          // Dashboard
-          { index: true, element: <RMDashboard /> },
+          {
+            element: <SuspenseWrapper />,
+            children: [
+              // Dashboard
+              { index: true, element: <RMDashboard /> },
 
-          // Order Management
-          { path: "orders/new", element: <OrderCapture /> },
-          { path: "orders/approvals", element: <SRMApprovalQueue /> },
-          { path: "orders/:id", element: <OrderDetail /> },
-          { path: "orders", element: <Orders /> },
+              // Order Management
+              { path: "orders/new", element: <OrderCapture /> },
+              { path: "orders/approvals", element: <SRMApprovalQueue /> },
+              { path: "orders/:id", element: <OrderDetail /> },
+              { path: "orders", element: <Orders /> },
 
-          // Client Book
-          { path: "clients", element: <ClientBook /> },
-          { path: "clients/suitability", element: <Placeholder /> },
+              // Client Book
+              { path: "clients", element: <ClientBook /> },
+              { path: "clients/suitability", element: <Placeholder /> },
 
-          // Trading
-          { path: "trading/cockpit", element: <TraderCockpit /> },
-          { path: "trading/blocks", element: <TraderCockpit /> },
+              // Trading
+              { path: "trading/cockpit", element: <TraderCockpit /> },
+              { path: "trading/blocks", element: <TraderCockpit /> },
 
-          // Monitoring
-          { path: "monitoring/mandates", element: <MandateMonitor /> },
-          { path: "monitoring/market", element: <Placeholder /> },
+              // Monitoring
+              { path: "monitoring/mandates", element: <MandateMonitor /> },
+              { path: "monitoring/market", element: <Placeholder /> },
 
-          // Scenario & ESG (Phase 6B)
-          { path: "scenario/what-if", element: <WhatIfScenario /> },
+              // Scenario & ESG (Phase 6B)
+              { path: "scenario/what-if", element: <WhatIfScenario /> },
 
-          // Committee Workspace (Phase 6D)
-          { path: "committee/:workspaceId", element: <CommitteeWorkspace /> },
+              // Committee Workspace (Phase 6D)
+              { path: "committee/:workspaceId", element: <CommitteeWorkspace /> },
 
-          // Catch-all
-          { path: "*", element: <Navigate to="/" replace /> },
+              // Catch-all
+              { path: "*", element: <Navigate to="/" replace /> },
+            ],
+          },
         ],
       },
     ],

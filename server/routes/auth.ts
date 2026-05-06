@@ -48,7 +48,7 @@ router.post(
         httpOnly: true,
         secure: isProduction,
         sameSite: 'strict',
-        maxAge: 15 * 60 * 1000,
+        maxAge: 60 * 60 * 1000,
         path: '/',
       });
       res.cookie('trustoms-refresh-token', tokens.refreshToken, {
@@ -102,7 +102,7 @@ router.post(
         httpOnly: true,
         secure: isProduction,
         sameSite: 'strict',
-        maxAge: 15 * 60 * 1000,
+        maxAge: 60 * 60 * 1000,
         path: '/',
       });
       res.cookie('trustoms-refresh-token', tokens.refreshToken, {

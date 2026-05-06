@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
+import { OemsOrderWizard } from "./oems-order-wizard";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@ui/lib/queryClient";
 import { Badge } from "@ui/components/ui/badge";
@@ -23,7 +24,10 @@ import {
   TableRow,
 } from "@ui/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/components/ui/tabs";
+import { Separator } from "@ui/components/ui/separator";
 import { Textarea } from "@ui/components/ui/textarea";
+import { Combobox } from "@ui/components/ui/combobox";
+import { useToast } from "@ui/components/ui/toast";
 import {
   AlertTriangle,
   Banknote,
@@ -201,6 +205,24 @@ interface Product {
   product_family: ProductFamily;
   currency: string;
   is_active: boolean;
+  risk_score: number | null;
+  product_score: number | null;
+  currency_pair_from: string | null;
+  currency_pair_to: string | null;
+}
+
+interface ClientSearchResult {
+  client_id: string;
+  legal_name: string | null;
+  risk_profile: string | null;
+}
+
+interface ClientPortfolio {
+  portfolio_id: string;
+  type: string | null;
+  base_currency: string | null;
+  aum: string | null;
+  portfolio_status: string | null;
 }
 
 interface ParameterSet {
@@ -713,6 +735,32 @@ const oemsChannels: OemsChannel[] = [
   "TREASURY",
 ];
 
+const RISK_CATEGORIES: { code: number; label: string }[] = [
+  { code: 1, label: "Conservative" },
+  { code: 2, label: "Moderately Conservative" },
+  { code: 3, label: "Moderate" },
+  { code: 4, label: "Moderately Aggressive" },
+  { code: 5, label: "Aggressive" },
+  { code: 6, label: "Very Aggressive" },
+];
+
+const TRANSACTION_TYPES_BY_FAMILY: Record<ProductFamily, string[]> = {
+  ODA: ["ODA_INTRADAY", "ODA_OVERNIGHT", "ODA_GTD", "ODA_SPECIAL"],
+  MLD: ["MLD_SUBSCRIPTION"],
+  MUTUAL_FUND: ["SUBSCRIPTION", "REDEMPTION", "SWITCHING", "DRIP"],
+  BOND: ["BUY", "SELL", "SWITCHING", "AUCTION", "BUYBACK"],
+  FX_TODAY: ["FX_TODAY_SPECIAL_RATE"],
+  WEALTH_LENDING: ["DRAWDOWN", "REPAYMENT", "LIMIT_CHANGE"],
+};
+
+function riskLabel(score: number | null | undefined): string {
+  if (score == null) return "";
+  const cat = RISK_CATEGORIES.find((c) => c.code === score);
+  return cat ? `${score} - ${cat.label}` : String(score);
+}
+
+const SALES_ASSISTED_CHANNELS: OemsChannel[] = ["BRANCH", "CRM", "RM_MOBILE", "CRM_MICROSITE"];
+
 const statusTone: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   DRAFT: "secondary",
   VALIDATION_FAILED: "destructive",
@@ -808,6 +856,7 @@ function KpiCard({
 
 export default function OemsWorkbench() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [familyFilter, setFamilyFilter] = useState<ProductFamily | "ALL">("ALL");
   const [operationMessage, setOperationMessage] = useState<string | null>(null);
 
@@ -837,20 +886,169 @@ export default function OemsWorkbench() {
 
   const [orderForm, setOrderForm] = useState({
     productFamily: "MUTUAL_FUND" as ProductFamily,
-    transactionType: "SUBSCRIPTION",
+    transactionType: "",
     customerId: "",
+    customerLabel: "",
     portfolioId: "",
+    productId: "" as string,
     channel: "OEMS_DIRECT" as OemsChannel,
     assistedByUserId: "",
     branchCode: "",
-    channelSessionId: "",
-    channelSignatureHash: "",
-    channelCustomerRef: "",
-    currency: "IDR",
-    amount: "10000000",
-    customerRiskScore: "3",
-    productScore: "2",
+    currency: "PHP",
+    amount: "",
+    customerRiskScore: null as number | null,
+    customerRiskCategory: "",
+    productScore: null as number | null,
+    // ODA-specific
+    tenorDays: "",
+    rate: "",
+    currencyPair: "",
+    direction: "BUY",
+    effectiveType: "TODAY",
+    valueDate: new Date().toISOString().slice(0, 10),
+    // MLD-specific
+    trancheId: "",
+    // MF/Bond
+    transactionVariant: "",
+    quantity: "",
+    // FX-specific
+    dealtCurrency: "",
+    counterCurrency: "",
+    specialRate: "",
+    // Wealth Lending
+    facilityId: "",
+    limitAmount: "",
+    tenor: "",
+    lendingRate: "",
   });
+
+  const [clientSearch, setClientSearch] = useState("");
+
+  const clientSearchQuery = useQuery<ClientSearchResult[]>({
+    queryKey: ["oems-client-search", clientSearch],
+    queryFn: () => apiRequest("GET", `/api/v1/oems/clients?search=${encodeURIComponent(clientSearch)}&limit=20`),
+    enabled: clientSearch.length >= 2,
+  });
+
+  const clientPortfoliosQuery = useQuery<ClientPortfolio[]>({
+    queryKey: ["oems-client-portfolios", orderForm.customerId],
+    queryFn: () => apiRequest("GET", `/api/v1/oems/clients/${encodeURIComponent(orderForm.customerId)}/portfolios`),
+    enabled: !!orderForm.customerId,
+  });
+
+  const familyProductsQuery = useQuery<Product[]>({
+    queryKey: ["oems-family-products", orderForm.productFamily],
+    queryFn: () => apiRequest("GET", `/api/v1/oems/products?productFamily=${orderForm.productFamily}&activeOnly=true`),
+    enabled: !!orderForm.productFamily,
+  });
+
+  const clientOptions = useMemo(() =>
+    (clientSearchQuery.data ?? []).map((c) => ({
+      value: c.client_id,
+      label: `${c.client_id} — ${c.legal_name ?? ""}`,
+      sublabel: c.risk_profile ?? undefined,
+    })),
+    [clientSearchQuery.data],
+  );
+
+  const portfolioOptions = useMemo(() =>
+    (clientPortfoliosQuery.data ?? []).map((p) => ({
+      value: p.portfolio_id,
+      label: p.portfolio_id,
+      sublabel: `${p.type ?? ""} · ${p.base_currency ?? ""} · ${p.portfolio_status ?? ""}`,
+    })),
+    [clientPortfoliosQuery.data],
+  );
+
+  const familyProducts = useMemo(() => familyProductsQuery.data ?? [], [familyProductsQuery.data]);
+
+  // Auto-select portfolio when only one available
+  useEffect(() => {
+    const portfolios = clientPortfoliosQuery.data ?? [];
+    if (portfolios.length === 1) {
+      setOrderForm((f) => ({ ...f, portfolioId: portfolios[0].portfolio_id, currency: portfolios[0].base_currency ?? f.currency }));
+    }
+  }, [clientPortfoliosQuery.data]);
+
+  // Reset product-specific fields on family change
+  const resetFamilyFields = useCallback(() => {
+    setOrderForm((f) => ({
+      ...f,
+      transactionType: TRANSACTION_TYPES_BY_FAMILY[f.productFamily]?.[0] ?? "",
+      productId: "",
+      productScore: null,
+      tenorDays: "",
+      rate: "",
+      currencyPair: "",
+      direction: "BUY",
+      effectiveType: "TODAY",
+      valueDate: new Date().toISOString().slice(0, 10),
+      trancheId: "",
+      transactionVariant: "",
+      quantity: "",
+      dealtCurrency: "",
+      counterCurrency: "",
+      specialRate: "",
+      facilityId: "",
+      limitAmount: "",
+      tenor: "",
+      lendingRate: "",
+    }));
+  }, []);
+
+  // Auto-populate from selected product
+  const handleProductSelect = useCallback((productId: string) => {
+    const product = familyProducts.find((p) => String(p.id) === productId);
+    setOrderForm((f) => ({
+      ...f,
+      productId,
+      productScore: product?.product_score ?? null,
+      currency: product?.currency ?? f.currency,
+      currencyPair: product?.currency_pair_from && product?.currency_pair_to
+        ? `${product.currency_pair_from}/${product.currency_pair_to}` : f.currencyPair,
+      dealtCurrency: product?.currency_pair_from ?? f.dealtCurrency,
+      counterCurrency: product?.currency_pair_to ?? f.counterCurrency,
+    }));
+  }, [familyProducts]);
+
+  // Handle customer selection
+  const handleCustomerSelect = useCallback((clientId: string) => {
+    const client = (clientSearchQuery.data ?? []).find((c) => c.client_id === clientId);
+    const riskMap: Record<string, number> = { CONSERVATIVE: 1, MODERATE: 3, BALANCED: 3, GROWTH: 4, AGGRESSIVE: 5 };
+    const score = client?.risk_profile ? (riskMap[client.risk_profile] ?? null) : null;
+    setOrderForm((f) => ({
+      ...f,
+      customerId: clientId,
+      customerLabel: client ? `${client.client_id} — ${client.legal_name ?? ""}` : "",
+      portfolioId: "",
+      customerRiskScore: score,
+      customerRiskCategory: client?.risk_profile ?? "",
+    }));
+  }, [clientSearchQuery.data]);
+
+  function validateOrderForm(): string | null {
+    if (!orderForm.customerId) return "Customer is required";
+    if (!orderForm.transactionType) return "Transaction type is required";
+    const amt = Number(orderForm.amount);
+    if (!amt || amt <= 0) return "Amount must be greater than 0";
+    const fam = orderForm.productFamily;
+    if (fam === "ODA") {
+      if (!orderForm.tenorDays) return "Tenor days is required for ODA";
+      if (!orderForm.rate) return "Rate is required for ODA";
+      if (!orderForm.currencyPair) return "Currency pair is required for ODA";
+      if (!orderForm.valueDate) return "Value date is required for ODA";
+    }
+    if (fam === "MLD" && !orderForm.trancheId) return "Tranche is required for MLD";
+    if (fam === "FX_TODAY") {
+      if (!orderForm.currencyPair && (!orderForm.dealtCurrency || !orderForm.counterCurrency))
+        return "Currency pair is required for FX";
+      if (!orderForm.specialRate) return "Special rate is required for FX";
+    }
+    if (fam === "BOND" && (orderForm.transactionType === "SELL" || orderForm.transactionType === "SWITCHING")) {
+      if (!orderForm.quantity) return "Quantity is required for Bond sell/switch";
+    }
+    return null;
+  }
 
   const [verificationForm, setVerificationForm] = useState({
     orderId: "",
@@ -1538,9 +1736,13 @@ export default function OemsWorkbench() {
   const mutationOptions = (successMessage: string) => ({
     onSuccess: () => {
       setOperationMessage(successMessage);
+      toast({ title: successMessage });
       invalidateOems();
     },
-    onError: (err: Error) => setOperationMessage(err.message),
+    onError: (err: Error) => {
+      setOperationMessage(err.message);
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
   });
 
   const createProductMutation = useMutation({
@@ -1591,21 +1793,68 @@ export default function OemsWorkbench() {
   });
 
   const createOrderMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/v1/oems/orders", {
-      ...orderForm,
-      customerId: orderForm.customerId || undefined,
-      portfolioId: orderForm.portfolioId || undefined,
-      assistedByUserId: orderForm.assistedByUserId || undefined,
-      branchCode: orderForm.branchCode || undefined,
-      channelSessionId: orderForm.channelSessionId || undefined,
-      channelSignatureHash: orderForm.channelSignatureHash || undefined,
-      channelCustomerRef: orderForm.channelCustomerRef || undefined,
-      amount: Number(orderForm.amount),
-      customerRiskScore: Number(orderForm.customerRiskScore),
-      productScore: Number(orderForm.productScore),
-      documentStatus: "REQUIRED",
-      verificationStatus: orderForm.productFamily === "FX_TODAY" ? "PENDING" : "NOT_REQUIRED",
-    }),
+    mutationFn: () => {
+      const validationError = validateOrderForm();
+      if (validationError) return Promise.reject(new Error(validationError));
+
+      const base = {
+        productFamily: orderForm.productFamily,
+        transactionType: orderForm.transactionType,
+        customerId: orderForm.customerId || undefined,
+        portfolioId: orderForm.portfolioId || undefined,
+        channel: orderForm.channel,
+        assistedByUserId: orderForm.assistedByUserId || undefined,
+        branchCode: orderForm.branchCode || undefined,
+        amount: Number(orderForm.amount),
+        currency: orderForm.currency,
+        customerRiskScore: orderForm.customerRiskScore ?? 0,
+        productScore: orderForm.productScore ?? 0,
+        productId: orderForm.productId ? Number(orderForm.productId) : undefined,
+        documentStatus: "REQUIRED",
+        verificationStatus: orderForm.productFamily === "FX_TODAY" ? "PENDING" : "NOT_REQUIRED",
+      };
+
+      const fam = orderForm.productFamily;
+      if (fam === "ODA") {
+        return apiRequest("POST", "/api/v1/oems/oda/recommendations", {
+          ...base,
+          tenorDays: Number(orderForm.tenorDays),
+          rate: Number(orderForm.rate),
+          currencyPair: orderForm.currencyPair,
+          direction: orderForm.direction,
+          effectiveType: orderForm.effectiveType,
+          valueDate: orderForm.valueDate,
+        });
+      }
+      if (fam === "MLD") {
+        return apiRequest("POST", "/api/v1/oems/mld/orders", {
+          ...base,
+          trancheId: Number(orderForm.trancheId),
+        });
+      }
+      if (fam === "MUTUAL_FUND" || fam === "BOND") {
+        return apiRequest("POST", "/api/v1/oems/mf-bond/orders", {
+          ...base,
+          quantity: orderForm.quantity ? Number(orderForm.quantity) : undefined,
+        });
+      }
+      if (fam === "FX_TODAY") {
+        return apiRequest("POST", "/api/v1/oems/fx-today/orders", {
+          ...base,
+          dealtCurrency: orderForm.dealtCurrency,
+          counterCurrency: orderForm.counterCurrency,
+          specialRate: Number(orderForm.specialRate),
+        });
+      }
+      // WEALTH_LENDING fallback
+      return apiRequest("POST", "/api/v1/oems/orders", {
+        ...base,
+        facilityId: orderForm.facilityId || undefined,
+        limitAmount: orderForm.limitAmount ? Number(orderForm.limitAmount) : undefined,
+        tenor: orderForm.tenor ? Number(orderForm.tenor) : undefined,
+        lendingRate: orderForm.lendingRate ? Number(orderForm.lendingRate) : undefined,
+      });
+    },
     ...mutationOptions("OEMS order drafted"),
   });
 
@@ -2885,73 +3134,7 @@ export default function OemsWorkbench() {
 	        </TabsContent>
 
         <TabsContent value="orders" className="space-y-4">
-          <Card>
-            <CardHeader className="pb-4">
-              <CardTitle className="text-base">Order Capture</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-4">
-              <Field label="Family">
-                <Select value={orderForm.productFamily} onValueChange={(value) => setOrderForm({ ...orderForm, productFamily: value as ProductFamily })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {productFamilies.map((family) => <SelectItem key={family} value={family}>{family.replace(/_/g, " ")}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Transaction type">
-                <Input value={orderForm.transactionType} onChange={(event) => setOrderForm({ ...orderForm, transactionType: event.target.value })} />
-              </Field>
-              <Field label="Customer ID">
-                <Input value={orderForm.customerId} onChange={(event) => setOrderForm({ ...orderForm, customerId: event.target.value })} />
-              </Field>
-              <Field label="Portfolio ID">
-                <Input value={orderForm.portfolioId} onChange={(event) => setOrderForm({ ...orderForm, portfolioId: event.target.value })} />
-              </Field>
-	              <Field label="Channel">
-	                <Select value={orderForm.channel} onValueChange={(value) => setOrderForm({ ...orderForm, channel: value as OemsChannel })}>
-	                  <SelectTrigger><SelectValue /></SelectTrigger>
-	                  <SelectContent>
-	                    {oemsChannels.map((channel) => (
-	                      <SelectItem key={channel} value={channel}>{channel.replace(/_/g, " ")}</SelectItem>
-	                    ))}
-	                  </SelectContent>
-	                </Select>
-	              </Field>
-	              <Field label="Assisted by">
-	                <Input value={orderForm.assistedByUserId} onChange={(event) => setOrderForm({ ...orderForm, assistedByUserId: event.target.value })} />
-	              </Field>
-	              <Field label="Branch code">
-	                <Input value={orderForm.branchCode} onChange={(event) => setOrderForm({ ...orderForm, branchCode: event.target.value.toUpperCase() })} />
-	              </Field>
-	              <Field label="Channel session">
-	                <Input value={orderForm.channelSessionId} onChange={(event) => setOrderForm({ ...orderForm, channelSessionId: event.target.value })} />
-	              </Field>
-	              <Field label="Channel signature">
-	                <Input value={orderForm.channelSignatureHash} onChange={(event) => setOrderForm({ ...orderForm, channelSignatureHash: event.target.value })} />
-	              </Field>
-	              <Field label="Channel customer ref">
-	                <Input value={orderForm.channelCustomerRef} onChange={(event) => setOrderForm({ ...orderForm, channelCustomerRef: event.target.value })} />
-	              </Field>
-	              <Field label="Currency">
-	                <Input value={orderForm.currency} onChange={(event) => setOrderForm({ ...orderForm, currency: event.target.value.toUpperCase() })} />
-	              </Field>
-              <Field label="Amount">
-                <Input type="number" value={orderForm.amount} onChange={(event) => setOrderForm({ ...orderForm, amount: event.target.value })} />
-              </Field>
-              <Field label="Risk / product score">
-                <div className="grid grid-cols-2 gap-2">
-                  <Input type="number" value={orderForm.customerRiskScore} onChange={(event) => setOrderForm({ ...orderForm, customerRiskScore: event.target.value })} />
-                  <Input type="number" value={orderForm.productScore} onChange={(event) => setOrderForm({ ...orderForm, productScore: event.target.value })} />
-                </div>
-              </Field>
-              <div className="md:col-span-4">
-                <Button onClick={() => createOrderMutation.mutate()} disabled={createOrderMutation.isPending}>
-                  <Send className="mr-2 h-4 w-4" />
-                  Create Draft Order
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <OemsOrderWizard onDraftCreated={invalidateOems} onOrderSubmitted={invalidateOems} />
 
 	          <DataTable
 	            emptyText={ordersQuery.isLoading ? "Loading orders..." : "No OEMS orders found"}

@@ -9,7 +9,7 @@
  */
 
 import React, { Suspense } from "react";
-import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
+import { createBrowserRouter, Navigate, Outlet, useLocation } from "react-router-dom";
 import { BackOfficeLayout } from "@/components/layout/BackOfficeLayout";
 
 // ---- Lazy-loaded pages ----
@@ -179,9 +179,16 @@ function PageLoader() {
 
 // ---- Protected Route ----
 function ProtectedRoute() {
+  const location = useLocation();
   const user = localStorage.getItem("trustoms-user");
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: `${location.pathname}${location.search}` }}
+      />
+    );
   }
   return (
     <Suspense fallback={<PageLoader />}>

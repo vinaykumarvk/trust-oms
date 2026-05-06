@@ -333,6 +333,17 @@ async function seedSecurities() {
     { isin: 'PHTBILL91D', bloomberg_ticker: 'RPTB 91D', local_code: 'RPTB-91', name: 'Republic of Philippines T-Bill 91-day', asset_class: 'MM', sector: 'GOVERNMENT', exchange: 'PDEx', currency: 'PHP', coupon_rate: '0', maturity_date: null, yield_rate: '5.90', coupon_frequency: 0, risk_product_category: 'CONSERVATIVE', pricing_source_hierarchy: ['BSP', 'PDEX'] },
     // UITF NAV unit
     { isin: 'PHUITFBOND01', bloomberg_ticker: null, local_code: 'UITF-BOND-PHP', name: 'PHP Bond UITF (per unit)', asset_class: 'MM', sector: 'COLLECTIVE_INVESTMENT', exchange: null, currency: 'PHP', risk_product_category: 'CONSERVATIVE', pricing_source_hierarchy: ['INTERNAL'] },
+    // Mutual Funds
+    { isin: 'PHMF001EQ01', bloomberg_ticker: null, local_code: 'MF-EQ-GROWTH', name: 'PH Equity Growth Fund', asset_class: 'EQ', sector: 'COLLECTIVE_INVESTMENT', exchange: null, currency: 'PHP', risk_product_category: 'GROWTH', pricing_source_hierarchy: ['INTERNAL'] },
+    { isin: 'PHMF002BAL01', bloomberg_ticker: null, local_code: 'MF-BAL-STABLE', name: 'PH Balanced Stable Fund', asset_class: 'FI', sector: 'COLLECTIVE_INVESTMENT', exchange: null, currency: 'PHP', risk_product_category: 'BALANCED', pricing_source_hierarchy: ['INTERNAL'] },
+    { isin: 'PHMF003MM01', bloomberg_ticker: null, local_code: 'MF-MM-PESO', name: 'PH Peso Money Market Fund', asset_class: 'MM', sector: 'COLLECTIVE_INVESTMENT', exchange: null, currency: 'PHP', risk_product_category: 'CONSERVATIVE', pricing_source_hierarchy: ['INTERNAL'] },
+    { isin: 'PHMF004USD01', bloomberg_ticker: null, local_code: 'MF-USD-BOND', name: 'PH USD Bond Fund', asset_class: 'FI', sector: 'COLLECTIVE_INVESTMENT', exchange: null, currency: 'USD', risk_product_category: 'MODERATE', pricing_source_hierarchy: ['INTERNAL'] },
+    // Alternatives & Real Estate
+    { isin: 'PHALT001RE01', bloomberg_ticker: 'AREIT PM', local_code: 'AREIT', name: 'AREIT Inc. (Ayala Land REIT)', asset_class: 'RE', sector: 'REAL_ESTATE', exchange: 'PSE', currency: 'PHP', risk_product_category: 'BALANCED', pricing_source_hierarchy: ['BLOOMBERG', 'PSE'] },
+    { isin: 'PHALT002RE02', bloomberg_ticker: 'DDMPR PM', local_code: 'DDMPR', name: 'DDMP REIT Inc.', asset_class: 'RE', sector: 'REAL_ESTATE', exchange: 'PSE', currency: 'PHP', risk_product_category: 'BALANCED', pricing_source_hierarchy: ['BLOOMBERG', 'PSE'] },
+    // FX Spot
+    { isin: 'FXUSDPHP001', bloomberg_ticker: 'USDPHP Curncy', local_code: 'FX-USDPHP', name: 'USD/PHP Spot', asset_class: 'FX', sector: 'FOREIGN_EXCHANGE', exchange: 'OTC', currency: 'USD', risk_product_category: 'MODERATE', pricing_source_hierarchy: ['BLOOMBERG', 'BSP'] },
+    { isin: 'FXEURPHP001', bloomberg_ticker: 'EURPHP Curncy', local_code: 'FX-EURPHP', name: 'EUR/PHP Spot', asset_class: 'FX', sector: 'FOREIGN_EXCHANGE', exchange: 'OTC', currency: 'EUR', risk_product_category: 'MODERATE', pricing_source_hierarchy: ['BLOOMBERG', 'BSP'] },
   ];
 
   const ids: Record<string, number> = {};

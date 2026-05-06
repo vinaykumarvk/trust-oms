@@ -16,12 +16,12 @@ import {
   UserRound,
   WalletCards,
 } from "lucide-react";
-import { Button } from "@ui/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@ui/components/ui/card";
-import { Checkbox } from "@ui/components/ui/checkbox";
-import { Input } from "@ui/components/ui/input";
-import { Label } from "@ui/components/ui/label";
-import { useToast } from "@ui/components/ui/toast";
+import { Button } from "./ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Checkbox } from "./ui/checkbox";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { useToast } from "./ui/toast";
 
 type LoginLocationState = {
   from?: string;
@@ -30,8 +30,6 @@ type LoginLocationState = {
 
 type AuthUser = {
   id?: string | number;
-  clientId?: string | number;
-  client_id?: string | number;
   email?: string;
   fullName?: string;
   name?: string;
@@ -46,37 +44,56 @@ type LoginResponse = {
   message?: string;
 };
 
-const REMEMBERED_USER_KEY = "trustoms-client-remember-user";
-const SUPPORT_EMAIL = "clientcare@trustoms.local";
+type SignalIcon = "shield" | "wallet" | "trend";
 
-const trustSignals = [
-  {
-    label: "Portfolio view",
-    value: "360",
-    description: "Holdings, cash, statements, and service requests remain connected.",
-    icon: WalletCards,
-  },
-  {
-    label: "Secure channel",
-    value: "MFA",
-    description: "Client access is protected with account checks and audit history.",
-    icon: ShieldCheck,
-  },
-  {
-    label: "Request tracking",
-    value: "Live",
-    description: "Instructions and support cases move with clear status updates.",
-    icon: TrendingUp,
-  },
-];
+type TrustSignal = {
+  label: string;
+  value: string;
+  description: string;
+  icon: SignalIcon;
+};
 
-const clientNotes = [
-  "Review trust holdings, balances, and recent movements without switching workspaces.",
-  "Submit service requests with a record of supporting details and follow-up status.",
-  "Secure messages, statements, and onboarding tasks are kept in one client workspace.",
-];
+export type TrustLoginPageProps = {
+  brandEyebrow: string;
+  heroTitle: string;
+  heroDescription: string;
+  mobileTitle: string;
+  signInContext: string;
+  supportEmail: string;
+  rememberKey: string;
+  userStorageKey: string;
+  submitLabel: string;
+  recoveryAudience: string;
+  recoveryToastDescription: string;
+  focusLabel: string;
+  focusBadge: string;
+  focusNotes: string[];
+  signals: TrustSignal[];
+};
 
-export default function LoginPage() {
+const signalIcons = {
+  shield: ShieldCheck,
+  wallet: WalletCards,
+  trend: TrendingUp,
+} satisfies Record<SignalIcon, typeof ShieldCheck>;
+
+export function TrustLoginPage({
+  brandEyebrow,
+  heroTitle,
+  heroDescription,
+  mobileTitle,
+  signInContext,
+  supportEmail,
+  rememberKey,
+  userStorageKey,
+  submitLabel,
+  recoveryAudience,
+  recoveryToastDescription,
+  focusLabel,
+  focusBadge,
+  focusNotes,
+  signals,
+}: TrustLoginPageProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -84,7 +101,7 @@ export default function LoginPage() {
   const redirectTo = locationState?.from || "/";
   const sessionExpired = Boolean(locationState?.sessionExpired);
 
-  const rememberedUsername = useRef(localStorage.getItem(REMEMBERED_USER_KEY) || "");
+  const rememberedUsername = useRef(localStorage.getItem(rememberKey) || "");
   const [username, setUsername] = useState(rememberedUsername.current);
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(Boolean(rememberedUsername.current));
@@ -102,10 +119,10 @@ export default function LoginPage() {
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setNoteIndex((index) => (index + 1) % clientNotes.length);
+      setNoteIndex((index) => (index + 1) % focusNotes.length);
     }, 6500);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [focusNotes.length]);
 
   useEffect(() => {
     if (forgotMode) {
@@ -148,22 +165,21 @@ export default function LoginPage() {
 
       const user = body.data?.user || body.user || {};
 
+      if (rememberMe) {
+        localStorage.setItem(rememberKey, trimmedUsername);
+      } else {
+        localStorage.removeItem(rememberKey);
+      }
+
       localStorage.setItem(
-        "trustoms-client-user",
+        userStorageKey,
         JSON.stringify({
           id: String(user.id || trimmedUsername),
-          clientId: String(user.clientId || user.client_id || user.id || trimmedUsername),
           email: user.email,
           name: user.fullName || user.name || user.username || trimmedUsername,
           role: user.role,
         }),
       );
-
-      if (rememberMe) {
-        localStorage.setItem(REMEMBERED_USER_KEY, trimmedUsername);
-      } else {
-        localStorage.removeItem(REMEMBERED_USER_KEY);
-      }
 
       toast({
         title: "Signed in",
@@ -184,7 +200,7 @@ export default function LoginPage() {
 
     if (!trimmedEmail || !trimmedEmail.includes("@")) {
       setResetSent(false);
-      setError("Enter the email address linked to your client access.");
+      setError(`Enter the email address linked to your ${recoveryAudience}.`);
       return;
     }
 
@@ -192,7 +208,7 @@ export default function LoginPage() {
     setResetSent(true);
     toast({
       title: "Recovery request logged",
-      description: "Client care will validate the request and follow up.",
+      description: recoveryToastDescription,
     });
   };
 
@@ -212,25 +228,24 @@ export default function LoginPage() {
               </div>
               <div>
                 <p className="text-sm font-medium uppercase tracking-[0.18em] text-primary">
-                  Trust OMS Client Portal
+                  {brandEyebrow}
                 </p>
                 <h1
                   id="login-brand-heading"
                   className="mt-1 text-3xl font-semibold tracking-normal text-foreground sm:text-4xl lg:text-5xl"
                 >
-                  Secure client wealth workspace
+                  {heroTitle}
                 </h1>
               </div>
             </div>
 
             <p className="max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
-              A protected portal for trust clients to review portfolios, exchange
-              secure messages, and track service requests.
+              {heroDescription}
             </p>
 
             <div className="grid gap-3 sm:grid-cols-3">
-              {trustSignals.map((signal) => {
-                const Icon = signal.icon;
+              {signals.map((signal) => {
+                const Icon = signalIcons[signal.icon];
                 return (
                   <div
                     key={signal.label}
@@ -252,13 +267,13 @@ export default function LoginPage() {
 
           <div className="relative mt-8 max-w-2xl rounded-lg border bg-card/90 p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between gap-4">
-              <p className="text-sm font-medium text-muted-foreground">Portal focus</p>
+              <p className="text-sm font-medium text-muted-foreground">{focusLabel}</p>
               <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                Client access
+                {focusBadge}
               </span>
             </div>
             <p className="min-h-[3.5rem] text-base leading-7 text-foreground" aria-live="polite">
-              {clientNotes[noteIndex]}
+              {focusNotes[noteIndex]}
             </p>
           </div>
         </section>
@@ -273,19 +288,17 @@ export default function LoginPage() {
                 <p className="text-sm font-medium uppercase tracking-[0.18em] text-primary">
                   Trust OMS
                 </p>
-                <p className="text-base font-semibold text-foreground">
-                  Client wealth access
-                </p>
+                <p className="text-base font-semibold text-foreground">{mobileTitle}</p>
               </div>
             </div>
 
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-medium text-primary">Secure sign in</p>
-                <p className="text-sm text-muted-foreground">Client portal</p>
+                <p className="text-sm text-muted-foreground">{signInContext}</p>
               </div>
               <Button variant="outline" size="sm" asChild>
-                <a href={`mailto:${SUPPORT_EMAIL}`}>
+                <a href={`mailto:${supportEmail}`}>
                   <HelpCircle className="mr-2 h-4 w-4" aria-hidden="true" />
                   Help
                 </a>
@@ -299,8 +312,8 @@ export default function LoginPage() {
                 </CardTitle>
                 <p className="text-sm leading-6 text-muted-foreground">
                   {forgotMode
-                    ? "Submit your registered email address. Client care will validate the recovery request."
-                    : "Use your Trust OMS client account to continue."}
+                    ? "Submit your registered email address. The access desk will validate the recovery request."
+                    : `Use your Trust OMS ${signInContext.toLowerCase()} account to continue.`}
                 </p>
               </CardHeader>
               <CardContent>
@@ -323,7 +336,7 @@ export default function LoginPage() {
                         )}
                         <span>
                           {error ||
-                            "Recovery request captured. Check your inbox or contact client care for urgent support."}
+                            "Recovery request captured. Check your inbox or contact the access desk for urgent support."}
                         </span>
                       </div>
                     )}
@@ -482,7 +495,7 @@ export default function LoginPage() {
                           Signing in
                         </>
                       ) : (
-                        "Sign in to portal"
+                        submitLabel
                       )}
                     </Button>
                   </form>
@@ -491,12 +504,12 @@ export default function LoginPage() {
             </Card>
 
             <div className="mt-5 flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-              <span>Protected workspace for authorized trust clients.</span>
+              <span>Protected workspace for authorized trust banking users.</span>
               <a
                 className="font-medium text-primary underline-offset-4 hover:underline"
-                href={`mailto:${SUPPORT_EMAIL}`}
+                href={`mailto:${supportEmail}`}
               >
-                Client support
+                Access support
               </a>
             </div>
           </div>

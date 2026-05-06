@@ -1016,6 +1016,127 @@ Edge cases and error handling:
 - EC-015.1 Negative or zero calculated nominal amount is rejected.
 - FH-015.1 Report generation failure creates a failed export job with visible error and no corrupt file link.
 
+## FR-012A Blotter Deaggregation
+
+Description: OEMS shall allow authorized users to remove one or more orders from a blotter group before treasury placement, with full lifecycle guards and audit trail.
+
+User story: As a Treasury Dealer or Operations user, I want to remove orders from an aggregated blotter group so that incorrectly grouped or withdrawn orders do not proceed to placement.
+
+Acceptance criteria:
+
+- AC-012A.1 Deaggregation is allowed only when group lifecycle is SUMMARY_PENDING, COLLECTED, or SUMMARY_APPROVED.
+- AC-012A.2 Deaggregation is rejected for groups in PLACED or EXECUTED status.
+- AC-012A.3 Removed recommendations revert to lifecycle HELD with placement_group_id cleared.
+- AC-012A.4 If all orders are removed, the group is cancelled (lifecycle → CANCELLED).
+- AC-012A.5 Remaining group totals (total_nominal, average_rate, order_cost_before_swap) are recalculated.
+- AC-012A.6 Minimum collective threshold is rechecked after removal; flag set if below threshold.
+- AC-012A.7 A deaggregation event is recorded per removed recommendation with before/after state.
+- AC-012A.8 Original total_nominal and order_count are preserved on first deaggregation.
+- AC-012A.9 A reason (minimum 3 characters) is mandatory for each deaggregation action.
+
+Business rules:
+
+- BR-012A.1 Deaggregation log (jsonb) accumulates all removal events for group history.
+- BR-012A.2 Integration message logged for audit on every deaggregation action.
+
+Edge cases and error handling:
+
+- EC-012A.1 Recommendation IDs not belonging to the group return 400 with specific invalid IDs.
+- EC-012A.2 Empty recommendation list returns 400.
+- FH-012A.1 Deaggregation on an already-cancelled group returns 409 ConflictError.
+
+## FR-012B Partial Fulfillment — Proportionate Allocation
+
+Description: OEMS shall support pro-rata allocation when treasury executes only a fraction of the blotter group total nominal, distributing fills proportionally across all member orders.
+
+User story: As a Treasury Dealer, I want to proportionally allocate a partial fill across all orders in a group so that each customer receives a fair share of the executed amount.
+
+Acceptance criteria:
+
+- AC-012B.1 Allocation is allowed when group lifecycle is SUMMARY_APPROVED, PLACED, or TREASURY_UPDATE_PENDING.
+- AC-012B.2 Executed amount must be > 0 and ≤ group total nominal.
+- AC-012B.3 Each order receives: floor(proportion × executedAmount, 4dp).
+- AC-012B.4 Last order absorbs remainder to ensure sum equals executed amount exactly.
+- AC-012B.5 Orders with fill_status FULL or PARTIAL transition to lifecycle EXECUTED with nominal reduced to filled amount.
+- AC-012B.6 Fund release (UNHOLD + OVERBOOK) uses filled_amount, not original nominal.
+- AC-012B.7 Allocation log records per-recommendation detail with sequence number.
+
+Business rules:
+
+- BR-012B.1 proportion = order_nominal / group_total_nominal.
+- BR-012B.2 Rounding uses floor to 4 decimal places; remainder on last order.
+
+Edge cases and error handling:
+
+- EC-012B.1 Single-order group with partial fill results in that order receiving the full executed amount.
+- FH-012B.1 Executed amount exceeding total nominal returns 400.
+
+## FR-012C Partial Fulfillment — FIFO Allocation
+
+Description: OEMS shall support first-in-first-out allocation where orders are filled sequentially by creation time.
+
+User story: As a Treasury Dealer, I want to fill orders in time priority so that earlier orders are satisfied first.
+
+Acceptance criteria:
+
+- AC-012C.1 Orders are processed in ascending created_at order.
+- AC-012C.2 Each order is fully filled until executed amount is exhausted.
+- AC-012C.3 The boundary order (where remaining < nominal) receives a partial fill.
+- AC-012C.4 All subsequent orders receive fill_status UNFILLED and revert to lifecycle HELD.
+- AC-012C.5 Unfilled orders have placement_group_id cleared for re-aggregation.
+
+Business rules:
+
+- BR-012C.1 FIFO sequence is determined by recommendation created_at timestamp.
+- BR-012C.2 Partial boundary fill rounded to 4 decimal places.
+
+## FR-012D Partial Fulfillment — Manual Allocation
+
+Description: OEMS shall support dealer-specified allocation amounts for maximum operational flexibility.
+
+User story: As a Treasury Dealer, I want to manually specify how much each order receives from a partial fill when business judgment requires non-formulaic distribution.
+
+Acceptance criteria:
+
+- AC-012D.1 Manual allocations array must be provided with recommendationId and filledAmount per entry.
+- AC-012D.2 Sum of manual allocations must not exceed executed amount.
+- AC-012D.3 Each individual allocation must not exceed its order nominal.
+- AC-012D.4 Negative allocations are rejected.
+- AC-012D.5 Orders not specified in manual allocations receive fill_status UNFILLED.
+- AC-012D.6 Recommendation IDs must belong to the group.
+
+Business rules:
+
+- BR-012D.1 Manual allocation allows under-allocation (sum < executedAmount) for staged fills.
+
+Edge cases and error handling:
+
+- EC-012D.1 Duplicate recommendation IDs in allocations array uses the last entry.
+- FH-012D.1 Invalid recommendation ID returns 400 with identification.
+
+## FR-012E Blotter Aggregation Rules
+
+Description: OEMS aggregation engine enforces 10 segregation policies when grouping ODA recommendations into blotter groups.
+
+Acceptance criteria:
+
+- AC-012E.1 Rule 1 (Same Rate) — orders must share identical rate for aggregation.
+- AC-012E.2 Rule 2 (Same Currency Pair) — orders must share currency_pair.
+- AC-012E.3 Rule 3 (Same Direction) — BUY and SELL cannot mix.
+- AC-012E.4 Rule 4 (Same Tenor) — tenor_days must match.
+- AC-012E.5 Rule 5 (Same Value Date) — value_date must match.
+- AC-012E.6 Rule 6 (Same Effective Date) — effective_date must match.
+- AC-012E.7 Rule 7 (Same Channel) — channel must match.
+- AC-012E.8 Rule 8 (Same Customer Type) — INDIVIDUAL vs CORPORATE cannot mix.
+- AC-012E.9 Rule 9 (Same ODA Type) — SINGLE vs RECURRING cannot mix.
+- AC-012E.10 Rule 10 (Minimum Collective) — group must meet minimum_collective_amount threshold.
+
+Business rules:
+
+- BR-012E.1 Rules 1-9 are MANDATORY enforcement; violations prevent aggregation.
+- BR-012E.2 Rule 10 is ADVISORY; below-threshold groups are flagged but allowed.
+- BR-012E.3 Composite key for bucket assignment: (rate, currency_pair, direction, tenor_days, value_date, effective_date, channel, customer_type, oda_type).
+
 ## FR-016 MLD Offering Period Order Process
 
 Description: OEMS shall support MLD product/tranche setup, sales offering with indicative term sheet, customer CIF check, customer detail display, mandatory document signing, digital MLD participation form, order submission, minimum term sheet amount validation, maximum 90-day average balance validation, balance sufficiency, hold funds, daily order recap, final master blotter, pre-trade-date 90-day average recheck, amendment, and cancellation before COT.

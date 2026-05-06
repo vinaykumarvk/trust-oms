@@ -37,6 +37,8 @@ export const trustProductTypeEnum = pgEnum('trust_product_type', [
   'ESCROW',
   'AGENCY',
   'SAFEKEEPING',
+  'ITFA',
+  'PENSION',
 ]);
 
 export const orderStatusEnum = pgEnum('order_status', [
@@ -4292,6 +4294,18 @@ export const oemsOdaLifecycleEnum = pgEnum('oems_oda_lifecycle', [
   'EXCEPTION',
 ]);
 
+export const oemsOdaFillStatusEnum = pgEnum('oems_oda_fill_status', [
+  'UNFILLED',
+  'PARTIAL',
+  'FULL',
+]);
+
+export const oemsOdaAllocationMethodEnum = pgEnum('oems_oda_allocation_method', [
+  'PROPORTIONATE',
+  'FIFO',
+  'MANUAL',
+]);
+
 export const oemsMldLifecycleEnum = pgEnum('oems_mld_lifecycle', [
   'DRAFT',
   'OFFERING',
@@ -4332,6 +4346,13 @@ export const oemsCollateralStatusEnum = pgEnum('oems_collateral_status', [
   'INELIGIBLE',
   'RELEASE_PENDING',
   'RELEASED',
+]);
+
+export const oemsChargeRateTypeEnum = pgEnum('oems_charge_rate_type', [
+  'PERCENTAGE',
+  'FLAT',
+  'PER_UNIT',
+  'INFORMATIONAL',
 ]);
 
 export const oemsProducts = pgTable('oems_products', {
@@ -4453,6 +4474,12 @@ export const oemsOrders = pgTable('oems_orders', {
   cot_evaluation: jsonb('cot_evaluation'),
   created_by_role: text('created_by_role'),
   payload: jsonb('payload'),
+  gross_amount: numeric('gross_amount', { precision: 21, scale: 4 }),
+  total_charges: numeric('total_charges', { precision: 21, scale: 4 }),
+  total_tax: numeric('total_tax', { precision: 21, scale: 4 }),
+  net_amount: numeric('net_amount', { precision: 21, scale: 4 }),
+  settlement_amount: numeric('settlement_amount', { precision: 21, scale: 4 }),
+  indicative_settlement_date: date('indicative_settlement_date'),
   ...auditFields,
 }, (table) => [
   index('idx_oems_orders_family_status').on(table.product_family, table.order_status),
@@ -4766,6 +4793,14 @@ export const oemsOdaBlotterGroups = pgTable('oems_oda_blotter_groups', {
   qualifies_minimum_collective: boolean('qualifies_minimum_collective').notNull().default(false),
   lifecycle: oemsOdaLifecycleEnum('lifecycle').notNull().default('SUMMARY_PENDING'),
   placement_summary: jsonb('placement_summary'),
+  deaggregation_log: jsonb('deaggregation_log'),
+  original_total_nominal: numeric('original_total_nominal', { precision: 21, scale: 4 }),
+  original_order_count: integer('original_order_count'),
+  executed_amount: numeric('executed_amount', { precision: 21, scale: 4 }),
+  fill_percentage: numeric('fill_percentage', { precision: 7, scale: 4 }),
+  allocation_method: oemsOdaAllocationMethodEnum('allocation_method'),
+  allocation_at: timestamp('allocation_at', { withTimezone: true }),
+  allocation_by: text('allocation_by'),
   treasury_status: text('treasury_status'),
   fp8007_status: text('fp8007_status'),
   last_fp8007_sync_at: timestamp('last_fp8007_sync_at', { withTimezone: true }),
@@ -4824,6 +4859,12 @@ export const oemsOdaRecommendations = pgTable('oems_oda_recommendations', {
   ncbs_unhold_status: text('ncbs_unhold_status'),
   ncbs_overbook_status: text('ncbs_overbook_status'),
   auto_settle_result: text('auto_settle_result'),
+  filled_amount: numeric('filled_amount', { precision: 21, scale: 4 }),
+  fill_percentage: numeric('fill_percentage', { precision: 7, scale: 4 }),
+  fill_status: oemsOdaFillStatusEnum('fill_status').default('UNFILLED'),
+  allocation_method: oemsOdaAllocationMethodEnum('allocation_method'),
+  allocation_at: timestamp('allocation_at', { withTimezone: true }),
+  allocation_by: text('allocation_by'),
   treasury_status: text('treasury_status'),
   fp8007_status: text('fp8007_status'),
   cancellation_reason: text('cancellation_reason'),
@@ -4972,6 +5013,49 @@ export const oemsOdaFp8007Syncs = pgTable('oems_oda_fp8007_syncs', {
   uniqueIndex('ux_oems_oda_fp8007_sync_id').on(table.sync_id),
   index('idx_oems_oda_fp8007_group').on(table.group_id, table.sync_status),
   index('idx_oems_oda_fp8007_recommendation').on(table.recommendation_id),
+]);
+
+export const oemsOdaAllocationLog = pgTable('oems_oda_allocation_log', {
+  id: serial('id').primaryKey(),
+  log_id: text('log_id').unique().notNull(),
+  group_id: integer('group_id').references(() => oemsOdaBlotterGroups.id).notNull(),
+  recommendation_id: integer('recommendation_id').references(() => oemsOdaRecommendations.id).notNull(),
+  allocation_method: oemsOdaAllocationMethodEnum('allocation_method').notNull(),
+  group_total_nominal: numeric('group_total_nominal', { precision: 21, scale: 4 }).notNull(),
+  executed_amount: numeric('executed_amount', { precision: 21, scale: 4 }).notNull(),
+  order_nominal: numeric('order_nominal', { precision: 21, scale: 4 }).notNull(),
+  filled_amount: numeric('filled_amount', { precision: 21, scale: 4 }).notNull(),
+  fill_percentage: numeric('fill_percentage', { precision: 7, scale: 4 }).notNull(),
+  fill_status: oemsOdaFillStatusEnum('fill_status').notNull(),
+  sequence_number: integer('sequence_number').notNull(),
+  rounding_adjustment: numeric('rounding_adjustment', { precision: 21, scale: 4 }).default('0'),
+  created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  created_by: text('created_by').notNull(),
+  tenant_id: text('tenant_id').default('default').notNull(),
+}, (table) => [
+  index('idx_oems_oda_allocation_log_group').on(table.group_id),
+  index('idx_oems_oda_allocation_log_recommendation').on(table.recommendation_id),
+]);
+
+export const oemsOdaDeaggregationEvents = pgTable('oems_oda_deaggregation_events', {
+  id: serial('id').primaryKey(),
+  event_id: text('event_id').unique().notNull(),
+  group_id: integer('group_id').references(() => oemsOdaBlotterGroups.id).notNull(),
+  recommendation_id: integer('recommendation_id').references(() => oemsOdaRecommendations.id).notNull(),
+  previous_lifecycle: oemsOdaLifecycleEnum('previous_lifecycle').notNull(),
+  new_lifecycle: oemsOdaLifecycleEnum('new_lifecycle').notNull(),
+  reason: text('reason').notNull(),
+  group_total_nominal_before: numeric('group_total_nominal_before', { precision: 21, scale: 4 }).notNull(),
+  group_total_nominal_after: numeric('group_total_nominal_after', { precision: 21, scale: 4 }).notNull(),
+  group_order_count_before: integer('group_order_count_before').notNull(),
+  group_order_count_after: integer('group_order_count_after').notNull(),
+  below_minimum_after: boolean('below_minimum_after').notNull().default(false),
+  created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  created_by: text('created_by').notNull(),
+  tenant_id: text('tenant_id').default('default').notNull(),
+}, (table) => [
+  index('idx_oems_oda_deaggregation_group').on(table.group_id),
+  index('idx_oems_oda_deaggregation_recommendation').on(table.recommendation_id),
 ]);
 
 export const oemsMldTranches = pgTable('oems_mld_tranches', {
@@ -5978,6 +6062,23 @@ export const oemsWealthLendingCureActions = pgTable('oems_wealth_lending_cure_ac
 }, (table) => [
   uniqueIndex('ux_oems_lending_cure_action_id').on(table.action_id),
   index('idx_oems_lending_cure_facility').on(table.facility_id, table.action_status),
+]);
+
+// ── Order Charges ──────────────────────────────────────────────────────────
+export const oemsOrderCharges = pgTable('oems_order_charges', {
+  id: serial('id').primaryKey(),
+  order_id: text('order_id').references(() => oemsOrders.order_id).notNull(),
+  charge_type: text('charge_type').notNull(),
+  charge_label: text('charge_label').notNull(),
+  rate_type: oemsChargeRateTypeEnum('rate_type').notNull().default('PERCENTAGE'),
+  rate_value: numeric('rate_value', { precision: 18, scale: 8 }),
+  base_amount: numeric('base_amount', { precision: 21, scale: 4 }),
+  charge_amount: numeric('charge_amount', { precision: 21, scale: 4 }).notNull(),
+  currency: text('currency').notNull().default('IDR'),
+  is_deducted: boolean('is_deducted').notNull().default(true),
+  ...auditFields,
+}, (table) => [
+  index('idx_oems_order_charges_order').on(table.order_id),
 ]);
 
 // ============================================================================

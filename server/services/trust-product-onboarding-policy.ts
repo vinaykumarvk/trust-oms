@@ -85,6 +85,17 @@ const PRODUCT_RULES: Record<TrustProductType, {
     allowedMandates: ['SAFEKEEPING'],
     defaultMandate: 'SAFEKEEPING',
     minimumSignatories: 1,
+  },
+  ITFA: {
+    allowedMandates: ['DIRECTED', 'DISCRETIONARY'],
+    defaultMandate: 'DIRECTED',
+    minimumSignatories: 1,
+  },
+  PENSION: {
+    allowedMandates: ['DISCRETIONARY', 'OTHER'],
+    defaultMandate: 'DISCRETIONARY',
+    minimumSignatories: 2,
+    requiredPartyTypes: ['TRUSTEE', 'BENEFICIARY'],
     requireDocument: true,
   },
 };

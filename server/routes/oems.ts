@@ -56,6 +56,7 @@ function serviceRoute(fn: (req: Request, res: Response) => Promise<void>) {
     try {
       await fn(req, res);
     } catch (err) {
+      if (process.env.NODE_ENV === 'development') console.error('[OEMS]', err);
       sendServiceError(res, err);
     }
   });
@@ -84,6 +85,16 @@ router.get('/products', serviceRoute(async (req, res) => {
 router.post('/products', serviceRoute(async (req, res) => {
   const product = await oemsService.createProduct(req.body, actor(req));
   res.status(201).json(product);
+}));
+
+router.get('/clients', serviceRoute(async (req, res) => {
+  const search = String(req.query.search ?? '');
+  const limit = Math.min(Number(req.query.limit) || 20, 50);
+  res.json(await oemsService.searchClients(search, limit));
+}));
+
+router.get('/clients/:clientId/portfolios', serviceRoute(async (req, res) => {
+  res.json(await oemsService.getClientPortfolios(req.params.clientId));
 }));
 
 router.post('/parameter-sets', serviceRoute(async (req, res) => {
@@ -154,6 +165,14 @@ router.get('/orders/:orderId/transitions', serviceRoute(async (req, res) => {
 
 router.post('/orders/:orderId/cutoff/evaluate', serviceRoute(async (req, res) => {
   res.json(await oemsService.evaluateOrderCutoff(req.params.orderId, req.body));
+}));
+
+router.post('/orders/:orderId/charges', serviceRoute(async (req, res) => {
+  res.json(await oemsService.calculateOrderCharges(req.params.orderId, actor(req)));
+}));
+
+router.get('/orders/:orderId/charges', serviceRoute(async (req, res) => {
+  res.json(await oemsService.getOrderCharges(req.params.orderId));
 }));
 
 router.post('/orders/:orderId/validate', serviceRoute(async (req, res) => {
@@ -474,6 +493,41 @@ router.post('/oda/collections/:groupId/treasury-updates', serviceRoute(async (re
     actor(req),
   );
   res.status(201).json(result);
+}));
+
+router.post('/oda/collections/:groupId/deaggregate', serviceRoute(async (req, res) => {
+  const { recommendationIds, reason } = req.body;
+  if (!Array.isArray(recommendationIds) || recommendationIds.length === 0) {
+    throw new ValidationError('recommendationIds array is required');
+  }
+  res.json(await oemsService.deaggregateFromBlotterGroup(
+    intParam(req.params.groupId, 'ODA group ID'),
+    { recommendationIds, reason },
+    actor(req),
+  ));
+}));
+
+router.post('/oda/collections/:groupId/allocate', serviceRoute(async (req, res) => {
+  const { executedAmount, allocationMethod, allocations } = req.body;
+  if (!executedAmount || typeof executedAmount !== 'number') {
+    throw new ValidationError('executedAmount (number) is required');
+  }
+  if (!['PROPORTIONATE', 'FIFO', 'MANUAL'].includes(allocationMethod)) {
+    throw new ValidationError('allocationMethod must be PROPORTIONATE, FIFO, or MANUAL');
+  }
+  res.json(await oemsService.allocateOdaBlotterGroup(
+    intParam(req.params.groupId, 'ODA group ID'),
+    { executedAmount, allocationMethod, allocations },
+    actor(req),
+  ));
+}));
+
+router.get('/oda/collections/:groupId/allocations', serviceRoute(async (req, res) => {
+  res.json(await oemsService.listOdaAllocationLog(intParam(req.params.groupId, 'ODA group ID')));
+}));
+
+router.get('/oda/collections/:groupId/deaggregation-events', serviceRoute(async (req, res) => {
+  res.json(await oemsService.listOdaDeaggregationEvents(intParam(req.params.groupId, 'ODA group ID')));
 }));
 
 router.post('/oda/treasury-updates/:updateId/approve', denyBusinessApproval(), serviceRoute(async (req, res) => {

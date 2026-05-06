@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { db } from '../db';
 import * as schema from '@shared/schema';
-import { and, desc, eq, gte, inArray, lte, sql, type InferSelectModel } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, ilike, lte, or, sql, type InferSelectModel } from 'drizzle-orm';
 import {
   ConflictError,
   ForbiddenError,
@@ -2427,6 +2427,103 @@ async function dispatchNotificationEventInternal(data: OemsNotificationEventInpu
   };
 }
 
+// ─── Pure Allocation Functions ─────────────────────────────────────────────────
+
+function appendDeaggLog(existing: unknown, entry: Record<string, unknown>): unknown[] {
+  const log = Array.isArray(existing) ? [...existing] : [];
+  log.push(entry);
+  return log;
+}
+
+type AllocationRec = { id: number; nominal_amount: string | number };
+
+export function computeProportionateAllocation(
+  recs: AllocationRec[],
+  executedAmount: number,
+  totalNominal: number,
+): { recommendationId: number; filledAmount: number; nominal: number }[] {
+  const result: { recommendationId: number; filledAmount: number; nominal: number }[] = [];
+  let allocated = 0;
+
+  for (let i = 0; i < recs.length; i++) {
+    const nominal = Number(recs[i].nominal_amount);
+    if (i === recs.length - 1) {
+      // Last order absorbs remainder to avoid rounding drift
+      const filledAmount = Math.round((executedAmount - allocated) * 10000) / 10000;
+      result.push({ recommendationId: recs[i].id, filledAmount: Math.max(0, filledAmount), nominal });
+    } else {
+      const proportion = totalNominal > 0 ? nominal / totalNominal : 0;
+      const filledAmount = Math.floor(proportion * executedAmount * 10000) / 10000;
+      result.push({ recommendationId: recs[i].id, filledAmount, nominal });
+      allocated += filledAmount;
+    }
+  }
+  return result;
+}
+
+export function computeFifoAllocation(
+  recs: AllocationRec[],
+  executedAmount: number,
+): { recommendationId: number; filledAmount: number; nominal: number }[] {
+  const result: { recommendationId: number; filledAmount: number; nominal: number }[] = [];
+  let remaining = executedAmount;
+
+  for (const rec of recs) {
+    const nominal = Number(rec.nominal_amount);
+    if (remaining <= 0) {
+      result.push({ recommendationId: rec.id, filledAmount: 0, nominal });
+    } else if (remaining >= nominal) {
+      result.push({ recommendationId: rec.id, filledAmount: nominal, nominal });
+      remaining -= nominal;
+    } else {
+      result.push({ recommendationId: rec.id, filledAmount: Math.round(remaining * 10000) / 10000, nominal });
+      remaining = 0;
+    }
+  }
+  return result;
+}
+
+export function computeManualAllocation(
+  recs: AllocationRec[],
+  executedAmount: number,
+  manualAllocations: { recommendationId: number; filledAmount: number }[],
+): { recommendationId: number; filledAmount: number; nominal: number }[] {
+  const recMap = new Map(recs.map(r => [r.id, Number(r.nominal_amount)]));
+  let totalAllocated = 0;
+
+  for (const ma of manualAllocations) {
+    if (ma.filledAmount < 0) {
+      throw new ValidationError(`Negative allocation for recommendation ${ma.recommendationId}`);
+    }
+    const nominal = recMap.get(ma.recommendationId);
+    if (nominal === undefined) {
+      throw new ValidationError(`Recommendation ${ma.recommendationId} not found in group`);
+    }
+    if (ma.filledAmount > nominal) {
+      throw new ValidationError(`Allocation ${ma.filledAmount} exceeds nominal ${nominal} for recommendation ${ma.recommendationId}`);
+    }
+    totalAllocated += ma.filledAmount;
+  }
+
+  if (totalAllocated > executedAmount) {
+    throw new ValidationError(`Total manual allocations ${totalAllocated} exceed executed amount ${executedAmount}`);
+  }
+
+  const specifiedIds = new Set(manualAllocations.map(a => a.recommendationId));
+  const result: { recommendationId: number; filledAmount: number; nominal: number }[] = [];
+
+  for (const rec of recs) {
+    const nominal = Number(rec.nominal_amount);
+    const manual = manualAllocations.find(a => a.recommendationId === rec.id);
+    if (manual) {
+      result.push({ recommendationId: rec.id, filledAmount: manual.filledAmount, nominal });
+    } else {
+      result.push({ recommendationId: rec.id, filledAmount: 0, nominal });
+    }
+  }
+  return result;
+}
+
 export const oemsService = {
   calculateOdaNominal(params: {
     nominalAmount: number;
@@ -3105,6 +3202,184 @@ export const oemsService = {
 	    return updated;
 	  },
 
+	  // ── Charge Calculation Engine ───────────────────────────────────────────
+
+	  async calculateOrderCharges(orderId: string, userId: string) {
+	    const order = await getOemsOrder(orderId);
+	    const amount = asNumber(order.amount);
+	    const family = order.product_family;
+	    const currency = order.currency ?? 'IDR';
+
+	    // Load product pricing config if available
+	    let pricing: Record<string, number | string | null> = {};
+	    if (order.product_id) {
+	      const [product] = await db.select().from(schema.oemsProducts).where(eq(schema.oemsProducts.id, order.product_id)).limit(1);
+	      if (product?.parameter_json && typeof product.parameter_json === 'object') {
+	        pricing = (((product.parameter_json as Record<string, unknown>).pricing ?? {}) as Record<string, number | string | null>);
+	      }
+	    }
+
+	    type ChargeItem = {
+	      charge_type: string; charge_label: string;
+	      rate_type: 'PERCENTAGE' | 'FLAT' | 'PER_UNIT' | 'INFORMATIONAL';
+	      rate_value: number | null; base_amount: number | null;
+	      charge_amount: number; is_deducted: boolean;
+	    };
+	    const charges: ChargeItem[] = [];
+	    let totalCharges = 0;
+	    let totalTax = 0;
+
+	    if (family === 'ODA') {
+	      const rate = asNumber(order.rate);
+	      const cost = calculateOdaOrderCostBeforeSwap(amount, rate);
+	      charges.push({
+	        charge_type: 'SWAP_COST', charge_label: 'Swap Cost (indicative)',
+	        rate_type: 'INFORMATIONAL', rate_value: rate, base_amount: amount,
+	        charge_amount: cost, is_deducted: false,
+	      });
+	    } else if (family === 'MLD') {
+	      charges.push({
+	        charge_type: 'MLD_INFO', charge_label: 'No upfront charges — tax deducted at maturity',
+	        rate_type: 'INFORMATIONAL', rate_value: null, base_amount: amount,
+	        charge_amount: 0, is_deducted: false,
+	      });
+	    } else if (family === 'MUTUAL_FUND') {
+	      const txType = (order.transaction_type ?? '').toUpperCase();
+	      if (txType.includes('SUBSCRIPTION')) {
+	        const feRate = asNumber(pricing.front_end_load_pct) || 1.5;
+	        const fee = Number((amount * feRate / 100).toFixed(4));
+	        charges.push({
+	          charge_type: 'FRONT_END_LOAD', charge_label: 'Front-End Load',
+	          rate_type: 'PERCENTAGE', rate_value: feRate, base_amount: amount,
+	          charge_amount: fee, is_deducted: true,
+	        });
+	        totalCharges += fee;
+	      } else if (txType.includes('REDEMPTION')) {
+	        const beRate = asNumber(pricing.back_end_load_pct) || 0.5;
+	        const fee = Number((amount * beRate / 100).toFixed(4));
+	        charges.push({
+	          charge_type: 'BACK_END_LOAD', charge_label: 'Back-End Load',
+	          rate_type: 'PERCENTAGE', rate_value: beRate, base_amount: amount,
+	          charge_amount: fee, is_deducted: true,
+	        });
+	        totalCharges += fee;
+	      } else if (txType.includes('SWITCHING')) {
+	        const swRate = asNumber(pricing.switching_fee_pct) || 0.25;
+	        const fee = Number((amount * swRate / 100).toFixed(4));
+	        charges.push({
+	          charge_type: 'SWITCHING_FEE', charge_label: 'Switching Fee',
+	          rate_type: 'PERCENTAGE', rate_value: swRate, base_amount: amount,
+	          charge_amount: fee, is_deducted: true,
+	        });
+	        totalCharges += fee;
+	      }
+	    } else if (family === 'BOND') {
+	      // Brokerage commission
+	      const commRate = asNumber(pricing.brokerage_commission_pct) || 0.25;
+	      const commission = Number((amount * commRate / 100).toFixed(4));
+	      charges.push({
+	        charge_type: 'BROKERAGE_COMMISSION', charge_label: 'Brokerage Commission',
+	        rate_type: 'PERCENTAGE', rate_value: commRate, base_amount: amount,
+	        charge_amount: commission, is_deducted: true,
+	      });
+	      totalCharges += commission;
+
+	      // Documentary Stamp Tax (PHP 1.50 per PHP 200)
+	      const dst = Number((Math.ceil(amount / 200) * 1.5).toFixed(4));
+	      charges.push({
+	        charge_type: 'DST', charge_label: 'Documentary Stamp Tax',
+	        rate_type: 'PER_UNIT', rate_value: 1.5, base_amount: amount,
+	        charge_amount: dst, is_deducted: true,
+	      });
+	      totalTax += dst;
+	    } else if (family === 'FX_TODAY') {
+	      charges.push({
+	        charge_type: 'FX_SPREAD', charge_label: 'Spread built into rate — no separate charge',
+	        rate_type: 'INFORMATIONAL', rate_value: null, base_amount: amount,
+	        charge_amount: 0, is_deducted: false,
+	      });
+	    } else if (family === 'WEALTH_LENDING') {
+	      const facilityRate = asNumber(pricing.facility_fee_pct) || 0.5;
+	      const facilityFee = Number((amount * facilityRate / 100).toFixed(4));
+	      charges.push({
+	        charge_type: 'FACILITY_FEE', charge_label: 'Facility Fee',
+	        rate_type: 'PERCENTAGE', rate_value: facilityRate, base_amount: amount,
+	        charge_amount: facilityFee, is_deducted: true,
+	      });
+	      totalCharges += facilityFee;
+
+	      const processingFee = asNumber(pricing.processing_fee) || 5000;
+	      charges.push({
+	        charge_type: 'PROCESSING_FEE', charge_label: 'Processing Fee',
+	        rate_type: 'FLAT', rate_value: processingFee, base_amount: null,
+	        charge_amount: processingFee, is_deducted: true,
+	      });
+	      totalCharges += processingFee;
+	    }
+
+	    // Settlement date: T+0 (ODA/FX), T+1 (MLD), T+2 (MF), T+3 (Bond)
+	    const settDays: Record<string, number> = { ODA: 0, FX_TODAY: 0, MLD: 1, MUTUAL_FUND: 2, BOND: 3, WEALTH_LENDING: 1 };
+	    const baseDate = order.trade_date ? new Date(order.trade_date) : new Date();
+	    const settDate = new Date(baseDate);
+	    settDate.setDate(settDate.getDate() + (settDays[family] ?? 2));
+	    const indicativeSettlementDate = settDate.toISOString().slice(0, 10);
+
+	    const grossAmount = amount;
+	    const netAmount = grossAmount - totalCharges;
+	    const settlementAmount = netAmount - totalTax;
+
+	    // Persist charges (replace previous)
+	    await db.delete(schema.oemsOrderCharges).where(eq(schema.oemsOrderCharges.order_id, orderId));
+	    if (charges.length > 0) {
+	      await db.insert(schema.oemsOrderCharges).values(
+	        charges.map((c) => ({
+	          order_id: orderId,
+	          charge_type: c.charge_type,
+	          charge_label: c.charge_label,
+	          rate_type: c.rate_type,
+	          rate_value: c.rate_value != null ? String(c.rate_value) : undefined,
+	          base_amount: c.base_amount != null ? String(c.base_amount) : undefined,
+	          charge_amount: String(c.charge_amount),
+	          currency,
+	          is_deducted: c.is_deducted,
+	          created_by: userId,
+	        })),
+	      );
+	    }
+
+	    // Update order summary columns
+	    await db.update(schema.oemsOrders).set({
+	      gross_amount: String(grossAmount),
+	      total_charges: String(totalCharges),
+	      total_tax: String(totalTax),
+	      net_amount: String(netAmount),
+	      settlement_amount: String(settlementAmount),
+	      indicative_settlement_date: indicativeSettlementDate,
+	      updated_by: userId,
+	      updated_at: new Date(),
+	    }).where(eq(schema.oemsOrders.order_id, orderId));
+
+	    return {
+	      orderId,
+	      grossAmount,
+	      totalCharges,
+	      totalTax,
+	      netAmount,
+	      settlementAmount,
+	      indicativeSettlementDate,
+	      currency,
+	      charges,
+	    };
+	  },
+
+	  async getOrderCharges(orderId: string) {
+	    await getOemsOrder(orderId); // verify order exists
+	    const rows = await db.select().from(schema.oemsOrderCharges)
+	      .where(eq(schema.oemsOrderCharges.order_id, orderId))
+	      .orderBy(schema.oemsOrderCharges.id);
+	    return rows;
+	  },
+
 	  async validateOrder(orderId: string, userId?: string) {
 	    const order = await getOemsOrder(orderId);
 	    const findings: ValidationFinding[] = [];
@@ -3187,41 +3462,138 @@ export const oemsService = {
 	      });
 	    }
 
-	    if (order.product_family === 'ODA') {
-      if (!order.tenor_days || order.tenor_days <= 0) {
-        findings.push({
-          ruleCode: 'OEMS-ODA-TENOR-001',
-          severity: 'BLOCKING',
-          result: 'FAIL',
-          message: 'ODA tenor must be captured before submission.',
-        });
-      }
-      if (asNumber(order.rate) <= 0) {
-        findings.push({
-          ruleCode: 'OEMS-ODA-RATE-001',
-          severity: 'BLOCKING',
-          result: 'FAIL',
-          message: 'ODA rate must be greater than zero.',
-        });
+	    // ── Universal product-level checks ──────────────────────────────────
+    if (order.product_id) {
+      const [product] = await db.select().from(schema.oemsProducts).where(eq(schema.oemsProducts.id, order.product_id)).limit(1);
+      if (product) {
+        const minSub = asNumber(product.min_subscription_amount);
+        if (minSub > 0 && amount > 0 && amount < minSub) {
+          findings.push({ ruleCode: 'OEMS-AMT-002', severity: 'BLOCKING', result: 'FAIL', source: 'PRODUCT_LIMITS', message: `Amount is below minimum subscription of ${minSub}.` });
+        }
+        const maxSub = asNumber(product.max_subscription_amount);
+        if (maxSub > 0 && amount > maxSub) {
+          findings.push({ ruleCode: 'OEMS-AMT-003', severity: 'BLOCKING', result: 'FAIL', source: 'PRODUCT_LIMITS', message: `Amount exceeds maximum subscription of ${maxSub}.` });
+        }
       }
     }
 
+    // Portfolio active check
+    if (order.portfolio_id) {
+      const [portfolio] = await db.select().from(schema.portfolios).where(eq(schema.portfolios.portfolio_id, order.portfolio_id)).limit(1);
+      if (portfolio && (portfolio as any).status && !['ACTIVE', 'OPEN'].includes(String((portfolio as any).status).toUpperCase())) {
+        findings.push({ ruleCode: 'OEMS-ACCT-001', severity: 'BLOCKING', result: 'FAIL', source: 'ACCOUNT', message: 'Portfolio is not active.' });
+      }
+    }
+
+    // Duplicate order check (same customer+product+amount in last 5 min)
+    if (order.customer_id && order.product_id && amount > 0) {
+      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
+      const dupes = await db.select({ order_id: schema.oemsOrders.order_id }).from(schema.oemsOrders).where(
+        and(
+          eq(schema.oemsOrders.customer_id, order.customer_id),
+          eq(schema.oemsOrders.product_id, order.product_id),
+          eq(schema.oemsOrders.amount, String(amount)),
+          gte(schema.oemsOrders.created_at, fiveMinAgo),
+          sql`${schema.oemsOrders.order_id} != ${orderId}`,
+        ),
+      ).limit(1);
+      if (dupes.length > 0) {
+        findings.push({ ruleCode: 'OEMS-DUP-001', severity: 'WARNING', result: 'WARN', source: 'DUPLICATE_CHECK', message: 'Possible duplicate — same customer, product, and amount within last 5 minutes.', acknowledgementRequired: true });
+      }
+    }
+
+    // ── ODA-specific ───────────────────────────────────────────────────
+    if (order.product_family === 'ODA') {
+      if (!order.tenor_days || order.tenor_days <= 0) {
+        findings.push({ ruleCode: 'OEMS-ODA-TNR-001', severity: 'BLOCKING', result: 'FAIL', message: 'ODA tenor must be captured before submission.' });
+      }
+      if (asNumber(order.rate) <= 0) {
+        findings.push({ ruleCode: 'OEMS-ODA-RATE-001', severity: 'BLOCKING', result: 'FAIL', message: 'ODA rate must be greater than zero.' });
+      }
+      // COT check
+      if (order.product_id) {
+        const [prod] = await db.select({ cutoff_intraday: schema.oemsProducts.cutoff_intraday, cutoff_timezone: schema.oemsProducts.cutoff_timezone }).from(schema.oemsProducts).where(eq(schema.oemsProducts.id, order.product_id)).limit(1);
+        if (prod?.cutoff_intraday) {
+          const now = new Date();
+          const [hh, mm] = prod.cutoff_intraday.split(':').map(Number);
+          const cutoff = new Date(now); cutoff.setHours(hh, mm, 0, 0);
+          if (now > cutoff) {
+            findings.push({ ruleCode: 'OEMS-ODA-COT-001', severity: 'WARNING', result: 'WARN', source: 'CUTOFF', message: `Order placed after intraday cutoff (${prod.cutoff_intraday}).`, acknowledgementRequired: true });
+          }
+        }
+      }
+    }
+
+    // ── MLD-specific ───────────────────────────────────────────────────
+    if (order.product_family === 'MLD') {
+      const payload = asRecord(order.payload);
+      const trancheId = payload.trancheId ?? payload.tranche_id;
+      if (trancheId) {
+        const [tranche] = await db.select().from(schema.oemsMldTranches).where(eq(schema.oemsMldTranches.id, Number(trancheId))).limit(1);
+        if (tranche) {
+          if (tranche.lifecycle !== 'OFFERING') {
+            findings.push({ ruleCode: 'OEMS-MLD-OFR-001', severity: 'BLOCKING', result: 'FAIL', source: 'MLD_TRANCHE', message: 'MLD tranche is not in offering period.' });
+          }
+          const minInvestment = asNumber(tranche.min_investment);
+          if (minInvestment > 0 && amount < minInvestment) {
+            findings.push({ ruleCode: 'OEMS-MLD-MIN-001', severity: 'BLOCKING', result: 'FAIL', source: 'MLD_TRANCHE', message: `Amount is below tranche minimum investment of ${minInvestment}.` });
+          }
+        }
+      }
+    }
+
+    // ── MF-specific ────────────────────────────────────────────────────
+    if (order.product_family === 'MUTUAL_FUND') {
+      const txType = (order.transaction_type ?? '').toUpperCase();
+      if (txType.includes('REDEMPTION') && order.portfolio_id && order.product_id) {
+        const [prod] = await db.select({ product_code: schema.oemsProducts.product_code }).from(schema.oemsProducts).where(eq(schema.oemsProducts.id, order.product_id)).limit(1);
+        if (prod) {
+          const holdings = await db.select({ holding_amount: schema.oemsPortfolioHoldings.holding_amount }).from(schema.oemsPortfolioHoldings).where(
+            and(eq(schema.oemsPortfolioHoldings.portfolio_id, order.portfolio_id), eq(schema.oemsPortfolioHoldings.product_code, prod.product_code)),
+          ).limit(1);
+          const heldAmount = holdings.length > 0 ? asNumber(holdings[0].holding_amount) : 0;
+          const qty = asNumber(order.quantity);
+          if (qty > 0 && heldAmount > 0 && qty > heldAmount) {
+            findings.push({ ruleCode: 'OEMS-MF-HOLD-001', severity: 'BLOCKING', result: 'FAIL', source: 'HOLDINGS', message: `Insufficient holdings for redemption (held: ${heldAmount}, requested: ${qty}).` });
+          }
+        }
+      }
+    }
+
+    // ── Bond-specific ──────────────────────────────────────────────────
+    if (order.product_family === 'BOND') {
+      const rate = asNumber(order.rate);
+      if (rate > 0 && (rate < 0.01 || rate > 200)) {
+        findings.push({ ruleCode: 'OEMS-BOND-PRC-001', severity: 'WARNING', result: 'WARN', source: 'PRICING', message: `Bond rate/price (${rate}) may be outside acceptable range.`, acknowledgementRequired: true });
+      }
+    }
+
+    // ── FX Today-specific ──────────────────────────────────────────────
     if (order.product_family === 'FX_TODAY') {
       if (order.special_rate_expires_at && new Date(order.special_rate_expires_at).getTime() < Date.now()) {
-        findings.push({
-          ruleCode: 'OEMS-FX-QUOTE-001',
-          severity: 'BLOCKING',
-          result: 'FAIL',
-          message: 'Special-rate quote has expired.',
-        });
+        findings.push({ ruleCode: 'OEMS-FX-RATE-001', severity: 'BLOCKING', result: 'FAIL', message: 'Special-rate quote has expired.' });
       }
       if (!['CONFIRMED', 'MANUAL_VERIFIED', 'NOT_REQUIRED'].includes(order.verification_status ?? 'PENDING')) {
-        findings.push({
-          ruleCode: 'OEMS-FX-VERIFY-001',
-          severity: 'BLOCKING',
-          result: 'FAIL',
-          message: 'FX Today customer confirmation or manual verification is pending.',
-        });
+        findings.push({ ruleCode: 'OEMS-FX-VERIFY-001', severity: 'BLOCKING', result: 'FAIL', message: 'FX Today customer confirmation or manual verification is pending.' });
+      }
+      // USD 100k underlying doc requirement
+      if (amount > 100000) {
+        const docsOk = order.document_status && ['UPLOADED', 'SIGNED', 'VERIFIED'].includes(order.document_status);
+        if (!docsOk) {
+          findings.push({ ruleCode: 'OEMS-FX-DOC-001', severity: 'WARNING', result: 'WARN', source: 'FX_DOC', message: 'Underlying document required for FX amount > USD 100k equivalent.', acknowledgementRequired: true });
+        }
+      }
+    }
+
+    // ── Wealth Lending-specific ────────────────────────────────────────
+    if (order.product_family === 'WEALTH_LENDING') {
+      const payload = asRecord(order.payload);
+      const facilityId = payload.facilityId ?? payload.facility_id;
+      if (facilityId) {
+        const [facility] = await db.select({ facility_status: schema.oemsWealthLendingFacilities.facility_status }).from(schema.oemsWealthLendingFacilities).where(eq(schema.oemsWealthLendingFacilities.facility_id, String(facilityId))).limit(1);
+        if (facility && facility.facility_status !== 'ACTIVE') {
+          findings.push({ ruleCode: 'OEMS-WL-FAC-001', severity: 'BLOCKING', result: 'FAIL', source: 'FACILITY', message: `Lending facility is ${facility.facility_status}, not ACTIVE.` });
+        }
       }
     }
 
@@ -10093,5 +10465,373 @@ export const oemsService = {
       .offset((page - 1) * pageSize);
 
     return { data, total, page, pageSize };
+  },
+
+  // ─── ODA Deaggregation + Partial Fulfillment ──────────────────────────────────
+
+  async deaggregateFromBlotterGroup(groupId: number, data: {
+    recommendationIds: number[];
+    reason: string;
+  }, userId: string) {
+    const group = await getOdaBlotterGroup(groupId);
+    const allowedLifecycles: OemsOdaLifecycle[] = ['SUMMARY_PENDING', 'COLLECTED', 'SUMMARY_APPROVED'];
+    if (!allowedLifecycles.includes(group.lifecycle)) {
+      throw new ConflictError(`Cannot deaggregate from ODA group in status ${group.lifecycle}`);
+    }
+    if (!data.recommendationIds || data.recommendationIds.length === 0) {
+      throw new ValidationError('At least one recommendation ID is required');
+    }
+    if (!data.reason || data.reason.trim().length < 3) {
+      throw new ValidationError('Deaggregation reason must be at least 3 characters');
+    }
+
+    const childRecommendations = await db.select().from(schema.oemsOdaRecommendations)
+      .where(and(
+        eq(schema.oemsOdaRecommendations.placement_group_id, groupId),
+        eq(schema.oemsOdaRecommendations.is_deleted, false),
+      ));
+
+    const childIds = (childRecommendations as OemsOdaRecommendation[]).map((r: OemsOdaRecommendation) => r.id);
+    const invalidIds = data.recommendationIds.filter((id: number) => !childIds.includes(id));
+    if (invalidIds.length > 0) {
+      throw new ValidationError(`Recommendations [${invalidIds.join(', ')}] do not belong to group ${groupId}`);
+    }
+
+    const now = new Date();
+    const originalTotalNominal = group.original_total_nominal ?? group.total_nominal;
+    const originalOrderCount = group.original_order_count ?? childRecommendations.length;
+
+    const removedRecs = (childRecommendations as OemsOdaRecommendation[]).filter((r: OemsOdaRecommendation) => data.recommendationIds.includes(r.id));
+    const remainingRecs = (childRecommendations as OemsOdaRecommendation[]).filter((r: OemsOdaRecommendation) => !data.recommendationIds.includes(r.id));
+
+    // Revert removed recommendations to HELD, clear placement_group_id
+    for (const rec of removedRecs) {
+      await db.update(schema.oemsOdaRecommendations).set({
+        lifecycle: 'HELD',
+        placement_group_id: null,
+        updated_by: userId,
+        updated_at: now,
+      }).where(eq(schema.oemsOdaRecommendations.id, rec.id));
+
+      // Record deaggregation event
+      await db.insert(schema.oemsOdaDeaggregationEvents).values({
+        event_id: makeId('ODA-DEAGG'),
+        group_id: groupId,
+        recommendation_id: rec.id,
+        previous_lifecycle: rec.lifecycle,
+        new_lifecycle: 'HELD',
+        reason: data.reason,
+        group_total_nominal_before: String(group.total_nominal),
+        group_total_nominal_after: remainingRecs.length > 0
+          ? String(remainingRecs.reduce((sum: number, r: OemsOdaRecommendation) => sum + Number(r.nominal_amount), 0))
+          : '0',
+        group_order_count_before: childRecommendations.length,
+        group_order_count_after: remainingRecs.length,
+        below_minimum_after: false,
+        created_by: userId,
+      });
+    }
+
+    // If all removed → cancel group
+    if (remainingRecs.length === 0) {
+      await db.update(schema.oemsOdaBlotterGroups).set({
+        lifecycle: 'CANCELLED',
+        original_total_nominal: String(originalTotalNominal),
+        original_order_count: originalOrderCount,
+        total_nominal: '0',
+        deaggregation_log: appendDeaggLog(group.deaggregation_log, {
+          removedIds: data.recommendationIds,
+          reason: data.reason,
+          by: userId,
+          at: now.toISOString(),
+          remainingCount: 0,
+        }),
+        updated_by: userId,
+        updated_at: now,
+      }).where(eq(schema.oemsOdaBlotterGroups.id, groupId));
+
+      await this.logIntegrationMessage({
+        targetSystem: 'INTERNAL',
+        messageType: 'ODA_BLOTTER_GROUP_CANCELLED_DEAGGREGATION',
+        entityType: 'oems_oda_blotter_group',
+        entityId: String(groupId),
+        payload: { reason: data.reason, removedIds: data.recommendationIds },
+      }, userId);
+
+      return { group: { ...group, lifecycle: 'CANCELLED' as const, total_nominal: '0' }, removedCount: removedRecs.length, remainingCount: 0, belowMinimum: false };
+    }
+
+    // Recalculate group totals
+    const newTotalNominal = remainingRecs.reduce((sum: number, r: OemsOdaRecommendation) => sum + Number(r.nominal_amount), 0);
+    const weightedRateSum = remainingRecs.reduce((sum: number, r: OemsOdaRecommendation) => sum + Number(r.rate) * Number(r.nominal_amount), 0);
+    const newAverageRate = newTotalNominal > 0 ? weightedRateSum / newTotalNominal : 0;
+    const newOrderCost = remainingRecs.reduce((sum: number, r: OemsOdaRecommendation) => sum + Number(r.order_cost_before_swap ?? 0), 0);
+    const minimumCollective = Number(group.minimum_collective_amount ?? 0);
+    const belowMinimum = minimumCollective > 0 && newTotalNominal < minimumCollective;
+
+    await db.update(schema.oemsOdaBlotterGroups).set({
+      total_nominal: String(newTotalNominal),
+      average_rate: String(newAverageRate),
+      order_cost_before_swap: String(newOrderCost),
+      qualifies_minimum_collective: !belowMinimum,
+      original_total_nominal: String(originalTotalNominal),
+      original_order_count: originalOrderCount,
+      deaggregation_log: appendDeaggLog(group.deaggregation_log, {
+        removedIds: data.recommendationIds,
+        reason: data.reason,
+        by: userId,
+        at: now.toISOString(),
+        remainingCount: remainingRecs.length,
+      }),
+      updated_by: userId,
+      updated_at: now,
+    }).where(eq(schema.oemsOdaBlotterGroups.id, groupId));
+
+    // Update below_minimum flag on deaggregation events
+    if (belowMinimum) {
+      for (const rec of removedRecs) {
+        await db.update(schema.oemsOdaDeaggregationEvents).set({
+          below_minimum_after: true,
+        }).where(and(
+          eq(schema.oemsOdaDeaggregationEvents.group_id, groupId),
+          eq(schema.oemsOdaDeaggregationEvents.recommendation_id, rec.id),
+        ));
+      }
+    }
+
+    await this.logIntegrationMessage({
+      targetSystem: 'INTERNAL',
+      messageType: 'ODA_BLOTTER_DEAGGREGATION',
+      entityType: 'oems_oda_blotter_group',
+      entityId: String(groupId),
+      payload: { reason: data.reason, removedIds: data.recommendationIds, newTotal: newTotalNominal, belowMinimum },
+    }, userId);
+
+    const updatedGroup = await getOdaBlotterGroup(groupId);
+    return { group: updatedGroup, removedCount: removedRecs.length, remainingCount: remainingRecs.length, belowMinimum };
+  },
+
+  async allocateOdaBlotterGroup(groupId: number, data: {
+    executedAmount: number;
+    allocationMethod: 'PROPORTIONATE' | 'FIFO' | 'MANUAL';
+    allocations?: { recommendationId: number; filledAmount: number }[];
+  }, userId: string) {
+    const group = await getOdaBlotterGroup(groupId);
+    const allowedLifecycles: OemsOdaLifecycle[] = ['SUMMARY_APPROVED', 'PLACED', 'TREASURY_UPDATE_PENDING'];
+    if (!allowedLifecycles.includes(group.lifecycle)) {
+      throw new ConflictError(`Cannot allocate ODA group in status ${group.lifecycle}`);
+    }
+    const totalNominal = Number(group.total_nominal);
+    if (!data.executedAmount || data.executedAmount <= 0) {
+      throw new ValidationError('Executed amount must be greater than zero');
+    }
+    if (data.executedAmount > totalNominal) {
+      throw new ValidationError(`Executed amount ${data.executedAmount} exceeds group total nominal ${totalNominal}`);
+    }
+
+    const childRecommendations = await db.select().from(schema.oemsOdaRecommendations)
+      .where(and(
+        eq(schema.oemsOdaRecommendations.placement_group_id, groupId),
+        eq(schema.oemsOdaRecommendations.is_deleted, false),
+      ))
+      .orderBy(schema.oemsOdaRecommendations.created_at);
+
+    if (childRecommendations.length === 0) {
+      throw new ValidationError('No recommendations found in this blotter group');
+    }
+
+    // Compute allocations
+    let allocations: { recommendationId: number; filledAmount: number; nominal: number }[];
+    switch (data.allocationMethod) {
+      case 'PROPORTIONATE':
+        allocations = computeProportionateAllocation(childRecommendations, data.executedAmount, totalNominal);
+        break;
+      case 'FIFO':
+        allocations = computeFifoAllocation(childRecommendations, data.executedAmount);
+        break;
+      case 'MANUAL':
+        if (!data.allocations || data.allocations.length === 0) {
+          throw new ValidationError('Manual allocations must be provided');
+        }
+        allocations = computeManualAllocation(childRecommendations, data.executedAmount, data.allocations);
+        break;
+      default:
+        throw new ValidationError(`Invalid allocation method: ${data.allocationMethod}`);
+    }
+
+    const now = new Date();
+    const groupFillPercentage = (data.executedAmount / totalNominal) * 100;
+
+    // Persist allocations
+    for (let i = 0; i < allocations.length; i++) {
+      const alloc = allocations[i];
+      const fillPct = alloc.nominal > 0 ? (alloc.filledAmount / alloc.nominal) * 100 : 0;
+      const fillStatus: 'UNFILLED' | 'PARTIAL' | 'FULL' =
+        alloc.filledAmount <= 0 ? 'UNFILLED' :
+        alloc.filledAmount >= alloc.nominal ? 'FULL' : 'PARTIAL';
+
+      // Update recommendation
+      await db.update(schema.oemsOdaRecommendations).set({
+        filled_amount: String(alloc.filledAmount),
+        fill_percentage: String(fillPct),
+        fill_status: fillStatus,
+        allocation_method: data.allocationMethod,
+        allocation_at: now,
+        allocation_by: userId,
+        updated_by: userId,
+        updated_at: now,
+      }).where(eq(schema.oemsOdaRecommendations.id, alloc.recommendationId));
+
+      // Insert allocation log
+      await db.insert(schema.oemsOdaAllocationLog).values({
+        log_id: makeId('ODA-ALLOC'),
+        group_id: groupId,
+        recommendation_id: alloc.recommendationId,
+        allocation_method: data.allocationMethod,
+        group_total_nominal: String(totalNominal),
+        executed_amount: String(data.executedAmount),
+        order_nominal: String(alloc.nominal),
+        filled_amount: String(alloc.filledAmount),
+        fill_percentage: String(fillPct),
+        fill_status: fillStatus,
+        sequence_number: i + 1,
+        rounding_adjustment: '0',
+        created_by: userId,
+      });
+
+      // Post-allocation lifecycle transitions
+      if (fillStatus === 'FULL' || fillStatus === 'PARTIAL') {
+        // Release funds with filled amount
+        await this.releaseOdaFundsPartial(alloc.recommendationId, {
+          instructionType: 'UNHOLD',
+          amount: alloc.filledAmount,
+        }, userId);
+        await this.releaseOdaFundsPartial(alloc.recommendationId, {
+          instructionType: 'OVERBOOK',
+          amount: alloc.filledAmount,
+        }, userId);
+        // Update lifecycle to EXECUTED
+        await db.update(schema.oemsOdaRecommendations).set({
+          lifecycle: 'EXECUTED',
+          nominal_amount: String(alloc.filledAmount),
+          updated_by: userId,
+          updated_at: now,
+        }).where(eq(schema.oemsOdaRecommendations.id, alloc.recommendationId));
+      } else {
+        // UNFILLED → revert to HELD, clear group
+        await db.update(schema.oemsOdaRecommendations).set({
+          lifecycle: 'HELD',
+          placement_group_id: null,
+          updated_by: userId,
+          updated_at: now,
+        }).where(eq(schema.oemsOdaRecommendations.id, alloc.recommendationId));
+      }
+    }
+
+    // Update blotter group
+    await db.update(schema.oemsOdaBlotterGroups).set({
+      executed_amount: String(data.executedAmount),
+      fill_percentage: String(groupFillPercentage),
+      allocation_method: data.allocationMethod,
+      allocation_at: now,
+      allocation_by: userId,
+      lifecycle: 'EXECUTED',
+      updated_by: userId,
+      updated_at: now,
+    }).where(eq(schema.oemsOdaBlotterGroups.id, groupId));
+
+    await this.logIntegrationMessage({
+      targetSystem: 'INTERNAL',
+      messageType: 'ODA_BLOTTER_ALLOCATION',
+      entityType: 'oems_oda_blotter_group',
+      entityId: String(groupId),
+      payload: {
+        executedAmount: data.executedAmount,
+        allocationMethod: data.allocationMethod,
+        fillPercentage: groupFillPercentage,
+        allocations: allocations.map(a => ({ id: a.recommendationId, filled: a.filledAmount })),
+      },
+    }, userId);
+
+    return {
+      groupId,
+      executedAmount: data.executedAmount,
+      allocationMethod: data.allocationMethod,
+      fillPercentage: groupFillPercentage,
+      allocations: allocations.map(a => ({
+        recommendationId: a.recommendationId,
+        nominal: a.nominal,
+        filledAmount: a.filledAmount,
+        fillPercentage: a.nominal > 0 ? (a.filledAmount / a.nominal) * 100 : 0,
+        fillStatus: a.filledAmount <= 0 ? 'UNFILLED' : a.filledAmount >= a.nominal ? 'FULL' : 'PARTIAL',
+      })),
+    };
+  },
+
+  async releaseOdaFundsPartial(recommendationId: number, data: {
+    instructionType: 'UNHOLD' | 'OVERBOOK';
+    amount: number;
+  }, userId: string) {
+    const recommendation = await getOdaRecommendation(recommendationId);
+    const status = odaInstructionStatus(undefined);
+    const now = new Date();
+    const [instruction] = await db.insert(schema.oemsOdaFundInstructions).values({
+      instruction_id: makeId(`ODA-${data.instructionType}`),
+      recommendation_id: recommendation.id,
+      order_id: recommendation.order_id,
+      group_id: recommendation.placement_group_id,
+      instruction_type: data.instructionType,
+      target_system: 'NCBS',
+      idempotency_key: `ODA-${data.instructionType}-PARTIAL-${recommendation.id}-${Date.now()}`,
+      account_no: data.instructionType === 'OVERBOOK' ? recommendation.credit_account_no : recommendation.debit_account_no,
+      amount: String(data.amount),
+      currency: recommendation.currency,
+      instruction_status: status,
+      sent_at: now,
+      acknowledged_at: now,
+      request_payload: { recommendationId, instructionType: data.instructionType, amount: data.amount, partial: true },
+      response_payload: {},
+      created_by: userId,
+    }).returning();
+    return instruction;
+  },
+
+  async listOdaAllocationLog(groupId: number) {
+    return db.select().from(schema.oemsOdaAllocationLog)
+      .where(eq(schema.oemsOdaAllocationLog.group_id, groupId))
+      .orderBy(schema.oemsOdaAllocationLog.sequence_number);
+  },
+
+  async listOdaDeaggregationEvents(groupId: number) {
+    return db.select().from(schema.oemsOdaDeaggregationEvents)
+      .where(eq(schema.oemsOdaDeaggregationEvents.group_id, groupId))
+      .orderBy(desc(schema.oemsOdaDeaggregationEvents.created_at));
+  },
+
+  async searchClients(search: string, limit = 20) {
+    if (!search || search.trim().length < 2) return [];
+    const term = `%${search.trim()}%`;
+    const safeLimit = Math.min(Math.max(limit, 1), 50);
+    return db.select({
+      client_id: schema.clients.client_id,
+      legal_name: schema.clients.legal_name,
+      risk_profile: schema.clients.risk_profile,
+    })
+      .from(schema.clients)
+      .where(or(ilike(schema.clients.client_id, term), ilike(schema.clients.legal_name, term)))
+      .limit(safeLimit);
+  },
+
+  async getClientPortfolios(clientId: string) {
+    if (!clientId) return [];
+    return db.select({
+      portfolio_id: schema.portfolios.portfolio_id,
+      type: schema.portfolios.type,
+      base_currency: schema.portfolios.base_currency,
+      aum: schema.portfolios.aum,
+      portfolio_status: schema.portfolios.portfolio_status,
+    })
+      .from(schema.portfolios)
+      .where(eq(schema.portfolios.client_id, clientId));
   },
 };
