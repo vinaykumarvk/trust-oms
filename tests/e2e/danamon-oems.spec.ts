@@ -93,6 +93,8 @@ describe('Danamon OEMS domain', () => {
     expect(typeof oemsService.updateIntegrationAdapterSecurity).toBe('function');
     expect(typeof oemsService.previewIntegrationAdapterSecurityControls).toBe('function');
     expect(typeof oemsService.listIntegrationAdapters).toBe('function');
+    expect(typeof oemsService.assertProductionIntegrationHandoff).toBe('function');
+    expect(typeof oemsService.getProductionIntegrationReadinessReport).toBe('function');
     expect(typeof oemsService.executeIntegrationAdapter).toBe('function');
     expect(typeof oemsService.recordIntegrationAdapterHealth).toBe('function');
     expect(typeof oemsService.listIntegrationAdapterExecutions).toBe('function');
@@ -100,6 +102,8 @@ describe('Danamon OEMS domain', () => {
     expect(typeof oemsService.listApprovalWorkflowDefinitions).toBe('function');
     expect(typeof oemsService.enqueueApprovalQueueItem).toBe('function');
     expect(typeof oemsService.listApprovalQueueItems).toBe('function');
+    expect(typeof oemsService.reassignApprovalQueueItem).toBe('function');
+    expect(typeof oemsService.getOemsRoleControlTower).toBe('function');
     expect(typeof oemsService.decideApprovalQueueItem).toBe('function');
     expect(typeof oemsService.createNotificationTemplate).toBe('function');
     expect(typeof oemsService.submitNotificationTemplate).toBe('function');
@@ -114,7 +118,11 @@ describe('Danamon OEMS domain', () => {
     expect(typeof oemsService.listReportRenderArtifacts).toBe('function');
     expect(typeof oemsService.registerMigrationRollbackScript).toBe('function');
     expect(typeof oemsService.verifyMigrationRollbackScript).toBe('function');
+    expect(typeof oemsService.rehearseMigrationRollbackScript).toBe('function');
     expect(typeof oemsService.listMigrationRollbackScripts).toBe('function');
+    expect(typeof oemsService.enqueueMigrationCompatibilityItem).toBe('function');
+    expect(typeof oemsService.listMigrationCompatibilityQueue).toBe('function');
+    expect(typeof oemsService.resolveMigrationCompatibilityItem).toBe('function');
     expect(typeof oemsService.listExportJobs).toBe('function');
     expect(typeof oemsService.retryExportJob).toBe('function');
     expect(typeof oemsService.requestTransactionHistory).toBe('function');
@@ -164,6 +172,44 @@ describe('Danamon OEMS domain', () => {
     expect(typeof oemsService.matureMldTranche).toBe('function');
     expect(typeof oemsService.listMldOrderDetails).toBe('function');
     expect(typeof oemsService.listMldFundInstructions).toBe('function');
+    expect(typeof oemsService.createProductSecurityMaster).toBe('function');
+    expect(typeof oemsService.listProductSecurityMaster).toBe('function');
+    expect(typeof oemsService.submitProductSecurityMaster).toBe('function');
+    expect(typeof oemsService.approveProductSecurityMaster).toBe('function');
+    expect(typeof oemsService.validateProductTicketCapture).toBe('function');
+    expect(typeof oemsService.createProductOrderTicket).toBe('function');
+    expect(typeof oemsService.validateProductOrderTicket).toBe('function');
+    expect(typeof oemsService.submitProductOrderTicket).toBe('function');
+    expect(typeof oemsService.createPolicyRuleTraceability).toBe('function');
+    expect(typeof oemsService.listPolicyRuleTraceability).toBe('function');
+    expect(typeof oemsService.assertCertifiedPolicyTraceability).toBe('function');
+    expect(typeof oemsService.invalidatePolicyTraceabilityOnRuleChange).toBe('function');
+    expect(typeof oemsService.recordSourceSystemEvidence).toBe('function');
+    expect(typeof oemsService.classifySourceEvidenceStatus).toBe('function');
+    expect(typeof oemsService.recordOemsAuditEvent).toBe('function');
+    expect(typeof oemsService.listOemsAuditEvents).toBe('function');
+    expect(typeof oemsService.replayOemsAuditTimeline).toBe('function');
+    expect(typeof oemsService.enqueueOemsOutboxEvent).toBe('function');
+    expect(typeof oemsService.createOemsFeatureFlag).toBe('function');
+    expect(typeof oemsService.isOemsFeatureEnabled).toBe('function');
+    expect(typeof oemsService.createOemsControlOwnership).toBe('function');
+    expect(typeof oemsService.listOemsControlOwnership).toBe('function');
+    expect(typeof oemsService.linkOemsControlIncident).toBe('function');
+    expect(typeof oemsService.attestOemsControl).toBe('function');
+    expect(typeof oemsService.getOemsControlRecertificationReport).toBe('function');
+    expect(typeof oemsService.createReconciliationObligation).toBe('function');
+    expect(typeof oemsService.listReconciliationObligations).toBe('function');
+    expect(typeof oemsService.closeReconciliationObligation).toBe('function');
+    expect(typeof oemsService.createOemsFeeTaxSchedule).toBe('function');
+    expect(typeof oemsService.approveOemsFeeTaxSchedule).toBe('function');
+    expect(typeof oemsService.listOemsFeeTaxSchedules).toBe('function');
+    expect(typeof oemsService.calculateFeeTaxFromScheduleInput).toBe('function');
+    expect(typeof oemsService.calculateOrderChargesFromSchedules).toBe('function');
+    expect(typeof oemsService.validateOdaTicketCapture).toBe('function');
+    expect(typeof oemsService.createOdaOrderTicket).toBe('function');
+    expect(typeof oemsService.validateOdaOrderTicket).toBe('function');
+    expect(typeof oemsService.submitOdaOrderTicket).toBe('function');
+    expect(typeof oemsService.getOdaReleaseGateReport).toBe('function');
   });
 
   it('calculates ODA maturity amounts using tenor, rate, and tax', () => {
@@ -217,6 +263,106 @@ describe('Danamon OEMS domain', () => {
     expect(payout.bonusPayoutAmount).toBe(4_000_000);
     expect(payout.taxAmount).toBe(1_000_000);
     expect(payout.netPayoutAmount).toBe(104_000_000);
+  });
+
+  it('classifies minimum trustworthy order source evidence states', () => {
+    expect(oemsService.classifySourceEvidenceStatus({ evidenceStatus: 'AVAILABLE' })).toMatchObject({
+      evidenceStatus: 'AVAILABLE',
+      blocking: false,
+      nextAction: 'ALLOW_VALIDATION',
+    });
+    expect(oemsService.classifySourceEvidenceStatus({ evidenceStatus: 'PENDING' })).toMatchObject({
+      evidenceStatus: 'PENDING',
+      blocking: true,
+      nextAction: 'WAIT_FOR_SOURCE',
+    });
+    expect(oemsService.classifySourceEvidenceStatus({
+      evidenceStatus: 'DEGRADED_APPROVED',
+      fallbackApprovalId: 'APQ-001',
+    })).toMatchObject({
+      evidenceStatus: 'DEGRADED_APPROVED',
+      blocking: false,
+      nextAction: 'ALLOW_WITH_RECONCILIATION',
+    });
+
+    expect(() => oemsService.classifySourceEvidenceStatus({ evidenceStatus: 'FAILED' }))
+      .toThrow('Failed source evidence requires failure_code');
+    expect(() => oemsService.classifySourceEvidenceStatus({ evidenceStatus: 'UNKNOWN' }))
+      .toThrow('Unsupported source evidence status');
+  });
+
+  it('enforces policy traceability and feature-flag foundation validation before persistence', async () => {
+    await expect(oemsService.createProductSecurityMaster({
+      productCode: 'ODA-USD-IDR',
+      productFamily: 'ODA',
+      displayName: 'USD/IDR ODA',
+      riskScore: 7,
+    }, 'tester')).rejects.toThrow('Invalid positive integer value');
+
+    await expect(oemsService.createPolicyRuleTraceability({
+      ruleCode: 'ODA-COT-001',
+      policyReference: 'ODA Cutoff Policy 2.1',
+      controlObjective: 'Block ODA orders after configured COT',
+      testReference: '',
+      certificationStatus: 'CERTIFIED',
+    }, 'tester')).rejects.toThrow('Policy traceability test_reference is required');
+
+    await expect(oemsService.createOemsFeatureFlag({
+      flagCode: 'OEMS_ODA_TICKET_V1',
+      rolloutPercent: 101,
+    }, 'tester')).rejects.toThrow('Feature flag rollout_percent must be between 0 and 100');
+
+    process.env.OEMS_FLAG_OEMS_ODA_TICKET_V1 = 'true';
+    expect(oemsService.isOemsFeatureEnabled('OEMS_ODA_TICKET_V1')).toBe(true);
+    delete process.env.OEMS_FLAG_OEMS_ODA_TICKET_V1;
+  });
+
+  it('validates ODA ticket capture before production-intent draft order creation', () => {
+    const incomplete = oemsService.validateOdaTicketCapture({
+      customerId: 'CIF-001',
+      currencyPair: 'USD/IDR',
+      direction: 'BUY',
+      effectiveType: 'INTRADAY',
+      tenorDays: 30,
+      nominalAmount: 100_000_000,
+      ratePercent: 6.25,
+      referenceRate: 6.1,
+      valueDate: '2026-05-06',
+      cutoffAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      cifStatus: 'PASS',
+      skuStatus: 'PASS',
+      pfeStatus: 'PASS',
+      referenceRateStatus: 'PASS',
+      availableBalance: 200_000_000,
+      productionIntent: true,
+    });
+
+    expect(incomplete.readyForValidation).toBe(false);
+    expect(incomplete.findings.map((finding) => finding.ruleCode)).toContain('ODA_SECURITY_MAPPING_REQUIRED');
+    expect(incomplete.findings.map((finding) => finding.ruleCode)).toContain('ODA_PRODUCTION_SECURITY_REQUIRED');
+
+    const stale = oemsService.validateOdaTicketCapture({
+      securityId: 'SEC-ODA-001',
+      customerId: 'CIF-001',
+      currencyPair: 'USD/IDR',
+      direction: 'BUY',
+      effectiveType: 'INTRADAY',
+      tenorDays: 30,
+      nominalAmount: 100_000_000,
+      ratePercent: 6.25,
+      referenceRate: 6.1,
+      valueDate: '2026-05-06',
+      cutoffAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      cifStatus: 'PASS',
+      skuStatus: 'STALE',
+      pfeStatus: 'PASS',
+      referenceRateStatus: 'PASS',
+      availableBalance: 200_000_000,
+      productionIntent: true,
+    });
+
+    expect(stale.readyForValidation).toBe(false);
+    expect(stale.findings.map((finding) => finding.ruleCode)).toContain('SOURCE_EVIDENCE_STALE');
   });
 
   it('validates Wealth Core quota, offering period, and performance evidence', async () => {
@@ -302,6 +448,76 @@ describe('Danamon OEMS domain', () => {
       requireTls: true,
       payload: { customerId: 'CUST-001' },
     })).toThrow('ADAPTER_TRANSPORT_POLICY_BLOCKED');
+  });
+
+  it('calculates fee, tax, and settlement dates from effective-dated schedules', () => {
+    const result = oemsService.calculateFeeTaxFromScheduleInput({
+      amount: 100_000_000,
+      quantity: 10,
+      tradeDate: '2026-05-01',
+      schedules: [
+        {
+          scheduleId: 'FTS-MF-SUB',
+          feeType: 'FRONT_END_LOAD',
+          feeRateType: 'PERCENTAGE',
+          feeRate: 1.25,
+          taxRate: 11,
+          settlementLagDays: 2,
+          calendarKey: 'ID_BUSINESS',
+        },
+        {
+          scheduleId: 'FTS-CUSTODY',
+          feeType: 'CUSTODY_FEE',
+          feeRateType: 'FLAT',
+          feeRate: 50_000,
+          taxRate: 11,
+          settlementLagDays: 1,
+          calendarKey: 'ID_BUSINESS',
+        },
+      ],
+    });
+
+    expect(result.totalCharges).toBe(1_300_000);
+    expect(result.totalTax).toBe(143_000);
+    expect(result.settlementAmount).toBe(98_557_000);
+    expect(result.indicativeSettlementDate).toBe('2026-05-05');
+  });
+
+  it('validates product-specific ticket capture for non-ODA families', () => {
+    const mld = oemsService.validateProductTicketCapture({
+      productFamily: 'MLD',
+      securityId: 'SEC-MLD-001',
+      customerId: 'CUST-001',
+      transactionType: 'MLD_SUBSCRIPTION',
+      amount: 250_000_000,
+      trancheId: 'TRN-001',
+      valueDate: '2026-05-06',
+      maturityDate: '2027-05-06',
+      ncbsHoldStatus: 'AVAILABLE',
+      callbackStatus: 'CONFIRMED',
+      sourceEvidence: [{ evidenceType: 'NCBS_HOLD', evidenceStatus: 'AVAILABLE', sourceSystem: 'NCBS' }],
+    });
+    const fx = oemsService.validateProductTicketCapture({
+      productFamily: 'FX_TODAY',
+      securityId: 'SEC-FX-001',
+      customerId: 'CUST-001',
+      transactionType: 'FX_TODAY_BUY',
+      amount: 75_000,
+      currencyPair: 'USD/IDR',
+      direction: 'BUY',
+      specialRate: 16100,
+      customerConfirmationStatus: 'CONFIRMED',
+      underlyingDocumentStatus: 'VERIFIED',
+      sourceEvidence: [{ evidenceType: 'TREASURY_RATE', evidenceStatus: 'AVAILABLE', sourceSystem: 'TREASURY' }],
+    });
+
+    expect(mld.readyForValidation).toBe(true);
+    expect(fx.readyForValidation).toBe(true);
+    expect(oemsService.validateProductTicketCapture({
+      productFamily: 'BOND',
+      transactionType: 'BOND_SELL',
+      amount: 0,
+    } as any).findings.some((finding: any) => finding.severity === 'BLOCKING')).toBe(true);
   });
 
   it('blocks invalid collateral haircuts', () => {
@@ -394,10 +610,34 @@ describe('Danamon OEMS domain', () => {
     expect(paths).toContain('/channel-sessions');
     expect(paths).toContain('/channel-sessions/:sessionId/validate');
     expect(paths).toContain('/products');
+    expect(paths).toContain('/product-security-master');
+    expect(paths).toContain('/product-security-master/:securityId/submit');
+    expect(paths).toContain('/product-security-master/:securityId/approve');
+    expect(paths).toContain('/product-tickets/validate-capture');
+    expect(paths).toContain('/product-tickets');
+    expect(paths).toContain('/product-tickets/:ticketId/validate');
+    expect(paths).toContain('/product-tickets/:ticketId/submit');
+    expect(paths).toContain('/policy-rule-traceability');
+    expect(paths).toContain('/policy-rule-traceability/invalidate');
+    expect(paths).toContain('/source-system-evidence');
+    expect(paths).toContain('/reconciliation-obligations');
+    expect(paths).toContain('/reconciliation-obligations/:obligationId/close');
+    expect(paths).toContain('/audit-events');
+    expect(paths).toContain('/audit-replay');
+    expect(paths).toContain('/outbox-events');
+    expect(paths).toContain('/feature-flags');
+    expect(paths).toContain('/feature-flags/:flagCode/enabled');
+    expect(paths).toContain('/control-ownership');
+    expect(paths).toContain('/control-ownership/:controlId/attest');
+    expect(paths).toContain('/control-ownership/:controlId/incidents');
+    expect(paths).toContain('/control-ownership/recertification-report');
     expect(paths).toContain('/parameter-sets');
     expect(paths).toContain('/orders');
     expect(paths).toContain('/orders/:orderId/transitions');
     expect(paths).toContain('/orders/:orderId/cutoff/evaluate');
+    expect(paths).toContain('/orders/:orderId/charges/scheduled');
+    expect(paths).toContain('/fee-tax-schedules');
+    expect(paths).toContain('/fee-tax-schedules/:scheduleId/approve');
     expect(paths).toContain('/orders/:orderId/validation-warnings/acknowledge');
     expect(paths).toContain('/document-rules');
     expect(paths).toContain('/orders/:orderId/documents');
@@ -424,6 +664,11 @@ describe('Danamon OEMS domain', () => {
     expect(paths).toContain('/orders/:orderId/digital-verifications/:verificationId/fallback-approve');
     expect(paths).toContain('/orders/:orderId/digital-verifications/:verificationId/download');
     expect(paths).toContain('/oda/recommendations');
+    expect(paths).toContain('/oda/tickets');
+    expect(paths).toContain('/oda/tickets/validate-capture');
+    expect(paths).toContain('/oda/tickets/:ticketId/validate');
+    expect(paths).toContain('/oda/tickets/:ticketId/submit');
+    expect(paths).toContain('/oda/release-gate');
     expect(paths).toContain('/oda/orders');
     expect(paths).toContain('/oda/orders/precheck');
     expect(paths).toContain('/oda/reference-rates');
@@ -483,11 +728,15 @@ describe('Danamon OEMS domain', () => {
     expect(paths).toContain('/integrations');
     expect(paths).toContain('/integration-adapters');
     expect(paths).toContain('/integration-adapters/:adapterId/security');
+    expect(paths).toContain('/integration-adapters/:adapterId/production-gate');
+    expect(paths).toContain('/integration-adapters/production-readiness/report');
     expect(paths).toContain('/integration-adapters/:adapterId/execute');
     expect(paths).toContain('/integration-adapters/:adapterId/health');
     expect(paths).toContain('/integration-adapter-executions');
     expect(paths).toContain('/approval-workflows');
     expect(paths).toContain('/approval-queue');
+    expect(paths).toContain('/control-tower');
+    expect(paths).toContain('/approval-queue/:queueItemId/reassign');
     expect(paths).toContain('/approval-queue/:queueItemId/decision');
     expect(paths).toContain('/notifications/templates');
     expect(paths).toContain('/notifications/templates/:id/approve');
@@ -503,6 +752,9 @@ describe('Danamon OEMS domain', () => {
     expect(paths).toContain('/reports/render-artifacts/:artifactId');
     expect(paths).toContain('/migration-rollbacks');
     expect(paths).toContain('/migration-rollbacks/:rollbackId/verify');
+    expect(paths).toContain('/migration-rollbacks/:rollbackId/rehearse');
+    expect(paths).toContain('/migration-compatibility-queue');
+    expect(paths).toContain('/migration-compatibility-queue/:queueId/resolve');
     expect(paths).toContain('/reports/transaction-history/search');
     expect(paths).toContain('/reports/:reportCode');
     expect(paths).toContain('/reports/:reportCode/exports');
@@ -709,5 +961,101 @@ describe('Danamon OEMS domain', () => {
     expect(serviceSource).toContain('Renderer-backed report artifacts persist file URL, checksum, source manifest and protection evidence');
     expect(serviceSource).toContain('Danamon role matrix approval queues assign reviewer roles and block maker self-approval');
     expect(serviceSource).toContain('Rollback scripts are registered and checksum-verifiable for OEMS migrations');
+  });
+
+  it('persists minimum trustworthy order schema and migration artifacts', () => {
+    const schemaSource = readFileSync(path.join(root, 'packages/shared/src/schema.ts'), 'utf8');
+    const migrationSource = readFileSync(path.join(root, 'drizzle/20260506_add_oems_minimum_trustworthy_order.sql'), 'utf8');
+    const serviceSource = readFileSync(path.join(root, 'server/services/oems-service.ts'), 'utf8');
+    const routesSource = readFileSync(path.join(root, 'server/routes/oems.ts'), 'utf8');
+    const odaTicketUiSource = readFileSync(path.join(root, 'apps/back-office/src/pages/oems-ticket-oda.tsx'), 'utf8');
+    const productTicketUiSource = readFileSync(path.join(root, 'apps/back-office/src/pages/oems-product-ticket-workbench.tsx'), 'utf8');
+    const controlTowerUiSource = readFileSync(path.join(root, 'apps/back-office/src/pages/oems-control-tower.tsx'), 'utf8');
+    const ruleTraceabilityUiSource = readFileSync(path.join(root, 'apps/back-office/src/pages/oems-rule-traceability.tsx'), 'utf8');
+    const backOfficeRoutesSource = readFileSync(path.join(root, 'apps/back-office/src/routes/index.tsx'), 'utf8');
+    const cutoverRunbookSource = readFileSync(path.join(root, 'docs/operations/oda-cutover-runbook.md'), 'utf8');
+    const nfrEvidenceSource = readFileSync(path.join(root, 'docs/reviews/oms-nfr-evidence-2026-05-06.md'), 'utf8');
+
+    expect(schemaSource).toContain('oemsProductSecurityMaster');
+    expect(schemaSource).toContain('oemsPolicyRuleTraceability');
+    expect(schemaSource).toContain('oemsProductOrderTickets');
+    expect(schemaSource).toContain('oemsSourceSystemEvidence');
+    expect(schemaSource).toContain('oemsOutboxEvents');
+    expect(schemaSource).toContain('oemsAuditEvents');
+    expect(schemaSource).toContain('oemsFeatureFlags');
+    expect(schemaSource).toContain('oemsControlOwnership');
+    expect(schemaSource).toContain('oemsControlAttestations');
+    expect(schemaSource).toContain('oemsReconciliationObligations');
+    expect(schemaSource).toContain('oemsFeeTaxSchedules');
+    expect(schemaSource).toContain('oemsMigrationCompatibilityQueue');
+    expect(migrationSource).toContain('CREATE TABLE IF NOT EXISTS oems_product_security_master');
+    expect(migrationSource).toContain('CREATE TABLE IF NOT EXISTS oems_policy_rule_traceability');
+    expect(migrationSource).toContain('CREATE TABLE IF NOT EXISTS oems_product_order_tickets');
+    expect(migrationSource).toContain('CREATE TABLE IF NOT EXISTS oems_source_system_evidence');
+    expect(migrationSource).toContain('CREATE TABLE IF NOT EXISTS oems_outbox_events');
+    expect(migrationSource).toContain('CREATE TABLE IF NOT EXISTS oems_audit_events');
+    expect(migrationSource).toContain('CREATE TABLE IF NOT EXISTS oems_feature_flags');
+    expect(migrationSource).toContain('CREATE TABLE IF NOT EXISTS oems_control_ownership');
+    expect(migrationSource).toContain('CREATE TABLE IF NOT EXISTS oems_control_attestations');
+    expect(migrationSource).toContain('CREATE TABLE IF NOT EXISTS oems_reconciliation_obligations');
+    expect(migrationSource).toContain('CREATE TABLE IF NOT EXISTS oems_fee_tax_schedules');
+    expect(migrationSource).toContain('CREATE TABLE IF NOT EXISTS oems_migration_compatibility_queue');
+    expect(migrationSource).toContain("evidence_status IN ('AVAILABLE','STALE','FAILED','PENDING','CONFLICT','DEGRADED_APPROVED')");
+    expect(migrationSource).toContain("certification_status IN ('DRAFT','CERTIFIED','EXPIRED','REVOKED')");
+    expect(migrationSource).toContain('ux_oems_outbox_idempotency');
+    expect(serviceSource).toContain('Degraded source evidence requires fallback_approval_id');
+    expect(serviceSource).toContain('Degraded-mode reconciliation requires customer_impact');
+    expect(serviceSource).toContain('FEE_TAX_SCHEDULE_NOT_CONFIGURED');
+    expect(serviceSource).toContain('is not CERTIFIED for production handoff');
+    expect(serviceSource).toContain('OEMS_CONTROL_ATTESTED');
+    expect(serviceSource).toContain('OEMS_APPROVAL_QUEUE_REASSIGNED');
+    expect(serviceSource).toContain('Policy traceability policy_reference is required');
+    expect(serviceSource).toContain('Feature flag rollout_percent must be between 0 and 100');
+    expect(serviceSource).toContain('ODA_GENERIC_WIZARD_BLOCKED');
+    expect(serviceSource).toContain('OEMS_ODA_TICKET_SUBMITTED');
+    expect(serviceSource).toContain('OEMS_ODA_ORDER_SUBMITTED');
+    expect(serviceSource).toContain('WORKFLOW_NOT_CONFIGURED');
+    expect(serviceSource).toContain('RULE_POLICY_TRACEABILITY_REQUIRED');
+    expect(serviceSource).toContain('OEMS_POLICY_TRACEABILITY_INVALIDATED');
+    expect(serviceSource).toContain('OEMS_PRODUCT_TICKET_WORKFLOW_SUBMITTED');
+    expect(serviceSource).toContain('PRODUCT_ORDER_STATUS_APPROVAL_AUDIT_OUTBOX');
+    expect(serviceSource).toContain('APPROVAL_DECISION_STATUS_AUDIT_OUTBOX');
+    expect(serviceSource).toContain('OEMS_CONTROL_INCIDENT_LINKED');
+    expect(serviceSource).toContain('OEMS_MIGRATION_ROLLBACK_REHEARSED');
+    expect(serviceSource).toContain('OEMS_MIGRATION_COMPATIBILITY_ITEM_CREATED');
+    expect(serviceSource).toContain('settlementCalendarSource');
+    expect(serviceSource).toContain('getProductionIntegrationReadinessReport');
+    expect(serviceSource).toContain('special rate');
+    expect(serviceSource).toContain('replayOemsAuditTimeline');
+    expect(routesSource).toContain('/integration-adapters/production-readiness/report');
+    expect(routesSource).toContain('/control-ownership/:controlId/incidents');
+    expect(routesSource).toContain('/migration-rollbacks/:rollbackId/rehearse');
+    expect(routesSource).toContain('/migration-compatibility-queue');
+    expect(routesSource).toContain("/oda/tickets/:ticketId/submit");
+    expect(routesSource).toContain('/oda/release-gate');
+    expect(routesSource).toContain('/audit-replay');
+    expect(odaTicketUiSource).toContain('Source Evidence');
+    expect(odaTicketUiSource).toContain('Document Checklist');
+    expect(odaTicketUiSource).toContain('Digital Verification');
+    expect(odaTicketUiSource).toContain('/api/v1/oems/oda/tickets');
+    expect(odaTicketUiSource).toContain('/api/v1/oems/orders/${createdOrderId}/documents/checklist/generate');
+    expect(odaTicketUiSource).toContain('/api/v1/oems/orders/${createdOrderId}/documents');
+    expect(odaTicketUiSource).toContain('/api/v1/oems/orders/${createdOrderId}/digital-verifications');
+    expect(odaTicketUiSource).toContain('OEMS_ODA_TICKET_V1');
+    expect(productTicketUiSource).toContain('Product Ticket Workbench');
+    expect(productTicketUiSource).toContain('Family Documents');
+    expect(controlTowerUiSource).toContain('OEMS Control Tower');
+    expect(controlTowerUiSource).toContain('Reassignment');
+    expect(controlTowerUiSource).toContain('Incident Link');
+    expect(controlTowerUiSource).toContain('/api/v1/oems/control-ownership/${incidentLink.controlId}/incidents');
+    expect(ruleTraceabilityUiSource).toContain('Rule Traceability');
+    expect(ruleTraceabilityUiSource).toContain('Structured Editor');
+    expect(backOfficeRoutesSource).toContain('oems-ticket-oda');
+    expect(backOfficeRoutesSource).toContain('oems-product-ticket-workbench');
+    expect(backOfficeRoutesSource).toContain('oems-control-tower');
+    expect(backOfficeRoutesSource).toContain('oems-rule-traceability');
+    expect(cutoverRunbookSource).toContain('Pre-Cutover Gates');
+    expect(cutoverRunbookSource).toContain('Rollback Steps');
+    expect(nfrEvidenceSource).toContain('Remaining External NFR Evidence Needed');
   });
 });

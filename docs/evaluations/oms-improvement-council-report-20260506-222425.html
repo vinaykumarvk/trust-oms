@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>OMS Improvement BRD Council Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 32px; color: #172033; line-height: 1.5; }
+    h1, h2 { color: #0f3b66; }
+    .verdict { border-left: 6px solid #0f6b4f; background: #eef8f4; padding: 16px; margin: 20px 0; }
+    .risk { border-collapse: collapse; width: 100%; margin-top: 12px; }
+    .risk th { background: #d9eaf7; text-align: left; }
+    .risk th, .risk td { border: 1px solid #b8c7d3; padding: 8px; }
+    details { border: 1px solid #d0d7de; border-radius: 6px; padding: 10px 14px; margin: 10px 0; }
+    summary { cursor: pointer; font-weight: 700; color: #0f3b66; }
+    .tag { display: inline-block; padding: 4px 8px; border-radius: 999px; background: #edf2f7; margin-right: 6px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>OMS Improvement BRD Council Report</h1>
+  <p><strong>Date:</strong> 2026-05-06</p>
+  <p><strong>Subject:</strong> Danamon OEMS modernization BRD</p>
+  <div class="verdict">
+    <h2>Chairman Verdict</h2>
+    <p>Revise and approve the BRD as a controlled banking change program, not as a broad feature backlog. The first executable proof must be ODA-first and must prove the minimum trustworthy order spine: active product/security reference, complete capture, source evidence, deterministic validation, workflow queue, audit event, and outbox event.</p>
+  </div>
+  <p>
+    <span class="tag">Minimum Trustworthy Order</span>
+    <span class="tag">ODA First</span>
+    <span class="tag">Policy-To-Rule Traceability</span>
+    <span class="tag">Migration Runbook</span>
+    <span class="tag">Operating Model</span>
+  </p>
+  <h2>Where The Council Agreed</h2>
+  <ul>
+    <li>The target capabilities are directionally right but too broad for one execution wave.</li>
+    <li>ODA should prove the shared spine before broader product migration.</li>
+    <li>Rule governance and source evidence are launch gates, not polish.</li>
+    <li>Control tower analytics should follow reliable event and audit data.</li>
+  </ul>
+  <h2>Risk Register</h2>
+  <table class="risk">
+    <tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr>
+    <tr><td>Rules engine becomes compliance black box</td><td>Critical</td><td>Policy-to-rule traceability and recertification</td></tr>
+    <tr><td>Partial modernization creates false confidence</td><td>Critical</td><td>ODA-first proof and release gates</td></tr>
+    <tr><td>Migration breaks in-flight orders</td><td>High</td><td>ODA migration runbook and compatibility queue</td></tr>
+    <tr><td>Source-system failures remain ambiguous</td><td>High</td><td>Source evidence states and degraded-mode controls</td></tr>
+    <tr><td>Post-launch controls degrade</td><td>High</td><td>RACI, recertification, incident feedback loop</td></tr>
+  </table>
+  <h2>Advisor Highlights</h2>
+  <details open><summary>Proponent</summary><p>The plan is defensible because it modernizes an already substantial OEMS and closes known control gaps.</p></details>
+  <details><summary>Contrarian</summary><p>The fatal flaw is treating the work as an additive backlog instead of a controlled banking change program.</p></details>
+  <details><summary>First Principles</summary><p>The true goal is the minimum trustworthy order, not the label “world-class.”</p></details>
+  <details><summary>Outsider</summary><p>The BRD needs clearer priority, source ownership, failure behavior, and happy/repair paths.</p></details>
+  <details><summary>Executor</summary><p>Start with the governed spine and ODA ticket slice, with negative-path tests first.</p></details>
+  <h2>One Thing To Do First</h2>
+  <p>Create and execute the ODA-first implementation plan around the minimum trustworthy order spine.</p>
+</body>
+</html>

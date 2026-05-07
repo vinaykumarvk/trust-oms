@@ -17,7 +17,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import { Button } from "@ui/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@ui/components/ui/card";
+import { Card, CardContent, CardHeader } from "@ui/components/ui/card";
 import { Checkbox } from "@ui/components/ui/checkbox";
 import { Input } from "@ui/components/ui/input";
 import { Label } from "@ui/components/ui/label";
@@ -211,7 +211,7 @@ export default function LoginPage() {
                 <Landmark className="h-6 w-6" aria-hidden="true" />
               </div>
               <div>
-                <p className="text-sm font-medium uppercase tracking-[0.18em] text-primary">
+                <p className="text-sm font-medium uppercase tracking-[0.18em] text-teal-700">
                   Trust OMS Client Portal
                 </p>
                 <h1
@@ -223,7 +223,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <p className="max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
+            <p className="max-w-xl text-base leading-7 text-slate-700 sm:text-lg">
               A protected portal for trust clients to review portfolios, exchange
               secure messages, and track service requests.
             </p>
@@ -236,7 +236,7 @@ export default function LoginPage() {
                     key={signal.label}
                     className="rounded-lg border bg-card/90 p-4 shadow-sm backdrop-blur"
                   >
-                    <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-teal-700">
                       <Icon className="h-5 w-5" aria-hidden="true" />
                     </div>
                     <p className="text-2xl font-semibold text-foreground">{signal.value}</p>
@@ -253,7 +253,7 @@ export default function LoginPage() {
           <div className="relative mt-8 max-w-2xl rounded-lg border bg-card/90 p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between gap-4">
               <p className="text-sm font-medium text-muted-foreground">Portal focus</p>
-              <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+              <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-teal-700">
                 Client access
               </span>
             </div>
@@ -270,7 +270,7 @@ export default function LoginPage() {
                 <Landmark className="h-5 w-5" aria-hidden="true" />
               </div>
               <div>
-                <p className="text-sm font-medium uppercase tracking-[0.18em] text-primary">
+                <p className="text-sm font-medium uppercase tracking-[0.18em] text-teal-700">
                   Trust OMS
                 </p>
                 <p className="text-base font-semibold text-foreground">
@@ -281,7 +281,7 @@ export default function LoginPage() {
 
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-medium text-primary">Secure sign in</p>
+                <p className="text-sm font-medium text-teal-700">Secure sign in</p>
                 <p className="text-sm text-muted-foreground">Client portal</p>
               </div>
               <Button variant="outline" size="sm" asChild>
@@ -294,9 +294,9 @@ export default function LoginPage() {
 
             <Card className="border shadow-lg">
               <CardHeader className="space-y-2">
-                <CardTitle className="text-2xl font-semibold">
+                <h2 className="text-2xl font-semibold">
                   {forgotMode ? "Recover access" : "Sign in"}
-                </CardTitle>
+                </h2>
                 <p className="text-sm leading-6 text-muted-foreground">
                   {forgotMode
                     ? "Submit your registered email address. Client care will validate the recovery request."
@@ -319,7 +319,7 @@ export default function LoginPage() {
                         {error ? (
                           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                         ) : (
-                          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-teal-700" aria-hidden="true" />
                         )}
                         <span>
                           {error ||
@@ -352,7 +352,7 @@ export default function LoginPage() {
                       </div>
                     </div>
 
-                    <Button type="submit" className="h-11 w-full">
+                    <Button type="submit" className="h-11 w-full bg-teal-700 text-white hover:bg-teal-800">
                       Request recovery
                     </Button>
                     <Button
@@ -413,7 +413,7 @@ export default function LoginPage() {
                         <Label htmlFor="password">Password</Label>
                         <button
                           type="button"
-                          className="text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          className="text-sm font-medium text-teal-700 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           onClick={() => {
                             setForgotMode(true);
                             setForgotEmail(username);
@@ -475,7 +475,7 @@ export default function LoginPage() {
                       <p className="text-xs text-muted-foreground">No passwords stored</p>
                     </div>
 
-                    <Button type="submit" className="h-11 w-full" disabled={isLoading}>
+                    <Button type="submit" className="h-11 w-full bg-teal-700 text-white hover:bg-teal-800" disabled={isLoading}>
                       {isLoading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
@@ -493,7 +493,7 @@ export default function LoginPage() {
             <div className="mt-5 flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
               <span>Protected workspace for authorized trust clients.</span>
               <a
-                className="font-medium text-primary underline-offset-4 hover:underline"
+                className="font-medium text-teal-700 underline-offset-4 hover:underline"
                 href={`mailto:${SUPPORT_EMAIL}`}
               >
                 Client support

@@ -14,6 +14,10 @@ import { initializeFeedRegistry } from './services/degraded-mode-service';
 const app = express();
 const PORT = parseInt(process.env.PORT || '5000', 10);
 const isProductionRuntime = process.env.NODE_ENV === 'production';
+if (isProductionRuntime) {
+  // Cloud Run terminates TLS and forwards client IPs through one Google proxy hop.
+  app.set('trust proxy', 1);
+}
 const configuredCorsOrigins = (process.env.CORS_ORIGINS || '')
   .split(',')
   .map((origin) => origin.trim())

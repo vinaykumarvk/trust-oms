@@ -26,6 +26,10 @@ const OemsWorkbench = React.lazy(() => import("@/pages/oems-workbench"));
 const OemsProductSetupOda = React.lazy(() => import("@/pages/oems-product-setup-oda"));
 const OemsProductSetupMld = React.lazy(() => import("@/pages/oems-product-setup-mld"));
 const OemsOrderManagementOda = React.lazy(() => import("@/pages/oems-order-management-oda"));
+const OemsTicketOda = React.lazy(() => import("@/pages/oems-ticket-oda"));
+const OemsProductTicketWorkbench = React.lazy(() => import("@/pages/oems-product-ticket-workbench"));
+const OemsControlTower = React.lazy(() => import("@/pages/oems-control-tower"));
+const OemsRuleTraceability = React.lazy(() => import("@/pages/oems-rule-traceability"));
 const OemsOrderManagementMld = React.lazy(() => import("@/pages/oems-order-management-mld"));
 const OemsFxToday = React.lazy(() => import("@/pages/oems-fx-today"));
 const OemsOrderBlotter = React.lazy(() => import("@/pages/oems-order-blotter"));
@@ -903,6 +907,38 @@ export const router = createBrowserRouter([
             element: (
               <Suspense fallback={<PageLoader />}>
                 <OemsProductSetupMld />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/operations/oems-ticket-oda",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <OemsTicketOda />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/operations/oems-product-tickets",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <OemsProductTicketWorkbench />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/operations/oems-control-tower",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <OemsControlTower />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/operations/oems-rule-traceability",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <OemsRuleTraceability />
               </Suspense>
             ),
           },

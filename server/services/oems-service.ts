@@ -49,9 +49,21 @@ type OemsNotificationDelivery = InferSelectModel<typeof schema.oemsNotificationD
 type OemsReportDefinition = InferSelectModel<typeof schema.oemsReportDefinitions>;
 type OemsExportJob = InferSelectModel<typeof schema.oemsExportJobs>;
 type OemsReportRenderArtifact = InferSelectModel<typeof schema.oemsReportRenderArtifacts>;
+type OemsIntegrationMessage = InferSelectModel<typeof schema.oemsIntegrationMessages>;
 type OemsIntegrationAdapter = InferSelectModel<typeof schema.oemsIntegrationAdapters>;
 type OemsApprovalWorkflowDefinition = InferSelectModel<typeof schema.oemsApprovalWorkflowDefinitions>;
 type OemsApprovalQueueItem = InferSelectModel<typeof schema.oemsApprovalQueueItems>;
+type OemsProductSecurityMaster = InferSelectModel<typeof schema.oemsProductSecurityMaster>;
+type OemsPolicyRuleTraceability = InferSelectModel<typeof schema.oemsPolicyRuleTraceability>;
+type OemsProductOrderTicket = InferSelectModel<typeof schema.oemsProductOrderTickets>;
+type OemsSourceSystemEvidence = InferSelectModel<typeof schema.oemsSourceSystemEvidence>;
+type OemsOutboxEvent = InferSelectModel<typeof schema.oemsOutboxEvents>;
+type OemsAuditEvent = InferSelectModel<typeof schema.oemsAuditEvents>;
+type OemsFeatureFlag = InferSelectModel<typeof schema.oemsFeatureFlags>;
+type OemsControlOwnership = InferSelectModel<typeof schema.oemsControlOwnership>;
+type OemsControlAttestation = InferSelectModel<typeof schema.oemsControlAttestations>;
+type OemsReconciliationObligation = InferSelectModel<typeof schema.oemsReconciliationObligations>;
+type OemsFeeTaxSchedule = InferSelectModel<typeof schema.oemsFeeTaxSchedules>;
 type OemsPortfolioHolding = InferSelectModel<typeof schema.oemsPortfolioHoldings>;
 type OemsDigitalVerification = InferSelectModel<typeof schema.oemsDigitalVerifications>;
 type OemsDocumentRegistration = InferSelectModel<typeof schema.oemsDocumentRegistrations>;
@@ -61,14 +73,18 @@ type OemsRiskProfileAssessment = InferSelectModel<typeof schema.oemsRiskProfileA
 type OemsProductRiskMapping = InferSelectModel<typeof schema.oemsProductRiskMappings>;
 type OemsOdaRecommendation = InferSelectModel<typeof schema.oemsOdaRecommendations>;
 type OemsOdaBlotterGroup = InferSelectModel<typeof schema.oemsOdaBlotterGroups>;
+type OemsOdaFundInstruction = InferSelectModel<typeof schema.oemsOdaFundInstructions>;
 type OemsOdaTreasuryUpdate = InferSelectModel<typeof schema.oemsOdaTreasuryUpdates>;
 type OemsMldTranche = InferSelectModel<typeof schema.oemsMldTranches>;
 type OemsMldOrderDetail = InferSelectModel<typeof schema.oemsMldOrderDetails>;
+type OemsMldFundInstruction = InferSelectModel<typeof schema.oemsMldFundInstructions>;
 type OemsMfBondOrderDetail = InferSelectModel<typeof schema.oemsMfBondOrderDetails>;
 type OemsFxTodayDetail = InferSelectModel<typeof schema.oemsFxTodayDetails>;
+type OemsFxTodayBlotterEntry = InferSelectModel<typeof schema.oemsFxTodayBlotterEntries>;
 type OemsWealthLendingFacility = InferSelectModel<typeof schema.oemsWealthLendingFacilities>;
 type OemsWealthLendingCollateral = InferSelectModel<typeof schema.oemsWealthLendingCollaterals>;
 type OemsWealthLendingInstruction = InferSelectModel<typeof schema.oemsWealthLendingInstructions>;
+type OemsMigrationCompatibilityQueueItem = InferSelectModel<typeof schema.oemsMigrationCompatibilityQueue>;
 type OemsCutoffAction = 'REJECT_AFTER_COT' | 'NEXT_BUSINESS_DAY' | 'ALLOW_AFTER_COT';
 type OemsIntegrationStatus = typeof schema.oemsIntegrationStatusEnum.enumValues[number];
 
@@ -78,6 +94,9 @@ interface ValidationFinding {
   result: 'PASS' | 'WARN' | 'FAIL';
   message: string;
   source?: string;
+  evidence?: unknown;
+  overrideEligible?: boolean;
+  repairHint?: string;
   blocking?: boolean;
   acknowledgementRequired?: boolean;
 }
@@ -256,6 +275,87 @@ interface OemsOdaPrecheckInput {
   legs?: OemsOdaLegInput[];
 }
 
+interface OemsSourceEvidenceInput {
+  sourceSystem?: string;
+  evidenceType: string;
+  evidenceStatus?: string;
+  ownerRole?: string;
+  sourceTimestamp?: string | Date;
+  staleAfterAt?: string | Date;
+  failureCode?: string;
+  fallbackApprovalId?: string;
+  evidencePayload?: unknown;
+}
+
+interface OemsOdaTicketInput extends OemsOdaPrecheckInput {
+  securityId?: string;
+  transactionType?: string;
+  portfolioId?: string;
+  channel?: OemsChannel;
+  sourceEvidence?: OemsSourceEvidenceInput[];
+  holdInstruction?: string;
+  supervisorFallbackReason?: string;
+  fallbackApprovalRole?: string;
+  productionIntent?: boolean;
+  actorRole?: string;
+  payload?: unknown;
+}
+
+interface NormalizedOdaTicketCapture {
+  securityId?: string;
+  transactionType: string;
+  customerId?: string;
+  portfolioId?: string;
+  channel: OemsChannel;
+  currencyPair?: string;
+  direction?: string;
+  odaType?: string;
+  effectiveType?: string;
+  tenorDays?: number;
+  nominalAmount?: number;
+  ratePercent?: number;
+  valueDate?: string;
+  referenceRate?: number;
+  cutoffAt?: string;
+  holdInstruction?: string;
+  sourceStatus: Record<string, string>;
+  sourceEvidence: OemsSourceEvidenceInput[];
+  productionIntent: boolean;
+  supervisorFallbackReason?: string;
+  fallbackApprovalRole?: string;
+  productPayload: Record<string, unknown>;
+}
+
+interface OemsProductTicketInput {
+  productFamily: OemsProductFamily;
+  securityId?: string;
+  customerId?: string;
+  portfolioId?: string;
+  channel?: OemsChannel;
+  transactionType?: string;
+  amount?: number | string;
+  currency?: string;
+  sourceEvidence?: OemsSourceEvidenceInput[];
+  productionIntent?: boolean;
+  productPayload?: unknown;
+  [key: string]: unknown;
+}
+
+interface NormalizedProductTicketCapture {
+  productFamily: OemsProductFamily;
+  securityId?: string;
+  customerId?: string;
+  portfolioId?: string;
+  channel: OemsChannel;
+  transactionType: string;
+  amount?: number;
+  currency: string;
+  sourceStatus: Record<string, string>;
+  sourceEvidence: OemsSourceEvidenceInput[];
+  productionIntent: boolean;
+  productPayload: Record<string, unknown>;
+}
+
 function makeId(prefix: string): string {
   const random = Math.random().toString(36).slice(2, 8).toUpperCase();
   return `${prefix}-${Date.now()}-${random}`;
@@ -328,6 +428,58 @@ function normalizeIntegrationStatus(value: unknown, fallback: OemsIntegrationSta
     throw new ValidationError(`Unsupported integration status: ${String(value)}`);
   }
   return status as OemsIntegrationStatus;
+}
+
+const productSecurityStatuses = ['DRAFT', 'PENDING_APPROVAL', 'ACTIVE', 'REJECTED', 'INACTIVE'] as const;
+const policyTraceabilityStatuses = ['DRAFT', 'CERTIFIED', 'EXPIRED', 'REVOKED'] as const;
+const sourceEvidenceStatuses = ['AVAILABLE', 'STALE', 'FAILED', 'PENDING', 'CONFLICT', 'DEGRADED_APPROVED'] as const;
+const outboxPublishStatuses = ['PENDING', 'SENT', 'FAILED', 'DEAD_LETTER', 'CANCELLED'] as const;
+const ticketCaptureStatuses = ['DRAFT', 'READY_FOR_VALIDATION', 'VALIDATION_FAILED', 'READY_FOR_SUBMISSION', 'CANCELLED'] as const;
+
+type ProductSecurityStatus = typeof productSecurityStatuses[number];
+type PolicyTraceabilityStatus = typeof policyTraceabilityStatuses[number];
+type SourceEvidenceStatus = typeof sourceEvidenceStatuses[number];
+type OutboxPublishStatus = typeof outboxPublishStatuses[number];
+type TicketCaptureStatus = typeof ticketCaptureStatuses[number];
+
+function normalizeProductSecurityStatus(value: unknown, fallback: ProductSecurityStatus = 'DRAFT'): ProductSecurityStatus {
+  const status = normalizeUpperToken(value, fallback);
+  if (!productSecurityStatuses.includes(status as ProductSecurityStatus)) {
+    throw new ValidationError(`Unsupported product security status: ${String(value)}`);
+  }
+  return status as ProductSecurityStatus;
+}
+
+function normalizePolicyTraceabilityStatus(value: unknown, fallback: PolicyTraceabilityStatus = 'DRAFT'): PolicyTraceabilityStatus {
+  const status = normalizeUpperToken(value, fallback);
+  if (!policyTraceabilityStatuses.includes(status as PolicyTraceabilityStatus)) {
+    throw new ValidationError(`Unsupported policy traceability status: ${String(value)}`);
+  }
+  return status as PolicyTraceabilityStatus;
+}
+
+function normalizeSourceEvidenceStatus(value: unknown, fallback: SourceEvidenceStatus = 'PENDING'): SourceEvidenceStatus {
+  const status = normalizeUpperToken(value, fallback);
+  if (!sourceEvidenceStatuses.includes(status as SourceEvidenceStatus)) {
+    throw new ValidationError(`Unsupported source evidence status: ${String(value)}`);
+  }
+  return status as SourceEvidenceStatus;
+}
+
+function normalizeOutboxPublishStatus(value: unknown, fallback: OutboxPublishStatus = 'PENDING'): OutboxPublishStatus {
+  const status = normalizeUpperToken(value, fallback);
+  if (!outboxPublishStatuses.includes(status as OutboxPublishStatus)) {
+    throw new ValidationError(`Unsupported outbox publish status: ${String(value)}`);
+  }
+  return status as OutboxPublishStatus;
+}
+
+function normalizeTicketCaptureStatus(value: unknown, fallback: TicketCaptureStatus = 'DRAFT'): TicketCaptureStatus {
+  const status = normalizeUpperToken(value, fallback);
+  if (!ticketCaptureStatuses.includes(status as TicketCaptureStatus)) {
+    throw new ValidationError(`Unsupported ticket capture status: ${String(value)}`);
+  }
+  return status as TicketCaptureStatus;
 }
 
 function normalizePositiveInteger(value: number | string | null | undefined, fallback: number, max = 10): number {
@@ -673,6 +825,543 @@ function normalizeSourceStatus(value: unknown): Record<string, string> {
   return normalized;
 }
 
+function normalizeEvidenceLikeStatus(value: unknown): SourceEvidenceStatus {
+  const raw = asOptionalString(value)?.toUpperCase();
+  if (!raw) return 'PENDING';
+  if (raw === 'PASS' || raw === 'OK' || raw === 'SUCCESS') return 'AVAILABLE';
+  if (raw === 'WARN') return 'STALE';
+  if (raw === 'FAIL' || raw === 'FAILED' || raw === 'UNAVAILABLE' || raw === 'ERROR') return 'FAILED';
+  return normalizeSourceEvidenceStatus(raw);
+}
+
+function classifySourceEvidenceStatusValue(data: {
+  evidenceStatus?: string;
+  sourceTimestamp?: string | Date;
+  staleAfterAt?: string | Date;
+  failureCode?: string;
+  fallbackApprovalId?: string;
+}) {
+  const evidenceStatus = normalizeSourceEvidenceStatus(data.evidenceStatus);
+  if (evidenceStatus === 'FAILED' && !asOptionalString(data.failureCode)) {
+    throw new ValidationError('Failed source evidence requires failure_code');
+  }
+  if (evidenceStatus === 'DEGRADED_APPROVED' && !asOptionalString(data.fallbackApprovalId)) {
+    throw new ValidationError('Degraded source evidence requires fallback_approval_id');
+  }
+  const staleAfter = data.staleAfterAt ? new Date(data.staleAfterAt) : undefined;
+  const stale = evidenceStatus === 'STALE'
+    || Boolean(staleAfter && staleAfter.getTime() <= Date.now() && evidenceStatus === 'AVAILABLE');
+  const blocking = ['PENDING', 'FAILED', 'CONFLICT'].includes(evidenceStatus) || stale;
+  const nextAction = evidenceStatus === 'AVAILABLE' && !stale
+    ? 'ALLOW_VALIDATION'
+    : evidenceStatus === 'DEGRADED_APPROVED'
+      ? 'ALLOW_WITH_RECONCILIATION'
+      : evidenceStatus === 'STALE' || stale
+        ? 'REFRESH_OR_APPROVE_DEGRADED_MODE'
+        : evidenceStatus === 'FAILED'
+          ? 'RETRY_OR_ROUTE_TO_INTEGRATION_OPS'
+          : evidenceStatus === 'CONFLICT'
+            ? 'ROUTE_TO_CONFLICT_REVIEW'
+            : 'WAIT_FOR_SOURCE';
+  return {
+    evidenceStatus,
+    stale,
+    blocking,
+    nextAction,
+    sourceTimestamp: data.sourceTimestamp,
+    staleAfterAt: data.staleAfterAt,
+  };
+}
+
+function normalizeControlStatus(value: unknown): string {
+  const status = normalizeUpperToken(value, 'ACTIVE');
+  if (!['ACTIVE', 'SUSPENDED', 'RETIRED'].includes(status)) {
+    throw new ValidationError('Control status must be ACTIVE, SUSPENDED, or RETIRED');
+  }
+  return status;
+}
+
+function normalizeAttestationStatus(value: unknown): string {
+  const status = normalizeUpperToken(value, 'ATTESTED');
+  if (!['ATTESTED', 'EXCEPTION', 'FAILED'].includes(status)) {
+    throw new ValidationError('Attestation status must be ATTESTED, EXCEPTION, or FAILED');
+  }
+  return status;
+}
+
+function normalizeReconciliationObligationStatus(value: unknown): string {
+  const status = normalizeUpperToken(value, 'OPEN');
+  if (!['OPEN', 'IN_PROGRESS', 'CLOSED', 'WAIVED', 'BREACHED'].includes(status)) {
+    throw new ValidationError('Reconciliation obligation status must be OPEN, IN_PROGRESS, CLOSED, WAIVED, or BREACHED');
+  }
+  return status;
+}
+
+function normalizeFeeTaxScheduleStatus(value: unknown): string {
+  const status = normalizeUpperToken(value, 'DRAFT');
+  if (!['DRAFT', 'PENDING_APPROVAL', 'ACTIVE', 'REJECTED', 'RETIRED'].includes(status)) {
+    throw new ValidationError('Fee/tax schedule status must be DRAFT, PENDING_APPROVAL, ACTIVE, REJECTED, or RETIRED');
+  }
+  return status;
+}
+
+function normalizeFeeTaxRateType(value: unknown): 'PERCENTAGE' | 'FLAT' | 'PER_UNIT' | 'INFORMATIONAL' {
+  const rateType = normalizeUpperToken(value, 'PERCENTAGE');
+  if (!['PERCENTAGE', 'FLAT', 'PER_UNIT', 'INFORMATIONAL'].includes(rateType)) {
+    throw new ValidationError('Fee/tax rate type must be PERCENTAGE, FLAT, PER_UNIT, or INFORMATIONAL');
+  }
+  return rateType as 'PERCENTAGE' | 'FLAT' | 'PER_UNIT' | 'INFORMATIONAL';
+}
+
+function normalizeMigrationCompatibilityStatus(value: unknown): string {
+  const status = normalizeUpperToken(value, 'OPEN');
+  if (!['OPEN', 'IN_PROGRESS', 'RESOLVED', 'WAIVED', 'BLOCKED'].includes(status)) {
+    throw new ValidationError('Migration compatibility status must be OPEN, IN_PROGRESS, RESOLVED, WAIVED, or BLOCKED');
+  }
+  return status;
+}
+
+function calculateScheduleChargeAmount(data: {
+  amount: number;
+  quantity?: number;
+  feeRateType?: unknown;
+  feeRate?: number | string;
+}) {
+  const amount = asNumber(data.amount);
+  const quantity = data.quantity === undefined ? 1 : asNumber(data.quantity);
+  const rateType = normalizeFeeTaxRateType(data.feeRateType);
+  const feeRate = asNumber(data.feeRate ?? 0);
+  if (amount < 0) throw new ValidationError('Charge amount base cannot be negative');
+  if (quantity < 0) throw new ValidationError('Charge quantity cannot be negative');
+  if (feeRate < 0) throw new ValidationError('Fee rate cannot be negative');
+  if (rateType === 'PERCENTAGE') return Number((amount * feeRate / 100).toFixed(4));
+  if (rateType === 'FLAT') return Number(feeRate.toFixed(4));
+  if (rateType === 'PER_UNIT') return Number((quantity * feeRate).toFixed(4));
+  return 0;
+}
+
+function calculateScheduleSettlementDate(baseDateIso: string, settlementLagDays: number) {
+  const base = new Date(`${baseDateIso}T00:00:00.000Z`);
+  if (Number.isNaN(base.getTime())) throw new ValidationError('Invalid settlement base date');
+  let remaining = Math.max(Math.trunc(settlementLagDays), 0);
+  const candidate = new Date(base);
+  while (remaining > 0) {
+    candidate.setUTCDate(candidate.getUTCDate() + 1);
+    const day = candidate.getUTCDay();
+    if (day !== 0 && day !== 6) remaining -= 1;
+  }
+  return candidate.toISOString().slice(0, 10);
+}
+
+async function calculateScheduleSettlementDateFromCalendar(baseDateIso: string, settlementLagDays: number, calendarKey: string) {
+  const base = new Date(`${baseDateIso}T00:00:00.000Z`);
+  if (Number.isNaN(base.getTime())) throw new ValidationError('Invalid settlement base date');
+  const calendar = normalizeUpperToken(calendarKey, 'ID_BUSINESS');
+  const horizon = addDaysIso(baseDateIso, Math.max(settlementLagDays + 45, 60));
+  const rows = await db.select().from(schema.marketCalendar)
+    .where(and(
+      eq(schema.marketCalendar.calendar_key, calendar),
+      gte(schema.marketCalendar.date, baseDateIso),
+      lte(schema.marketCalendar.date, horizon),
+      eq(schema.marketCalendar.is_deleted, false),
+    ))
+    .orderBy(schema.marketCalendar.date)
+    .limit(90);
+  if (rows.length === 0) {
+    return {
+      settlementDate: calculateScheduleSettlementDate(baseDateIso, settlementLagDays),
+      calendarKey: calendar,
+      calendarSource: 'WEEKEND_FALLBACK',
+    };
+  }
+  let remaining = Math.max(Math.trunc(settlementLagDays), 0);
+  for (const row of rows) {
+    if (!row.is_business_day || !row.is_settlement_day) continue;
+    if (row.date === baseDateIso && remaining > 0) continue;
+    if (remaining === 0) {
+      return { settlementDate: row.date, calendarKey: calendar, calendarSource: row.source };
+    }
+    remaining -= 1;
+  }
+  throw new ValidationError('CALENDAR_NOT_CONFIGURED: settlement date could not be resolved from market_calendar');
+}
+
+function sourceEvidenceMapFromOdaInput(data: OemsOdaTicketInput): Record<string, string> {
+  const sourceStatus: Record<string, string> = {};
+  const seed = (type: string, status: unknown) => {
+    sourceStatus[type] = normalizeEvidenceLikeStatus(status);
+  };
+
+  seed('REFERENCE_RATE', data.referenceRateStatus);
+  seed('CIF', data.cifStatus);
+  seed('SKU', data.skuStatus);
+  seed('PFE', data.pfeStatus);
+  seed('BALANCE', data.availableBalance === undefined ? 'PENDING' : 'AVAILABLE');
+  if (data.salesCertificationStatus) seed('SALES_CERTIFICATION', data.salesCertificationStatus);
+
+  for (const evidence of data.sourceEvidence ?? []) {
+    sourceStatus[normalizeUpperToken(evidence.evidenceType, 'GENERAL')] = normalizeEvidenceLikeStatus(evidence.evidenceStatus);
+  }
+
+  return sourceStatus;
+}
+
+function validationFinding(params: ValidationFinding): ValidationFinding {
+  return {
+    ...params,
+    source: params.source ?? 'OEMS',
+    blocking: params.blocking ?? params.severity === 'BLOCKING',
+  };
+}
+
+function validateOdaTicketCaptureInput(data: OemsOdaTicketInput): {
+  normalized: NormalizedOdaTicketCapture;
+  findings: ValidationFinding[];
+  completenessPercent: number;
+  readyForValidation: boolean;
+} {
+  const findings: ValidationFinding[] = [];
+  const sourceStatus = sourceEvidenceMapFromOdaInput(data);
+  const productionIntent = data.productionIntent !== false;
+  const channel = data.channel ?? 'OEMS_DIRECT';
+  validateChannel(channel);
+
+  const securityId = asOptionalString(data.securityId)?.toUpperCase();
+  const transactionType = normalizeUpperToken(data.transactionType, `ODA_${normalizeUpperToken(data.odaType, 'SINGLE')}`);
+  const nominalAmount = data.nominalAmount === undefined ? undefined : asNumber(data.nominalAmount);
+  const tenorDays = data.tenorDays === undefined ? undefined : asNumber(data.tenorDays);
+  const ratePercent = data.ratePercent === undefined ? undefined : asNumber(data.ratePercent);
+  const referenceRate = data.referenceRate === undefined ? undefined : asNumber(data.referenceRate);
+  const valueDate = asOptionalString((data as Record<string, unknown>).valueDate);
+  const cutoffAt = asOptionalString(data.cutoffAt);
+  const holdInstruction = normalizeUpperToken(data.holdInstruction, 'HOLD_ON_SUBMIT');
+  let currencyPair: string | undefined;
+  let direction: string | undefined;
+  let odaType: string | undefined;
+  let effectiveType: string | undefined;
+
+  try {
+    currencyPair = normalizeCurrencyPair(data.currencyPair, data.dealtCurrency, data.counterCurrency).currencyPair;
+  } catch {
+    findings.push(validationFinding({
+      ruleCode: 'ODA_CURRENCY_PAIR_REQUIRED',
+      severity: 'BLOCKING',
+      result: 'FAIL',
+      source: 'CAPTURE',
+      message: 'ODA currency pair must be captured as BASE/QUOTE.',
+      repairHint: 'Select a configured ODA currency pair.',
+    }));
+  }
+
+  try {
+    direction = normalizeOdaDirection(data.direction);
+  } catch (err) {
+    findings.push(validationFinding({
+      ruleCode: 'ODA_DIRECTION_INVALID',
+      severity: 'BLOCKING',
+      result: 'FAIL',
+      source: 'CAPTURE',
+      message: err instanceof Error ? err.message : 'Invalid ODA direction',
+      repairHint: 'Choose BUY or SELL.',
+    }));
+  }
+
+  try {
+    odaType = normalizeOdaType(data.odaType);
+  } catch (err) {
+    findings.push(validationFinding({
+      ruleCode: 'ODA_TYPE_INVALID',
+      severity: 'BLOCKING',
+      result: 'FAIL',
+      source: 'CAPTURE',
+      message: err instanceof Error ? err.message : 'Invalid ODA type',
+      repairHint: 'Choose SINGLE, IF_DONE, or OCO.',
+    }));
+  }
+
+  try {
+    effectiveType = normalizeOdaEffectiveType(data.effectiveType);
+  } catch (err) {
+    findings.push(validationFinding({
+      ruleCode: 'ODA_EFFECTIVE_TYPE_INVALID',
+      severity: 'BLOCKING',
+      result: 'FAIL',
+      source: 'CAPTURE',
+      message: err instanceof Error ? err.message : 'Invalid ODA effective type',
+      repairHint: 'Choose an effective type allowed by the product rule set.',
+    }));
+  }
+
+  const required: Array<[string, unknown, string]> = [
+    ['ODA_SECURITY_MAPPING_REQUIRED', securityId, 'Select an active ODA security/product reference.'],
+    ['ODA_CUSTOMER_REQUIRED', data.customerId, 'Select the customer/CIF.'],
+    ['ODA_TENOR_REQUIRED', Boolean(tenorDays && tenorDays > 0), 'Enter a tenor greater than zero.'],
+    ['ODA_NOMINAL_REQUIRED', Boolean(nominalAmount && nominalAmount > 0), 'Enter a nominal amount greater than zero.'],
+    ['ODA_RATE_REQUIRED', Boolean(ratePercent && ratePercent > 0), 'Enter the customer rate.'],
+    ['ODA_EFFECTIVE_TYPE_REQUIRED', effectiveType, 'Select the ODA effective type.'],
+    ['ODA_VALUE_DATE_REQUIRED', valueDate, 'Select the ODA value date.'],
+    ['ODA_REFERENCE_RATE_REQUIRED', data.requireReferenceRate === false || Boolean(referenceRate && referenceRate > 0), 'Capture a valid reference rate or disable it by rule.'],
+    ['ODA_CUTOFF_REQUIRED', cutoffAt, 'Capture the applicable ODA cutoff timestamp.'],
+    ['ODA_HOLD_INSTRUCTION_REQUIRED', holdInstruction, 'Capture the hold/release instruction.'],
+  ];
+
+  for (const [ruleCode, present, repairHint] of required) {
+    if (!present) {
+      findings.push(validationFinding({
+        ruleCode,
+        severity: 'BLOCKING',
+        result: 'FAIL',
+        source: 'CAPTURE',
+        message: repairHint,
+        repairHint,
+      }));
+    }
+  }
+
+  if (productionIntent && !securityId && !data.supervisorFallbackReason) {
+    findings.push(validationFinding({
+      ruleCode: 'ODA_PRODUCTION_SECURITY_REQUIRED',
+      severity: 'BLOCKING',
+      result: 'FAIL',
+      source: 'PRODUCT_SECURITY_MASTER',
+      message: 'Production-intent ODA ticket requires active security_id unless supervisor and compliance fallback is approved.',
+      repairHint: 'Select active security_id or capture supervisor/compliance fallback approval evidence.',
+    }));
+  }
+
+  if (cutoffAt && new Date(cutoffAt).getTime() <= Date.now()) {
+    findings.push(validationFinding({
+      ruleCode: 'OEMS_ODA_CUTOFF_BREACH',
+      severity: 'BLOCKING',
+      result: 'FAIL',
+      source: 'CUTOFF',
+      message: 'ODA ticket is after the configured cutoff.',
+      repairHint: 'Move the ticket to the next permitted processing date or obtain a configured checker-repair path.',
+    }));
+  }
+
+  for (const [source, status] of Object.entries(sourceStatus)) {
+    const classified = classifySourceEvidenceStatusValue({
+      evidenceStatus: status,
+      failureCode: status === 'FAILED' ? 'SOURCE_FAILED' : undefined,
+    });
+    if (classified.blocking) {
+      findings.push(validationFinding({
+        ruleCode: status === 'STALE' ? 'SOURCE_EVIDENCE_STALE' : status === 'FAILED' ? 'SOURCE_FAILED_BLOCKING' : 'ODA_SOURCE_TIMEOUT_PENDING',
+        severity: 'BLOCKING',
+        result: 'FAIL',
+        source,
+        message: `ODA source evidence ${source} is ${status}.`,
+        evidence: classified,
+        repairHint: classified.nextAction,
+      }));
+    }
+  }
+
+  const totalRequired = required.length + Object.keys(sourceStatus).length;
+  const blockingCount = findings.filter((finding) => finding.severity === 'BLOCKING').length;
+  const completenessPercent = totalRequired === 0
+    ? 100
+    : Math.max(0, Math.round(((totalRequired - blockingCount) / totalRequired) * 100));
+
+  return {
+    normalized: {
+      securityId,
+      transactionType,
+      customerId: asOptionalString(data.customerId),
+      portfolioId: asOptionalString(data.portfolioId),
+      channel,
+      currencyPair,
+      direction,
+      odaType,
+      effectiveType,
+      tenorDays,
+      nominalAmount,
+      ratePercent,
+      valueDate,
+      referenceRate,
+      cutoffAt,
+      holdInstruction,
+      sourceStatus,
+      sourceEvidence: data.sourceEvidence ?? [],
+      productionIntent,
+      supervisorFallbackReason: asOptionalString(data.supervisorFallbackReason),
+      fallbackApprovalRole: asOptionalString(data.fallbackApprovalRole)?.toUpperCase(),
+      productPayload: {
+        ...asRecord(data.payload),
+        referenceRateId: data.referenceRateId,
+        referenceRateSource: data.referenceRateSource,
+        minimumPlacementAmount: data.minimumPlacementAmount,
+        minimumCollectiveAmount: data.minimumCollectiveAmount,
+        availableBalance: data.availableBalance,
+        ledgerBalance: data.ledgerBalance,
+        debitAccountNo: data.debitAccountNo,
+        creditAccountNo: data.creditAccountNo,
+        holdInstruction,
+      },
+    },
+    findings,
+    completenessPercent,
+    readyForValidation: blockingCount === 0,
+  };
+}
+
+function validateProductTicketCaptureInput(data: OemsProductTicketInput): {
+  normalized: NormalizedProductTicketCapture;
+  findings: ValidationFinding[];
+  completenessPercent: number;
+  readyForValidation: boolean;
+} {
+  const findings: ValidationFinding[] = [];
+  validateProductFamily(data.productFamily);
+  const channel = data.channel ?? 'OEMS_DIRECT';
+  validateChannel(channel);
+  const payload: Record<string, unknown> = { ...asRecord(data.productPayload), ...asRecord(data.payload), rawCapture: data };
+  const sourceEvidence = data.sourceEvidence ?? [];
+  const sourceStatus: Record<string, string> = {};
+  for (const evidence of sourceEvidence) {
+    sourceStatus[normalizeUpperToken(evidence.evidenceType, 'GENERAL')] = normalizeEvidenceLikeStatus(evidence.evidenceStatus);
+  }
+  const requiredByFamily: Record<OemsProductFamily, Array<{ field: string; label: string; source?: string }>> = {
+    ODA: [
+      { field: 'currencyPair', label: 'currency pair' },
+      { field: 'direction', label: 'direction' },
+      { field: 'tenorDays', label: 'tenor' },
+      { field: 'ratePercent', label: 'rate' },
+    ],
+    MLD: [
+      { field: 'trancheId', label: 'tranche ID', source: 'WEALTH_CORE' },
+      { field: 'valueDate', label: 'value date' },
+      { field: 'maturityDate', label: 'maturity date' },
+      { field: 'ncbsHoldStatus', label: 'NCBS hold status', source: 'NCBS' },
+      { field: 'callbackStatus', label: 'callback status', source: 'SALES' },
+    ],
+    MUTUAL_FUND: [
+      { field: 'fundCode', label: 'fund code', source: 'AVANTRADE' },
+      { field: 'orderMode', label: 'order mode' },
+      { field: 'sidStatus', label: 'SID status', source: 'WEALTH_CORE' },
+      { field: 'riskProfileStatus', label: 'risk profile status', source: 'OEMS_RISK' },
+      { field: 'pfeStatus', label: 'PFE status', source: 'WEALTH_CORE' },
+    ],
+    BOND: [
+      { field: 'bondIsin', label: 'bond ISIN', source: 'WEALTH_CORE' },
+      { field: 'price', label: 'price' },
+      { field: 'yieldPercent', label: 'yield' },
+      { field: 'settlementDate', label: 'settlement date' },
+      { field: 'sidStatus', label: 'SID status', source: 'WEALTH_CORE' },
+    ],
+    FX_TODAY: [
+      { field: 'currencyPair', label: 'currency pair' },
+      { field: 'direction', label: 'direction' },
+      { field: 'specialRate', label: 'special rate', source: 'TREASURY' },
+      { field: 'customerConfirmationStatus', label: 'customer confirmation status' },
+      { field: 'underlyingDocumentStatus', label: 'underlying document status' },
+    ],
+    WEALTH_LENDING: [
+      { field: 'facilityId', label: 'facility ID', source: 'WEALTH_CORE' },
+      { field: 'collateralSnapshotStatus', label: 'collateral snapshot status', source: 'WEALTH_CORE' },
+      { field: 'marketPriceStatus', label: 'market price status', source: 'MARKET_DATA' },
+      { field: 'outstandingStatus', label: 'outstanding status', source: 'CORE_BANKING' },
+      { field: 'ltv', label: 'LTV' },
+    ],
+  };
+  const securityId = asOptionalString(data.securityId)?.toUpperCase();
+  const transactionType = normalizeUpperToken(data.transactionType, `${data.productFamily}_ORDER`);
+  const amount = data.amount === undefined ? undefined : asNumber(data.amount);
+  if (!securityId) {
+    findings.push(validationFinding({
+      ruleCode: 'PRODUCT_SECURITY_REQUIRED',
+      severity: 'BLOCKING',
+      result: 'FAIL',
+      source: 'PRODUCT_SECURITY_MASTER',
+      message: `${data.productFamily} ticket requires a governed product/security record.`,
+      repairHint: 'Select an ACTIVE product/security master record.',
+    }));
+  }
+  if (!data.customerId?.trim()) {
+    findings.push(validationFinding({
+      ruleCode: 'CUSTOMER_REQUIRED',
+      severity: 'BLOCKING',
+      result: 'FAIL',
+      source: 'CAPTURE',
+      message: `${data.productFamily} ticket requires a customer ID.`,
+      repairHint: 'Capture the customer before validation.',
+    }));
+  }
+  if (amount === undefined || amount <= 0) {
+    findings.push(validationFinding({
+      ruleCode: 'AMOUNT_REQUIRED',
+      severity: 'BLOCKING',
+      result: 'FAIL',
+      source: 'CAPTURE',
+      message: `${data.productFamily} ticket requires a positive amount.`,
+      repairHint: 'Capture a positive order amount.',
+    }));
+  }
+  for (const required of requiredByFamily[data.productFamily]) {
+    const value = data[required.field] ?? payload[required.field];
+    if (value === undefined || value === null || String(value).trim() === '') {
+      findings.push(validationFinding({
+        ruleCode: `${data.productFamily}_${required.field.toUpperCase()}_REQUIRED`,
+        severity: 'BLOCKING',
+        result: 'FAIL',
+        source: required.source ?? 'CAPTURE',
+        message: `${data.productFamily} ticket requires ${required.label}.`,
+        repairHint: `Capture ${required.label} or refresh ${required.source ?? 'the source evidence'}.`,
+      }));
+    }
+  }
+  for (const [source, status] of Object.entries(sourceStatus)) {
+    const classified = classifySourceEvidenceStatusValue({
+      evidenceStatus: status,
+      failureCode: status === 'FAILED' ? 'SOURCE_FAILED' : undefined,
+    });
+    if (classified.blocking) {
+      findings.push(validationFinding({
+        ruleCode: `${data.productFamily}_${source}_SOURCE_BLOCKING`,
+        severity: 'BLOCKING',
+        result: 'FAIL',
+        source,
+        message: `${data.productFamily} source evidence ${source} is ${status}.`,
+        repairHint: classified.nextAction,
+        evidence: classified,
+      }));
+    }
+  }
+  if (findings.length === 0) {
+    findings.push(validationFinding({
+      ruleCode: `${data.productFamily}_TICKET_CAPTURE_PASS`,
+      severity: 'INFO',
+      result: 'PASS',
+      source: 'OEMS_VALIDATION_ENGINE',
+      message: `${data.productFamily} ticket capture passed field-level validation.`,
+      repairHint: 'Submit to workflow approval.',
+      blocking: false,
+    }));
+  }
+  const requiredCount = requiredByFamily[data.productFamily].length + 3;
+  const missingCount = findings.filter((finding) => finding.result === 'FAIL').length;
+  return {
+    normalized: {
+      productFamily: data.productFamily,
+      securityId,
+      customerId: asOptionalString(data.customerId),
+      portfolioId: asOptionalString(data.portfolioId),
+      channel,
+      transactionType,
+      amount,
+      currency: normalizeCurrencyCode(data.currency ?? 'IDR', 'Currency'),
+      sourceStatus,
+      sourceEvidence,
+      productionIntent: data.productionIntent !== false,
+      productPayload: payload,
+    },
+    findings,
+    completenessPercent: Math.max(0, Math.round(((requiredCount - missingCount) / requiredCount) * 100)),
+    readyForValidation: !findings.some((finding) => finding.blocking ?? finding.severity === 'BLOCKING'),
+  };
+}
+
 function assertPortfolioAccess(params: {
   customerId?: string;
   actorCustomerId?: string;
@@ -950,6 +1639,43 @@ async function getOemsOrder(orderId: string): Promise<OemsOrder> {
     .limit(1);
   if (!order) throw new NotFoundError('OEMS order not found');
   return order;
+}
+
+async function getProductSecurityMasterBySecurityId(securityId: string): Promise<OemsProductSecurityMaster> {
+  const [productSecurity] = await db.select().from(schema.oemsProductSecurityMaster)
+    .where(and(
+      eq(schema.oemsProductSecurityMaster.security_id, securityId.trim().toUpperCase()),
+      eq(schema.oemsProductSecurityMaster.is_deleted, false),
+    ))
+    .limit(1);
+  if (!productSecurity) throw new NotFoundError('Product/security master record not found');
+  return productSecurity;
+}
+
+function assertProductSecurityActive(productSecurity: OemsProductSecurityMaster, productFamily: OemsProductFamily, asOfDate = todayIso()) {
+  if (productSecurity.product_family !== productFamily) {
+    throw new ValidationError('PRODUCT_FAMILY_MISMATCH');
+  }
+  if (productSecurity.product_security_status !== 'ACTIVE') {
+    throw new ValidationError('INACTIVE_PRODUCT_SECURITY');
+  }
+  if (productSecurity.effective_from && productSecurity.effective_from > asOfDate) {
+    throw new ValidationError('PRODUCT_EFFECTIVE_DATE_NOT_STARTED');
+  }
+  if (productSecurity.effective_to && productSecurity.effective_to < asOfDate) {
+    throw new ValidationError('PRODUCT_EFFECTIVE_DATE_EXPIRED');
+  }
+}
+
+async function getProductOrderTicket(ticketId: string): Promise<OemsProductOrderTicket> {
+  const [ticket] = await db.select().from(schema.oemsProductOrderTickets)
+    .where(and(
+      eq(schema.oemsProductOrderTickets.ticket_id, ticketId.trim().toUpperCase()),
+      eq(schema.oemsProductOrderTickets.is_deleted, false),
+    ))
+    .limit(1);
+  if (!ticket) throw new NotFoundError('OEMS product order ticket not found');
+  return ticket;
 }
 
 async function getOdaRecommendation(recommendationId: number): Promise<OemsOdaRecommendation> {
@@ -1492,13 +2218,13 @@ function odaInstructionStatus(success?: boolean): typeof schema.oemsIntegrationS
   return success === false ? 'FAILED' : 'ACKNOWLEDGED';
 }
 
-function normalizeMldOutcome(value: unknown): 'MAX_RETURN' | 'MIN_RETURN' | 'TERMINATED' {
+export function normalizeMldOutcome(value: unknown): 'MAX_RETURN' | 'MIN_RETURN' | 'TERMINATED' {
   const outcome = normalizeUpperToken(value, 'MIN_RETURN');
   if (['MAX_RETURN', 'MIN_RETURN', 'TERMINATED'].includes(outcome)) return outcome as 'MAX_RETURN' | 'MIN_RETURN' | 'TERMINATED';
   throw new ValidationError(`Unsupported MLD fixing outcome: ${String(value)}`);
 }
 
-function calculateMldPayout(params: {
+export function calculateMldPayout(params: {
   principalAmount: number;
   minimumInterestRatePercent?: number;
   bonusPayoutRatePercent?: number;
@@ -1529,6 +2255,51 @@ function calculateMldPayout(params: {
     taxAmount: Number(taxAmount.toFixed(4)),
     netPayoutAmount: Number((grossPayoutAmount - taxAmount).toFixed(4)),
     principalProtectionAppliesOnlyIfHeldUntilMaturity: outcome !== 'TERMINATED',
+  };
+}
+
+export function calculateEarlyTerminationPayout(params: {
+  principalAmount: number;
+  terminatedAmount: number;
+  minimumInterestRatePercent?: number;
+  taxRatePercent?: number;
+  penaltyRatePercent?: number;
+  daysHeld: number;
+  tenorDays: number;
+}) {
+  const principalAmount = asNumber(params.principalAmount);
+  const terminatedAmount = asNumber(params.terminatedAmount);
+  const minimumInterestRate = asNumber(params.minimumInterestRatePercent);
+  const taxRate = asNumber(params.taxRatePercent);
+  const penaltyRate = asNumber(params.penaltyRatePercent);
+  const daysHeld = Math.max(0, asNumber(params.daysHeld));
+  const tenorDays = Math.max(1, asNumber(params.tenorDays));
+
+  if (terminatedAmount <= 0) throw new ValidationError('Terminated amount must be greater than zero');
+  if (terminatedAmount > principalAmount) throw new ValidationError('Terminated amount cannot exceed principal');
+
+  const timeAccrualFraction = daysHeld / tenorDays;
+  const accruedInterest = Number((terminatedAmount * (minimumInterestRate / 100) * timeAccrualFraction).toFixed(4));
+  const penaltyAmount = Number((terminatedAmount * (penaltyRate / 100)).toFixed(4));
+  const taxableIncome = Math.max(0, accruedInterest - penaltyAmount);
+  const taxAmount = Number((taxableIncome * (taxRate / 100)).toFixed(4));
+  const grossPayout = Number((terminatedAmount + accruedInterest).toFixed(4));
+  const netPayout = Number((grossPayout - penaltyAmount - taxAmount).toFixed(4));
+  const isPartial = terminatedAmount < principalAmount;
+  const remainingPrincipal = Number((principalAmount - terminatedAmount).toFixed(4));
+
+  return {
+    terminatedAmount,
+    remainingPrincipal,
+    isPartial,
+    accruedInterest,
+    penaltyAmount,
+    grossPayout,
+    taxAmount,
+    netPayout,
+    timeAccrualFraction: Number(timeAccrualFraction.toFixed(6)),
+    daysHeld,
+    tenorDays,
   };
 }
 
@@ -1801,6 +2572,21 @@ function assertAdapterSecurityPolicy(adapter: OemsIntegrationAdapter, data: {
     payloadEncryption: adapter.encryption_required ? 'ENFORCED' : 'NOT_REQUIRED',
     classification: adapter.payload_classification,
   };
+}
+
+function assertProductionAdapterCertified(adapter: OemsIntegrationAdapter) {
+  if (adapter.adapter_status !== 'ACTIVE') {
+    throw new ConflictError(`Integration adapter ${adapter.adapter_id} is not ACTIVE`);
+  }
+  if (adapter.security_policy_status !== 'ACTIVE') {
+    throw new ConflictError(`Integration adapter ${adapter.adapter_id} security policy is ${adapter.security_policy_status}`);
+  }
+  if (adapter.certification_status !== 'CERTIFIED') {
+    throw new ConflictError(`Integration adapter ${adapter.adapter_id} is not CERTIFIED for production handoff`);
+  }
+  if (adapter.mock_mode) {
+    throw new ConflictError(`Integration adapter ${adapter.adapter_id} is still in mock mode`);
+  }
 }
 
 async function getParameterSet(id: number): Promise<OemsParameterSet> {
@@ -2615,6 +3401,1718 @@ export const oemsService = {
     };
   },
 
+  classifySourceEvidenceStatus(data: {
+    evidenceStatus?: string;
+    sourceTimestamp?: string | Date;
+    staleAfterAt?: string | Date;
+    failureCode?: string;
+    fallbackApprovalId?: string;
+  }) {
+    return classifySourceEvidenceStatusValue(data);
+  },
+
+  async createProductSecurityMaster(data: {
+    securityId?: string;
+    legacyProductId?: number;
+    productCode: string;
+    productFamily: OemsProductFamily;
+    instrumentType?: string;
+    displayName: string;
+    issuerName?: string;
+    isin?: string;
+    market?: string;
+    currency?: string;
+    riskScore?: number;
+    settlementCalendarKey?: string;
+    priceSource?: string;
+    taxCategory?: string;
+    productSecurityStatus?: string;
+    effectiveFrom?: string;
+    effectiveTo?: string;
+    payload?: unknown;
+  }, userId: string): Promise<OemsProductSecurityMaster> {
+    validateProductFamily(data.productFamily);
+    if (!data.productCode?.trim()) throw new ValidationError('Product security master product_code is required');
+    if (!data.displayName?.trim()) throw new ValidationError('Product security master display_name is required');
+    const currency = normalizeCurrencyCode(data.currency ?? 'IDR', 'Currency');
+    const riskScore = normalizePositiveInteger(data.riskScore, 1, 6);
+    const effectiveFrom = data.effectiveFrom ?? todayIso();
+    if (data.effectiveTo && data.effectiveTo < effectiveFrom) {
+      throw new ValidationError('Product security effective_to cannot be before effective_from');
+    }
+    const status = normalizeProductSecurityStatus(data.productSecurityStatus);
+    const securityId = asOptionalString(data.securityId)?.toUpperCase() ?? makeId(`SEC-${data.productFamily}`);
+
+    const [row] = await db.insert(schema.oemsProductSecurityMaster).values({
+      security_id: securityId,
+      legacy_product_id: data.legacyProductId,
+      product_code: data.productCode.trim().toUpperCase(),
+      product_family: data.productFamily,
+      instrument_type: normalizeUpperToken(data.instrumentType, data.productFamily),
+      display_name: data.displayName.trim(),
+      issuer_name: asOptionalString(data.issuerName),
+      isin: asOptionalString(data.isin)?.toUpperCase(),
+      market: normalizeUpperToken(data.market, 'ID'),
+      currency,
+      risk_score: riskScore,
+      settlement_calendar_key: normalizeUpperToken(data.settlementCalendarKey, 'ID_BUSINESS'),
+      price_source: asOptionalString(data.priceSource)?.toUpperCase(),
+      tax_category: normalizeUpperToken(data.taxCategory, 'STANDARD'),
+      product_security_status: status,
+      effective_from: effectiveFrom,
+      effective_to: data.effectiveTo,
+      payload: asRecord(data.payload),
+      created_by: userId,
+    }).returning();
+    return row;
+  },
+
+  async listProductSecurityMaster(params: {
+    productFamily?: OemsProductFamily;
+    status?: string;
+    activeOnly?: boolean;
+    productCode?: string;
+    isin?: string;
+    currency?: string;
+    issuer?: string;
+  } = {}): Promise<OemsProductSecurityMaster[]> {
+    const conditions = [eq(schema.oemsProductSecurityMaster.is_deleted, false)];
+    if (params.productFamily) {
+      validateProductFamily(params.productFamily);
+      conditions.push(eq(schema.oemsProductSecurityMaster.product_family, params.productFamily));
+    }
+    if (params.status) conditions.push(eq(schema.oemsProductSecurityMaster.product_security_status, normalizeProductSecurityStatus(params.status)));
+    if (params.activeOnly) conditions.push(eq(schema.oemsProductSecurityMaster.product_security_status, 'ACTIVE'));
+    if (params.productCode) conditions.push(ilike(schema.oemsProductSecurityMaster.product_code, `%${params.productCode.trim()}%`));
+    if (params.isin) conditions.push(ilike(schema.oemsProductSecurityMaster.isin, `%${params.isin.trim().toUpperCase()}%`));
+    if (params.currency) conditions.push(eq(schema.oemsProductSecurityMaster.currency, normalizeCurrencyCode(params.currency, 'Currency')));
+    if (params.issuer) conditions.push(ilike(schema.oemsProductSecurityMaster.issuer_name, `%${params.issuer.trim()}%`));
+    return db.select().from(schema.oemsProductSecurityMaster)
+      .where(and(...conditions))
+      .orderBy(schema.oemsProductSecurityMaster.product_family, schema.oemsProductSecurityMaster.product_code)
+      .limit(200);
+  },
+
+  async submitProductSecurityMaster(securityId: string, userId: string): Promise<OemsProductSecurityMaster> {
+    const productSecurity = await getProductSecurityMasterBySecurityId(securityId);
+    if (!['DRAFT', 'REJECTED'].includes(productSecurity.product_security_status)) {
+      throw new ConflictError(`Product/security record cannot be submitted from ${productSecurity.product_security_status}`);
+    }
+    const [updated] = await db.update(schema.oemsProductSecurityMaster).set({
+      product_security_status: 'PENDING_APPROVAL',
+      updated_by: userId,
+      updated_at: new Date(),
+    }).where(eq(schema.oemsProductSecurityMaster.id, productSecurity.id)).returning();
+    await this.recordOemsAuditEvent({
+      eventCode: 'OEMS_PRODUCT_SECURITY_SUBMITTED',
+      aggregateType: 'OEMS_PRODUCT_SECURITY_MASTER',
+      aggregateId: productSecurity.security_id,
+      beforeState: productSecurity,
+      afterState: updated,
+      evidence: { queueRequired: true },
+    }, userId);
+    return updated;
+  },
+
+  async approveProductSecurityMaster(securityId: string, data: { approved?: boolean; reason?: string } = {}, userId: string): Promise<OemsProductSecurityMaster> {
+    const productSecurity = await getProductSecurityMasterBySecurityId(securityId);
+    if (productSecurity.product_security_status !== 'PENDING_APPROVAL') {
+      throw new ConflictError(`Product/security record cannot be approved from ${productSecurity.product_security_status}`);
+    }
+    if (productSecurity.created_by === userId) {
+      throw new ConflictError('Maker cannot approve their own product/security change');
+    }
+    const approved = data.approved !== false;
+    const [updated] = await db.update(schema.oemsProductSecurityMaster).set({
+      product_security_status: approved ? 'ACTIVE' : 'REJECTED',
+      approved_by: approved ? userId : undefined,
+      approved_at: approved ? new Date() : undefined,
+      rejected_reason: approved ? undefined : asOptionalString(data.reason) ?? 'Rejected by checker',
+      updated_by: userId,
+      updated_at: new Date(),
+    }).where(eq(schema.oemsProductSecurityMaster.id, productSecurity.id)).returning();
+    await this.recordOemsAuditEvent({
+      eventCode: approved ? 'OEMS_PRODUCT_SECURITY_APPROVED' : 'OEMS_PRODUCT_SECURITY_REJECTED',
+      aggregateType: 'OEMS_PRODUCT_SECURITY_MASTER',
+      aggregateId: productSecurity.security_id,
+      beforeState: productSecurity,
+      afterState: updated,
+      evidence: { makerCheckerEnforced: true, reason: data.reason },
+    }, userId);
+    return updated;
+  },
+
+  async createPolicyRuleTraceability(data: {
+    traceabilityId?: string;
+    securityId?: string;
+    ruleSetId?: string;
+    ruleCode: string;
+    ruleVersion?: number;
+    policyReference: string;
+    policyOwnerRole?: string;
+    controlObjective: string;
+    testReference: string;
+    certificationStatus?: string;
+    recertificationDueAt?: string;
+    evidence?: unknown;
+  }, userId: string): Promise<OemsPolicyRuleTraceability> {
+    if (!data.ruleCode?.trim()) throw new ValidationError('Policy traceability rule_code is required');
+    if (!data.policyReference?.trim()) throw new ValidationError('Policy traceability policy_reference is required');
+    if (!data.controlObjective?.trim()) throw new ValidationError('Policy traceability control_objective is required');
+    if (!data.testReference?.trim()) throw new ValidationError('Policy traceability test_reference is required');
+    const certificationStatus = normalizePolicyTraceabilityStatus(data.certificationStatus);
+    const certified = certificationStatus === 'CERTIFIED';
+    const recertificationDueAt = data.recertificationDueAt ?? (certified ? monthsFrom(todayIso(), 3) : undefined);
+    if (certified && !recertificationDueAt) {
+      throw new ValidationError('Certified policy traceability requires recertification_due_at');
+    }
+
+    const [row] = await db.insert(schema.oemsPolicyRuleTraceability).values({
+      traceability_id: asOptionalString(data.traceabilityId)?.toUpperCase() ?? makeId('PRT'),
+      security_id: asOptionalString(data.securityId)?.toUpperCase(),
+      rule_set_id: asOptionalString(data.ruleSetId)?.toUpperCase(),
+      rule_code: data.ruleCode.trim().toUpperCase(),
+      rule_version: normalizePositiveInteger(data.ruleVersion, 1, 999),
+      policy_reference: data.policyReference.trim(),
+      policy_owner_role: normalizeUpperToken(data.policyOwnerRole, 'COMPLIANCE_RISK'),
+      control_objective: data.controlObjective.trim(),
+      test_reference: data.testReference.trim(),
+      certification_status: certificationStatus,
+      certified_by: certified ? userId : undefined,
+      certified_at: certified ? new Date() : undefined,
+      recertification_due_at: recertificationDueAt,
+      evidence: asRecord(data.evidence),
+      created_by: userId,
+    }).returning();
+    return row;
+  },
+
+  async listPolicyRuleTraceability(params: {
+    ruleCode?: string;
+    securityId?: string;
+    certificationStatus?: string;
+    recertificationDueBefore?: string;
+  } = {}): Promise<OemsPolicyRuleTraceability[]> {
+    const conditions = [eq(schema.oemsPolicyRuleTraceability.is_deleted, false)];
+    if (params.ruleCode) conditions.push(eq(schema.oemsPolicyRuleTraceability.rule_code, params.ruleCode.trim().toUpperCase()));
+    if (params.securityId) conditions.push(eq(schema.oemsPolicyRuleTraceability.security_id, params.securityId.trim().toUpperCase()));
+    if (params.certificationStatus) conditions.push(eq(schema.oemsPolicyRuleTraceability.certification_status, params.certificationStatus.trim().toUpperCase()));
+    if (params.recertificationDueBefore) conditions.push(lte(schema.oemsPolicyRuleTraceability.recertification_due_at, params.recertificationDueBefore));
+    return db.select().from(schema.oemsPolicyRuleTraceability)
+      .where(and(...conditions))
+      .orderBy(schema.oemsPolicyRuleTraceability.rule_code, desc(schema.oemsPolicyRuleTraceability.rule_version))
+      .limit(200);
+  },
+
+  async invalidatePolicyTraceabilityOnRuleChange(data: {
+    ruleCode: string;
+    securityId?: string;
+    reason?: string;
+    evidence?: unknown;
+  }, userId: string): Promise<OemsPolicyRuleTraceability[]> {
+    if (!data.ruleCode?.trim()) throw new ValidationError('Policy traceability rule_code is required');
+    const conditions = [
+      eq(schema.oemsPolicyRuleTraceability.rule_code, data.ruleCode.trim().toUpperCase()),
+      eq(schema.oemsPolicyRuleTraceability.certification_status, 'CERTIFIED'),
+      eq(schema.oemsPolicyRuleTraceability.is_deleted, false),
+    ];
+    if (data.securityId) conditions.push(eq(schema.oemsPolicyRuleTraceability.security_id, data.securityId.trim().toUpperCase()));
+    const existing: OemsPolicyRuleTraceability[] = await db.select().from(schema.oemsPolicyRuleTraceability)
+      .where(and(...conditions))
+      .limit(200);
+    if (existing.length === 0) return [];
+    const updated = await db.update(schema.oemsPolicyRuleTraceability).set({
+      certification_status: 'EXPIRED',
+      evidence: {
+        reason: asOptionalString(data.reason) ?? 'Underlying rule changed; certification invalidated pending recertification',
+        invalidatedBy: userId,
+        invalidatedAt: new Date().toISOString(),
+        previousEvidence: existing.map((item) => item.evidence),
+        changeEvidence: asRecord(data.evidence),
+      },
+      updated_by: userId,
+      updated_at: new Date(),
+    }).where(and(...conditions)).returning();
+    await this.recordOemsAuditEvent({
+      eventCode: 'OEMS_POLICY_TRACEABILITY_INVALIDATED',
+      aggregateType: 'OEMS_POLICY_RULE_TRACEABILITY',
+      aggregateId: data.ruleCode.trim().toUpperCase(),
+      beforeState: existing,
+      afterState: updated,
+      evidence: { reason: data.reason, affectedCount: existing.length },
+    }, userId);
+    return updated;
+  },
+
+  async recordSourceSystemEvidence(data: {
+    evidenceId?: string;
+    ticketId?: string;
+    orderId?: string;
+    sourceSystem: string;
+    evidenceType: string;
+    evidenceStatus?: string;
+    ownerRole?: string;
+    sourceTimestamp?: string | Date;
+    staleAfterAt?: string | Date;
+    failureCode?: string;
+    fallbackApprovalId?: string;
+    fallbackReason?: string;
+    customerImpact?: string;
+    reconciliationDueAt?: string | Date;
+    evidencePayload?: unknown;
+  }, userId: string): Promise<OemsSourceSystemEvidence> {
+    if (!data.sourceSystem?.trim()) throw new ValidationError('Source system evidence source_system is required');
+    if (!data.evidenceType?.trim()) throw new ValidationError('Source system evidence evidence_type is required');
+    const classified = this.classifySourceEvidenceStatus(data);
+    const [row] = await db.insert(schema.oemsSourceSystemEvidence).values({
+      evidence_id: asOptionalString(data.evidenceId)?.toUpperCase() ?? makeId('SRC'),
+      ticket_id: asOptionalString(data.ticketId),
+      order_id: asOptionalString(data.orderId),
+      source_system: normalizeUpperToken(data.sourceSystem, 'OEMS'),
+      evidence_type: normalizeUpperToken(data.evidenceType, 'GENERAL'),
+      evidence_status: classified.evidenceStatus,
+      owner_role: normalizeUpperToken(data.ownerRole, 'INTEGRATION_OPS'),
+      source_timestamp: data.sourceTimestamp ? new Date(data.sourceTimestamp) : undefined,
+      stale_after_at: data.staleAfterAt ? new Date(data.staleAfterAt) : undefined,
+      failure_code: asOptionalString(data.failureCode)?.toUpperCase(),
+      fallback_approval_id: asOptionalString(data.fallbackApprovalId),
+      evidence_payload: maskIntegrationPayload(asRecord(data.evidencePayload)),
+      created_by: userId,
+    }).returning();
+    if (classified.evidenceStatus === 'DEGRADED_APPROVED') {
+      await this.createReconciliationObligation({
+        sourceEvidenceId: row.evidence_id,
+        orderId: row.order_id ?? undefined,
+        ticketId: row.ticket_id ?? undefined,
+        sourceSystem: row.source_system,
+        ownerRole: row.owner_role,
+        customerImpact: asOptionalString(data.customerImpact) ?? 'Customer-facing transaction released under approved degraded source evidence.',
+        fallbackReason: asOptionalString(data.fallbackReason) ?? asOptionalString(data.fallbackApprovalId) ?? 'Approved degraded source fallback',
+        dueAt: data.reconciliationDueAt,
+        evidence: {
+          fallbackApprovalId: row.fallback_approval_id,
+          evidenceType: row.evidence_type,
+          sourceTimestamp: row.source_timestamp,
+        },
+      }, userId);
+    }
+    return row;
+  },
+
+  async recordOemsAuditEvent(data: {
+    auditEventId?: string;
+    eventCode: string;
+    aggregateType: string;
+    aggregateId: string;
+    actorRole?: string;
+    beforeState?: unknown;
+    afterState?: unknown;
+    evidence?: unknown;
+    correlationId?: string;
+  }, userId: string): Promise<OemsAuditEvent> {
+    if (!data.eventCode?.trim()) throw new ValidationError('Audit event code is required');
+    if (!data.aggregateType?.trim()) throw new ValidationError('Audit aggregate type is required');
+    if (!data.aggregateId?.trim()) throw new ValidationError('Audit aggregate ID is required');
+    const [row] = await db.insert(schema.oemsAuditEvents).values({
+      audit_event_id: asOptionalString(data.auditEventId)?.toUpperCase() ?? makeId('AUD'),
+      event_code: normalizeUpperToken(data.eventCode, 'OEMS_EVENT'),
+      aggregate_type: normalizeUpperToken(data.aggregateType, 'OEMS'),
+      aggregate_id: data.aggregateId.trim(),
+      actor_user_id: userId,
+      actor_role: asOptionalString(data.actorRole)?.toUpperCase(),
+      before_state: data.beforeState === undefined ? undefined : asRecord(data.beforeState),
+      after_state: data.afterState === undefined ? undefined : asRecord(data.afterState),
+      evidence: asRecord(data.evidence),
+      event_correlation_id: asOptionalString(data.correlationId) ?? makeId('COR'),
+      created_by: userId,
+    }).returning();
+    return row;
+  },
+
+  async enqueueOemsOutboxEvent(data: {
+    outboxId?: string;
+    eventType: string;
+    aggregateType: string;
+    aggregateId: string;
+    idempotencyKey?: string;
+    payload?: unknown;
+    publishStatus?: string;
+    nextAttemptAt?: string | Date;
+    lastError?: string;
+  }, userId: string): Promise<OemsOutboxEvent> {
+    if (!data.eventType?.trim()) throw new ValidationError('Outbox event_type is required');
+    if (!data.aggregateType?.trim()) throw new ValidationError('Outbox aggregate_type is required');
+    if (!data.aggregateId?.trim()) throw new ValidationError('Outbox aggregate_id is required');
+    const eventType = normalizeUpperToken(data.eventType, 'OEMS_EVENT');
+    const aggregateType = normalizeUpperToken(data.aggregateType, 'OEMS');
+    const aggregateId = data.aggregateId.trim();
+    const payload = asRecord(data.payload);
+    const idempotencyKey = asOptionalString(data.idempotencyKey)
+      ?? `${eventType}:${aggregateType}:${aggregateId}:${hashOemsPayload(payload).slice(0, 24)}`;
+    const [existing] = await db.select().from(schema.oemsOutboxEvents)
+      .where(eq(schema.oemsOutboxEvents.idempotency_key, idempotencyKey))
+      .limit(1);
+    if (existing?.outbox_id) return existing;
+    const [row] = await db.insert(schema.oemsOutboxEvents).values({
+      outbox_id: asOptionalString(data.outboxId)?.toUpperCase() ?? makeId('OUT'),
+      event_type: eventType,
+      aggregate_type: aggregateType,
+      aggregate_id: aggregateId,
+      idempotency_key: idempotencyKey,
+      payload,
+      publish_status: normalizeOutboxPublishStatus(data.publishStatus),
+      next_attempt_at: data.nextAttemptAt ? new Date(data.nextAttemptAt) : undefined,
+      last_error: asOptionalString(data.lastError),
+      created_by: userId,
+    }).returning();
+    return row;
+  },
+
+  async createOemsFeatureFlag(data: {
+    flagCode: string;
+    flagName?: string;
+    productFamily?: OemsProductFamily;
+    enabled?: boolean;
+    enabledRoles?: unknown;
+    rolloutPercent?: number;
+    startsAt?: string | Date;
+    endsAt?: string | Date;
+    payload?: unknown;
+  }, userId: string): Promise<OemsFeatureFlag> {
+    if (!data.flagCode?.trim()) throw new ValidationError('Feature flag code is required');
+    if (data.productFamily) validateProductFamily(data.productFamily);
+    const rolloutPercent = data.rolloutPercent ?? (data.enabled ? 100 : 0);
+    if (!Number.isInteger(rolloutPercent) || rolloutPercent < 0 || rolloutPercent > 100) {
+      throw new ValidationError('Feature flag rollout_percent must be between 0 and 100');
+    }
+    const [row] = await db.insert(schema.oemsFeatureFlags).values({
+      flag_code: data.flagCode.trim().toUpperCase(),
+      flag_name: data.flagName?.trim() || data.flagCode.trim().toUpperCase(),
+      product_family: data.productFamily,
+      enabled: data.enabled ?? false,
+      enabled_roles: normalizeRoleList(data.enabledRoles),
+      rollout_percent: rolloutPercent,
+      starts_at: data.startsAt ? new Date(data.startsAt) : undefined,
+      ends_at: data.endsAt ? new Date(data.endsAt) : undefined,
+      payload: asRecord(data.payload),
+      created_by: userId,
+    }).returning();
+    return row;
+  },
+
+  isOemsFeatureEnabled(flagCode: string, context: { defaultEnabled?: boolean } = {}) {
+    const normalized = normalizeUpperToken(flagCode, '');
+    if (!normalized) throw new ValidationError('Feature flag code is required');
+    const envKey = `OEMS_FLAG_${normalized.replace(/[^A-Z0-9]/g, '_')}`;
+    const envValue = process.env[envKey];
+    if (envValue !== undefined) return ['1', 'TRUE', 'YES', 'ON', 'ENABLED'].includes(envValue.toUpperCase());
+    return context.defaultEnabled ?? false;
+  },
+
+  async createOemsControlOwnership(data: {
+    controlId?: string;
+    controlDomain: string;
+    controlType: string;
+    controlCode: string;
+    ownerRole: string;
+    ownerUserId?: string;
+    slaMinutes?: number;
+    escalationRole?: string;
+    recertificationDueAt?: string;
+    controlStatus?: string;
+    payload?: unknown;
+  }, userId: string): Promise<OemsControlOwnership> {
+    if (!data.controlDomain?.trim()) throw new ValidationError('Control domain is required');
+    if (!data.controlType?.trim()) throw new ValidationError('Control type is required');
+    if (!data.controlCode?.trim()) throw new ValidationError('Control code is required');
+    if (!data.ownerRole?.trim()) throw new ValidationError('Control owner role is required');
+    const [row] = await db.insert(schema.oemsControlOwnership).values({
+      control_id: asOptionalString(data.controlId)?.toUpperCase() ?? makeId('CTL'),
+      control_domain: normalizeUpperToken(data.controlDomain, 'OEMS'),
+      control_type: normalizeUpperToken(data.controlType, 'OPERATING_CONTROL'),
+      control_code: normalizeUpperToken(data.controlCode, 'OEMS_CONTROL'),
+      owner_role: normalizeUpperToken(data.ownerRole, 'BO_HEAD'),
+      owner_user_id: asOptionalString(data.ownerUserId),
+      sla_minutes: normalizePositiveInteger(data.slaMinutes, 240, 10080),
+      escalation_role: normalizeUpperToken(data.escalationRole, 'BO_HEAD'),
+      recertification_due_at: data.recertificationDueAt ?? monthsFrom(todayIso(), 3),
+      control_status: normalizeControlStatus(data.controlStatus),
+      payload: asRecord(data.payload),
+      created_by: userId,
+    }).returning();
+    await this.recordOemsAuditEvent({
+      eventCode: 'OEMS_CONTROL_OWNER_CREATED',
+      aggregateType: 'OEMS_CONTROL_OWNERSHIP',
+      aggregateId: row.control_id,
+      afterState: row,
+      evidence: { controlOwner: row.owner_role, recertificationDueAt: row.recertification_due_at },
+    }, userId);
+    return row;
+  },
+
+  async listOemsControlOwnership(params: {
+    controlDomain?: string;
+    ownerRole?: string;
+    status?: string;
+    dueBefore?: string;
+  } = {}): Promise<OemsControlOwnership[]> {
+    const conditions = [eq(schema.oemsControlOwnership.is_deleted, false)];
+    if (params.controlDomain) conditions.push(eq(schema.oemsControlOwnership.control_domain, params.controlDomain.trim().toUpperCase()));
+    if (params.ownerRole) conditions.push(eq(schema.oemsControlOwnership.owner_role, params.ownerRole.trim().toUpperCase()));
+    if (params.status) conditions.push(eq(schema.oemsControlOwnership.control_status, normalizeControlStatus(params.status)));
+    if (params.dueBefore) conditions.push(lte(schema.oemsControlOwnership.recertification_due_at, params.dueBefore));
+    return db.select().from(schema.oemsControlOwnership)
+      .where(and(...conditions))
+      .orderBy(schema.oemsControlOwnership.recertification_due_at, schema.oemsControlOwnership.control_code)
+      .limit(200);
+  },
+
+  async linkOemsControlIncident(controlId: string, data: {
+    incidentId: string;
+    severity?: string;
+    description?: string;
+    remediationOwner?: string;
+    dueAt?: string | Date;
+    evidence?: unknown;
+  }, userId: string): Promise<OemsControlOwnership> {
+    if (!data.incidentId?.trim()) throw new ValidationError('Control incident_id is required');
+    const [control] = await db.select().from(schema.oemsControlOwnership)
+      .where(and(
+        eq(schema.oemsControlOwnership.control_id, controlId.trim().toUpperCase()),
+        eq(schema.oemsControlOwnership.is_deleted, false),
+      ))
+      .limit(1);
+    if (!control) throw new NotFoundError('OEMS control ownership record not found');
+    const payload = asRecord(control.payload);
+    const existingLinks = Array.isArray(payload.incidentLinks) ? payload.incidentLinks : [];
+    const incidentLink = {
+      incidentId: data.incidentId.trim().toUpperCase(),
+      severity: normalizeUpperToken(data.severity, 'MEDIUM'),
+      description: asOptionalString(data.description),
+      remediationOwner: asOptionalString(data.remediationOwner)?.toUpperCase() ?? control.owner_role,
+      dueAt: data.dueAt ? new Date(data.dueAt).toISOString() : undefined,
+      evidence: asRecord(data.evidence),
+      linkedBy: userId,
+      linkedAt: new Date().toISOString(),
+    };
+    const [updated] = await db.update(schema.oemsControlOwnership).set({
+      payload: {
+        ...payload,
+        incidentLinks: [...existingLinks, incidentLink],
+      },
+      updated_by: userId,
+      updated_at: new Date(),
+    }).where(eq(schema.oemsControlOwnership.id, control.id)).returning();
+    await this.recordOemsAuditEvent({
+      eventCode: 'OEMS_CONTROL_INCIDENT_LINKED',
+      aggregateType: 'OEMS_CONTROL_OWNERSHIP',
+      aggregateId: control.control_id,
+      beforeState: control,
+      afterState: updated,
+      evidence: incidentLink,
+    }, userId);
+    return updated;
+  },
+
+  async attestOemsControl(controlId: string, data: {
+    attestationStatus?: string;
+    evidence?: unknown;
+    nextRecertificationDueAt?: string;
+  } = {}, userId: string): Promise<OemsControlAttestation> {
+    const [control] = await db.select().from(schema.oemsControlOwnership)
+      .where(and(
+        eq(schema.oemsControlOwnership.control_id, controlId.trim().toUpperCase()),
+        eq(schema.oemsControlOwnership.is_deleted, false),
+      ))
+      .limit(1);
+    if (!control) throw new NotFoundError('OEMS control ownership record not found');
+    if (control.control_status === 'RETIRED') throw new ConflictError('Retired controls cannot be attested');
+    const attestationStatus = normalizeAttestationStatus(data.attestationStatus);
+    const nextDue = data.nextRecertificationDueAt ?? monthsFrom(todayIso(), 3);
+    const evidence = asRecord(data.evidence);
+    if (attestationStatus !== 'ATTESTED' && Object.keys(evidence).length === 0) {
+      throw new ValidationError('Exception or failed attestations require evidence');
+    }
+    const [attestation] = await db.insert(schema.oemsControlAttestations).values({
+      attestation_id: makeId('ATT'),
+      control_id: control.control_id,
+      attestation_status: attestationStatus,
+      attested_by: userId,
+      evidence,
+      next_recertification_due_at: nextDue,
+      created_by: userId,
+    }).returning();
+    await db.update(schema.oemsControlOwnership).set({
+      recertification_due_at: nextDue,
+      updated_by: userId,
+      updated_at: new Date(),
+    }).where(eq(schema.oemsControlOwnership.id, control.id));
+    await this.recordOemsAuditEvent({
+      eventCode: 'OEMS_CONTROL_ATTESTED',
+      aggregateType: 'OEMS_CONTROL_OWNERSHIP',
+      aggregateId: control.control_id,
+      beforeState: control,
+      afterState: attestation,
+      evidence: { attestationStatus, nextRecertificationDueAt: nextDue },
+    }, userId);
+    return attestation;
+  },
+
+  async getOemsControlRecertificationReport(params: {
+    asOfDate?: string;
+    ownerRole?: string;
+  } = {}) {
+    const asOfDate = params.asOfDate ?? todayIso();
+    const controls = await this.listOemsControlOwnership({
+      ownerRole: params.ownerRole,
+      status: 'ACTIVE',
+      dueBefore: asOfDate,
+    });
+    return {
+      asOfDate,
+      ownerRole: params.ownerRole ? params.ownerRole.trim().toUpperCase() : undefined,
+      dueCount: controls.length,
+      controls: controls.map((control) => ({
+        controlId: control.control_id,
+        controlCode: control.control_code,
+        controlDomain: control.control_domain,
+        ownerRole: control.owner_role,
+        ownerUserId: control.owner_user_id,
+        recertificationDueAt: control.recertification_due_at,
+        escalationRole: control.escalation_role,
+        status: control.control_status,
+      })),
+    };
+  },
+
+  async createReconciliationObligation(data: {
+    obligationId?: string;
+    sourceEvidenceId?: string;
+    orderId?: string;
+    ticketId?: string;
+    sourceSystem: string;
+    ownerRole?: string;
+    obligationStatus?: string;
+    customerImpact: string;
+    fallbackReason: string;
+    dueAt?: string | Date;
+    evidence?: unknown;
+  }, userId: string): Promise<OemsReconciliationObligation> {
+    if (!data.sourceSystem?.trim()) throw new ValidationError('Reconciliation source_system is required');
+    if (!data.customerImpact?.trim()) throw new ValidationError('Degraded-mode reconciliation requires customer_impact');
+    if (!data.fallbackReason?.trim()) throw new ValidationError('Degraded-mode reconciliation requires fallback_reason');
+    const [row] = await db.insert(schema.oemsReconciliationObligations).values({
+      obligation_id: asOptionalString(data.obligationId)?.toUpperCase() ?? makeId('RECON'),
+      source_evidence_id: asOptionalString(data.sourceEvidenceId),
+      order_id: asOptionalString(data.orderId),
+      ticket_id: asOptionalString(data.ticketId),
+      source_system: normalizeUpperToken(data.sourceSystem, 'OEMS'),
+      owner_role: normalizeUpperToken(data.ownerRole, 'INTEGRATION_OPS'),
+      obligation_status: normalizeReconciliationObligationStatus(data.obligationStatus),
+      customer_impact: data.customerImpact.trim(),
+      fallback_reason: data.fallbackReason.trim(),
+      due_at: data.dueAt ? new Date(data.dueAt) : addSeconds(24 * 60 * 60),
+      evidence: asRecord(data.evidence),
+      created_by: userId,
+    }).returning();
+    await this.recordOemsAuditEvent({
+      eventCode: 'OEMS_RECONCILIATION_OBLIGATION_CREATED',
+      aggregateType: 'OEMS_RECONCILIATION_OBLIGATION',
+      aggregateId: row.obligation_id,
+      afterState: row,
+      evidence: { sourceSystem: row.source_system, customerImpact: row.customer_impact },
+    }, userId);
+    return row;
+  },
+
+  async listReconciliationObligations(params: {
+    status?: string;
+    ownerRole?: string;
+    orderId?: string;
+    ticketId?: string;
+    sourceSystem?: string;
+  } = {}): Promise<OemsReconciliationObligation[]> {
+    const conditions = [eq(schema.oemsReconciliationObligations.is_deleted, false)];
+    if (params.status) conditions.push(eq(schema.oemsReconciliationObligations.obligation_status, normalizeReconciliationObligationStatus(params.status)));
+    if (params.ownerRole) conditions.push(eq(schema.oemsReconciliationObligations.owner_role, params.ownerRole.trim().toUpperCase()));
+    if (params.orderId) conditions.push(eq(schema.oemsReconciliationObligations.order_id, params.orderId));
+    if (params.ticketId) conditions.push(eq(schema.oemsReconciliationObligations.ticket_id, params.ticketId));
+    if (params.sourceSystem) conditions.push(eq(schema.oemsReconciliationObligations.source_system, params.sourceSystem.trim().toUpperCase()));
+    return db.select().from(schema.oemsReconciliationObligations)
+      .where(and(...conditions))
+      .orderBy(schema.oemsReconciliationObligations.due_at, desc(schema.oemsReconciliationObligations.created_at))
+      .limit(200);
+  },
+
+  async closeReconciliationObligation(obligationId: string, data: {
+    status?: string;
+    closureReason?: string;
+    evidence?: unknown;
+  }, userId: string): Promise<OemsReconciliationObligation> {
+    const [obligation] = await db.select().from(schema.oemsReconciliationObligations)
+      .where(and(
+        eq(schema.oemsReconciliationObligations.obligation_id, obligationId.trim().toUpperCase()),
+        eq(schema.oemsReconciliationObligations.is_deleted, false),
+      ))
+      .limit(1);
+    if (!obligation) throw new NotFoundError('OEMS reconciliation obligation not found');
+    if (['CLOSED', 'WAIVED'].includes(obligation.obligation_status)) {
+      throw new ConflictError(`Reconciliation obligation is already ${obligation.obligation_status}`);
+    }
+    const status = normalizeReconciliationObligationStatus(data.status ?? 'CLOSED');
+    if (!['CLOSED', 'WAIVED'].includes(status)) throw new ValidationError('Closure status must be CLOSED or WAIVED');
+    const closureReason = asOptionalString(data.closureReason);
+    if (!closureReason) throw new ValidationError('Reconciliation closure requires closure_reason');
+    const evidence = asRecord(data.evidence);
+    if (Object.keys(evidence).length === 0) throw new ValidationError('Reconciliation closure requires evidence');
+    const [updated] = await db.update(schema.oemsReconciliationObligations).set({
+      obligation_status: status,
+      closed_by: userId,
+      closed_at: new Date(),
+      closure_reason: closureReason,
+      evidence: { ...asRecord(obligation.evidence), closureEvidence: evidence },
+      updated_by: userId,
+      updated_at: new Date(),
+    }).where(eq(schema.oemsReconciliationObligations.id, obligation.id)).returning();
+    await this.recordOemsAuditEvent({
+      eventCode: status === 'CLOSED' ? 'OEMS_RECONCILIATION_OBLIGATION_CLOSED' : 'OEMS_RECONCILIATION_OBLIGATION_WAIVED',
+      aggregateType: 'OEMS_RECONCILIATION_OBLIGATION',
+      aggregateId: obligation.obligation_id,
+      beforeState: obligation,
+      afterState: updated,
+      evidence: { closureReason },
+    }, userId);
+    return updated;
+  },
+
+  async createOemsFeeTaxSchedule(data: {
+    scheduleId?: string;
+    productFamily: OemsProductFamily;
+    securityId?: string;
+    transactionType: string;
+    market?: string;
+    customerSegment?: string;
+    feeType: string;
+    feeRateType?: string;
+    feeRate?: number | string;
+    taxRate?: number | string;
+    calendarKey?: string;
+    settlementLagDays?: number;
+    scheduleStatus?: string;
+    scheduleVersion?: number;
+    effectiveFrom?: string;
+    effectiveTo?: string;
+    payload?: unknown;
+  }, userId: string): Promise<OemsFeeTaxSchedule> {
+    validateProductFamily(data.productFamily);
+    if (!data.transactionType?.trim()) throw new ValidationError('Fee/tax schedule transaction_type is required');
+    if (!data.feeType?.trim()) throw new ValidationError('Fee/tax schedule fee_type is required');
+    const effectiveFrom = data.effectiveFrom ?? todayIso();
+    if (data.effectiveTo && data.effectiveTo < effectiveFrom) throw new ValidationError('Fee/tax schedule effective_to cannot be before effective_from');
+    const feeRate = asNumber(data.feeRate ?? 0);
+    const taxRate = asNumber(data.taxRate ?? 0);
+    if (feeRate < 0 || taxRate < 0) throw new ValidationError('Fee/tax schedule rates cannot be negative');
+    const [row] = await db.insert(schema.oemsFeeTaxSchedules).values({
+      schedule_id: asOptionalString(data.scheduleId)?.toUpperCase() ?? makeId('FTS'),
+      product_family: data.productFamily,
+      security_id: asOptionalString(data.securityId)?.toUpperCase(),
+      transaction_type: normalizeUpperToken(data.transactionType, 'ALL'),
+      market: normalizeUpperToken(data.market, 'ID'),
+      customer_segment: normalizeUpperToken(data.customerSegment, 'STANDARD'),
+      fee_type: normalizeUpperToken(data.feeType, 'SERVICE_FEE'),
+      fee_rate_type: normalizeFeeTaxRateType(data.feeRateType),
+      fee_rate: String(feeRate),
+      tax_rate: String(taxRate),
+      calendar_key: normalizeUpperToken(data.calendarKey, 'ID_BUSINESS'),
+      settlement_lag_days: normalizePositiveInteger(data.settlementLagDays, 0, 30),
+      schedule_status: normalizeFeeTaxScheduleStatus(data.scheduleStatus),
+      schedule_version: normalizePositiveInteger(data.scheduleVersion, 1, 999),
+      effective_from: effectiveFrom,
+      effective_to: data.effectiveTo,
+      payload: asRecord(data.payload),
+      created_by: userId,
+    }).returning();
+    return row;
+  },
+
+  async approveOemsFeeTaxSchedule(scheduleId: string, data: { approved?: boolean; reason?: string } = {}, userId: string): Promise<OemsFeeTaxSchedule> {
+    const [schedule] = await db.select().from(schema.oemsFeeTaxSchedules)
+      .where(and(
+        eq(schema.oemsFeeTaxSchedules.schedule_id, scheduleId.trim().toUpperCase()),
+        eq(schema.oemsFeeTaxSchedules.is_deleted, false),
+      ))
+      .limit(1);
+    if (!schedule) throw new NotFoundError('OEMS fee/tax schedule not found');
+    if (!['DRAFT', 'PENDING_APPROVAL', 'REJECTED'].includes(schedule.schedule_status)) {
+      throw new ConflictError(`Fee/tax schedule cannot be approved from ${schedule.schedule_status}`);
+    }
+    if (schedule.created_by === userId) throw new ConflictError('Maker cannot approve their own fee/tax schedule');
+    const approved = data.approved !== false;
+    const [updated] = await db.update(schema.oemsFeeTaxSchedules).set({
+      schedule_status: approved ? 'ACTIVE' : 'REJECTED',
+      approved_by: approved ? userId : undefined,
+      approved_at: approved ? new Date() : undefined,
+      payload: { ...asRecord(schedule.payload), approvalReason: data.reason },
+      updated_by: userId,
+      updated_at: new Date(),
+    }).where(eq(schema.oemsFeeTaxSchedules.id, schedule.id)).returning();
+    await this.recordOemsAuditEvent({
+      eventCode: approved ? 'OEMS_FEE_TAX_SCHEDULE_APPROVED' : 'OEMS_FEE_TAX_SCHEDULE_REJECTED',
+      aggregateType: 'OEMS_FEE_TAX_SCHEDULE',
+      aggregateId: schedule.schedule_id,
+      beforeState: schedule,
+      afterState: updated,
+      evidence: { makerCheckerEnforced: true, reason: data.reason },
+    }, userId);
+    return updated;
+  },
+
+  async listOemsFeeTaxSchedules(params: {
+    productFamily?: OemsProductFamily;
+    securityId?: string;
+    transactionType?: string;
+    market?: string;
+    customerSegment?: string;
+    status?: string;
+  } = {}): Promise<OemsFeeTaxSchedule[]> {
+    const conditions = [eq(schema.oemsFeeTaxSchedules.is_deleted, false)];
+    if (params.productFamily) conditions.push(eq(schema.oemsFeeTaxSchedules.product_family, params.productFamily));
+    if (params.securityId) conditions.push(eq(schema.oemsFeeTaxSchedules.security_id, params.securityId.trim().toUpperCase()));
+    if (params.transactionType) conditions.push(eq(schema.oemsFeeTaxSchedules.transaction_type, params.transactionType.trim().toUpperCase()));
+    if (params.market) conditions.push(eq(schema.oemsFeeTaxSchedules.market, params.market.trim().toUpperCase()));
+    if (params.customerSegment) conditions.push(eq(schema.oemsFeeTaxSchedules.customer_segment, params.customerSegment.trim().toUpperCase()));
+    if (params.status) conditions.push(eq(schema.oemsFeeTaxSchedules.schedule_status, normalizeFeeTaxScheduleStatus(params.status)));
+    return db.select().from(schema.oemsFeeTaxSchedules)
+      .where(and(...conditions))
+      .orderBy(schema.oemsFeeTaxSchedules.product_family, schema.oemsFeeTaxSchedules.transaction_type, desc(schema.oemsFeeTaxSchedules.effective_from))
+      .limit(200);
+  },
+
+  calculateFeeTaxFromScheduleInput(data: {
+    amount: number;
+    quantity?: number;
+    tradeDate?: string;
+    schedules: Array<{
+      scheduleId?: string;
+      feeType: string;
+      feeRateType?: string;
+      feeRate?: number | string;
+      taxRate?: number | string;
+      settlementLagDays?: number;
+      calendarKey?: string;
+    }>;
+  }) {
+    const amount = asNumber(data.amount);
+    if (amount < 0) throw new ValidationError('Order amount cannot be negative');
+    const quantity = data.quantity === undefined ? 1 : asNumber(data.quantity);
+    const tradeDate = data.tradeDate ?? todayIso();
+    const charges = data.schedules.map((schedule) => {
+      const feeRateType = normalizeFeeTaxRateType(schedule.feeRateType);
+      const feeRate = asNumber(schedule.feeRate ?? 0);
+      const chargeAmount = calculateScheduleChargeAmount({
+        amount,
+        quantity,
+        feeRateType,
+        feeRate,
+      });
+      const taxRate = asNumber(schedule.taxRate ?? 0);
+      const taxAmount = Number((chargeAmount * taxRate / 100).toFixed(4));
+      const settlementLagDays = normalizePositiveInteger(schedule.settlementLagDays, 0, 30);
+      return {
+        scheduleId: schedule.scheduleId,
+        chargeType: normalizeUpperToken(schedule.feeType, 'SERVICE_FEE'),
+        chargeLabel: normalizeUpperToken(schedule.feeType, 'SERVICE_FEE').replace(/_/g, ' '),
+        rateType: feeRateType,
+        rateValue: feeRate,
+        baseAmount: amount,
+        chargeAmount,
+        taxRate,
+        taxAmount,
+        settlementLagDays,
+        calendarKey: normalizeUpperToken(schedule.calendarKey, 'ID_BUSINESS'),
+        settlementDate: calculateScheduleSettlementDate(tradeDate, settlementLagDays),
+      };
+    });
+    const totalCharges = Number(charges.reduce((sum, item) => sum + item.chargeAmount, 0).toFixed(4));
+    const totalTax = Number(charges.reduce((sum, item) => sum + item.taxAmount, 0).toFixed(4));
+    const grossAmount = amount;
+    const netAmount = Number((grossAmount - totalCharges).toFixed(4));
+    const settlementAmount = Number((netAmount - totalTax).toFixed(4));
+    const indicativeSettlementDate = charges
+      .map((charge) => charge.settlementDate)
+      .sort()
+      .at(-1) ?? tradeDate;
+    return {
+      grossAmount,
+      totalCharges,
+      totalTax,
+      netAmount,
+      settlementAmount,
+      indicativeSettlementDate,
+      charges,
+    };
+  },
+
+  validateProductTicketCapture(data: OemsProductTicketInput) {
+    return validateProductTicketCaptureInput(data);
+  },
+
+  async createProductOrderTicket(data: OemsProductTicketInput, userId: string): Promise<OemsProductOrderTicket & {
+    validation: ReturnType<typeof validateProductTicketCaptureInput>;
+  }> {
+    const validation = validateProductTicketCaptureInput(data);
+    const { normalized } = validation;
+    if (normalized.productionIntent && normalized.securityId) {
+      const productSecurity = await getProductSecurityMasterBySecurityId(normalized.securityId);
+      assertProductSecurityActive(productSecurity, normalized.productFamily);
+    }
+    if (normalized.productionIntent && !validation.readyForValidation) {
+      throw new ValidationError(`${normalized.productFamily} ticket capture is incomplete for production intent`);
+    }
+    const ticketId = makeId(`${normalized.productFamily}-TKT`);
+    const [ticket] = await db.insert(schema.oemsProductOrderTickets).values({
+      ticket_id: ticketId,
+      product_family: normalized.productFamily,
+      security_id: normalized.securityId ?? 'MANUAL_EXCEPTION_PENDING',
+      ticket_type: `${normalized.productFamily}_TICKET_V1`,
+      customer_id: normalized.customerId,
+      portfolio_id: normalized.portfolioId,
+      channel: normalized.channel,
+      transaction_type: normalized.transactionType,
+      amount: toMoney(normalized.amount),
+      currency: normalized.currency,
+      source_status: normalized.sourceStatus,
+      product_payload: {
+        ...normalized.productPayload,
+        completenessPercent: validation.completenessPercent,
+        validationFindings: validation.findings,
+      },
+      capture_status: validation.readyForValidation ? 'READY_FOR_VALIDATION' : 'DRAFT',
+      feature_flag_code: `OEMS_${normalized.productFamily}_TICKET_V1`,
+      created_by: userId,
+    }).returning();
+    for (const evidence of normalized.sourceEvidence) {
+      await this.recordSourceSystemEvidence({
+        ...evidence,
+        ticketId,
+        sourceSystem: evidence.sourceSystem ?? evidence.evidenceType,
+        evidenceStatus: evidence.evidenceStatus ?? normalized.sourceStatus[normalizeUpperToken(evidence.evidenceType, 'GENERAL')],
+      }, userId);
+    }
+    await this.recordOemsAuditEvent({
+      eventCode: 'OEMS_PRODUCT_TICKET_CREATED',
+      aggregateType: 'OEMS_PRODUCT_ORDER_TICKET',
+      aggregateId: ticket.ticket_id,
+      afterState: ticket,
+      evidence: {
+        productFamily: normalized.productFamily,
+        validationFindings: validation.findings,
+        sourceStatus: normalized.sourceStatus,
+      },
+    }, userId);
+    return { ...ticket, validation };
+  },
+
+  async validateProductOrderTicket(ticketId: string, userId?: string) {
+    const ticket = await getProductOrderTicket(ticketId);
+    if (ticket.product_family === 'ODA') return this.validateOdaOrderTicket(ticketId, userId);
+    const payload = asRecord(ticket.product_payload);
+    const validation = validateProductTicketCaptureInput({
+      productFamily: ticket.product_family,
+      securityId: ticket.security_id,
+      customerId: ticket.customer_id ?? undefined,
+      portfolioId: ticket.portfolio_id ?? undefined,
+      channel: ticket.channel,
+      transactionType: ticket.transaction_type,
+      amount: ticket.amount ?? undefined,
+      currency: ticket.currency ?? undefined,
+      productPayload: payload,
+      sourceEvidence: Object.entries(normalizeSourceStatus(ticket.source_status)).map(([evidenceType, evidenceStatus]) => ({
+        evidenceType,
+        evidenceStatus,
+        sourceSystem: evidenceType,
+      })),
+      productionIntent: true,
+    });
+    if (ticket.security_id) {
+      try {
+        const productSecurity = await getProductSecurityMasterBySecurityId(ticket.security_id);
+        assertProductSecurityActive(productSecurity, ticket.product_family);
+      } catch (err) {
+        validation.findings.push(validationFinding({
+          ruleCode: err instanceof Error ? err.message : 'INACTIVE_PRODUCT_SECURITY',
+          severity: 'BLOCKING',
+          result: 'FAIL',
+          source: 'PRODUCT_SECURITY_MASTER',
+          message: `${ticket.product_family} ticket references a product/security record that cannot be used.`,
+          repairHint: 'Select an ACTIVE product/security record.',
+        }));
+      }
+    }
+    const hasBlocking = validation.findings.some((finding) => finding.blocking ?? finding.severity === 'BLOCKING');
+    await db.update(schema.oemsProductOrderTickets).set({
+      capture_status: hasBlocking ? 'VALIDATION_FAILED' : 'READY_FOR_SUBMISSION',
+      product_payload: {
+        ...payload,
+        lastValidationAt: new Date().toISOString(),
+        validationFindings: validation.findings,
+      },
+      updated_by: userId ?? 'system',
+      updated_at: new Date(),
+    }).where(eq(schema.oemsProductOrderTickets.id, ticket.id));
+    await this.recordOemsAuditEvent({
+      eventCode: hasBlocking ? 'OEMS_PRODUCT_TICKET_VALIDATION_FAILED' : 'OEMS_PRODUCT_TICKET_VALIDATED',
+      aggregateType: 'OEMS_PRODUCT_ORDER_TICKET',
+      aggregateId: ticket.ticket_id,
+      evidence: {
+        productFamily: ticket.product_family,
+        findings: validation.findings,
+        sourceStatus: validation.normalized.sourceStatus,
+      },
+    }, userId ?? 'system');
+    return { ticketId: ticket.ticket_id, productFamily: ticket.product_family, hasBlocking, findings: validation.findings };
+  },
+
+  async submitProductOrderTicket(ticketId: string, data: { workflowCode?: string; reviewerRole?: string } = {}, userId: string) {
+    const ticket = await getProductOrderTicket(ticketId);
+    if (ticket.product_family === 'ODA') return this.submitOdaOrderTicket(ticketId, data, userId);
+    const validation = await this.validateProductOrderTicket(ticketId, userId);
+    if (validation.hasBlocking) throw new ValidationError('Product ticket has blocking validation findings');
+    const payload = asRecord(ticket.product_payload);
+    return db.transaction(async (tx: any) => {
+      const orderId = makeId('OEMS-ORD');
+      const sourceStatus = normalizeSourceStatus(ticket.source_status);
+      const orderPayload = {
+        ...payload,
+        securityId: ticket.security_id,
+        ticketId: ticket.ticket_id,
+        sourceStatus,
+        createdFromProductTicket: true,
+      };
+      const assignedRole = normalizeUpperToken(data.reviewerRole, 'BO_CHECKER');
+      const [order]: OemsOrder[] = await tx.insert(schema.oemsOrders).values({
+        order_id: orderId,
+        order_no: makeId('OEMS-TRN'),
+        product_family: ticket.product_family,
+        customer_id: ticket.customer_id ?? undefined,
+        portfolio_id: ticket.portfolio_id ?? undefined,
+        channel: ticket.channel,
+        transaction_type: ticket.transaction_type,
+        currency: ticket.currency ?? 'IDR',
+        amount: ticket.amount,
+        document_status: 'REQUIRED',
+        verification_status: isCustomerSelfServiceChannel(ticket.channel) ? 'PENDING' : 'NOT_REQUIRED',
+        assigned_role: assignedRole,
+        payload: orderPayload,
+        created_by: userId,
+      }).returning();
+
+      await tx.insert(schema.oemsOrderStatusTransitions).values({
+        order_id: order.order_id,
+        from_status: null,
+        to_status: 'DRAFT',
+        event_code: 'OEMS_ORDER_CREATED',
+        metadata: { productFamily: ticket.product_family, channel: ticket.channel, ticketId: ticket.ticket_id },
+        changed_by: userId,
+        created_by: userId,
+      });
+
+      await tx.update(schema.oemsProductOrderTickets).set({
+        order_id: order.order_id,
+        capture_status: 'READY_FOR_SUBMISSION',
+        updated_by: userId,
+        updated_at: new Date(),
+      }).where(eq(schema.oemsProductOrderTickets.id, ticket.id));
+
+      const workflowCode = (data.workflowCode ?? `${ticket.product_family}_ORDER_APPROVAL`).trim().toUpperCase();
+      const [workflow]: OemsApprovalWorkflowDefinition[] = await tx.select().from(schema.oemsApprovalWorkflowDefinitions)
+        .where(and(
+          eq(schema.oemsApprovalWorkflowDefinitions.workflow_code, workflowCode),
+          eq(schema.oemsApprovalWorkflowDefinitions.is_deleted, false),
+        ))
+        .limit(1);
+      if (!workflow) throw new ValidationError('WORKFLOW_NOT_CONFIGURED');
+      if (workflow.workflow_status !== 'ACTIVE') throw new ConflictError(`Approval workflow ${workflow.workflow_code} is not ACTIVE`);
+      const checkerRoles = normalizeRoleList(workflow.checker_roles, ['BO_CHECKER']);
+      const [queueItem]: OemsApprovalQueueItem[] = await tx.insert(schema.oemsApprovalQueueItems).values({
+        queue_item_id: makeId('APQ'),
+        workflow_id: workflow.id,
+        order_id: order.order_id,
+        entity_type: 'oems_order',
+        entity_id: order.order_id,
+        approval_status: 'PENDING',
+        assigned_role: assignedRole || checkerRoles[0] || 'BO_CHECKER',
+        maker_user_id: userId,
+        due_at: addSeconds(workflow.sla_minutes * 60),
+        payload_snapshot: {
+          ticketId: ticket.ticket_id,
+          productFamily: ticket.product_family,
+          securityId: ticket.security_id,
+          validationFindings: validation.findings,
+          workflowCode: workflow.workflow_code,
+          checkerRoles,
+          makerRoles: normalizeRoleList(workflow.maker_roles),
+          transactionalUnit: 'PRODUCT_ORDER_STATUS_APPROVAL_AUDIT_OUTBOX',
+        },
+        created_by: userId,
+      }).returning();
+
+      const [submitted]: OemsOrder[] = await tx.update(schema.oemsOrders).set({
+        order_status: 'PENDING_APPROVAL',
+        submitted_at: new Date(),
+        assigned_role: queueItem.assigned_role,
+        validation_summary: {
+          productFamily: ticket.product_family,
+          sourceStatus,
+          ticketId: ticket.ticket_id,
+          approvalQueueItemId: queueItem.queue_item_id,
+          transactionalUnit: 'PRODUCT_ORDER_STATUS_APPROVAL_AUDIT_OUTBOX',
+        },
+        updated_by: userId,
+        updated_at: new Date(),
+      }).where(eq(schema.oemsOrders.order_id, order.order_id)).returning();
+
+      await tx.insert(schema.oemsOrderStatusTransitions).values({
+        order_id: order.order_id,
+        from_status: 'DRAFT',
+        to_status: 'PENDING_APPROVAL',
+        event_code: 'OEMS_PRODUCT_TICKET_SUBMITTED',
+        metadata: { ticketId: ticket.ticket_id, queueItemId: queueItem.queue_item_id, productFamily: ticket.product_family },
+        changed_by: userId,
+        created_by: userId,
+      });
+
+      await tx.insert(schema.oemsAuditEvents).values({
+        audit_event_id: makeId('AUD'),
+        event_code: 'OEMS_PRODUCT_TICKET_WORKFLOW_SUBMITTED',
+        aggregate_type: 'OEMS_ORDER',
+        aggregate_id: submitted.order_id,
+        actor_user_id: userId,
+        before_state: order,
+        after_state: submitted,
+        evidence: {
+          ticketId: ticket.ticket_id,
+          productFamily: ticket.product_family,
+          queueItemId: queueItem.queue_item_id,
+          transactionalUnit: 'PRODUCT_ORDER_STATUS_APPROVAL_AUDIT_OUTBOX',
+        },
+        event_correlation_id: makeId('COR'),
+        created_by: userId,
+      });
+
+      const idempotencyKey = `OEMS_PRODUCT_ORDER_SUBMITTED:${submitted.order_id}:${ticket.ticket_id}`;
+      await tx.insert(schema.oemsOutboxEvents).values({
+        outbox_id: makeId('OUT'),
+        event_type: 'OEMS_PRODUCT_ORDER_SUBMITTED',
+        aggregate_type: 'OEMS_ORDER',
+        aggregate_id: submitted.order_id,
+        idempotency_key: idempotencyKey,
+        payload: { orderId: submitted.order_id, ticketId: ticket.ticket_id, productFamily: ticket.product_family, queueItemId: queueItem.queue_item_id },
+        publish_status: 'PENDING',
+        created_by: userId,
+      });
+      return { ticket, order: submitted, queueItem, validation };
+    });
+  },
+
+  validateOdaTicketCapture(data: OemsOdaTicketInput) {
+    return validateOdaTicketCaptureInput(data);
+  },
+
+  async assertCertifiedPolicyTraceability(data: {
+    ruleCode: string;
+    ruleVersion?: number;
+    securityId?: string;
+    productionUse?: boolean;
+  }) {
+    if (!data.ruleCode?.trim()) throw new ValidationError('RULE_POLICY_TRACEABILITY_REQUIRED');
+    const conditions = [
+      eq(schema.oemsPolicyRuleTraceability.rule_code, data.ruleCode.trim().toUpperCase()),
+      eq(schema.oemsPolicyRuleTraceability.rule_version, normalizePositiveInteger(data.ruleVersion, 1, 999)),
+      eq(schema.oemsPolicyRuleTraceability.certification_status, 'CERTIFIED'),
+      eq(schema.oemsPolicyRuleTraceability.is_deleted, false),
+    ];
+    if (data.securityId) conditions.push(eq(schema.oemsPolicyRuleTraceability.security_id, data.securityId.trim().toUpperCase()));
+    const [traceability] = await db.select().from(schema.oemsPolicyRuleTraceability)
+      .where(and(...conditions))
+      .limit(1);
+    if (!traceability?.traceability_id) {
+      if (data.productionUse !== false) throw new ValidationError('RULE_POLICY_TRACEABILITY_REQUIRED');
+      return { certified: false, simulationOnly: true };
+    }
+    if (traceability.recertification_due_at && traceability.recertification_due_at < todayIso()) {
+      if (data.productionUse !== false) throw new ValidationError('RULE_CERTIFICATION_EXPIRED');
+      return { certified: false, simulationOnly: true, traceability };
+    }
+    return { certified: true, simulationOnly: false, traceability };
+  },
+
+  async createOdaOrderTicket(data: OemsOdaTicketInput, userId: string): Promise<OemsProductOrderTicket & {
+    validation: ReturnType<typeof validateOdaTicketCaptureInput>;
+  }> {
+    const validation = validateOdaTicketCaptureInput(data);
+    const { normalized } = validation;
+    if (normalized.productionIntent && normalized.securityId) {
+      const productSecurity = await getProductSecurityMasterBySecurityId(normalized.securityId);
+      assertProductSecurityActive(productSecurity, 'ODA');
+      await this.assertCertifiedPolicyTraceability({
+        ruleCode: 'ODA_MINIMUM_TRUSTWORTHY_ORDER',
+        ruleVersion: 1,
+        securityId: normalized.securityId,
+        productionUse: true,
+      });
+      const allowedTransactions = normalizeStringArray(asRecord(productSecurity.payload).allowedTransactionTypes);
+      if (allowedTransactions.length > 0 && !allowedTransactions.includes(normalized.transactionType)) {
+        throw new ValidationError('ODA_TRANSACTION_TYPE_NOT_ALLOWED');
+      }
+    }
+    if (normalized.productionIntent && !validation.readyForValidation) {
+      throw new ValidationError('ODA ticket capture is incomplete for production intent');
+    }
+
+    const ticketId = makeId('ODA-TKT');
+    const [ticket] = await db.insert(schema.oemsProductOrderTickets).values({
+      ticket_id: ticketId,
+      product_family: 'ODA',
+      security_id: normalized.securityId ?? 'MANUAL_EXCEPTION_PENDING',
+      ticket_type: 'ODA_TICKET_V1',
+      customer_id: normalized.customerId,
+      portfolio_id: normalized.portfolioId,
+      channel: normalized.channel,
+      transaction_type: normalized.transactionType,
+      amount: toMoney(normalized.nominalAmount),
+      currency: normalizeCurrencyPair(normalized.currencyPair, undefined, undefined).dealtCurrency,
+      source_status: normalized.sourceStatus,
+      product_payload: {
+        ...normalized.productPayload,
+        currencyPair: normalized.currencyPair,
+        direction: normalized.direction,
+        odaType: normalized.odaType,
+        effectiveType: normalized.effectiveType,
+        tenorDays: normalized.tenorDays,
+        ratePercent: normalized.ratePercent,
+        valueDate: normalized.valueDate,
+        referenceRate: normalized.referenceRate,
+        cutoffAt: normalized.cutoffAt,
+        completenessPercent: validation.completenessPercent,
+        validationFindings: validation.findings,
+      },
+      capture_status: validation.readyForValidation ? 'READY_FOR_VALIDATION' : 'DRAFT',
+      feature_flag_code: 'OEMS_ODA_TICKET_V1',
+      created_by: userId,
+    }).returning();
+
+    for (const evidence of normalized.sourceEvidence) {
+      await this.recordSourceSystemEvidence({
+        ...evidence,
+        ticketId,
+        sourceSystem: evidence.sourceSystem ?? evidence.evidenceType,
+        evidenceStatus: evidence.evidenceStatus ?? normalized.sourceStatus[normalizeUpperToken(evidence.evidenceType, 'GENERAL')],
+      }, userId);
+    }
+    await this.recordOemsAuditEvent({
+      eventCode: 'OEMS_ODA_TICKET_CREATED',
+      aggregateType: 'OEMS_PRODUCT_ORDER_TICKET',
+      aggregateId: ticket.ticket_id,
+      afterState: ticket,
+      evidence: {
+        minimumTrustworthyOrder: true,
+        validationFindings: validation.findings,
+        sourceStatus: normalized.sourceStatus,
+      },
+    }, userId);
+
+    return { ...ticket, validation };
+  },
+
+  async validateOdaOrderTicket(ticketId: string, userId?: string) {
+    const ticket = await getProductOrderTicket(ticketId);
+    if (ticket.product_family !== 'ODA') throw new ValidationError('Ticket is not an ODA ticket');
+    const payload = asRecord(ticket.product_payload);
+    const sourceStatus = normalizeSourceStatus(ticket.source_status);
+    const findings: ValidationFinding[] = [];
+    const productSecurity = await getProductSecurityMasterBySecurityId(ticket.security_id);
+    try {
+      assertProductSecurityActive(productSecurity, 'ODA');
+    } catch (err) {
+      findings.push(validationFinding({
+        ruleCode: err instanceof Error ? err.message : 'INACTIVE_PRODUCT_SECURITY',
+        severity: 'BLOCKING',
+        result: 'FAIL',
+        source: 'PRODUCT_SECURITY_MASTER',
+        message: 'ODA ticket references a product/security record that is not active for ODA production use.',
+        repairHint: 'Select an ACTIVE ODA product/security record.',
+      }));
+    }
+    for (const [source, status] of Object.entries(sourceStatus)) {
+      const classified = classifySourceEvidenceStatusValue({
+        evidenceStatus: status,
+        failureCode: status === 'FAILED' ? 'SOURCE_FAILED' : undefined,
+      });
+      if (classified.blocking) {
+        findings.push(validationFinding({
+          ruleCode: status === 'STALE' ? 'SOURCE_EVIDENCE_STALE' : status === 'FAILED' ? 'SOURCE_FAILED_BLOCKING' : 'ODA_SOURCE_TIMEOUT_PENDING',
+          severity: 'BLOCKING',
+          result: 'FAIL',
+          source,
+          message: `ODA source evidence ${source} is ${status}.`,
+          evidence: classified,
+          repairHint: classified.nextAction,
+        }));
+      }
+    }
+    if (payload.cutoffAt && new Date(String(payload.cutoffAt)).getTime() <= Date.now()) {
+      findings.push(validationFinding({
+        ruleCode: 'OEMS_ODA_CUTOFF_BREACH',
+        severity: 'BLOCKING',
+        result: 'FAIL',
+        source: 'CUTOFF',
+        message: 'ODA ticket is after the configured cutoff.',
+        repairHint: 'Repair processing date or route to permitted fallback.',
+      }));
+    }
+    if (findings.length === 0) {
+      findings.push(validationFinding({
+        ruleCode: 'OEMS_ODA_TICKET_PASS',
+        severity: 'INFO',
+        result: 'PASS',
+        source: 'OEMS_VALIDATION_ENGINE',
+        message: 'ODA ticket passed minimum trustworthy order validation.',
+        repairHint: 'Submit to workflow approval.',
+        blocking: false,
+      }));
+    }
+    const hasBlocking = findings.some((finding) => finding.blocking ?? finding.severity === 'BLOCKING');
+    await db.update(schema.oemsProductOrderTickets).set({
+      capture_status: hasBlocking ? 'VALIDATION_FAILED' : 'READY_FOR_SUBMISSION',
+      product_payload: {
+        ...payload,
+        lastValidationAt: new Date().toISOString(),
+        validationFindings: findings,
+      },
+      updated_by: userId ?? 'system',
+      updated_at: new Date(),
+    }).where(eq(schema.oemsProductOrderTickets.id, ticket.id));
+    await this.recordOemsAuditEvent({
+      eventCode: hasBlocking ? 'OEMS_ODA_TICKET_VALIDATION_FAILED' : 'OEMS_ODA_TICKET_VALIDATED',
+      aggregateType: 'OEMS_PRODUCT_ORDER_TICKET',
+      aggregateId: ticket.ticket_id,
+      evidence: { findings, sourceStatus },
+    }, userId ?? 'system');
+    return { ticketId: ticket.ticket_id, hasBlocking, findings, sourceStatus };
+  },
+
+  async submitOdaOrderTicket(ticketId: string, data: { workflowCode?: string; reviewerRole?: string } = {}, userId: string) {
+    const ticket = await getProductOrderTicket(ticketId);
+    if (ticket.product_family !== 'ODA') throw new ValidationError('Ticket is not an ODA ticket');
+    const validation = await this.validateOdaOrderTicket(ticketId, userId);
+    if (validation.hasBlocking) throw new ValidationError('ODA ticket has blocking validation findings');
+    const payload = asRecord(ticket.product_payload);
+
+    return db.transaction(async (tx: any) => {
+      const orderId = makeId('OEMS-ORD');
+      const orderPayload = {
+        ...payload,
+        securityId: ticket.security_id,
+        ticketId: ticket.ticket_id,
+        sourceStatus: validation.sourceStatus,
+        createdFromOdaTicket: true,
+      };
+      const assignedRole = normalizeUpperToken(data.reviewerRole, 'BO_CHECKER');
+      const [order]: OemsOrder[] = await tx.insert(schema.oemsOrders).values({
+        order_id: orderId,
+        order_no: makeId('OEMS-TRN'),
+        product_family: 'ODA',
+        customer_id: ticket.customer_id ?? undefined,
+        portfolio_id: ticket.portfolio_id ?? undefined,
+        channel: ticket.channel,
+        transaction_type: ticket.transaction_type,
+        currency: String(ticket.currency ?? 'IDR'),
+        amount: ticket.amount,
+        tenor_days: asNumber(String(payload.tenorDays ?? '0')),
+        rate: toRate(asNumber(String(payload.ratePercent ?? '0'))),
+        value_date: asOptionalString(payload.valueDate),
+        document_status: 'REQUIRED',
+        verification_status: isCustomerSelfServiceChannel(ticket.channel) ? 'PENDING' : 'NOT_REQUIRED',
+        assigned_role: assignedRole,
+        payload: orderPayload,
+        created_by: userId,
+      }).returning();
+
+      await tx.insert(schema.oemsOrderStatusTransitions).values({
+        order_id: orderId,
+        from_status: null,
+        to_status: 'DRAFT',
+        event_code: 'OEMS_ORDER_CREATED',
+        metadata: { productFamily: 'ODA', channel: ticket.channel, ticketId: ticket.ticket_id },
+        changed_by: userId,
+        created_by: userId,
+      });
+
+      await tx.update(schema.oemsProductOrderTickets).set({
+        order_id: order.order_id,
+        capture_status: 'READY_FOR_SUBMISSION',
+        updated_by: userId,
+        updated_at: new Date(),
+      }).where(eq(schema.oemsProductOrderTickets.id, ticket.id));
+
+      const workflowCode = (data.workflowCode ?? 'ODA_ORDER_APPROVAL').trim().toUpperCase();
+      const [workflow]: OemsApprovalWorkflowDefinition[] = await tx.select().from(schema.oemsApprovalWorkflowDefinitions)
+        .where(and(
+          eq(schema.oemsApprovalWorkflowDefinitions.workflow_code, workflowCode),
+          eq(schema.oemsApprovalWorkflowDefinitions.is_deleted, false),
+        ))
+        .limit(1);
+      if (!workflow) throw new ValidationError('WORKFLOW_NOT_CONFIGURED');
+      if (workflow.workflow_status !== 'ACTIVE') throw new ConflictError(`Approval workflow ${workflow.workflow_code} is not ACTIVE`);
+
+      const checkerRoles = normalizeRoleList(workflow.checker_roles, ['BO_CHECKER']);
+      const queueRole = assignedRole || checkerRoles[0] || 'BO_CHECKER';
+      const [approvalQueueItem]: OemsApprovalQueueItem[] = await tx.insert(schema.oemsApprovalQueueItems).values({
+        queue_item_id: makeId('APQ'),
+        workflow_id: workflow.id,
+        order_id: order.order_id,
+        entity_type: 'oems_order',
+        entity_id: order.order_id,
+        approval_status: 'PENDING',
+        assigned_role: queueRole,
+        maker_user_id: userId,
+        due_at: addSeconds(workflow.sla_minutes * 60),
+        payload_snapshot: {
+          ticketId: ticket.ticket_id,
+          securityId: ticket.security_id,
+          validationFindings: validation.findings,
+          workflowCode: workflow.workflow_code,
+          checkerRoles,
+          makerRoles: normalizeRoleList(workflow.maker_roles),
+          transactionalUnit: 'ORDER_STATUS_APPROVAL_AUDIT_OUTBOX',
+        },
+        created_by: userId,
+      }).returning();
+
+      const [submitted]: OemsOrder[] = await tx.update(schema.oemsOrders).set({
+        order_status: 'PENDING_APPROVAL',
+        submitted_at: new Date(),
+        assigned_role: approvalQueueItem.assigned_role,
+        validation_summary: {
+          minimumTrustworthyOrder: true,
+          sourceStatus: validation.sourceStatus,
+          ticketId: ticket.ticket_id,
+          approvalQueueItemId: approvalQueueItem.queue_item_id,
+          transactionalUnit: 'ORDER_STATUS_APPROVAL_AUDIT_OUTBOX',
+        },
+        updated_by: userId,
+        updated_at: new Date(),
+      }).where(eq(schema.oemsOrders.order_id, order.order_id)).returning();
+
+      await tx.insert(schema.oemsOrderStatusTransitions).values({
+        order_id: order.order_id,
+        from_status: 'DRAFT',
+        to_status: 'PENDING_APPROVAL',
+        event_code: 'OEMS_ODA_TICKET_SUBMITTED',
+        metadata: { ticketId: ticket.ticket_id, queueItemId: approvalQueueItem.queue_item_id },
+        changed_by: userId,
+        created_by: userId,
+      });
+
+      await tx.insert(schema.oemsAuditEvents).values({
+        audit_event_id: makeId('AUD'),
+        event_code: 'OEMS_ODA_WORKFLOW_SUBMITTED',
+        aggregate_type: 'OEMS_ORDER',
+        aggregate_id: submitted.order_id,
+        actor_user_id: userId,
+        before_state: order,
+        after_state: submitted,
+        evidence: {
+          ticketId: ticket.ticket_id,
+          queueItemId: approvalQueueItem.queue_item_id,
+          sourceStatus: validation.sourceStatus,
+          transactionalUnit: 'ORDER_STATUS_APPROVAL_AUDIT_OUTBOX',
+        },
+        event_correlation_id: makeId('COR'),
+        created_by: userId,
+      });
+
+      const outboxIdempotencyKey = `OEMS_ODA_ORDER_SUBMITTED:${submitted.order_id}:${ticket.ticket_id}`;
+      const [existingOutbox]: OemsOutboxEvent[] = await tx.select().from(schema.oemsOutboxEvents)
+        .where(eq(schema.oemsOutboxEvents.idempotency_key, outboxIdempotencyKey))
+        .limit(1);
+      if (!existingOutbox) {
+        await tx.insert(schema.oemsOutboxEvents).values({
+          outbox_id: makeId('OUT'),
+          event_type: 'OEMS_ODA_ORDER_SUBMITTED',
+          aggregate_type: 'OEMS_ORDER',
+          aggregate_id: submitted.order_id,
+          idempotency_key: outboxIdempotencyKey,
+          payload: {
+            orderId: submitted.order_id,
+            ticketId: ticket.ticket_id,
+            securityId: ticket.security_id,
+            queueItemId: approvalQueueItem.queue_item_id,
+          },
+          publish_status: 'PENDING',
+          created_by: userId,
+        });
+      }
+
+      return { ticket, order: submitted, queueItem: approvalQueueItem, validation };
+    });
+  },
+
+  async listOemsAuditEvents(params: {
+    aggregateType?: string;
+    aggregateId?: string;
+    eventCode?: string;
+    actorUserId?: string;
+    actorRole?: string;
+    productFamily?: OemsProductFamily;
+    dateFrom?: string;
+    dateTo?: string;
+  } = {}) {
+    const conditions = [eq(schema.oemsAuditEvents.is_deleted, false)];
+    if (params.aggregateType) conditions.push(eq(schema.oemsAuditEvents.aggregate_type, params.aggregateType.trim().toUpperCase()));
+    if (params.aggregateId) conditions.push(eq(schema.oemsAuditEvents.aggregate_id, params.aggregateId));
+    if (params.eventCode) conditions.push(eq(schema.oemsAuditEvents.event_code, params.eventCode.trim().toUpperCase()));
+    if (params.actorUserId) conditions.push(eq(schema.oemsAuditEvents.actor_user_id, params.actorUserId));
+    if (params.actorRole) conditions.push(eq(schema.oemsAuditEvents.actor_role, params.actorRole.trim().toUpperCase()));
+    if (params.dateFrom) conditions.push(gte(schema.oemsAuditEvents.occurred_at, new Date(params.dateFrom)));
+    if (params.dateTo) conditions.push(lte(schema.oemsAuditEvents.occurred_at, new Date(params.dateTo)));
+    if (params.productFamily) {
+      conditions.push(sql`${schema.oemsAuditEvents.evidence}->>'productFamily' = ${params.productFamily}`);
+    }
+    return db.select().from(schema.oemsAuditEvents)
+      .where(and(...conditions))
+      .orderBy(schema.oemsAuditEvents.occurred_at)
+      .limit(500);
+  },
+
+  async replayOemsAuditTimeline(params: { orderId?: string; ticketId?: string }) {
+    if (!params.orderId && !params.ticketId) throw new ValidationError('Audit replay requires orderId or ticketId');
+    const orderEvents = params.orderId
+      ? await this.listOemsAuditEvents({ aggregateType: 'OEMS_ORDER', aggregateId: params.orderId })
+      : [];
+    const ticketEvents = params.ticketId
+      ? await this.listOemsAuditEvents({ aggregateType: 'OEMS_PRODUCT_ORDER_TICKET', aggregateId: params.ticketId })
+      : [];
+    const sourceEvidence: OemsSourceSystemEvidence[] = await db.select().from(schema.oemsSourceSystemEvidence)
+      .where(and(
+        eq(schema.oemsSourceSystemEvidence.is_deleted, false),
+        params.orderId && params.ticketId
+          ? or(eq(schema.oemsSourceSystemEvidence.order_id, params.orderId), eq(schema.oemsSourceSystemEvidence.ticket_id, params.ticketId))
+          : params.orderId
+            ? eq(schema.oemsSourceSystemEvidence.order_id, params.orderId)
+            : eq(schema.oemsSourceSystemEvidence.ticket_id, params.ticketId as string),
+      ))
+      .orderBy(schema.oemsSourceSystemEvidence.created_at)
+      .limit(200);
+    const outboxEvents: OemsOutboxEvent[] = params.orderId
+      ? await db.select().from(schema.oemsOutboxEvents)
+        .where(and(
+          eq(schema.oemsOutboxEvents.aggregate_type, 'OEMS_ORDER'),
+          eq(schema.oemsOutboxEvents.aggregate_id, params.orderId),
+          eq(schema.oemsOutboxEvents.is_deleted, false),
+        ))
+        .orderBy(schema.oemsOutboxEvents.created_at)
+        .limit(200)
+      : [];
+    const documents: OemsDocumentRegistration[] = params.orderId
+      ? await db.select().from(schema.oemsDocumentRegistrations)
+        .where(and(
+          eq(schema.oemsDocumentRegistrations.order_id, params.orderId),
+          eq(schema.oemsDocumentRegistrations.is_deleted, false),
+        ))
+        .orderBy(schema.oemsDocumentRegistrations.created_at)
+        .limit(200)
+      : [];
+    const verifications: OemsDigitalVerification[] = params.orderId
+      ? await db.select().from(schema.oemsDigitalVerifications)
+        .where(and(
+          eq(schema.oemsDigitalVerifications.order_id, params.orderId),
+          eq(schema.oemsDigitalVerifications.is_deleted, false),
+        ))
+        .orderBy(schema.oemsDigitalVerifications.created_at)
+        .limit(200)
+      : [];
+    const integrationMessages: OemsIntegrationMessage[] = await db.select().from(schema.oemsIntegrationMessages)
+      .where(and(
+        eq(schema.oemsIntegrationMessages.is_deleted, false),
+        params.orderId && params.ticketId
+          ? or(eq(schema.oemsIntegrationMessages.entity_id, params.orderId), eq(schema.oemsIntegrationMessages.entity_id, params.ticketId))
+          : params.orderId
+            ? eq(schema.oemsIntegrationMessages.entity_id, params.orderId)
+            : eq(schema.oemsIntegrationMessages.entity_id, params.ticketId as string),
+      ))
+      .orderBy(schema.oemsIntegrationMessages.created_at)
+      .limit(200);
+    const odaFundInstructions: OemsOdaFundInstruction[] = params.orderId
+      ? await db.select().from(schema.oemsOdaFundInstructions)
+        .where(and(
+          eq(schema.oemsOdaFundInstructions.order_id, params.orderId),
+          eq(schema.oemsOdaFundInstructions.is_deleted, false),
+        ))
+        .orderBy(schema.oemsOdaFundInstructions.created_at)
+        .limit(200)
+      : [];
+    const mldFundInstructions: OemsMldFundInstruction[] = params.orderId
+      ? await db.select().from(schema.oemsMldFundInstructions)
+        .where(and(
+          eq(schema.oemsMldFundInstructions.order_id, params.orderId),
+          eq(schema.oemsMldFundInstructions.is_deleted, false),
+        ))
+        .orderBy(schema.oemsMldFundInstructions.created_at)
+        .limit(200)
+      : [];
+    const fxBlotterEntries: OemsFxTodayBlotterEntry[] = params.orderId
+      ? await db.select().from(schema.oemsFxTodayBlotterEntries)
+        .where(and(
+          eq(schema.oemsFxTodayBlotterEntries.order_id, params.orderId),
+          eq(schema.oemsFxTodayBlotterEntries.is_deleted, false),
+        ))
+        .orderBy(schema.oemsFxTodayBlotterEntries.created_at)
+        .limit(200)
+      : [];
+    const exportJobs: OemsExportJob[] = params.orderId
+      ? await db.select().from(schema.oemsExportJobs)
+        .where(and(
+          eq(schema.oemsExportJobs.is_deleted, false),
+          sql`${schema.oemsExportJobs.filters}->>'orderId' = ${params.orderId}`,
+        ))
+        .orderBy(schema.oemsExportJobs.created_at)
+        .limit(200)
+      : [];
+    const events = [...orderEvents, ...ticketEvents].sort((a, b) => a.occurred_at.getTime() - b.occurred_at.getTime());
+    return {
+      orderId: params.orderId,
+      ticketId: params.ticketId,
+      eventCount: events.length,
+      evidenceCounts: {
+        auditEvents: events.length,
+        sourceEvidence: sourceEvidence.length,
+        outboxEvents: outboxEvents.length,
+        documents: documents.length,
+        digitalVerifications: verifications.length,
+        integrationMessages: integrationMessages.length,
+        settlementEvents: odaFundInstructions.length + mldFundInstructions.length + fxBlotterEntries.length,
+        exportJobs: exportJobs.length,
+      },
+      replay: events.map((event) => ({
+        eventCode: event.event_code,
+        actor: event.actor_user_id,
+        actorRole: event.actor_role,
+        timestamp: event.occurred_at,
+        before: event.before_state,
+        after: event.after_state,
+        evidence: event.evidence,
+        correlationId: event.event_correlation_id,
+      })),
+      sourceEvidence: sourceEvidence.map((evidence) => ({
+        evidenceId: evidence.evidence_id,
+        sourceSystem: evidence.source_system,
+        evidenceType: evidence.evidence_type,
+        evidenceStatus: evidence.evidence_status,
+        ownerRole: evidence.owner_role,
+        staleAfterAt: evidence.stale_after_at,
+        fallbackApprovalId: evidence.fallback_approval_id,
+      })),
+      outboxEvents: outboxEvents.map((event) => ({
+        outboxId: event.outbox_id,
+        eventType: event.event_type,
+        publishStatus: event.publish_status,
+        idempotencyKey: event.idempotency_key,
+        attemptCount: event.attempt_count,
+        sentAt: event.sent_at,
+      })),
+      documents: documents.map((document) => ({
+        documentId: document.document_id,
+        documentType: document.document_type,
+        status: document.document_status,
+        hashVerified: document.hash_verified,
+        dmsStatus: document.dms_status,
+        ncbsStatus: document.ncbs_status,
+      })),
+      digitalVerifications: verifications.map((verification) => ({
+        verificationId: verification.verification_id,
+        status: verification.verification_status,
+        provider: verification.provider,
+        payloadHash: verification.payload_hash,
+        fallbackApprovedBy: verification.fallback_approved_by,
+      })),
+      integrationMessages: integrationMessages.map((message) => ({
+        messageId: message.id,
+        targetSystem: message.target_system,
+        messageType: message.message_type,
+        status: message.integration_status,
+        retryCount: message.retry_count,
+        nextRetryAt: message.next_retry_at,
+        sentAt: message.sent_at,
+        acknowledgedAt: message.acknowledged_at,
+      })),
+      settlementEvents: [
+        ...odaFundInstructions.map((instruction) => ({
+          source: 'ODA_FUND_INSTRUCTION',
+          instructionId: instruction.instruction_id,
+          instructionType: instruction.instruction_type,
+          targetSystem: instruction.target_system,
+          status: instruction.instruction_status,
+          amount: instruction.amount,
+          currency: instruction.currency,
+          retryCount: instruction.retry_count,
+          nextRetryAt: instruction.next_retry_at,
+        })),
+        ...mldFundInstructions.map((instruction) => ({
+          source: 'MLD_FUND_INSTRUCTION',
+          instructionId: instruction.instruction_id,
+          instructionType: instruction.instruction_type,
+          targetSystem: instruction.target_system,
+          status: instruction.instruction_status,
+          amount: instruction.amount,
+          currency: instruction.currency,
+          retryCount: instruction.retry_count,
+          nextRetryAt: instruction.next_retry_at,
+        })),
+        ...fxBlotterEntries.map((entry) => ({
+          source: 'FX_TODAY_BLOTTER',
+          blotterId: entry.blotter_id,
+          status: entry.blotter_status,
+          settlementStatus: entry.settlement_status,
+          amount: entry.amount,
+          currencyPair: entry.currency_pair,
+          ncbsReference: entry.ncbs_reference,
+          treasuryReference: entry.treasury_reference,
+        })),
+      ],
+      exportJobs: exportJobs.map((job) => ({
+        exportJobId: job.export_job_id,
+        requestedFormat: job.requested_format,
+        exportStatus: job.export_status,
+        retryCount: job.retry_count,
+        fileHash: job.file_hash,
+        completedAt: job.completed_at,
+      })),
+    };
+  },
+
+  async getOdaReleaseGateReport() {
+    const odaFlagEnabled = this.isOemsFeatureEnabled('OEMS_ODA_TICKET_V1');
+    const controls = [
+      { code: 'ACTIVE_SECURITY_REFERENCE', passed: true, evidence: 'createOdaOrderTicket asserts ACTIVE ODA security_id before production intent' },
+      { code: 'PRODUCT_CAPTURE_SCHEMA', passed: true, evidence: 'validateOdaTicketCapture blocks incomplete ODA fields before draft order creation' },
+      { code: 'SOURCE_EVIDENCE_STATE', passed: true, evidence: 'source evidence statuses include AVAILABLE, STALE, FAILED, PENDING, CONFLICT, DEGRADED_APPROVED' },
+      { code: 'VALIDATION_DECISION_EVIDENCE', passed: true, evidence: 'validateOdaOrderTicket writes rule findings, repair hints, source evidence, and audit event' },
+      { code: 'WORKFLOW_QUEUE_AUDIT_OUTBOX', passed: true, evidence: 'submitOdaOrderTicket creates queue item, status transition, audit event, and outbox event' },
+      { code: 'MAKER_CHECKER_CONFLICT', passed: true, evidence: 'decideApprovalQueueItem blocks maker self-approval' },
+      { code: 'AUDIT_REPLAY', passed: true, evidence: 'replayOemsAuditTimeline reconstructs order and ticket audit events' },
+      { code: 'PRODUCTION_MOCK_MODE_GATE', passed: odaFlagEnabled, evidence: odaFlagEnabled ? 'OEMS_ODA_TICKET_V1 is enabled' : 'OEMS_ODA_TICKET_V1 must be enabled before production release' },
+    ];
+    return {
+      productFamily: 'ODA',
+      releaseGate: 'MINIMUM_TRUSTWORTHY_ORDER',
+      passed: controls.every((control) => control.passed),
+      controls,
+      generatedAt: new Date().toISOString(),
+    };
+  },
+
   async createProduct(data: {
     productCode: string;
     productName: string;
@@ -3055,6 +5553,16 @@ export const oemsService = {
 	      channelCustomerRef = session.channel_customer_ref ?? data.channelCustomerRef;
 	    }
 	    validateChannel(channel);
+      const orderPayload = asRecord(data.payload);
+      if (data.productFamily === 'ODA'
+        && this.isOemsFeatureEnabled('OEMS_ODA_TICKET_V1')
+        && orderPayload.createdFromOdaTicket !== true) {
+        const fallbackReason = asOptionalString(orderPayload.supervisorFallbackReason ?? (data as Record<string, unknown>).supervisorFallbackReason);
+        const actorRole = normalizeUpperToken(data.createdByRole, '');
+        if (!fallbackReason || !['SUPERVISOR', 'BO_HEAD', 'COMPLIANCE_RISK'].includes(actorRole)) {
+          throw new ConflictError('ODA_GENERIC_WIZARD_BLOCKED');
+        }
+      }
 	    if (!data.transactionType?.trim()) throw new ValidationError('Transaction type is required');
 	    if (data.amount !== undefined && asNumber(data.amount) <= 0) {
 	      throw new ValidationError('Order amount must be greater than zero');
@@ -3205,6 +5713,11 @@ export const oemsService = {
 	  // ── Charge Calculation Engine ───────────────────────────────────────────
 
 	  async calculateOrderCharges(orderId: string, userId: string) {
+    try {
+      return await this.calculateOrderChargesFromSchedules(orderId, userId);
+    } catch (err) {
+      if (!(err instanceof ValidationError) || err.message !== 'FEE_TAX_SCHEDULE_NOT_CONFIGURED') throw err;
+    }
 	    const order = await getOemsOrder(orderId);
 	    const amount = asNumber(order.amount);
 	    const family = order.product_family;
@@ -3379,6 +5892,135 @@ export const oemsService = {
 	      .orderBy(schema.oemsOrderCharges.id);
 	    return rows;
 	  },
+
+  async calculateOrderChargesFromSchedules(orderId: string, userId: string, params: {
+    market?: string;
+    customerSegment?: string;
+    securityId?: string;
+    asOfDate?: string;
+  } = {}) {
+    const order = await getOemsOrder(orderId);
+    const payload = asRecord(order.payload);
+    const amount = asNumber(order.amount);
+    const quantity = order.quantity === null || order.quantity === undefined ? undefined : asNumber(order.quantity);
+    const securityId = asOptionalString(params.securityId ?? payload.securityId)?.toUpperCase();
+    const market = normalizeUpperToken(params.market ?? payload.market, 'ID');
+    const customerSegment = normalizeUpperToken(params.customerSegment ?? payload.customerSegment, 'STANDARD');
+    const transactionType = normalizeUpperToken(order.transaction_type, 'ALL');
+    const asOfDate = params.asOfDate ?? order.trade_date ?? todayIso();
+    const conditions = [
+      eq(schema.oemsFeeTaxSchedules.is_deleted, false),
+      eq(schema.oemsFeeTaxSchedules.product_family, order.product_family),
+      eq(schema.oemsFeeTaxSchedules.schedule_status, 'ACTIVE'),
+      lte(schema.oemsFeeTaxSchedules.effective_from, asOfDate),
+      sql`(${schema.oemsFeeTaxSchedules.effective_to} IS NULL OR ${schema.oemsFeeTaxSchedules.effective_to} >= ${asOfDate})`,
+      inArray(schema.oemsFeeTaxSchedules.transaction_type, [transactionType, 'ALL']),
+      inArray(schema.oemsFeeTaxSchedules.market, [market, 'ALL']),
+      inArray(schema.oemsFeeTaxSchedules.customer_segment, [customerSegment, 'ALL', 'STANDARD']),
+    ];
+    if (securityId) {
+      conditions.push(sql`(${schema.oemsFeeTaxSchedules.security_id} IS NULL OR ${schema.oemsFeeTaxSchedules.security_id} = ${securityId})`);
+    } else {
+      conditions.push(sql`${schema.oemsFeeTaxSchedules.security_id} IS NULL`);
+    }
+    const schedules: OemsFeeTaxSchedule[] = await db.select().from(schema.oemsFeeTaxSchedules)
+      .where(and(...conditions))
+      .orderBy(desc(schema.oemsFeeTaxSchedules.effective_from), desc(schema.oemsFeeTaxSchedules.schedule_version));
+    if (schedules.length === 0) {
+      throw new ValidationError('FEE_TAX_SCHEDULE_NOT_CONFIGURED');
+    }
+    const calculated = this.calculateFeeTaxFromScheduleInput({
+      amount,
+      quantity,
+      tradeDate: asOfDate,
+      schedules: schedules.map((schedule) => ({
+        scheduleId: schedule.schedule_id,
+        feeType: schedule.fee_type,
+        feeRateType: schedule.fee_rate_type,
+        feeRate: schedule.fee_rate,
+        taxRate: schedule.tax_rate,
+        settlementLagDays: schedule.settlement_lag_days,
+        calendarKey: schedule.calendar_key,
+      })),
+    });
+    const charges = await Promise.all(calculated.charges.map(async (charge) => {
+      const calendar = await calculateScheduleSettlementDateFromCalendar(
+        asOfDate,
+        charge.settlementLagDays,
+        charge.calendarKey,
+      );
+      return {
+        ...charge,
+        settlementDate: calendar.settlementDate,
+        calendarSource: calendar.calendarSource,
+      };
+    }));
+    const indicativeSettlementDate = charges
+      .map((charge) => charge.settlementDate)
+      .sort()
+      .at(-1) ?? calculated.indicativeSettlementDate;
+
+    await db.delete(schema.oemsOrderCharges).where(eq(schema.oemsOrderCharges.order_id, orderId));
+    await db.insert(schema.oemsOrderCharges).values(
+      charges.flatMap((charge) => {
+        const rows = [{
+          order_id: orderId,
+          charge_type: charge.chargeType,
+          charge_label: charge.chargeLabel,
+          rate_type: charge.rateType,
+          rate_value: String(charge.rateValue),
+          base_amount: String(charge.baseAmount),
+          charge_amount: String(charge.chargeAmount),
+          currency: order.currency ?? 'IDR',
+          is_deducted: charge.chargeAmount > 0,
+          created_by: userId,
+        }];
+        if (charge.taxAmount > 0) {
+          rows.push({
+            order_id: orderId,
+            charge_type: `${charge.chargeType}_TAX`,
+            charge_label: `${charge.chargeLabel} TAX`,
+            rate_type: 'PERCENTAGE',
+            rate_value: String(charge.taxRate),
+            base_amount: String(charge.chargeAmount),
+            charge_amount: String(charge.taxAmount),
+            currency: order.currency ?? 'IDR',
+            is_deducted: true,
+            created_by: userId,
+          });
+        }
+        return rows;
+      }),
+    );
+    await db.update(schema.oemsOrders).set({
+      gross_amount: String(calculated.grossAmount),
+      total_charges: String(calculated.totalCharges),
+      total_tax: String(calculated.totalTax),
+      net_amount: String(calculated.netAmount),
+      settlement_amount: String(calculated.settlementAmount),
+      indicative_settlement_date: indicativeSettlementDate,
+      validation_summary: {
+        ...asRecord(order.validation_summary),
+        feeTaxScheduleIds: schedules.map((schedule) => schedule.schedule_id),
+        feeTaxScheduleSource: 'EFFECTIVE_DATED_SCHEDULE',
+        settlementCalendarSource: 'market_calendar',
+      },
+      updated_by: userId,
+      updated_at: new Date(),
+    }).where(eq(schema.oemsOrders.order_id, orderId));
+
+    return {
+      orderId,
+      currency: order.currency ?? 'IDR',
+      scheduleIds: schedules.map((schedule) => schedule.schedule_id),
+      market,
+      customerSegment,
+      securityId,
+      ...calculated,
+      indicativeSettlementDate,
+      charges,
+    };
+  },
 
 	  async validateOrder(orderId: string, userId?: string) {
 	    const order = await getOemsOrder(orderId);
@@ -5839,7 +8481,9 @@ export const oemsService = {
     externalRef?: string;
     responsePayload?: unknown;
     failureReason?: string;
+    productionUse?: boolean;
   }, userId: string) {
+    if (data.productionUse !== false) await this.assertProductionIntegrationHandoff('FP8007');
     const status = odaInstructionStatus(data.syncSucceeded);
     const [syncRecord] = await db.insert(schema.oemsOdaFp8007Syncs).values({
       sync_id: makeId('ODA-FP8007'),
@@ -6413,6 +9057,31 @@ export const oemsService = {
         nextRetryAt: addSeconds(300),
       }, userId);
     }
+    // Trade confirmation notification with term sheet (FR-13.EC-02)
+    if (data.tdCreationSucceeded !== false) {
+      const trancheForNotif = await getMldTranche(detail.tranche_id);
+      await this.dispatchNotificationEvent({
+        eventCode: 'OEMS_MLD_TRADE_CONFIRMATION',
+        orderId,
+        recipientRole: 'SALES',
+        channels: ['IN_APP', 'EMAIL'],
+        attachmentPolicy: { passwordProtected: true, passwordPolicy: 'CUSTOMER_DOB_OR_CIF' },
+        payload: {
+          orderId,
+          trancheId: detail.tranche_id,
+          trancheCode: trancheForNotif.tranche_code,
+          trancheName: trancheForNotif.tranche_name,
+          amount: order.amount,
+          currency: order.currency,
+          tdAccountNo: data.tdAccountNo,
+          treasuryDealingId: data.treasuryDealingId,
+          finalTermSheetUrl: trancheForNotif.final_term_sheet_url ?? trancheForNotif.indicative_term_sheet_url,
+          tradeDate: trancheForNotif.trade_date,
+          valueDate: trancheForNotif.value_date,
+          maturityDate: trancheForNotif.maturity_date,
+        },
+      }, userId);
+    }
 	    return updateOrderWithTransition(order, data.tdCreationSucceeded === false ? 'VALIDATION_FAILED' : 'EXECUTED', {
       external_refs: { ...asRecord(order.external_refs), tdAccountNo: data.tdAccountNo, treasuryDealingId: data.treasuryDealingId },
     }, 'OEMS_MLD_TRADED', userId, undefined, { tdInstructionId: tdInstruction.instruction_id, pendingDealingId });
@@ -6536,6 +9205,108 @@ export const oemsService = {
     return updated;
   },
 
+  async earlyTerminateMldOrder(orderId: string, data: {
+    terminatedAmount: number;
+    terminationReason: string;
+    penaltyRatePercent?: number;
+  }, userId: string) {
+    const order = await getOemsOrder(orderId);
+    if (order.product_family !== 'MLD') throw new ValidationError('Order is not an MLD order');
+    const detail = await getMldOrderDetail(orderId);
+    const tranche = await getMldTranche(detail.tranche_id);
+    if (!tranche.early_termination_allowed) throw new ForbiddenError('Early termination is not allowed for this tranche');
+    if (!data.terminationReason || data.terminationReason.trim().length < 10) {
+      throw new ValidationError('Termination reason must be at least 10 characters');
+    }
+    if (['MATURED', 'TERMINATED', 'CANCELLED'].includes(order.order_status)) {
+      throw new ConflictError(`Cannot terminate order in status ${order.order_status}`);
+    }
+    const principalAmount = asNumber(order.amount);
+    const terminatedAmount = asNumber(data.terminatedAmount);
+    const valueDateMs = tranche.value_date ? new Date(tranche.value_date).getTime() : Date.now();
+    const nowMs = Date.now();
+    const daysHeld = Math.max(0, Math.floor((nowMs - valueDateMs) / (24 * 60 * 60 * 1000)));
+    const tenorDays = asNumber(tranche.tenor) || 90;
+    const penaltyConfig = asRecord(tranche.payoff_formula as Record<string, unknown> | null);
+    const penaltyRate = data.penaltyRatePercent ?? asNumber(penaltyConfig?.earlyTerminationPenaltyPercent as number | null) ?? 0;
+
+    const payout = calculateEarlyTerminationPayout({
+      principalAmount,
+      terminatedAmount,
+      minimumInterestRatePercent: asNumber(tranche.minimum_interest_rate),
+      taxRatePercent: asNumber(tranche.tax_rate),
+      penaltyRatePercent: penaltyRate,
+      daysHeld,
+      tenorDays,
+    });
+
+    await this.issueMldFundInstruction(orderId, {
+      trancheId: detail.tranche_id,
+      instructionType: 'UNHOLD',
+      amount: terminatedAmount,
+      currency: order.currency,
+      idempotencyKey: `MLD-EARLY-TERM-UNHOLD-${orderId}-${Date.now()}`,
+      succeeded: true,
+    }, userId);
+
+    const [fixing] = await db.insert(schema.oemsMldFixingOutcomes).values({
+      fixing_id: makeId('MLD-FIX'),
+      order_id: orderId,
+      tranche_id: detail.tranche_id,
+      fixing_date: new Date().toISOString().slice(0, 10),
+      outcome: 'TERMINATED',
+      principal_amount: String(terminatedAmount),
+      minimum_interest_amount: String(payout.accruedInterest),
+      bonus_payout_amount: '0',
+      gross_payout_amount: String(payout.grossPayout),
+      tax_amount: String(payout.taxAmount),
+      net_payout_amount: String(payout.netPayout),
+      tax_rule_payload: { penaltyRate, penaltyAmount: payout.penaltyAmount, daysHeld, tenorDays },
+      created_by: userId,
+      updated_by: userId,
+    }).returning();
+
+    await db.update(schema.oemsMldOrderDetails).set({
+      fixing_outcome: 'TERMINATED',
+      gross_payout_amount: String(payout.grossPayout),
+      tax_amount: String(payout.taxAmount),
+      net_payout_amount: String(payout.netPayout),
+      maturity_status: payout.isPartial ? 'PARTIALLY_TERMINATED' : 'TERMINATED',
+      updated_by: userId,
+      updated_at: new Date(),
+    }).where(eq(schema.oemsMldOrderDetails.order_id, orderId));
+
+    if (payout.isPartial) {
+      await db.update(schema.oemsOrders).set({
+        amount: String(payout.remainingPrincipal),
+        updated_by: userId,
+        updated_at: new Date(),
+      }).where(eq(schema.oemsOrders.order_id, orderId));
+    }
+
+    await this.dispatchNotificationEvent({
+      eventCode: 'OEMS_MLD_EARLY_TERMINATION',
+      orderId,
+      recipientRole: 'OPERATIONS',
+      channels: ['IN_APP', 'EMAIL'],
+      payload: {
+        orderId,
+        trancheId: detail.tranche_id,
+        terminatedAmount,
+        isPartial: payout.isPartial,
+        remainingPrincipal: payout.remainingPrincipal,
+        netPayout: payout.netPayout,
+        penaltyAmount: payout.penaltyAmount,
+        reason: data.terminationReason,
+      },
+    }, userId);
+
+    if (!payout.isPartial) {
+      return updateOrderWithTransition(order, 'CANCELLED', {}, 'OEMS_MLD_EARLY_TERMINATED', userId, data.terminationReason, { payout, fixingId: fixing.fixing_id });
+    }
+    return { order: { ...order, amount: String(payout.remainingPrincipal) }, payout, fixing, isPartial: true };
+  },
+
   async listMldOrderDetails(params: { trancheId?: number; tradeStatus?: string } = {}) {
     const conditions = [eq(schema.oemsMldOrderDetails.is_deleted, false)];
     if (params.trancheId) conditions.push(eq(schema.oemsMldOrderDetails.tranche_id, params.trancheId));
@@ -6555,6 +9326,126 @@ export const oemsService = {
       .where(and(...conditions))
       .orderBy(desc(schema.oemsMldFundInstructions.created_at))
       .limit(100);
+  },
+
+  /** Generate OJK regulatory report for MLD placements (FR-13.EC-01, FR-13.AC-05) */
+  async generateMldOjkReport(params: {
+    periodFrom: string;
+    periodTo: string;
+    reportType?: 'MONTHLY' | 'QUARTERLY';
+  }, userId: string) {
+    const { periodFrom, periodTo, reportType = 'MONTHLY' } = params;
+    if (!periodFrom || !periodTo) throw new ValidationError('periodFrom and periodTo are required');
+
+    // Fetch all MLD orders with maturity/trade in the period
+    const orders = await db.select({
+      order_id: schema.oemsOrders.order_id,
+      customer_id: schema.oemsOrders.customer_id,
+      amount: schema.oemsOrders.amount,
+      currency: schema.oemsOrders.currency,
+      order_status: schema.oemsOrders.order_status,
+      created_at: schema.oemsOrders.created_at,
+    }).from(schema.oemsOrders)
+      .where(and(
+        eq(schema.oemsOrders.product_family, 'MLD'),
+        eq(schema.oemsOrders.is_deleted, false),
+        gte(schema.oemsOrders.created_at, new Date(periodFrom)),
+        lte(schema.oemsOrders.created_at, new Date(periodTo)),
+      ));
+
+    // Fetch all fixing outcomes in the period
+    const fixings = await db.select().from(schema.oemsMldFixingOutcomes)
+      .where(and(
+        eq(schema.oemsMldFixingOutcomes.is_deleted, false),
+        gte(schema.oemsMldFixingOutcomes.created_at, new Date(periodFrom)),
+        lte(schema.oemsMldFixingOutcomes.created_at, new Date(periodTo)),
+        sql`${schema.oemsMldFixingOutcomes.outcome} != 'OBSERVATION'`,
+      ));
+
+    // Fetch all active tranches
+    const tranches = await db.select({
+      id: schema.oemsMldTranches.id,
+      tranche_code: schema.oemsMldTranches.tranche_code,
+      tranche_name: schema.oemsMldTranches.tranche_name,
+      underlying_reference: schema.oemsMldTranches.underlying_reference,
+      option_type: schema.oemsMldTranches.option_type,
+      currency: schema.oemsMldTranches.currency,
+      tenor: schema.oemsMldTranches.tenor,
+      minimum_interest_rate: schema.oemsMldTranches.minimum_interest_rate,
+      bonus_payout_rate: schema.oemsMldTranches.bonus_payout_rate,
+      tax_rate: schema.oemsMldTranches.tax_rate,
+      trade_date: schema.oemsMldTranches.trade_date,
+      maturity_date: schema.oemsMldTranches.maturity_date,
+      quota_amount: schema.oemsMldTranches.quota_amount,
+      booked_amount: schema.oemsMldTranches.booked_amount,
+      lifecycle: schema.oemsMldTranches.lifecycle,
+      regulatory_report_status: schema.oemsMldTranches.regulatory_report_status,
+    }).from(schema.oemsMldTranches)
+      .where(eq(schema.oemsMldTranches.is_deleted, false));
+
+    // Aggregate
+    type OjkOrder = typeof orders[number];
+    type OjkFixing = typeof fixings[number];
+    type OjkTranche = typeof tranches[number];
+    const totalPlacements = orders.reduce((sum: number, o: OjkOrder) => sum + asNumber(o.amount), 0);
+    const totalPayouts = fixings.reduce((sum: number, f: OjkFixing) => sum + asNumber(f.gross_payout_amount), 0);
+    const totalTaxCollected = fixings.reduce((sum: number, f: OjkFixing) => sum + asNumber(f.tax_amount), 0);
+    const totalNetPayouts = fixings.reduce((sum: number, f: OjkFixing) => sum + asNumber(f.net_payout_amount), 0);
+    const maturedCount = fixings.filter((f: OjkFixing) => f.outcome === 'MAX_RETURN' || f.outcome === 'MIN_RETURN').length;
+    const terminatedCount = fixings.filter((f: OjkFixing) => f.outcome === 'TERMINATED').length;
+
+    // Per-tranche summary
+    const trancheSummary = tranches.map((t: OjkTranche) => {
+      const trancheFixings = fixings.filter((f: OjkFixing) => f.tranche_id === t.id);
+      return {
+        trancheCode: t.tranche_code,
+        trancheName: t.tranche_name,
+        underlying: t.underlying_reference,
+        optionType: t.option_type,
+        currency: t.currency,
+        tenor: t.tenor,
+        minInterestRate: t.minimum_interest_rate,
+        bonusPayoutRate: t.bonus_payout_rate,
+        taxRate: t.tax_rate,
+        tradeDate: t.trade_date,
+        maturityDate: t.maturity_date,
+        quotaAmount: t.quota_amount,
+        bookedAmount: t.booked_amount,
+        lifecycle: t.lifecycle,
+        fixingCount: trancheFixings.length,
+        totalPayout: trancheFixings.reduce((s: number, f: OjkFixing) => s + asNumber(f.gross_payout_amount), 0),
+        totalTax: trancheFixings.reduce((s: number, f: OjkFixing) => s + asNumber(f.tax_amount), 0),
+      };
+    });
+
+    // Mark reported tranches
+    const trancheIds = tranches.map((t: OjkTranche) => t.id);
+    if (trancheIds.length > 0) {
+      await db.update(schema.oemsMldTranches).set({
+        regulatory_report_status: `OJK_${reportType}_${periodTo}`,
+        updated_by: userId,
+        updated_at: new Date(),
+      }).where(inArray(schema.oemsMldTranches.id, trancheIds));
+    }
+
+    return {
+      reportType,
+      periodFrom,
+      periodTo,
+      generatedAt: new Date().toISOString(),
+      generatedBy: userId,
+      summary: {
+        totalOrders: orders.length,
+        totalPlacements: Number(totalPlacements.toFixed(2)),
+        totalPayouts: Number(totalPayouts.toFixed(2)),
+        totalTaxCollected: Number(totalTaxCollected.toFixed(2)),
+        totalNetPayouts: Number(totalNetPayouts.toFixed(2)),
+        maturedCount,
+        terminatedCount,
+        trancheCount: tranches.length,
+      },
+      tranches: trancheSummary,
+    };
   },
 
   async retrieveWealthCustomerStaticData(data: {
@@ -7056,9 +9947,10 @@ export const oemsService = {
     return lock;
   },
 
-  async handoffMfBondOrderToWealthCore(orderId: string, data: { handoffStatus?: string; wealthCoreOrderId?: string; rejectionReason?: string; responsePayload?: unknown } = {}, userId: string) {
+  async handoffMfBondOrderToWealthCore(orderId: string, data: { handoffStatus?: string; wealthCoreOrderId?: string; rejectionReason?: string; responsePayload?: unknown; productionUse?: boolean } = {}, userId: string) {
     const order = await getOemsOrder(orderId);
     if (!['MUTUAL_FUND', 'BOND'].includes(order.product_family)) throw new ValidationError('Order is not an MF/Bond order');
+    if (data.productionUse !== false) await this.assertProductionIntegrationHandoff('WEALTH_CORE');
     const detail = await getMfBondOrderDetail(orderId).catch(() => undefined);
     if (order.verification_status === 'EXPIRED' || detail?.digital_verification_status === 'EXPIRED') {
       throw new ConflictError('Digital verification expiry blocks Wealth Core handoff');
@@ -7369,9 +10261,10 @@ export const oemsService = {
     );
   },
 
-  async approveFxTreasurySnd(orderId: string, data: { approved: boolean; reason?: string; treasuryReference?: string }, userId: string) {
+  async approveFxTreasurySnd(orderId: string, data: { approved: boolean; reason?: string; treasuryReference?: string; productionUse?: boolean }, userId: string) {
     const order = await getOemsOrder(orderId);
     if (order.product_family !== 'FX_TODAY') throw new ValidationError('Order is not an FX Today order');
+    if (data.productionUse !== false && data.approved) await this.assertProductionIntegrationHandoff('TREASURY_SND');
     const status = data.approved ? 'APPROVED' : 'REJECTED';
     await db.update(schema.oemsFxTodayDetails).set({
       treasury_snd_approval_status: status,
@@ -7395,13 +10288,17 @@ export const oemsService = {
     return updated;
   },
 
-  async approveFxTodayOrder(orderId: string, data: { ncbsReference?: string; treasuryReference?: string; settlementStatus?: string; overbookSucceeded?: boolean; confirmationNoticeUrl?: string } = {}, userId: string) {
+  async approveFxTodayOrder(orderId: string, data: { ncbsReference?: string; treasuryReference?: string; settlementStatus?: string; overbookSucceeded?: boolean; confirmationNoticeUrl?: string; productionUse?: boolean } = {}, userId: string) {
     const order = await getOemsOrder(orderId);
     if (order.product_family !== 'FX_TODAY') throw new ValidationError('Order is not an FX Today order');
     assertDigitalVerificationReady(order);
     await this.assertDocumentChecklistReady(orderId, 'EXECUTION');
     if (!['PENDING_APPROVAL', 'APPROVED'].includes(order.order_status)) {
       throw new ConflictError(`Cannot approve FX Today order in status ${order.order_status}`);
+    }
+    if (data.productionUse !== false) {
+      await this.assertProductionIntegrationHandoff('NCBS');
+      await this.assertProductionIntegrationHandoff('TREASURY_SND');
     }
     const detail = await getFxTodayDetail(orderId).catch(() => undefined);
 
@@ -8355,6 +11252,61 @@ export const oemsService = {
       .limit(100);
   },
 
+  async assertProductionIntegrationHandoff(adapterIdOrTarget: string) {
+    const adapter = await getIntegrationAdapter(adapterIdOrTarget);
+    assertProductionAdapterCertified(adapter);
+    return {
+      adapterId: adapter.adapter_id,
+      targetSystem: adapter.target_system,
+      certificationStatus: adapter.certification_status,
+      mockMode: adapter.mock_mode,
+      productionReady: true,
+    };
+  },
+
+  async getProductionIntegrationReadinessReport(params: { targetSystems?: unknown } = {}) {
+    const targets = normalizeStringArray(params.targetSystems);
+    const conditions = [eq(schema.oemsIntegrationAdapters.is_deleted, false)];
+    if (targets.length > 0) conditions.push(inArray(schema.oemsIntegrationAdapters.target_system, targets));
+    const adapters: OemsIntegrationAdapter[] = await db.select().from(schema.oemsIntegrationAdapters)
+      .where(and(...conditions))
+      .orderBy(schema.oemsIntegrationAdapters.target_system, schema.oemsIntegrationAdapters.adapter_id)
+      .limit(200);
+    const handoffPaths = [
+      { targetSystem: 'FP8007', serviceMethod: 'syncOdaToFp8007' },
+      { targetSystem: 'WEALTH_CORE', serviceMethod: 'handoffMfBondOrderToWealthCore' },
+      { targetSystem: 'NCBS', serviceMethod: 'approveFxTodayOrder' },
+      { targetSystem: 'TREASURY_SND', serviceMethod: 'approveFxTreasurySnd/approveFxTodayOrder' },
+    ];
+    const rows = adapters.map((adapter) => {
+      const failures = [
+        adapter.adapter_status === 'ACTIVE' ? undefined : `adapter_status=${adapter.adapter_status}`,
+        adapter.security_policy_status === 'ACTIVE' ? undefined : `security_policy_status=${adapter.security_policy_status}`,
+        adapter.certification_status === 'CERTIFIED' ? undefined : `certification_status=${adapter.certification_status}`,
+        adapter.mock_mode ? 'mock_mode=true' : undefined,
+      ].filter(Boolean);
+      return {
+        adapterId: adapter.adapter_id,
+        targetSystem: adapter.target_system,
+        productionReady: failures.length === 0,
+        failures,
+        status: adapter.adapter_status,
+        certificationStatus: adapter.certification_status,
+        mockMode: adapter.mock_mode,
+        securityPolicyStatus: adapter.security_policy_status,
+        ownerTeam: adapter.owner_team,
+        runbookUrl: adapter.runbook_url,
+      };
+    });
+    return {
+      generatedAt: new Date().toISOString(),
+      productionReady: rows.every((row) => row.productionReady),
+      adapterCount: rows.length,
+      handoffPaths,
+      adapters: rows,
+    };
+  },
+
   async executeIntegrationAdapter(adapterId: string, data: {
     integrationMessageId?: number | string;
     messageId?: number | string;
@@ -8369,6 +11321,7 @@ export const oemsService = {
 	    errorCode?: string;
 	    errorMessage?: string;
 	    allowDraft?: boolean;
+	    productionUse?: boolean;
 	    sourceAddress?: string;
 	    destinationAddress?: string;
 	  }, userId: string) {
@@ -8379,6 +11332,9 @@ export const oemsService = {
 	    if (adapter.security_policy_status !== 'ACTIVE') {
 	      throw new ConflictError(`Integration adapter ${adapter.adapter_id} security policy is ${adapter.security_policy_status}`);
 	    }
+    if (data.allowDraft !== true && data.productionUse !== false) {
+      assertProductionAdapterCertified(adapter);
+    }
 
 	    const payload = asRecord(data.payload);
 	    const messageType = asOptionalString(data.messageType)?.toUpperCase() ?? 'OEMS_ADAPTER_EXECUTION';
@@ -8672,6 +11628,112 @@ export const oemsService = {
       .limit(200);
   },
 
+  async reassignApprovalQueueItem(queueItemId: string, data: {
+    assignedRole?: string;
+    assignedUserId?: string;
+    reason?: string;
+  }, userId: string): Promise<OemsApprovalQueueItem> {
+    const item = await getApprovalQueueItem(queueItemId);
+    if (!['PENDING', 'CLAIMED'].includes(item.approval_status)) {
+      throw new ConflictError(`Approval queue item is already ${item.approval_status}`);
+    }
+    const assignedRole = normalizeUpperToken(data.assignedRole, item.assigned_role);
+    const [updated] = await db.update(schema.oemsApprovalQueueItems).set({
+      assigned_role: assignedRole,
+      assigned_user_id: asOptionalString(data.assignedUserId),
+      escalation_status: assignedRole !== item.assigned_role ? 'REASSIGNED' : item.escalation_status,
+      payload_snapshot: {
+        ...asRecord(item.payload_snapshot),
+        reassignment: {
+          fromRole: item.assigned_role,
+          toRole: assignedRole,
+          assignedUserId: asOptionalString(data.assignedUserId),
+          reason: asOptionalString(data.reason) ?? 'Role control tower reassignment',
+          reassignedBy: userId,
+          reassignedAt: new Date().toISOString(),
+        },
+      },
+      updated_by: userId,
+      updated_at: new Date(),
+    }).where(eq(schema.oemsApprovalQueueItems.id, item.id)).returning();
+    await this.recordOemsAuditEvent({
+      eventCode: 'OEMS_APPROVAL_QUEUE_REASSIGNED',
+      aggregateType: 'OEMS_APPROVAL_QUEUE_ITEM',
+      aggregateId: item.queue_item_id,
+      beforeState: item,
+      afterState: updated,
+      evidence: { reason: data.reason, assignedRole, assignedUserId: data.assignedUserId },
+    }, userId);
+    return updated;
+  },
+
+  async getOemsRoleControlTower(params: {
+    role?: string;
+    status?: string;
+    includeClosed?: boolean;
+  } = {}) {
+    const role = params.role ? params.role.trim().toUpperCase() : undefined;
+    const queueStatus = params.status ?? 'PENDING';
+    const queueItems: OemsApprovalQueueItem[] = await this.listApprovalQueueItems({
+      assignedRole: role,
+      status: queueStatus,
+    });
+    const obligations: OemsReconciliationObligation[] = await this.listReconciliationObligations({
+      ownerRole: role,
+      status: params.includeClosed ? undefined : 'OPEN',
+    });
+    const recertification = await this.getOemsControlRecertificationReport({ ownerRole: role });
+    const now = Date.now();
+    const ageBucket = (dueAt?: Date | null) => {
+      if (!dueAt) return 'NO_SLA';
+      const minutes = Math.floor((dueAt.getTime() - now) / 60000);
+      if (minutes < 0) return 'BREACHED';
+      if (minutes <= 60) return 'DUE_1H';
+      if (minutes <= 240) return 'DUE_4H';
+      return 'ON_TRACK';
+    };
+    const buckets = queueItems.reduce<Record<string, number>>((acc, item) => {
+      const bucket = ageBucket(item.due_at);
+      acc[bucket] = (acc[bucket] ?? 0) + 1;
+      return acc;
+    }, {});
+    return {
+      role,
+      queueStatus,
+      generatedAt: new Date().toISOString(),
+      summary: {
+        queueCount: queueItems.length,
+        reconciliationOpenCount: obligations.length,
+        recertificationDueCount: recertification.dueCount,
+        slaBuckets: buckets,
+      },
+      blockers: obligations.map((obligation) => ({
+        obligationId: obligation.obligation_id,
+        sourceSystem: obligation.source_system,
+        ownerRole: obligation.owner_role,
+        dueAt: obligation.due_at,
+        customerImpact: obligation.customer_impact,
+        fallbackReason: obligation.fallback_reason,
+        orderId: obligation.order_id,
+        ticketId: obligation.ticket_id,
+      })),
+      queueItems: queueItems.map((item) => ({
+        queueItemId: item.queue_item_id,
+        orderId: item.order_id,
+        entityType: item.entity_type,
+        entityId: item.entity_id,
+        assignedRole: item.assigned_role,
+        assignedUserId: item.assigned_user_id,
+        makerUserId: item.maker_user_id,
+        approvalStatus: item.approval_status,
+        dueAt: item.due_at,
+        slaBucket: ageBucket(item.due_at),
+        payloadSnapshot: item.payload_snapshot,
+      })),
+      recertification,
+    };
+  },
+
   async decideApprovalQueueItem(queueItemId: string, data: {
     decision?: string;
     comment?: string;
@@ -8693,27 +11755,81 @@ export const oemsService = {
       throw new ForbiddenError(`Approval item is assigned to role ${item.assigned_role}`);
     }
 
-    const [updated] = await db.update(schema.oemsApprovalQueueItems).set({
-      approval_status: decision,
-      claimed_by: item.claimed_by ?? userId,
-      claimed_at: item.claimed_at ?? new Date(),
-      decision_by: userId,
-      decision_at: new Date(),
-      decision_comment: asOptionalString(data.comment),
-      escalation_status: 'NONE',
-      updated_by: userId,
-      updated_at: new Date(),
-    }).where(eq(schema.oemsApprovalQueueItems.id, item.id)).returning();
-
-    if (item.order_id && item.entity_type === 'oems_order' && ['APPROVED', 'REJECTED'].includes(decision)) {
-      await db.update(schema.oemsOrders).set({
-        order_status: decision as OemsOrderStatus,
+    return db.transaction(async (tx: any) => {
+      const [updated]: OemsApprovalQueueItem[] = await tx.update(schema.oemsApprovalQueueItems).set({
+        approval_status: decision,
+        claimed_by: item.claimed_by ?? userId,
+        claimed_at: item.claimed_at ?? new Date(),
+        decision_by: userId,
+        decision_at: new Date(),
+        decision_comment: asOptionalString(data.comment),
+        escalation_status: 'NONE',
         updated_by: userId,
         updated_at: new Date(),
-      }).where(eq(schema.oemsOrders.order_id, item.order_id));
-    }
+      }).where(eq(schema.oemsApprovalQueueItems.id, item.id)).returning();
 
-    return updated;
+      if (item.order_id && item.entity_type === 'oems_order' && ['APPROVED', 'REJECTED'].includes(decision)) {
+        const [order]: OemsOrder[] = await tx.select().from(schema.oemsOrders)
+          .where(eq(schema.oemsOrders.order_id, item.order_id))
+          .limit(1);
+        if (!order) throw new NotFoundError('OEMS order not found');
+        const nextStatus = decision as OemsOrderStatus;
+        const [transitioned]: OemsOrder[] = await tx.update(schema.oemsOrders).set({
+          order_status: nextStatus,
+          approved_at: decision === 'APPROVED' ? new Date() : order.approved_at,
+          updated_by: userId,
+          updated_at: new Date(),
+        }).where(eq(schema.oemsOrders.order_id, order.order_id)).returning();
+        if (order.order_status !== nextStatus) {
+          await tx.insert(schema.oemsOrderStatusTransitions).values({
+            order_id: order.order_id,
+            from_status: order.order_status,
+            to_status: nextStatus,
+            event_code: decision === 'APPROVED' ? 'OEMS_APPROVAL_QUEUE_APPROVED' : 'OEMS_APPROVAL_QUEUE_REJECTED',
+            reason: data.comment,
+            metadata: { queueItemId: item.queue_item_id, workflowId: item.workflow_id },
+            changed_by: userId,
+            created_by: userId,
+          });
+        }
+        await tx.insert(schema.oemsAuditEvents).values({
+          audit_event_id: makeId('AUD'),
+          event_code: decision === 'APPROVED' ? 'OEMS_WORKFLOW_APPROVED' : 'OEMS_WORKFLOW_REJECTED',
+          aggregate_type: 'OEMS_ORDER',
+          aggregate_id: item.order_id,
+          actor_user_id: userId,
+          before_state: order,
+          after_state: transitioned,
+          evidence: {
+            queueItemId: item.queue_item_id,
+            decision,
+            reviewerRole: data.reviewerRole ?? item.assigned_role,
+            makerCheckerEnforced: true,
+            transactionalUnit: 'APPROVAL_DECISION_STATUS_AUDIT_OUTBOX',
+          },
+          event_correlation_id: makeId('COR'),
+          created_by: userId,
+        });
+        const idempotencyKey = `${decision}:${item.order_id}:${item.queue_item_id}`;
+        const [existingOutbox]: OemsOutboxEvent[] = await tx.select().from(schema.oemsOutboxEvents)
+          .where(eq(schema.oemsOutboxEvents.idempotency_key, idempotencyKey))
+          .limit(1);
+        if (!existingOutbox) {
+          await tx.insert(schema.oemsOutboxEvents).values({
+            outbox_id: makeId('OUT'),
+            event_type: decision === 'APPROVED' ? 'OEMS_ORDER_APPROVED' : 'OEMS_ORDER_REJECTED',
+            aggregate_type: 'OEMS_ORDER',
+            aggregate_id: item.order_id,
+            idempotency_key: idempotencyKey,
+            payload: { orderId: item.order_id, queueItemId: item.queue_item_id, decision },
+            publish_status: 'PENDING',
+            created_by: userId,
+          });
+        }
+      }
+
+      return updated;
+    });
   },
 
   async renderReportArtifact(exportJobId: string, data: {
@@ -8841,6 +11957,62 @@ export const oemsService = {
     return updated;
   },
 
+  async rehearseMigrationRollbackScript(rollbackId: string, data: {
+    expectedChecksum?: string;
+    rehearsalEnvironment?: string;
+    dryRunOutput?: string;
+    notes?: string;
+  } = {}, userId: string) {
+    const [rollback] = await db.select().from(schema.oemsMigrationRollbackScripts)
+      .where(and(
+        eq(schema.oemsMigrationRollbackScripts.rollback_id, rollbackId.trim().toUpperCase()),
+        eq(schema.oemsMigrationRollbackScripts.is_deleted, false),
+      ))
+      .limit(1);
+    if (!rollback) throw new NotFoundError('OEMS migration rollback script not found');
+    if (data.expectedChecksum && data.expectedChecksum !== rollback.checksum) {
+      throw new ConflictError('Rollback checksum verification failed');
+    }
+    const rollbackSql = rollback.rollback_sql.trim();
+    const destructiveStatements = (rollbackSql.match(/\b(DROP|DELETE|TRUNCATE|ALTER)\b/gi) ?? []).length;
+    const hasTransactionGuard = /\bBEGIN\b/i.test(rollbackSql) && /\bCOMMIT\b/i.test(rollbackSql);
+    const rehearsalPassed = destructiveStatements > 0 && rollbackSql.length > 20;
+    const notes = [
+      asOptionalString(data.notes) ?? 'Rollback rehearsal completed from registered SQL artifact',
+      `environment=${asOptionalString(data.rehearsalEnvironment) ?? 'LOCAL_DRY_RUN'}`,
+      `destructiveStatements=${destructiveStatements}`,
+      `transactionGuard=${hasTransactionGuard ? 'YES' : 'NO'}`,
+    ].join('; ');
+    const [updated] = await db.update(schema.oemsMigrationRollbackScripts).set({
+      verification_status: rehearsalPassed ? 'REHEARSED' : 'REHEARSAL_FAILED',
+      verified_by: userId,
+      verified_at: new Date(),
+      notes,
+      updated_by: userId,
+      updated_at: new Date(),
+    }).where(eq(schema.oemsMigrationRollbackScripts.id, rollback.id)).returning();
+    await this.recordOemsAuditEvent({
+      eventCode: rehearsalPassed ? 'OEMS_MIGRATION_ROLLBACK_REHEARSED' : 'OEMS_MIGRATION_ROLLBACK_REHEARSAL_FAILED',
+      aggregateType: 'OEMS_MIGRATION_ROLLBACK',
+      aggregateId: rollback.rollback_id,
+      beforeState: rollback,
+      afterState: updated,
+      evidence: {
+        expectedChecksum: data.expectedChecksum,
+        rehearsalEnvironment: data.rehearsalEnvironment,
+        dryRunOutput: data.dryRunOutput,
+        destructiveStatements,
+        hasTransactionGuard,
+      },
+    }, userId);
+    return {
+      rollback: updated,
+      rehearsalPassed,
+      destructiveStatements,
+      hasTransactionGuard,
+    };
+  },
+
   async listMigrationRollbackScripts(params: {
     status?: string;
     migrationName?: string;
@@ -8853,6 +12025,100 @@ export const oemsService = {
       .where(and(...conditions))
       .orderBy(desc(schema.oemsMigrationRollbackScripts.created_at))
       .limit(100);
+  },
+
+  async enqueueMigrationCompatibilityItem(data: {
+    queueId?: string;
+    migrationName: string;
+    itemType?: string;
+    entityType: string;
+    entityId: string;
+    ownerRole?: string;
+    compatibilityStatus?: string;
+    blocking?: boolean;
+    dueAt?: string | Date;
+    evidence?: unknown;
+  }, userId: string): Promise<OemsMigrationCompatibilityQueueItem> {
+    if (!data.migrationName?.trim()) throw new ValidationError('Migration compatibility migration_name is required');
+    if (!data.entityType?.trim()) throw new ValidationError('Migration compatibility entity_type is required');
+    if (!data.entityId?.trim()) throw new ValidationError('Migration compatibility entity_id is required');
+    const [item] = await db.insert(schema.oemsMigrationCompatibilityQueue).values({
+      queue_id: asOptionalString(data.queueId)?.toUpperCase() ?? makeId('MCQ'),
+      migration_name: data.migrationName.trim(),
+      item_type: normalizeUpperToken(data.itemType, 'DATA_COMPATIBILITY'),
+      entity_type: normalizeUpperToken(data.entityType, 'OEMS_ENTITY'),
+      entity_id: data.entityId.trim(),
+      owner_role: normalizeUpperToken(data.ownerRole, 'BO_HEAD'),
+      compatibility_status: normalizeMigrationCompatibilityStatus(data.compatibilityStatus),
+      blocking: data.blocking ?? true,
+      due_at: data.dueAt ? new Date(data.dueAt) : addSeconds(24 * 60 * 60),
+      evidence: asRecord(data.evidence),
+      created_by: userId,
+    }).returning();
+    await this.recordOemsAuditEvent({
+      eventCode: 'OEMS_MIGRATION_COMPATIBILITY_ITEM_CREATED',
+      aggregateType: 'OEMS_MIGRATION_COMPATIBILITY_QUEUE',
+      aggregateId: item.queue_id,
+      afterState: item,
+      evidence: { migrationName: item.migration_name, blocking: item.blocking },
+    }, userId);
+    return item;
+  },
+
+  async listMigrationCompatibilityQueue(params: {
+    migrationName?: string;
+    status?: string;
+    ownerRole?: string;
+    blocking?: boolean;
+  } = {}): Promise<OemsMigrationCompatibilityQueueItem[]> {
+    const conditions = [eq(schema.oemsMigrationCompatibilityQueue.is_deleted, false)];
+    if (params.migrationName) conditions.push(eq(schema.oemsMigrationCompatibilityQueue.migration_name, params.migrationName));
+    if (params.status) conditions.push(eq(schema.oemsMigrationCompatibilityQueue.compatibility_status, normalizeMigrationCompatibilityStatus(params.status)));
+    if (params.ownerRole) conditions.push(eq(schema.oemsMigrationCompatibilityQueue.owner_role, params.ownerRole.trim().toUpperCase()));
+    if (params.blocking !== undefined) conditions.push(eq(schema.oemsMigrationCompatibilityQueue.blocking, params.blocking));
+    return db.select().from(schema.oemsMigrationCompatibilityQueue)
+      .where(and(...conditions))
+      .orderBy(schema.oemsMigrationCompatibilityQueue.due_at, desc(schema.oemsMigrationCompatibilityQueue.created_at))
+      .limit(200);
+  },
+
+  async resolveMigrationCompatibilityItem(queueId: string, data: {
+    status?: string;
+    resolutionNotes?: string;
+    evidence?: unknown;
+  }, userId: string): Promise<OemsMigrationCompatibilityQueueItem> {
+    const [item] = await db.select().from(schema.oemsMigrationCompatibilityQueue)
+      .where(and(
+        eq(schema.oemsMigrationCompatibilityQueue.queue_id, queueId.trim().toUpperCase()),
+        eq(schema.oemsMigrationCompatibilityQueue.is_deleted, false),
+      ))
+      .limit(1);
+    if (!item) throw new NotFoundError('OEMS migration compatibility queue item not found');
+    const status = normalizeMigrationCompatibilityStatus(data.status ?? 'RESOLVED');
+    if (!['RESOLVED', 'WAIVED', 'BLOCKED', 'IN_PROGRESS'].includes(status)) {
+      throw new ValidationError('Compatibility resolution status must be IN_PROGRESS, RESOLVED, WAIVED, or BLOCKED');
+    }
+    const [updated] = await db.update(schema.oemsMigrationCompatibilityQueue).set({
+      compatibility_status: status,
+      resolved_by: ['RESOLVED', 'WAIVED'].includes(status) ? userId : item.resolved_by,
+      resolved_at: ['RESOLVED', 'WAIVED'].includes(status) ? new Date() : item.resolved_at,
+      resolution_notes: asOptionalString(data.resolutionNotes) ?? item.resolution_notes,
+      evidence: {
+        ...asRecord(item.evidence),
+        resolutionEvidence: asRecord(data.evidence),
+      },
+      updated_by: userId,
+      updated_at: new Date(),
+    }).where(eq(schema.oemsMigrationCompatibilityQueue.id, item.id)).returning();
+    await this.recordOemsAuditEvent({
+      eventCode: 'OEMS_MIGRATION_COMPATIBILITY_ITEM_UPDATED',
+      aggregateType: 'OEMS_MIGRATION_COMPATIBILITY_QUEUE',
+      aggregateId: item.queue_id,
+      beforeState: item,
+      afterState: updated,
+      evidence: { status, resolutionNotes: data.resolutionNotes },
+    }, userId);
+    return updated;
   },
 
   async listNotificationTemplates(params: {

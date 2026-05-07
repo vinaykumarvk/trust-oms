@@ -48,7 +48,23 @@ function intParam(value: string, label: string): number {
 }
 
 function sendServiceError(res: Response, err: unknown) {
-  res.status(httpStatusFromError(err)).json({ error: { message: safeErrorMessage(err) } });
+  const message = safeErrorMessage(err);
+  const stableCode = (raw: string) => raw
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 80);
+  const code = err instanceof Error
+    ? stableCode(message) || stableCode(err.name.replace(/Error$/, '')) || 'OEMS_ERROR'
+    : 'OEMS_ERROR';
+  res.status(httpStatusFromError(err)).json({
+    error: {
+      code,
+      message,
+      correlationId: res.req?.headers['x-request-id'] ?? undefined,
+    },
+  });
 }
 
 function serviceRoute(fn: (req: Request, res: Response) => Promise<void>) {
@@ -85,6 +101,138 @@ router.get('/products', serviceRoute(async (req, res) => {
 router.post('/products', serviceRoute(async (req, res) => {
   const product = await oemsService.createProduct(req.body, actor(req));
   res.status(201).json(product);
+}));
+
+router.get('/product-security-master', serviceRoute(async (req, res) => {
+  res.json(await oemsService.listProductSecurityMaster({
+    productFamily: req.query.productFamily as OemsProductFamily | undefined,
+    status: req.query.status as string | undefined,
+    activeOnly: req.query.activeOnly === 'true',
+    productCode: req.query.productCode as string | undefined,
+    isin: req.query.isin as string | undefined,
+    currency: req.query.currency as string | undefined,
+    issuer: req.query.issuer as string | undefined,
+  }));
+}));
+
+router.post('/product-security-master', serviceRoute(async (req, res) => {
+  const productSecurity = await oemsService.createProductSecurityMaster(req.body, actor(req));
+  res.status(201).json(productSecurity);
+}));
+
+router.post('/product-security-master/:securityId/submit', serviceRoute(async (req, res) => {
+  res.json(await oemsService.submitProductSecurityMaster(req.params.securityId, actor(req)));
+}));
+
+router.post('/product-security-master/:securityId/approve', denyBusinessApproval(), serviceRoute(async (req, res) => {
+  res.json(await oemsService.approveProductSecurityMaster(req.params.securityId, req.body, actor(req)));
+}));
+
+router.post('/product-tickets/validate-capture', serviceRoute(async (req, res) => {
+  res.json(oemsService.validateProductTicketCapture(req.body));
+}));
+
+router.post('/product-tickets', serviceRoute(async (req, res) => {
+  const ticket = await oemsService.createProductOrderTicket(req.body, actor(req));
+  res.status(201).json(ticket);
+}));
+
+router.post('/product-tickets/:ticketId/validate', serviceRoute(async (req, res) => {
+  res.json(await oemsService.validateProductOrderTicket(req.params.ticketId, actor(req)));
+}));
+
+router.post('/product-tickets/:ticketId/submit', serviceRoute(async (req, res) => {
+  res.json(await oemsService.submitProductOrderTicket(req.params.ticketId, req.body, actor(req)));
+}));
+
+router.post('/policy-rule-traceability', serviceRoute(async (req, res) => {
+  const traceability = await oemsService.createPolicyRuleTraceability(req.body, actor(req));
+  res.status(201).json(traceability);
+}));
+
+router.get('/policy-rule-traceability', serviceRoute(async (req, res) => {
+  res.json(await oemsService.listPolicyRuleTraceability({
+    ruleCode: req.query.ruleCode as string | undefined,
+    securityId: req.query.securityId as string | undefined,
+    certificationStatus: req.query.certificationStatus as string | undefined,
+    recertificationDueBefore: req.query.recertificationDueBefore as string | undefined,
+  }));
+}));
+
+router.post('/policy-rule-traceability/invalidate', serviceRoute(async (req, res) => {
+  res.json(await oemsService.invalidatePolicyTraceabilityOnRuleChange(req.body, actor(req)));
+}));
+
+router.post('/source-system-evidence', serviceRoute(async (req, res) => {
+  const evidence = await oemsService.recordSourceSystemEvidence(req.body, actor(req));
+  res.status(201).json(evidence);
+}));
+
+router.get('/reconciliation-obligations', serviceRoute(async (req, res) => {
+  res.json(await oemsService.listReconciliationObligations({
+    status: req.query.status as string | undefined,
+    ownerRole: req.query.ownerRole as string | undefined,
+    orderId: req.query.orderId as string | undefined,
+    ticketId: req.query.ticketId as string | undefined,
+    sourceSystem: req.query.sourceSystem as string | undefined,
+  }));
+}));
+
+router.post('/reconciliation-obligations', serviceRoute(async (req, res) => {
+  const obligation = await oemsService.createReconciliationObligation(req.body, actor(req));
+  res.status(201).json(obligation);
+}));
+
+router.post('/reconciliation-obligations/:obligationId/close', serviceRoute(async (req, res) => {
+  res.json(await oemsService.closeReconciliationObligation(req.params.obligationId, req.body, actor(req)));
+}));
+
+router.post('/audit-events', serviceRoute(async (req, res) => {
+  const event = await oemsService.recordOemsAuditEvent(req.body, actor(req));
+  res.status(201).json(event);
+}));
+
+router.post('/outbox-events', serviceRoute(async (req, res) => {
+  const event = await oemsService.enqueueOemsOutboxEvent(req.body, actor(req));
+  res.status(201).json(event);
+}));
+
+router.post('/feature-flags', serviceRoute(async (req, res) => {
+  const flag = await oemsService.createOemsFeatureFlag(req.body, actor(req));
+  res.status(201).json(flag);
+}));
+
+router.get('/feature-flags/:flagCode/enabled', serviceRoute(async (req, res) => {
+  res.json({ flagCode: req.params.flagCode, enabled: oemsService.isOemsFeatureEnabled(req.params.flagCode) });
+}));
+
+router.get('/control-ownership', serviceRoute(async (req, res) => {
+  res.json(await oemsService.listOemsControlOwnership({
+    controlDomain: req.query.controlDomain as string | undefined,
+    ownerRole: req.query.ownerRole as string | undefined,
+    status: req.query.status as string | undefined,
+    dueBefore: req.query.dueBefore as string | undefined,
+  }));
+}));
+
+router.post('/control-ownership', serviceRoute(async (req, res) => {
+  const control = await oemsService.createOemsControlOwnership(req.body, actor(req));
+  res.status(201).json(control);
+}));
+
+router.post('/control-ownership/:controlId/attest', serviceRoute(async (req, res) => {
+  res.json(await oemsService.attestOemsControl(req.params.controlId, req.body, actor(req)));
+}));
+
+router.post('/control-ownership/:controlId/incidents', serviceRoute(async (req, res) => {
+  res.json(await oemsService.linkOemsControlIncident(req.params.controlId, req.body, actor(req)));
+}));
+
+router.get('/control-ownership/recertification-report', serviceRoute(async (req, res) => {
+  res.json(await oemsService.getOemsControlRecertificationReport({
+    asOfDate: req.query.asOfDate as string | undefined,
+    ownerRole: req.query.ownerRole as string | undefined,
+  }));
 }));
 
 router.get('/clients', serviceRoute(async (req, res) => {
@@ -171,8 +319,32 @@ router.post('/orders/:orderId/charges', serviceRoute(async (req, res) => {
   res.json(await oemsService.calculateOrderCharges(req.params.orderId, actor(req)));
 }));
 
+router.post('/orders/:orderId/charges/scheduled', serviceRoute(async (req, res) => {
+  res.json(await oemsService.calculateOrderChargesFromSchedules(req.params.orderId, actor(req), req.body));
+}));
+
 router.get('/orders/:orderId/charges', serviceRoute(async (req, res) => {
   res.json(await oemsService.getOrderCharges(req.params.orderId));
+}));
+
+router.get('/fee-tax-schedules', serviceRoute(async (req, res) => {
+  res.json(await oemsService.listOemsFeeTaxSchedules({
+    productFamily: req.query.productFamily as OemsProductFamily | undefined,
+    securityId: req.query.securityId as string | undefined,
+    transactionType: req.query.transactionType as string | undefined,
+    market: req.query.market as string | undefined,
+    customerSegment: req.query.customerSegment as string | undefined,
+    status: req.query.status as string | undefined,
+  }));
+}));
+
+router.post('/fee-tax-schedules', serviceRoute(async (req, res) => {
+  const schedule = await oemsService.createOemsFeeTaxSchedule(req.body, actor(req));
+  res.status(201).json(schedule);
+}));
+
+router.post('/fee-tax-schedules/:scheduleId/approve', denyBusinessApproval(), serviceRoute(async (req, res) => {
+  res.json(await oemsService.approveOemsFeeTaxSchedule(req.params.scheduleId, req.body, actor(req)));
 }));
 
 router.post('/orders/:orderId/validate', serviceRoute(async (req, res) => {
@@ -378,6 +550,47 @@ router.get('/orders/:orderId/digital-verifications/:verificationId/download', se
 router.post('/oda/recommendations', serviceRoute(async (req, res) => {
   const result = await oemsService.createOdaRecommendation(req.body, actor(req));
   res.status(201).json(result);
+}));
+
+router.post('/oda/tickets', serviceRoute(async (req, res) => {
+  const result = await oemsService.createOdaOrderTicket({ ...req.body, actorRole: actorRole(req) }, actor(req));
+  res.status(201).json(result);
+}));
+
+router.post('/oda/tickets/validate-capture', serviceRoute(async (req, res) => {
+  res.json(oemsService.validateOdaTicketCapture({ ...req.body, actorRole: actorRole(req) }));
+}));
+
+router.post('/oda/tickets/:ticketId/validate', serviceRoute(async (req, res) => {
+  res.json(await oemsService.validateOdaOrderTicket(req.params.ticketId, actor(req)));
+}));
+
+router.post('/oda/tickets/:ticketId/submit', serviceRoute(async (req, res) => {
+  res.json(await oemsService.submitOdaOrderTicket(req.params.ticketId, req.body, actor(req)));
+}));
+
+router.get('/oda/release-gate', serviceRoute(async (_req, res) => {
+  res.json(await oemsService.getOdaReleaseGateReport());
+}));
+
+router.get('/audit-events', serviceRoute(async (req, res) => {
+  res.json(await oemsService.listOemsAuditEvents({
+    aggregateType: req.query.aggregateType as string | undefined,
+    aggregateId: req.query.aggregateId as string | undefined,
+    eventCode: req.query.eventCode as string | undefined,
+    actorUserId: req.query.actorUserId as string | undefined,
+    actorRole: req.query.actorRole as string | undefined,
+    productFamily: req.query.productFamily as OemsProductFamily | undefined,
+    dateFrom: req.query.dateFrom as string | undefined,
+    dateTo: req.query.dateTo as string | undefined,
+  }));
+}));
+
+router.get('/audit-replay', serviceRoute(async (req, res) => {
+  res.json(await oemsService.replayOemsAuditTimeline({
+    orderId: req.query.orderId as string | undefined,
+    ticketId: req.query.ticketId as string | undefined,
+  }));
 }));
 
 router.post('/oda/orders', serviceRoute(async (req, res) => {
@@ -628,6 +841,18 @@ router.post('/mld/orders/:orderId/fixing', serviceRoute(async (req, res) => {
 
 router.post('/mld/orders/:orderId/mature', serviceRoute(async (req, res) => {
   res.json(await oemsService.matureMldOrder(req.params.orderId, req.body, actor(req)));
+}));
+
+router.post('/mld/orders/:orderId/early-terminate', serviceRoute(async (req, res) => {
+  res.json(await oemsService.earlyTerminateMldOrder(req.params.orderId, req.body, actor(req)));
+}));
+
+router.get('/mld/reports/ojk', serviceRoute(async (req, res) => {
+  res.json(await oemsService.generateMldOjkReport({
+    periodFrom: req.query.periodFrom as string,
+    periodTo: req.query.periodTo as string,
+    reportType: (req.query.reportType as 'MONTHLY' | 'QUARTERLY') || 'MONTHLY',
+  }, actor(req)));
 }));
 
 router.get('/wealth/static-data', serviceRoute(async (req, res) => {
@@ -881,6 +1106,16 @@ router.patch('/integration-adapters/:adapterId/security', serviceRoute(async (re
   res.json(await oemsService.updateIntegrationAdapterSecurity(req.params.adapterId, req.body, actor(req)));
 }));
 
+router.get('/integration-adapters/:adapterId/production-gate', serviceRoute(async (req, res) => {
+  res.json(await oemsService.assertProductionIntegrationHandoff(req.params.adapterId));
+}));
+
+router.get('/integration-adapters/production-readiness/report', serviceRoute(async (req, res) => {
+  res.json(await oemsService.getProductionIntegrationReadinessReport({
+    targetSystems: req.query.targetSystems,
+  }));
+}));
+
 router.post('/integration-adapters/:adapterId/execute', serviceRoute(async (req, res) => {
   const execution = await oemsService.executeIntegrationAdapter(req.params.adapterId, req.body, actor(req));
   res.status(execution.execution_status === 'QUEUED' ? 202 : 201).json(execution);
@@ -923,6 +1158,18 @@ router.get('/approval-queue', serviceRoute(async (req, res) => {
 router.post('/approval-queue', serviceRoute(async (req, res) => {
   const item = await oemsService.enqueueApprovalQueueItem(req.body, actor(req));
   res.status(201).json(item);
+}));
+
+router.get('/control-tower', serviceRoute(async (req, res) => {
+  res.json(await oemsService.getOemsRoleControlTower({
+    role: req.query.role as string | undefined,
+    status: req.query.status as string | undefined,
+    includeClosed: req.query.includeClosed === 'true',
+  }));
+}));
+
+router.post('/approval-queue/:queueItemId/reassign', serviceRoute(async (req, res) => {
+  res.json(await oemsService.reassignApprovalQueueItem(req.params.queueItemId, req.body, actor(req)));
 }));
 
 router.post('/approval-queue/:queueItemId/decision', denyBusinessApproval(), serviceRoute(async (req, res) => {
@@ -1057,6 +1304,28 @@ router.post('/migration-rollbacks', serviceRoute(async (req, res) => {
 
 router.post('/migration-rollbacks/:rollbackId/verify', serviceRoute(async (req, res) => {
   res.json(await oemsService.verifyMigrationRollbackScript(req.params.rollbackId, req.body, actor(req)));
+}));
+
+router.post('/migration-rollbacks/:rollbackId/rehearse', serviceRoute(async (req, res) => {
+  res.json(await oemsService.rehearseMigrationRollbackScript(req.params.rollbackId, req.body, actor(req)));
+}));
+
+router.get('/migration-compatibility-queue', serviceRoute(async (req, res) => {
+  res.json(await oemsService.listMigrationCompatibilityQueue({
+    migrationName: req.query.migrationName as string | undefined,
+    status: req.query.status as string | undefined,
+    ownerRole: req.query.ownerRole as string | undefined,
+    blocking: req.query.blocking === undefined ? undefined : req.query.blocking === 'true',
+  }));
+}));
+
+router.post('/migration-compatibility-queue', serviceRoute(async (req, res) => {
+  const item = await oemsService.enqueueMigrationCompatibilityItem(req.body, actor(req));
+  res.status(201).json(item);
+}));
+
+router.post('/migration-compatibility-queue/:queueId/resolve', serviceRoute(async (req, res) => {
+  res.json(await oemsService.resolveMigrationCompatibilityItem(req.params.queueId, req.body, actor(req)));
 }));
 
 router.post('/reports/transaction-history/search', serviceRoute(async (req, res) => {
